@@ -16,7 +16,29 @@ quality-gate hook as one shared `atelier` plugin.
 - `plugins/atelier/.claude-plugin/plugin.json` is the Claude Code plugin
   manifest.
 
-## Install Locally
+## Install From GitHub
+
+Run these once on a machine to make the `atelier` plugin available from any
+repository.
+
+Codex:
+
+```bash
+codex plugin marketplace add git@github.com:FlexOr2/marketplace.git --ref main
+codex plugin add atelier@atelier
+```
+
+Claude Code:
+
+```bash
+claude plugin marketplace add git@github.com:FlexOr2/marketplace.git
+claude plugin install atelier@atelier
+```
+
+Start a new Codex thread or run `/reload-plugins` in Claude Code after
+installing so the plugin components are loaded.
+
+## Install From This Checkout
 
 Codex:
 
@@ -32,8 +54,25 @@ claude plugin marketplace add "$(pwd)"
 claude plugin install atelier@atelier
 ```
 
-Start a new Codex thread or run `/reload-plugins` in Claude Code after
-installing so the plugin components are loaded.
+Use the local checkout commands while developing the marketplace itself.
+
+## Update Existing Installs
+
+Codex:
+
+```bash
+codex plugin marketplace upgrade atelier
+codex plugin add atelier@atelier
+```
+
+Claude Code:
+
+```bash
+claude plugin marketplace update atelier
+claude plugin update atelier@atelier
+```
+
+Start a new Codex thread or run `/reload-plugins` in Claude Code after updating.
 
 ## Agents
 

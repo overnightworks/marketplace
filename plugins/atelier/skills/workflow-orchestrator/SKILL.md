@@ -215,6 +215,15 @@ Commit only after the story or serial phase is verified and reviewed.
 - Automatically enter the next phase's Plan Gate when the prior phase is
   committed, the working tree is clean, an accepted phase queue exists, the
   objective remains clear, and no stop condition needs user judgment.
+- Do not stop merely because a story or serial phase committed. When the
+  automatic next-phase conditions hold, enter the next Plan Gate before
+  reporting final status.
+- After each committed phase, decide whether the next approved story group is
+  parallel-buildable. If two or more approved stories have no dependency order,
+  disjoint write paths, and isolated worktrees or workspaces are available,
+  enter the Worktree Builder Gate. If not using parallel builders, state the
+  blocking reason: dependency order, overlapping write paths, unavailable
+  isolated worktrees, or a stop condition that needs user judgment.
 - Automatically start the next parallel group only when the prior group is fully
   integrated, reviewed, committed, all worker worktrees are accounted for, and
   the remaining stories are still independent.

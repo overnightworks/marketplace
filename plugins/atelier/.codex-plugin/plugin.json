@@ -1,0 +1,26 @@
+{
+  "name": "atelier",
+  "version": "0.1.0",
+  "description": "Portable Atelier-style skills, agents, and workflows.",
+  "author": {
+    "name": "Felix Hummert"
+  },
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Atelier",
+    "shortDescription": "Portable repository skills, agents, reviews, and workflows.",
+    "longDescription": "Atelier packages reusable workflow guidance for repository work: focused skills, delegated agents, plan review, audits, documentation cleanup, and an optional quality-gate hook. The guidance is portable and can be used with the atelier project or any other codebase.",
+    "developerName": "Felix Hummert",
+    "category": "Productivity",
+    "capabilities": [
+      "Skills",
+      "Agents",
+      "Hooks"
+    ],
+    "defaultPrompt": [
+      "Audit this repository change.",
+      "Review this implementation plan.",
+      "Plan a small verified workflow."
+    ]
+  }
+}

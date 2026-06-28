@@ -1,0 +1,27 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "atelier",
+  "owner": {
+    "name": "Felix Hummert"
+  },
+  "description": "Portable Atelier-style skills, agents, and workflows.",
+  "plugins": [
+    {
+      "name": "atelier",
+      "displayName": "Atelier",
+      "source": "./plugins/atelier",
+      "description": "Portable repository skills, agents, reviews, and workflows.",
+      "version": "0.1.0",
+      "author": {
+        "name": "Felix Hummert"
+      },
+      "category": "Productivity",
+      "tags": [
+        "workflow",
+        "audit",
+        "review",
+        "documentation"
+      ]
+    }
+  ]
+}

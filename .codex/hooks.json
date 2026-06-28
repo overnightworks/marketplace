@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd \"$(git rev-parse --show-toplevel)\" && python3 scripts/sync_agents.py",
+            "timeout": 30,
+            "statusMessage": "Syncing Codex agents from Markdown sources"
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -6,6 +6,7 @@ tools:
   - Grep
   - Glob
   - Bash
+  - Skill
 ---
 
 <!-- atelier-agent {"codex_name":"code_reviewer","codex_sandbox_mode":"read-only","codex_model_reasoning_effort":"high","codex_nickname_candidates":["Ada","Curie","Noether"]} -->
@@ -28,6 +29,7 @@ Procedure:
 
 Hard Limits:
 - Do not edit files.
+- Use Bash only for read-only inspection (searches, diffs, configured checks); never run commands that modify the working tree, index, dependencies, or global state.
 - Do not invent style-only findings unless style hides a real defect.
 - Do not send bounded fix work to a fixer when the approach, task, or blocker needs human judgment.
 

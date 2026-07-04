@@ -1,13 +1,14 @@
 {
   "hooks": {
-    "Stop": [
+    "PreToolUse": [
       {
+        "matcher": "Bash",
         "hooks": [
           {
             "type": "command",
-            "command": "project_root=\"${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}\"; cd \"$project_root\" || exit 0; [ -f uv.lock ] || exit 0; [ -f noxfile.py ] || exit 0; grep -Eq '^def[[:space:]]+agent\\(' noxfile.py || exit 0; output=\"$(uv run --locked nox -s agent 2>&1)\" || { printf '%s\\n' \"$output\" >&2; exit 2; }",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/pre_commit_gate.sh\"",
             "timeout": 600,
-            "statusMessage": "Running Atelier agent checks"
+            "statusMessage": "Atelier commit gate (nox -s agent)"
           }
         ]
       }

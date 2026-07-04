@@ -1,6 +1,6 @@
 ---
 name: docs-cleanup
-description: Clean and audit documentation trees. Use when asked to organize docs, separate plans from reference docs, fix documentation drift, reconcile contradictions, repair dead links, or review docs for stale claims.
+description: Clean and audit documentation trees. Use when asked to organize docs, separate plans from reference docs, fix documentation drift, reconcile contradictions, repair dead links, or review docs for stale claims. For AGENTS.md, CLAUDE.md, skills, custom agents, and hooks, use agent-documentation instead.
 ---
 
 Keep documentation honest. A document should be living reference material, a

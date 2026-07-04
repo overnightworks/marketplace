@@ -19,6 +19,10 @@ the image proves.
 
 ## Example Commands
 
+The examples use `google-chrome`; substitute whichever Chromium-family binary
+the machine has (`chromium`, `chromium-browser`, `headless_shell`) or an
+installed Playwright browser.
+
 Running page:
 
 ```bash

@@ -1,6 +1,6 @@
 ---
 name: agent-documentation
-description: Audit and improve AI-agent guidance files. Use when changing or reviewing AGENTS.md, CLAUDE.md, agent skills, custom agents, or documentation referenced by agent guidance; checking generic versus project-specific ownership; finding duplicated, unclear, contradictory, stale, or token-wasteful guidance; or validating whether every line still earns its keep.
+description: Audit and improve AI-agent guidance files. Use when changing or reviewing AGENTS.md, CLAUDE.md, agent skills, custom agents, or hooks; checking generic versus project-specific ownership; finding duplicated, unclear, contradictory, stale, or token-wasteful guidance; or validating whether every line still earns its keep. For project documentation trees that are merely referenced by guidance, use docs-cleanup instead.
 ---
 
 # Agent Documentation

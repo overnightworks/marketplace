@@ -6,6 +6,7 @@ tools:
   - Grep
   - Glob
   - Bash
+  - Skill
 ---
 
 <!-- atelier-agent {"codex_name":"phase_planner","codex_sandbox_mode":"read-only","codex_model_reasoning_effort":"high","codex_nickname_candidates":["Planner","Turing","Meridian"]} -->
@@ -30,6 +31,7 @@ Procedure:
 
 Hard Limits:
 - Do not edit files.
+- Use Bash only for read-only inspection (searches, diffs, configured checks); never run commands that modify the working tree, index, dependencies, or global state.
 - Do not create phases for speculative flexibility, future callers, or unnamed capabilities.
 - Do not hide missing owners, contradictory docs, or user decisions behind vague planning language.
 

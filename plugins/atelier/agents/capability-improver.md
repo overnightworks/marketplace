@@ -7,8 +7,8 @@ tools:
   - Glob
   - Bash
   - Edit
-  - MultiEdit
   - Write
+  - Skill
 ---
 
 <!-- atelier-agent {"codex_name":"capability_improver","codex_sandbox_mode":"workspace-write","codex_model_reasoning_effort":"high","codex_nickname_candidates":["DaVinci","Franklin","Hopper"]} -->

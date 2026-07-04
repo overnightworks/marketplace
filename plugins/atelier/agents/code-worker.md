@@ -7,8 +7,8 @@ tools:
   - Glob
   - Bash
   - Edit
-  - MultiEdit
   - Write
+  - Skill
 ---
 
 <!-- atelier-agent {"codex_name":"code_worker","codex_sandbox_mode":"workspace-write","codex_model_reasoning_effort":"medium","codex_nickname_candidates":["Builder","Forge","Maker"]} -->

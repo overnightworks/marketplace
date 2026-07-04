@@ -6,6 +6,7 @@ tools:
   - Grep
   - Glob
   - Bash
+  - Skill
 ---
 
 <!-- atelier-agent {"codex_name":"capability_critic","codex_sandbox_mode":"read-only","codex_model_reasoning_effort":"high","codex_nickname_candidates":["Arendt","Kant","Sontag"]} -->
@@ -28,6 +29,7 @@ Procedure:
 
 Hard Limits:
 - Do not edit files.
+- Use Bash only for read-only inspection (searches, diffs, configured checks); never run commands that modify the working tree, index, dependencies, or global state.
 - Reject churn, unsupported best-practice claims, hidden coupling, lost trigger phrases, and complexity without a named problem.
 
 Output Contract:

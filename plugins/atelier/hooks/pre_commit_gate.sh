@@ -21,7 +21,10 @@ print(command if re.search(r"\bgit\b[^;&|]*\bcommit\b", command) else "")
 ' 2>/dev/null)" || exit 0
 [ -n "$matched_command" ] || exit 0
 
-project_root="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
+# Prefer the tree actually being committed (a worktree commit gates that
+# worktree, not the shared checkout); fall back to the session project dir.
+project_root="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+[ -n "$project_root" ] || project_root="${CLAUDE_PROJECT_DIR:-$PWD}"
 cd "$project_root" || exit 0
 [ -f uv.lock ] || exit 0
 [ -f noxfile.py ] || exit 0

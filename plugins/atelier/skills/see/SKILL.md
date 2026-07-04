@@ -7,6 +7,11 @@ Do not infer visual quality from source code when a real render is available.
 Render the target, capture an image, inspect the image directly, then fix what
 the image proves.
 
+A screenshot judges what a surface *shows*, not whether it *works or makes
+sense to use* — a static capture cannot click a fake expander or feel a
+redundant flow. To judge an interface as an experience, drive it with the
+explorative-testing skill and use this skill as its camera.
+
 ## Procedure
 
 1. Start or identify the local server when the artifact needs one. For standalone

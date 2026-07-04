@@ -13,6 +13,11 @@ real user experiences.
    user-facing docs, and recent changes. Write down a handful of concrete,
    falsifiable expectations before touching the app ("a completed run stays
    visible", "a failure names an actionable reason").
+   Shed builder knowledge deliberately: if you know why a surface is shaped
+   the way it is, judge only what the surface itself communicates — the
+   user does not carry the data model, the plan status, or the roadmap in
+   their head, and "known issue" is not "not an issue." Prefer a
+   context-fresh agent as the witness when one is available.
 2. Boot or attach the repository-documented way. Prefer an isolated state
    directory or database; never explore against live user state unless
    explicitly told to.

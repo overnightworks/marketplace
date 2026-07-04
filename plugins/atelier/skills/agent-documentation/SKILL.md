@@ -1,12 +1,23 @@
 ---
 name: agent-documentation
-description: Audit and improve AI-agent guidance files. Use when changing or reviewing AGENTS.md, CLAUDE.md, agent skills, custom agents, or hooks; checking generic versus project-specific ownership; finding duplicated, unclear, contradictory, stale, or token-wasteful guidance; or validating whether every line still earns its keep. For project documentation trees that are merely referenced by guidance, use docs-cleanup instead.
+description: Audit, improve, or seed AI-agent guidance files. Use when changing or reviewing AGENTS.md, CLAUDE.md, agent skills, custom agents, or hooks; when entering a repository whose AGENTS.md/CLAUDE.md is missing, empty, or missing whole policy areas; checking generic versus project-specific ownership; finding duplicated, unclear, contradictory, stale, or token-wasteful guidance; or validating whether every line still earns its keep. For project documentation trees that are merely referenced by guidance, use docs-cleanup instead.
 ---
 
 # Agent Documentation
 
 Keep `AGENTS.md` complete, compact, loadable, provider-aware, and honest about
 what is shared policy versus project fact.
+
+## Seeding
+
+When a repository has no `AGENTS.md` (or one missing whole policy areas), seed
+it from `AGENTS.baseline.md` shipped next to this skill: copy the baseline,
+drop its provenance comment, and fill the entry-points placeholder from the
+repository's real coordination/verification/state docs (delete it when none
+exist yet). Create `CLAUDE.md` containing exactly `@AGENTS.md` when the host
+loads `CLAUDE.md` and none exists. Merge into an existing file — never
+overwrite deliberate project policy; add what is missing and report what was
+kept.
 
 ## Procedure
 
@@ -49,6 +60,12 @@ what is shared policy versus project fact.
   and provider glue do not contradict each other.
 - Truthfulness: plans are labeled as plans, implemented facts match files, and
   unknowns are marked.
+- Audience and views: guidance and the docs it references name their reader
+  and altitude; a document serving another audience is a view deriving from
+  one owner, not an independently edited copy.
+- Baseline drift: compare the repository's `AGENTS.md` against the shipped
+  `AGENTS.baseline.md`; unexplained divergence from baseline policy is a
+  finding, while deliberate project divergence is recorded and kept.
 - Portability: reusable skills and agent bodies avoid product names, module
   names, daemon assumptions, and provider-specific paths unless that file owns
   provider glue.

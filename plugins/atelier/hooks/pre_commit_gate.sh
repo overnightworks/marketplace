@@ -28,10 +28,20 @@ project_root="$(git rev-parse --show-toplevel 2>/dev/null || true)"
 cd "$project_root" || exit 0
 [ -f uv.lock ] || exit 0
 [ -f noxfile.py ] || exit 0
-grep -Eq '^def[[:space:]]+agent\(|@nox\.session\(name="agent"\)' noxfile.py || exit 0
-
-if output="$(uv run --locked nox -s agent 2>&1)"; then
+# Prefer a fast `lint` session (format+lint only) so pyright, tach, policy, and
+# tests do not tax every intermediate commit — those run in the repo's
+# `full`/`agent` land-gate before merge. Fall back to `agent` for repos that
+# define no `lint` session.
+if grep -Eq '^def[[:space:]]+lint\(|@nox\.session\(name="lint"\)' noxfile.py; then
+  gate_session="lint"
+elif grep -Eq '^def[[:space:]]+agent\(|@nox\.session\(name="agent"\)' noxfile.py; then
+  gate_session="agent"
+else
   exit 0
 fi
-printf 'Atelier commit gate failed (uv run --locked nox -s agent). Fix the findings before committing:\n%s\n' "$output" >&2
+
+if output="$(uv run --locked nox -s "$gate_session" 2>&1)"; then
+  exit 0
+fi
+printf 'Atelier commit gate failed (uv run --locked nox -s %s). Fix the findings before committing:\n%s\n' "$gate_session" "$output" >&2
 exit 2

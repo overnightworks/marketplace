@@ -66,6 +66,17 @@ attention. When you confirm work landed, reconcile the board item through the
 server API in the same breath. A board that shows done work as open is the exact
 "product truth is duplicated and stale" failure the operator wants gone.
 
+**The cross-repo variant is worse: some items are delivered in a _different_
+repo** (a capability shipped to the marketplace, a change to another project). No
+atelier commit can _ever_ move such an item, so it sits `open` forever and
+re-spawns a fresh worker every cycle — the same delivered work re-verified again
+and again. When you confirm a deliverable landed outside this repo, **retire the
+slice yourself** (`POST /api/work/retire`, form `slice_id` + a `reason` naming the
+external commit and how you verified it; release any active lease first with
+`POST /api/work/lease-release`). Do not defer the retire to the operator or a
+future coordinator — deferring is exactly what lets an already-done item burn
+worker after worker. Retire is reversible (`/api/work/unretire`).
+
 ## Delegation and the arming line
 
 `GET /api/orchestration/status`. If `state: off`, the Atelier is **not**

@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"${PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT}}/hooks/pre_commit_gate.sh\"",
+            "command": "plugin_root=\"${PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT:-}}\"; if [ -z \"$plugin_root\" ] && [ -x \"$HOME/git/marketplace/plugins/atelier/hooks/pre_commit_gate.sh\" ]; then plugin_root=\"$HOME/git/marketplace/plugins/atelier\"; fi; [ -z \"$plugin_root\" ] || \"$plugin_root/hooks/pre_commit_gate.sh\"",
             "timeout": 600,
             "statusMessage": "Atelier commit gate (nox -s agent)"
           }

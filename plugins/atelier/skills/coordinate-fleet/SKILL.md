@@ -16,6 +16,14 @@ plan-review bindings, decompositions, dispatch, board reconciliation.
 suspect duplicate/obsolete/ambiguous work. This skill is for *running* the fleet
 day to day.
 
+**Creation-time dedup (operator law):** before creating ANY work item, search
+the board (summaries and descriptions, including retired items) for an existing
+item covering the same ground. If one exists, sharpen or extend it instead of
+creating a sibling, and note the extension in its history. If the new intent
+contradicts an existing item, never let both stand — resolve or escalate the
+contradiction to the operator before anything is created. Repeated operator
+feedback on the same theme always lands in the existing item.
+
 ## The coordination surface is the running server, not the lane files
 
 The queue is the live board, per the "atelier-is-the-queue" directive. Lane

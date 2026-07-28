@@ -1,6 +1,6 @@
 ---
 name: audit-deadweight
-description: Audit code for existence justification rather than quality — find dead paths, test-only-alive code, zombie predecessors after replacements, duplicated machinery, ceremony, and hardening without a threat. Use when asked to find dead or unused code, shrink the codebase, check what can be deleted, or verify a replacement removed its predecessor; also on a schedule — initially after every ~25 trunk landings until two consecutive passes come back clean, then relaxed to ~50 landings or weekly — and after any UI or feature replacement.
+description: Audit code for existence justification rather than quality — find dead paths, test-only-alive code, zombie predecessors after replacements, duplicated machinery, ceremony, and hardening without a threat. Use when asked to find dead or unused code, shrink the codebase, check what can be deleted, or verify a replacement removed its predecessor; also on a schedule — initially after every ~25 trunk landings until two consecutive passes come back clean, then relaxed to ~50 landings or weekly; due-ness is owned by the standing board item's anchor "last run at commit X", never by anyone's memory, and each run writes the new anchor into that item — and after any UI or feature replacement.
 ---
 
 Judge whether code has earned its place, not whether it is well written.

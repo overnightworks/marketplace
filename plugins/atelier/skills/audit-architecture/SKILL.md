@@ -1,6 +1,6 @@
 ---
 name: audit-architecture
-description: Adversarial multi-agent architecture audit — verify that the claimed architecture is the real one, that its guards actually guard, and that its costs are measured, not assumed. Use when asked to audit architecture, check module boundaries, verify ownership, or judge structural drift; also on a cadence (initially after every ~100 trunk landings or weekly, whichever first) and after any structural change (new package, moved boundary, new enforcement tool). The dispatching seat spawns parallel read-only auditor subagents; it never audits alone.
+description: Adversarial multi-agent architecture audit — verify that the claimed architecture is the real one, that its guards actually guard, and that its costs are measured, not assumed. Use when asked to audit architecture, check module boundaries, verify ownership, or judge structural drift; also on a cadence (initially after every ~100 trunk landings or weekly, whichever first — due-ness is owned by the standing board item's anchor "last run at commit X", never by anyone's memory) and after any structural change (new package, moved boundary, new enforcement tool). After each run, write the new anchor into that item. The dispatching seat spawns parallel read-only auditor subagents; it never audits alone.
 ---
 
 Judge whether the architecture the documents describe is the architecture the

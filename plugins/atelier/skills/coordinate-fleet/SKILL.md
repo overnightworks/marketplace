@@ -34,13 +34,25 @@ Find the server, don't hardcode it: it runs as `atelier server --port <N>` (read
 the port from that process or `~/.atelier/deploy.env` `ATELIER_PORT`). It answers
 on localhost. Read-only surveys need no operator token:
 
-- `GET /api/board` — the queue: slices, sections (`needs_attention`,
-  `ready_to_land`, `open`), each item's `attention_reason`, `state`, taxonomy.
+- `GET /api/board` — the queue: `{"slices": [...]}`, one flat list ordered
+  attention-first (there are no top-level section keys). Each slice carries its
+  `work_items` (`item_id`, `summary`, `description`, `stage`, `taxonomy`,
+  `priority`, `parent_item_id`), `state`
+  (`open|active|verified|blocked|stranded|landed`), `active_owner`,
+  `active_lease_id`, `evidence_count`, `verification_status`,
+  `integration_outcome`, `commit_hash`, and the server's own triage: `section`
+  (`needs_attention|ready_to_land|active|open|landed`) with a nullable
+  `attention_reason` saying why (`needs_verification`, `lease_silent`,
+  `needs_integration`, ...). Derive "needs attention" and "ready to land" by
+  filtering slices on `section`. Retired slices vanish unless
+  `?include_retired=true`; a slice's prose chronicle (`evidence_notes`,
+  `verification_reason`) lives at `GET /api/work/slice?slice_id=...`, not in
+  the list.
 - `GET /api/orchestration/status` — is the delegating runner on?
 - `GET /api/cockpit` — live terminal seats and their state.
 - `GET /api/wall`, `/api/selves` — history and live selves.
 
-Writes are form-encoded POSTs (localhost is accepted; JSON returns 415):
+Work writes are form-encoded POSTs (localhost is accepted; JSON returns 415):
 
 - `POST /api/work` — add an item. Fields: `summary`, `taxonomy`
   (`idea|epic|story|task`), `priority` (`low|normal|high`), `description`,
@@ -49,6 +61,20 @@ Writes are form-encoded POSTs (localhost is accepted; JSON returns 415):
 - `POST /api/work/edit`, `/api/work/retire`, `/api/work/integration`,
   `/api/work/verification`, `/api/work/trunk-approval`.
 
+Cockpit writes are JSON POSTs, not forms (a form body is a 400):
+
+- `POST /api/cockpit/relaunch|stop|close|work-root-sweep` — body
+  `{"seat_id": "..."}`.
+- `POST /api/cockpit/activate-next` — add a seat: no body grows the first
+  worker; optional `{"role_name": "..."}` picks the role.
+- `POST /api/cockpit/wake` — no body; the fleet decides which seats qualify.
+
+When a payload shape surprises you, the server code is the owner:
+`atelier/server/_route_registry.py` lists every route, and the dispatch tables
+in `_post_routes.py` / `_cockpit_post_routes.py` map each POST to the
+`_accept_*` handler that names its exact body contract — read there rather
+than trusting this skill's summary.
+
 The `python -m atelier.app.work {add,amend,checkpoint,stage,show,propose,decide}
 <database>` CLI writes the SQLite store directly. The running server holds that
 store open — **never be a second writer against the live DB.** Prefer the HTTP
@@ -56,14 +82,19 @@ API while the server is up; reserve the CLI for an offline store.
 
 ## Survey first, then route
 
-1. `GET /api/board`. Read `needs_attention` and `ready_to_land` before `open` —
-   those are where the operator's attention and the fleet's finished work sit.
-2. Coarse ideas are **not** claimable. An `idea`/`epic` is decomposed into
+1. Confirm the server is up before judging the fleet: `curl /api/version` on
+   the port from `~/.atelier/deploy.env` (`ATELIER_PORT`). A rebooted machine
+   leaves board and seats dark — the fix is the deploy script
+   (`tools/deploy/up.sh`), not board surgery.
+2. `GET /api/board`. Read the `needs_attention` and `ready_to_land` sections
+   before `open` — those are where the operator's attention and the fleet's
+   finished work sit.
+3. Coarse ideas are **not** claimable. An `idea`/`epic` is decomposed into
    `story`/`task` children with scope + acceptance + verification in the
    description before any worker can build it. Do that decomposition yourself
    (`/api/work/decompose` or child `POST /api/work` under the parent) — do not
    route a raw idea id and call it dispatched.
-3. Route by impact against the epic-owner vision, not by list order.
+4. Route by impact against the epic-owner vision, not by list order.
 
 ## The drift trap: the board does not see git
 

@@ -11,7 +11,7 @@ quality-gate hook as one shared `atelier` plugin.
 - `plugins/atelier/agents/` is the canonical Markdown source for agent
   definitions and the native Claude Code agent directory.
 - `plugins/atelier/.codex/agents/` contains generated Codex TOML agents.
-- `plugins/atelier/hooks/hooks.json` is the shared Stop hook configuration.
+- `plugins/atelier/hooks/hooks.json` is the shared quality-gate hook configuration.
 - `plugins/atelier/.codex-plugin/plugin.json` is the Codex plugin manifest.
 - `plugins/atelier/.claude-plugin/plugin.json` is the Claude Code plugin
   manifest.
@@ -115,11 +115,15 @@ Compatibility notes:
 
 ## Hook Behavior
 
-The hook is copied from `atelier` and made portable for marketplace use. It
-lives at the standard plugin path `hooks/hooks.json`, which both plugin hosts can
-load from the plugin payload without duplicating the hook declaration in the
-host-specific manifests.
+The marketplace plugin is the source owner for this portable hook. Its
+configuration lives at the standard plugin path `hooks/hooks.json`, which both
+plugin hosts can load from the plugin payload without duplicating the hook
+declaration in the host-specific manifests.
 
-It runs `uv run --locked nox -s agent` on Stop only when the target repository
-has `uv.lock`, `noxfile.py`, and an `agent` nox session, so enabling the plugin
-does not fail unrelated repositories.
+Before a direct `git commit`, the hook runs the target repository's `lint` Nox
+session when present and otherwise its `agent` session. It opts in only when the
+resolved repository has `uv.lock`, `noxfile.py`, and one of those sessions, so
+unrelated repositories are unaffected. Codex exposes the session directory to a
+hook but not a Bash tool's separate workdir; a commit targeting another worktree
+must therefore make that root visible as `git -C <root> commit ...`. Commands
+that merely carry the words `git` and `commit` as data do not start the gate.

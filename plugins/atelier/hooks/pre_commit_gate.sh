@@ -1,30 +1,63 @@
 #!/usr/bin/env bash
 # Atelier commit gate (PreToolUse on Bash). Blocks a `git commit` until the
-# repository's shared agent gate passes, so findings reach the model at the
+# repository's shared commit gate passes, so findings reach the model at the
 # moment it can still fix them — a Stop-hook advisory run is invisible to the
 # model, because only a blocking exit feeds stderr back.
 #
 # The gate runs only when the target repository opts in by convention: a
-# uv.lock plus a noxfile.py defining the shared `agent` session. That still
+# uv.lock plus a noxfile.py defining a `lint` or `agent` session. That still
 # auto-executes a repository-defined command at commit time; the plugin is
 # user-scope, so install it only where you trust the checkouts you work in.
 set -u
 
 payload="$(cat)" || exit 0
-matched_command="$(printf '%s' "$payload" | python3 -c '
-import json, re, sys
-try:
-    command = json.load(sys.stdin).get("tool_input", {}).get("command", "")
-except Exception:
-    command = ""
-print(command if re.search(r"\bgit\b[^;&|]*\bcommit\b", command) else "")
-' 2>/dev/null)" || exit 0
-[ -n "$matched_command" ] || exit 0
+commit_directory="$(printf '%s' "$payload" | python3 -c '
+import json, os, shlex, sys
+from pathlib import Path
 
-# Prefer the tree actually being committed (a worktree commit gates that
-# worktree, not the shared checkout); fall back to the session project dir.
-project_root="$(git rev-parse --show-toplevel 2>/dev/null || true)"
-[ -n "$project_root" ] || project_root="${CLAUDE_PROJECT_DIR:-$PWD}"
+try:
+    payload = json.load(sys.stdin)
+    command = payload.get("tool_input", {}).get("command", "")
+    lexer = shlex.shlex(command, posix=True, punctuation_chars=True)
+    lexer.whitespace_split = True
+    lexer.commenters = ""
+    tokens = list(lexer)
+except (AttributeError, TypeError, ValueError):
+    tokens = []
+
+if not tokens or os.path.basename(tokens[0]) != "git":
+    raise SystemExit
+
+directory = Path(payload.get("cwd") or os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd())
+index = 1
+while index < len(tokens):
+    token = tokens[index]
+    if token == "-C":
+        index += 1
+        if index >= len(tokens):
+            raise SystemExit
+        selected = Path(tokens[index])
+        directory = selected if selected.is_absolute() else directory / selected
+        index += 1
+        continue
+    if token in {"-c", "--config-env"}:
+        index += 2
+        continue
+    if token.startswith("-"):
+        index += 1
+        continue
+    break
+
+if index < len(tokens) and tokens[index] == "commit":
+    print(directory)
+' 2>/dev/null)" || exit 0
+[ -n "$commit_directory" ] || exit 0
+
+# Codex exposes only the session cwd to hooks, not a Bash tool's separate workdir.
+# A commit outside that session must therefore carry an explicit ``git -C`` so the
+# hook can resolve and gate the same tree without evaluating arbitrary shell code.
+project_root="$(git -C "$commit_directory" rev-parse --show-toplevel 2>/dev/null || true)"
+[ -n "$project_root" ] || exit 0
 cd "$project_root" || exit 0
 [ -f uv.lock ] || exit 0
 [ -f noxfile.py ] || exit 0

@@ -1,6 +1,7 @@
 ---
 name: design-interface
-description: The workshop's visual language for every user-facing surface — apply whenever building or changing UI (pages, cards, buttons, badges, labels, dialogs, states, motion). Encodes the operator's standard as an enforceable contract: understandable without reading, one glance per question, state by shape and color, short labels, honest empty/loading/error states, motion only for life. Also use to review a UI candidate against this standard before publishing it; UI evidence is a real-browser screenshot, not test green alone.
+description: >-
+  The workshop's visual language for every user-facing surface — apply whenever building or changing UI (pages, cards, buttons, badges, labels, dialogs, states, motion). Encodes the operator's standard as an enforceable contract: understandable without reading, one glance per question, state by shape and color, short labels, honest empty/loading/error states, motion only for life. Also use to review a UI candidate against this standard before publishing it; UI evidence is a real-browser screenshot, not test green alone.
 ---
 
 Build surfaces a person understands **without knowing the language**. The

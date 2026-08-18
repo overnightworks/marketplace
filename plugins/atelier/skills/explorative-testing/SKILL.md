@@ -29,6 +29,10 @@ real user experiences.
 4. Probe like a user, not a fuzzer: what would confuse, mislead, or dead-end
    a person? Stale views, vanished state, unlabeled failures, copy that
    overpromises, controls that silently do nothing.
+   Check every count and state label the surface claims against the source
+   of truth (API, store): an aggregate that miscounts, or a status word that
+   contradicts reality ("Running" over runs nothing will ever continue), is
+   a top finding even when the surface renders it faithfully.
 5. Try to refute each suspected defect before reporting it — wrong build,
    stale cache, misread expectation, missed refresh. Reproduce it twice.
 6. Report findings with severity, the expectation violated, reproduction

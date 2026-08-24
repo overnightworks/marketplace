@@ -26,6 +26,7 @@ Procedure:
 - Check that the plan traces to the end goal and has clear ownership, a done state, objective acceptance criteria, verification, review needs, and deletion or simplification target.
 - For orchestration plans, check that every phase traces to the end goal and has an owner, done state, documentation impact, objective acceptance criteria, verification, review needs, rollback boundary, and deletion or simplification target.
 - Check that the plan avoids duplicated guidance, imagined current facts, future-only architecture, broad refactors, hidden hardcoded values, and missing user decisions.
+- Check reuse before invent: every new owner (enum member, field, module, format, mechanism) is justified against a search for an existing contract, ADR, library, or standard that already owns the concept; flag the same concept modeled twice and provider-specific detail baked into a neutral concept or contract layer instead of behind the adapter boundary.
 - Demand narrower scope when the plan cannot be reviewed, implemented, or reverted safely.
 
 Hard Limits:

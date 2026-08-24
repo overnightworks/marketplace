@@ -22,6 +22,17 @@ could execute it without inventing missing decisions.
 - Dependencies: referenced files, APIs, decisions, or prior work exist.
 - Architecture fit: the plan respects current boundaries or explicitly proposes
   a justified boundary change.
+- Reuse before invent: every new owner the plan creates (enum member, field,
+  module, format, mechanism) is justified against a search for an existing one.
+  An existing contract or ADR that already owns the concept means reuse or
+  extend it, not add a parallel one; a new boundary needs a stated reason no
+  existing owner can honestly hold it. Flag the same concept (status, token,
+  capability, link) modeled twice, not only duplicated guidance.
+- Standards and libraries: prefer an existing standard or maintained library
+  over a hand-rolled equivalent unless a named reason rejects it.
+- Provider neutrality: provider-specific detail (flags, file formats, launch
+  mechanics) lives behind the adapter boundary; the concept and contract layer
+  stays neutral. Flag any provider baked into the neutral contract layer.
 - Verification: tests, static checks, manual checks, or review gates prove the
   requested behavior.
 - Deletion/simplification: the plan names what can be removed or simplified when

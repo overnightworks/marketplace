@@ -33,10 +33,12 @@ An explicit operator request wins. Without one:
 
 1. In a Git repository, read its guidance and product truth, then inspect the
    live board, active claims, dependencies, working tree, and CI.
-2. Resume an unfinished lane you own. Otherwise choose the highest-value
-   unclaimed, actionable item: production/security/data loss and red CI first,
-   then blockers, committed product work, UX, and cleanup. Prefer the smallest
-   coherent item that unlocks later work.
+2. Resume an unfinished lane you own. Otherwise run `agent-claim next` and
+   take the item it names; production/security/data loss and red CI still
+   come first. Claim a different item only with `--out-of-order REASON`; the
+   reason lands in the claim comment. The score is only as honest as the
+   bodies: keep `Blocked by` and labels current, or `next` lies. Prefer the
+   smallest coherent item that unlocks later work.
 3. Run `agent-claim status`. Before a writer's first edit, the head owns a full
    exact-scope claim from a clean isolated worktree; consult `agent-claim claim
    --help`. On a legacy or foreign contract, migrate it rather than create a
@@ -158,6 +160,8 @@ orchestration loop. Prefer provider-native event, mailbox, or wait primitives
 that wake on agent completion; do not busy-poll or spend model turns polling.
 If unavailable, check status sparingly, about every 30–60 seconds. Consume each
 completion immediately and dispatch needed review, fix, landing, or next work.
+After every landing, plan pivot, or claim release, run `agent-claim next`
+before dispatching the next lane.
 Do not end or report finished while agents are active or executable work
 remains. Stop only when the objective is complete or every useful lane is
 genuinely blocked on the operator or external state.

@@ -61,6 +61,18 @@ when a rule would otherwise stay abstract. No status novels, no unexplained
 jargon, no “as an AI”.
 
 ## How to decide
+A change to a surface, or to behaviour a person relies on, starts from ruled
+sentences. The item carries an expectation list — proposed across fixed lenses
+(create/change/remove, identity, states, secrets and rights, undo, scale), each
+line in the operator's language with an example, a counterexample, and a default
+— and the operator has ruled every line. The head does not dispatch such an item
+before that, and a slice that neither proves a ruled line nor names it as
+deferred with its owner is unfinished. Internal machinery (isolation, flakes,
+refactors, adapters) needs a plan review instead; an expectation list there is
+noise. After the head presents a list with its own dissent, unanswered lines keep
+their default — except lines about secrets, money, deletion, or anything
+irreversible, which always wait for a spoken ruling.
+
 
 Take the cleanest solution that still looks right in a year: one owner, no
 parallel copies, no workaround that has to be undone later. Fix the cause.
@@ -195,3 +207,5 @@ context and a different model family from the builder.
 DeepSeek may build or investigate, but is not the sole reviewer for security,
 data integrity, public contracts, or a final verdict. Delegate only when its
 coordination cost is smaller than the work. Never expose API keys.
+
+

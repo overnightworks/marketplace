@@ -61,6 +61,18 @@ when a rule would otherwise stay abstract. No status novels, no unexplained
 jargon, no “as an AI”.
 
 ## How to decide
+When an item is pulled, its body is replaced, not extended: the number stays,
+because pull requests, decision records, acceptance sentences and other items'
+dependencies point at it, and the comments below it become history rather than
+contract. A fresh issue is for a changed subject, not for a stale body.
+
+An idea is not a work item. An idea carries the wish in the operator's words,
+why it matters, and how they will notice it exists — nothing that the next
+landing makes false. It becomes a work item when it is pulled, and only then is
+it refined, pictured, and cut: elaborated-but-unpulled work is inventory, and
+inventory rots while the vision moves on. Re-run the refinement at the pull
+rather than keeping old lists fresh.
+
 A change to a surface, or to behaviour a person relies on, starts from ruled
 sentences. The item carries an expectation list — proposed across fixed lenses
 (create/change/remove, identity, states, secrets and rights, undo, scale), each
@@ -146,10 +158,41 @@ finding is landed, folded into an owner, or retired, and its rulings are
 harvested into the owning documents. No finding lives only in chat or task
 output — and no board floods from a review.
 
-Orchestrate as many independent issues in parallel as useful: each has its own
-issue, exact claim, worktree, branch, and builder. Never parallelize overlapping
-scope or an unresolved shared decision/dependency; skip it when coordination
-cost exceeds benefit. While CI or review waits, dispatch another clear lane.
+Claims say who works where; the tests say whether it fits. Git merges disjoint
+edits, and a collision on the same lines is an ordinary conflict — so lanes may
+share a tree, and every open lane pulls the trunk in and runs the checks, which
+is where a clean-but-broken merge shows itself. Exclusive holding is for a value
+that must exist once and whose double use survives a merge — a schema version,
+a generated artifact, the one live store: name it in the dispatch and hold it
+for the lane, so it is allocated rather than guessed. When two lanes truly need
+the same contract, that is a cut problem, not a claim problem — one slice owns
+it.
+
+A landing closes an item. When it does not, the item was cut too large: the
+slice, not the epic, is the unit of work, so a slice becomes its own item at the
+moment it is dispatched — never on the whiteboard, which is what floods a board.
+It carries the ruled sentences it proves, its files and its own done-when; it is
+built, landed and closed, and its parent's projection records what that leaves.
+The parent closes when its children are done.
+
+Cut before you dispatch. For anything beyond a few files the head runs the
+breakdown workflow first and writes its slices — files, done-when, dependencies
+— into the item body, then dispatches one slice at a time. A hand-written brief
+for a large change is how a lane becomes a forty-file candidate with dozens of
+findings; the planner exists so the cut is argued before the build, not after.
+
+Run as many lanes as the work has disjoint scopes, not a fixed number: each has
+its own issue, exact claim, worktree, branch, and builder. The width is set by
+the file regions that do not overlap and by dependencies that are already
+settled, so the lever is slice size, not lane count — ten small disjoint lanes
+cost less than three that share a tree. Prefer a slice one builder finishes in
+well under an hour and that touches few files; a long lane pays for every
+landing it did not join, and a lane whose findings run into the dozens was cut
+too big. Never parallelize overlapping scope or an unresolved shared decision.
+Serial by nature: migration, redeploy, and anything touching the one live
+instance. While CI or review waits, dispatch another clear lane; when no scope
+is free, spend the slot on work that needs no claim — refining upcoming items,
+board hygiene, a live proof, or a lane in another repository.
 
 For a lane affecting a public contract, persistent data, security, multiple
 owners, or material uncertainty, the head sharpens scope and acceptance
@@ -198,8 +241,12 @@ required only where a public contract, persistent data, security, architecture,
 or explicit policy makes the risk material. A `REVISE` returns to the same
 reviewer after a coherent fix batch; the same reviewer may re-review only the
 raised delta when its fix is strictly isolated and the integrated tree outside
-the delta is unchanged. If interactions, scope, or risk changed, repeat the
-full integrated review with fresh context. Do not start a new flagship or fresh
+the delta is unchanged. A delta review carries the contract core and the raised
+findings as its context — without them it judges lines instead of intent — and it
+always asks whether the repair opened something new, because that is where a fix
+turns into a regression. What a delta cannot see, the integrated checks catch; do
+not repeat a full review to buy what CI already proves. If interactions, scope,
+or risk changed, repeat the full integrated review with fresh context. Do not start a new flagship or fresh
 final review for each mechanical correction. Required reviews remain
 independent: builders do not review their own work. A required final
 independent review uses a fresh

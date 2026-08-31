@@ -91,6 +91,8 @@ longer than two words, or not the domain's own word? Is any explanation
 inline? Does any affordance — or block of information — appear twice? Are
 empty, loading, and error designed? Does anything move that is not alive?
 Is any identifier lying around as reading matter instead of anchoring proof?
+Does this behavior already exist elsewhere as its own component? (Owned by
+REQ-UIQ-13 in docs/requirements/0003-ziel-ui.md.)
 Each "no" is a REVISE citing the law's number.
 
 **Evidence is a screenshot, not test green.** A UI candidate's proof includes

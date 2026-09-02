@@ -31,7 +31,8 @@ and at the right altitude.
 - Parallel safety: tests can run concurrently without shared filesystem,
   environment, port, process, or global-state collisions.
 - Maintainability: repeated scenarios are data-driven or fixture-backed when
-  repetition would hide intent.
+  repetition would hide intent; a builder a test file writes privately for a
+  contract another test file already builds is a duplication finding.
 - Spec traceability: when the repository defines a human-readable requirements
   spec, e2e/acceptance tests declare the requirement ids they prove and
   orphans fail in both directions; when e2e tests exist with no spec scheme,

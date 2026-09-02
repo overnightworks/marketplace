@@ -27,7 +27,9 @@ is a source audit, not a profiler: report structural hazards proven by code.
   strands resources.
 - Hot paths: synchronous I/O, blocking subprocesses, sleeps, and network calls
   do not block async or latency-sensitive paths.
-- Repeated work: loops do not re-read, re-parse, or recompute invariant work.
+- Repeated work and access patterns: loops do not re-read, re-parse, or
+  recompute invariant work, and a membership test that repeats or grows uses a
+  set or dict, not a list.
 - Polling: sleep-driven waits are used only when an event, watcher, callback, or
   explicit synchronization point is not available.
 - Shared state: read-modify-write updates across workers are atomic or guarded.

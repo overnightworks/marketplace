@@ -1,8 +1,4 @@
-<!-- Baseline template shipped with the atelier plugin. It is a distribution
-view of the atelier project's living AGENTS.md (synced 2026-07-04): regenerate
-it from that source when releasing plugin versions; do not evolve it
-independently. When seeding a repository, drop this comment and fill the
-entry-points placeholder from the repository's real docs. -->
+<!-- Seed template for a new repository's AGENTS.md. Reusable policy is owned by instructions/AGENTS.md in this repository; copy this file once, then the repository owns it. -->
 
 This file is reusable AI policy. Keep project facts, provider glue, architecture
 state, tool commands, and plans outside it.
@@ -11,6 +7,10 @@ Entry points (pointers only; the facts live there): name the repository's
 coordination, verification, and current-state documents here — the ones an
 agent must read before editing. Delete this paragraph if the repository has
 none yet.
+
+Never run `git stash` in a worktree: one stash stack is shared by every worktree
+of a repository, so a pop can land another lane's changes in your tree. Commit
+on the lane branch instead.
 
 ## Growth
 
@@ -32,6 +32,13 @@ Do not duplicate guidance. Update the owner.
   decision.
 - Do not add architecture, extension points, compatibility layers, or options
   without a current caller.
+- Build vertically first: shapes early, surfaces thin, hardening after use. A
+  capability's first slice is the thinnest honest end-to-end proof; edge cases
+  are mandatory before that first run only where their absence corrupts durable
+  state, loses data, or lets the system lie. Every other edge is deferred by
+  naming it — an open sentence or named gap on the owning item — and waits for
+  usage evidence. A review judges the slice against its declared sentences, not
+  against all conceivable hardness. (Operator + coordinator ruling, 16.08.2026.)
 - Match existing style unless it conflicts with this file or preserves a known
   defect.
 - Use readable, fully written names. Avoid abbreviations unless established.

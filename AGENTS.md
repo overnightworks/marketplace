@@ -1,9 +1,15 @@
-This file is reusable AI policy. Keep project facts, provider glue, architecture
+Reusable policy is owned by `instructions/AGENTS.md` in this repository; this
+file restates it for readers in this tree, and a change to the owner lands here
+in the same session. Keep project facts, provider glue, architecture
 state, tool commands, and plans outside it.
 
 Entry points (pointers only; the facts live there): `README.md` owns the plugin
 layout, source-versus-generated ownership, installation, update, and verification
 commands.
+
+Never run `git stash` in a worktree: one stash stack is shared by every worktree
+of a repository, so a pop can land another lane's changes in your tree. Commit
+on the lane branch instead.
 
 ## Growth
 
@@ -25,6 +31,13 @@ Do not duplicate guidance. Update the owner.
   decision.
 - Do not add architecture, extension points, compatibility layers, or options
   without a current caller.
+- Build vertically first: shapes early, surfaces thin, hardening after use. A
+  capability's first slice is the thinnest honest end-to-end proof; edge cases
+  are mandatory before that first run only where their absence corrupts durable
+  state, loses data, or lets the system lie. Every other edge is deferred by
+  naming it — an open sentence or named gap on the owning item — and waits for
+  usage evidence. A review judges the slice against its declared sentences, not
+  against all conceivable hardness. (Operator + coordinator ruling, 16.08.2026.)
 - Match existing style unless it conflicts with this file or preserves a known
   defect.
 - Use readable, fully written names. Avoid abbreviations unless established.

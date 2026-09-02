@@ -63,9 +63,10 @@ kept.
 - Audience and views: guidance and the docs it references name their reader
   and altitude; a document serving another audience is a view deriving from
   one owner, not an independently edited copy.
-- Baseline drift: compare the repository's `AGENTS.md` against the shipped
-  `AGENTS.baseline.md`; unexplained divergence from baseline policy is a
-  finding, while deliberate project divergence is recorded and kept.
+- Baseline coverage: check that the repository's `AGENTS.md` covers every
+  policy area of the shipped `AGENTS.baseline.md`; a missing area is a
+  finding, a different wording is not, and deliberate project divergence is
+  recorded and kept.
 - Portability: reusable skills and agent bodies avoid product names, module
   names, daemon assumptions, and provider-specific paths unless that file owns
   provider glue.

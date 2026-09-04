@@ -8,7 +8,7 @@ whole tree at once; the cheap win is one exclusion or one won't-fix that
 retires a whole class, and the expensive loss is a lane per finding. **This
 skill reads scanners and writes one issue; it changes no source file.** Every
 repository of the operator is on SonarCloud (Free plan, public projects,
-organisation `flexor2`, project keys `FlexOr2_<repo>`) and on CodeQL default
+organisation `overnightworks`, project keys `overnightworks_<repo>`) and on CodeQL default
 setup (operator ruling 04.09.2026).
 
 ## Procedure
@@ -17,7 +17,7 @@ setup (operator ruling 04.09.2026).
    project:
 
    ```bash
-   key=FlexOr2_<repo>
+   key=overnightworks_<repo>
    curl -s "https://sonarcloud.io/api/measures/component?component=$key&metricKeys=ncloc,bugs,vulnerabilities,security_hotspots,code_smells,duplicated_lines_density,duplicated_blocks,cognitive_complexity,reliability_rating,security_rating,sqale_rating"
    curl -s "https://sonarcloud.io/api/issues/search?componentKeys=$key&statuses=OPEN&ps=500&p=1"
    gh api repos/<owner>/<repo>/code-scanning/alerts --paginate

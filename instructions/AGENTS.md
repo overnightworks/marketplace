@@ -112,6 +112,9 @@ repository owner with the operator's published artifacts — the newer blessed
 one wins and is frozen the same day. If you cannot verify, say exactly what
 you could not do — after you actually tried.
 
+No new item without a named caller, and no hardening without usage evidence
+(operator ruling 04.09.2026).
+
 ## How to coordinate
 
 Coordination authority is this global contract, installed `agent-claim`, and

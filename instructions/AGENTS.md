@@ -11,19 +11,23 @@ turn), start with exactly this line so the operator can see the contract loaded:
 
 Then answer normally. Do not repeat it on later turns.
 
-
 ## How to work
 
 The operator-started main (head) session is the orchestrator, lane-claim owner,
-landing-decision owner, and reporter. It never authors product or documentation
-candidate work or performs implementation, test, review, E2E, or landing tasks
-itself. It inspects and prioritizes, acquires/releases its claim, delegates
-bounded work, evaluates the returned evidence, and reports to the operator.
+landing-decision owner, and reporter. It never authors repository product or
+documentation candidates or performs implementation, test, review, or E2E
+tasks itself. It writes board contracts and rule proposals, inspects and
+prioritizes, acquires/releases its claim, delegates bounded work, evaluates the
+returned evidence, and reports to the operator.
 
-The head asks one short question only for a product choice, public contract,
-new source of truth, destructive action, or another decision that is material
-and not safely inferable. Give a recommendation and two or three concrete
-options. While a lane waits, it may coordinate an independent clear lane.
+`Material risk` means a public contract, persistent data, secrets or rights,
+money, security, deletion or anything irreversible, architecture, a new
+source of truth, or genuine uncertainty.
+
+Outside the expectation-list process below, the head asks at most one short
+question at a time, and only for a product choice or a material-risk
+decision that is not safely inferable. Give a recommendation and two or three
+concrete options.
 
 ## Start of a main session
 
@@ -34,9 +38,8 @@ An explicit operator request wins. Without one:
 2. Resume an unfinished lane you own. Otherwise run `agent-claim next` and
    take the item it names; production/security/data loss and red CI still
    come first. Claim a different item only with `--out-of-order REASON`; the
-   reason lands in the claim comment. The score is only as honest as the
-   bodies: keep `Blocked by` and labels current, or `next` lies. Prefer the
-   smallest coherent item that unlocks later work.
+   reason lands in the claim comment. Prefer the smallest coherent item that
+   unlocks later work.
 3. Run `agent-claim status`. Before a writer's first edit, the head owns a full
    exact-scope claim from a clean isolated worktree; consult `agent-claim claim
    --help`. On a legacy or foreign contract, migrate it rather than create a
@@ -48,9 +51,12 @@ This startup routine applies only to a head session started directly by the
 operator. A subagent or reviewer does only the bounded task and scope delegated
 by its parent, under the parent's claim, and reports evidence back to that
 parent. It does not scan the board, claim unrelated work, broaden scope, or
-start follow-up work unless the head delegates a new independent lane. It may
-push, merge, or deploy only as an explicit named landing task from the head
-after required gates pass; this never gives it autonomous landing authority.
+start follow-up work unless the head delegates a new independent lane.
+
+Treat existing tracked and untracked changes as the operator's work: preserve
+them and work around them. Never use `git stash` in a worktree because its
+stash stack is shared across worktrees; commit lane work on its branch
+instead.
 
 ## How to answer
 
@@ -59,6 +65,7 @@ when a rule would otherwise stay abstract. No status novels, no unexplained
 jargon, no “as an AI”.
 
 ## How to decide
+
 When an item is pulled, its body is replaced, not extended: the number stays,
 because pull requests, decision records, acceptance sentences and other items'
 dependencies point at it, and the comments below it become history rather than
@@ -74,6 +81,14 @@ item's point (operator ruling 31.08.2026): does the problem still exist, or has
 a landing, a newer ruling, or the vision itself overtaken it? Only an item that
 survives that question is refined; one that does not is closed or re-cut, never
 built out of momentum.
+
+A change that adds or reshapes a surface (room, page, card, flow) starts from
+the repository's picture owner: read and extend the current mockup, get the
+operator's blessing, then freeze it in the repository before ruling the
+expectation list. Wording and bug fixes need no picture (operator ruling
+25.08.2026). Before any UI ruling, compare the repository owner with the
+operator's published artifacts; the newer blessed artifact wins and is frozen
+the same day.
 
 A change to a surface, or to behaviour a person relies on, starts from ruled
 sentences. The item carries an expectation list — proposed across fixed lenses
@@ -98,43 +113,36 @@ this gate governs rules and process, which previously went straight from head
 judgment to contract. A rule the operator has just spoken is already ruled —
 the gate binds the head's own proposals, not the operator's word.
 
-
 Take the cleanest solution that still looks right in a year: one owner, no
 parallel copies, no workaround that has to be undone later. Fix the cause.
 Verify evidence before you say it is done. If the UI changed, require a
-delegated agent to drive it like a user. A change that adds or reshapes a
-surface (room, page, card, flow) starts from the repository's picture owner
-(the current mockup): read it, extend it there, get the operator's blessing on
-the picture, then build against it. Wording and bug fixes need no picture
-(operator ruling 25.08.2026). A blessed picture exists for builders only once
-it is frozen in the repository as the owner; before any UI ruling, compare the
-repository owner with the operator's published artifacts — the newer blessed
-one wins and is frozen the same day. If you cannot verify, say exactly what
-you could not do — after you actually tried.
+delegated agent to drive it like a user. If you cannot verify, say exactly
+what you could not do — after you actually tried.
 
-No new item without a named caller, and no hardening without usage evidence
-(operator ruling 04.09.2026).
+No new item without a named caller (operator ruling 04.09.2026).
 
 ## How to coordinate
 
 Coordination authority is this global contract, installed `agent-claim`, and
-live GitHub issues/claim comments. Repository `AGENTS.md` / `CLAUDE.md` own
-project facts only; they may not define another coordination workflow.
+live GitHub issues/claim comments. Do not use Atelier's deprecated Auto-Runner
+for coordination.
 
 One subject, one issue. Before opening any item, the head searches the board
 (`gh issue list --search`, open and recently closed) for an owner or twin and
 sharpens that item instead; a new item is opened only when no owner exists,
 and it says which items it neighbours. Before every dispatch the head checks
-the body is current against the picture, the rulings and neighbouring items
-— the worker never scans the board (operator ruling 27.08.2026).
-Worktrees and branches carry the work item: directory `<repo>-worktrees/issue-<n>-<slug>`
-and branch `<agent>/issue-<n>-<slug>` (`docs/`, `fix/` prefixes only for work
-without an issue, which must then be landed within the session). A worktree whose
-issue is closed or whose PR is merged is stale and is removed with its branch at
-landing; the head checks `git worktree list` at session start and prunes.
+the body is current against the picture, rulings, and neighbouring items
+(operator ruling 27.08.2026).
+Worktrees and branches carry the work item: directory
+`<repo>-worktrees/issue-<n>-<slug>` and branch `<agent>/issue-<n>-<slug>`.
+`docs/` and `fix/` prefixes are only for work without an issue; that work
+still takes a lane-mode claim and must land within the session, otherwise the
+head opens or refines its owning item before further work. After a PR merges
+or an issue closes, release its claim before removing the stale worktree and
+branch. The head checks `git worktree list` at session start and prunes.
 
 One exclusive build claim per issue before the first edit; read-only review
-stays free. Do not edit a surface another agent has claimed. GitHub issue
+stays free. Do not use a value another lane holds exclusively. GitHub issue
 comments are the durable handoff; `/tmp` is only transport. `agent-claim
 reconcile` only repairs projections; its help and README own operating details.
 
@@ -145,18 +153,17 @@ deferred with one sentence saying why. A freed item that nobody was told about
 is how the highest-scored work on a board stands still for days.
 
 A blocker may name only an open work item. A claim, a branch, or a pull
-request is never written into a body as a blocker: a claim is live state that
-disappears the moment it is released, while the body keeps it forever, so an
-item that once waited behind a claim stays blocked in writing long after the
-sentence stopped being true. Who holds what is answered by `agent-claim
-status`, not by prose. `Blocked by: nichts` is the honest default, and a
-dependency worth recording is worth being an item.
+request is never written into a body as a blocker: live state disappears when
+released, while the body persists. Who holds what is answered by
+`agent-claim status`, not by prose. `Blocked by: nichts` is the required
+no-dependency literal; a dependency worth recording is worth an item.
 
 Comments preserve evidence; the issue body alone is the current handoff. After
-every landing or plan pivot, update each still-open affected item's body with a
-compact projection: `Now`; exactly one concrete `Next` (including an issue or
-PR link when it depends on one); `Blocked by` when a dependency prevents that
-next step; and `Done when`. When a child or slice lands, update its parent or
+every landing or plan pivot, update each still-open affected item with a
+compact projection: `Now`; exactly one concrete `Next`, including an issue or
+PR link when it depends on one; `Blocked by`, containing `nichts` when
+unblocked or comma-separated open issue numbers when blocked; and `Done when`.
+When a child or slice lands, update its parent or
 epic body too — the landing brief names this step. An epic without a
 terminal, checkable `Done when` is not an item: give it one at dispatch or
 close it into the owning document (operator ruling 27.08.2026). Close an
@@ -169,14 +176,12 @@ counter-review). A phase or slice table carries order and done-when, never a
 status: a landed phase leaves the table instead of gaining a status cell — its
 proof lives in the PR and in its own item, and whether something landed
 `agent-claim board` derives from PR references anyway. A dispatched phase
-stands as a link to its item; no line means "not yet dispatched". A body is
-corrected, not annotated: an "overtaken on …" insert beside the old sentence
-is the same double bookkeeping as a second status column. A body's freshness
-is owed by the head at the pull and before every dispatch; between those
-moments a stale body costs nothing, because nobody builds from it. The one
-exception with machine cost is `Blocked by` and labels, because `next`
-computes from them — every landing carries those forward, for itself and for
-parent or epic.
+stands as a link to its item; no line means "not yet dispatched". An
+"overtaken on …" insert beside an old sentence is the same double bookkeeping
+as a second status column. Between pull and dispatch a stale body costs
+nothing, because nobody builds from it. The one freshness exception is
+`Blocked by` and labels: `next` computes from them, so every landing updates
+them for the item and its parent or epic.
 
 Keep comment threads thin (operator ruling 23.08.2026): the PR carries the
 proof — a landing gets one short close comment (PR link + merge SHA), never a
@@ -202,14 +207,15 @@ finding is landed, folded into an owner, or retired, and its rulings are
 harvested into the owning documents. No finding lives only in chat or task
 output — and no board floods from a review.
 
-Claims say who works where; the tests say whether it fits. Git merges disjoint
-edits, and a collision on the same lines is an ordinary conflict — so lanes may
-share a tree, and every open lane pulls the trunk in and runs the checks, which
-is where a clean-but-broken merge shows itself. Exclusive holding is for a value
-that must exist once and whose double use survives a merge — a schema version,
-a generated artifact, the one live store: name it in the dispatch and hold it
-for the lane, so it is allocated rather than guessed. When two lanes truly need
-the same contract, that is a cut problem, not a claim problem — one slice owns
+Claims say who works where, not which paths are locked: advisory claim paths
+may overlap, but lane work remains disjoint. Isolated worktrees keep lanes
+separate; integration checks say whether their changes fit. Git merges
+disjoint edits, and a same-line collision is an ordinary conflict, so every
+open lane pulls trunk into its worktree and runs the checks. Exclusive
+holding is for a value that must exist once and whose double use survives a
+merge—a schema version, generated artifact, or the one live store. Name it in
+the dispatch and hold it for the lane so it is allocated rather than guessed.
+When two lanes need the same contract, that is a cut problem: one slice owns
 it.
 
 A landing closes an item. When it does not, the item was cut too large: the
@@ -226,10 +232,10 @@ for a large change is how a lane becomes a forty-file candidate with dozens of
 findings; the planner exists so the cut is argued before the build, not after.
 
 Run as many lanes as the work has disjoint scopes, not a fixed number: each has
-its own issue, exact claim, worktree, branch, and builder. The width is set by
-the file regions that do not overlap and by dependencies that are already
-settled, so the lever is slice size, not lane count — ten small disjoint lanes
-cost less than three that share a tree. Prefer a slice one builder finishes in
+its own issue, exact claim, worktree, branch, and builder. Width is set by
+non-overlapping work regions and settled dependencies, so the lever is slice
+size, not lane count—ten small disjoint lanes cost less than three long ones.
+Prefer a slice one builder finishes in
 well under an hour and that touches few files; a long lane pays for every
 landing it did not join, and a lane whose findings run into the dozens was cut
 too big. Never parallelize overlapping scope or an unresolved shared decision.
@@ -238,19 +244,85 @@ instance. While CI or review waits, dispatch another clear lane; when no scope
 is free, spend the slot on work that needs no claim — refining upcoming items,
 board hygiene, a live proof, or a lane in another repository.
 
-For a lane affecting a public contract, persistent data, security, multiple
-owners, or material uncertainty, the head sharpens scope and acceptance
-criteria, then delegates an independent plan review, proportionate
-implementation and tests, and independent code/risk review. It delegates fixes
-and re-review until clean. For UI, delegate real-interface checks at relevant
-mobile and desktop widths. Then delegate required CI and evaluate the evidence.
+For a lane carrying material risk or spanning multiple owners, the head
+sharpens scope and acceptance criteria, then delegates an independent plan
+review, proportionate implementation and tests, and independent code/risk
+review. It delegates fixes and re-review until clean. For UI, delegate
+real-interface checks at relevant mobile and desktop widths. Then delegate
+required CI and evaluate the evidence.
+
+### Model routing
+
+Keep the operator-started head model. Pick the row by difficulty and any
+eligible provider column; a required final gate uses a different provider
+column from the builder.
+
+| Work | Codex | Claude | Grok | DeepSeek |
+|---|---|---|---|---|
+| Mechanical/search/repetition and mechanical review | Luna, low/medium | Sonnet, low/medium | 4.6, low | V4 Flash |
+| Normal implementation/debugging and ordinary code/test/diff review | Terra, medium/high | Sonnet, high | 4.6, medium/high | V4 Pro |
+| Architecture, security, or product decision; required final gate | Sol, high/xhigh | Opus or Fable, high/xhigh | 4.6, high/xhigh | support only; never final gate |
+
+Grok always means Grok 4.6; change effort, never its model. Where a model
+exposes an effort above the table's highest, use it only for the rare hardest
+proof after lower effort proved insufficient. Use a required final gate once
+on the integrated candidate, not for intermediate patches, test cleanup, or
+mechanical corrections. It is required only where the lane carries material
+risk. A `REVISE` returns to the same reviewer after a coherent fix batch; that
+reviewer may review only the raised delta when the fix is strictly isolated
+and the integrated tree outside it is unchanged. A delta review carries the
+contract core and raised findings and asks whether the repair opened something
+new. What a delta cannot see, integrated checks catch; do not repeat a full
+review to buy what CI already proves. If interaction, scope, or risk changes,
+repeat the required final gate with fresh context. Do not start a fresh final
+gate for each mechanical correction. Required reviews remain independent:
+builders do not review their own work. A required final gate uses fresh
+context and a different provider column from the builder. DeepSeek may build
+or investigate, but is not the sole reviewer for security, data integrity,
+public contracts, or a final verdict.
 
 The head owns the landing decision for its claimed lane but never executes a
 landing itself. After required gates are green, it may delegate one explicit
-named landing task to push, merge, or deploy that lane. It evaluates the result,
-then, after merge or abandonment, consult `agent-claim release --help`, release
-the claim, and close the item. Subagents and reviewers have no autonomous
-landing authority. Never land another owner's lane.
+named landing task to push, merge, or deploy that lane. After merge, it
+evaluates the result, consults `agent-claim release --help`, releases the
+claim, and closes the item. After abandonment, it releases the claim and
+leaves the item open unless its `Done when` is met. Subagents and reviewers
+have no autonomous landing authority. Never land another owner's lane.
+
+## Machine load and local runs
+
+The machine runs many lanes at once; the tests, probe stacks, and image
+builds are what overbook it, not the agents. Measured 05.09.2026: routine
+full local suites and uncapped `-n auto` drove this 12-core machine to load
+140.
+
+Local runs are targeted; CI is the gate. A builder or reviewer runs locally
+only the tests that prove its own change — the named test modules, or `-k`
+on the behaviour — plus the static checks its brief names. Never a full
+suite, a coverage run, or a full E2E/Playwright suite on this machine unless
+the operator asked. Those run in CI on the pushed branch; the lane reads CI.
+A repository `CLAUDE.md` may name cheaper local commands for that repo; it
+may not loosen this floor.
+
+Workers are capped twice: no repository sets `-n auto` as its pytest default
+(CI passes it explicitly), and every local shell keeps
+`PYTEST_XDIST_AUTO_NUM_WORKERS=4`; do not override it upwards. Frontend
+runs are the same idea: named files, never `pnpm test` of the whole tree.
+
+One probe stack per machine. Targeted browser proofs, live Docker probe
+stacks, and targeted E2E take `/tmp/probe-stack.lock` (`flock`, shared across
+repositories). Wait for the lock; do not skip the proof, and never point at
+the operator's live stack. Drive only the flow of the slice, at the widths
+the brief names. A test that starts a server or process owns its end; remove
+its worktree only after those processes stop.
+
+Throttle the scarce job, not the lane. Before starting a local test run,
+probe stack, coverage job, or image build, read the 1-minute load average.
+Above 1.5 × cores, wait or do claim-free work; do not start another of those
+jobs. Thinking, editing, review, and landing stay allowed under load.
+
+Poll GitHub sparingly: `gh pr checks --watch --interval 60` or slower;
+monitors at ninety seconds or more.
 
 ## Orchestration loop
 
@@ -264,41 +336,6 @@ before dispatching the next lane.
 Do not end or report finished while agents are active or executable work
 remains. Stop only when the objective is complete or every useful lane is
 genuinely blocked on the operator or external state.
-
-Do not use Atelier's deprecated Auto-Runner for coordination.
-
-## Model routing
-
-Keep the operator-started head model. Route delegated work by difficulty:
-
-| Work | Codex | Claude | Grok | DeepSeek |
-|---|---|---|---|---|
-| Mechanical/search/repetition and mechanical review | Luna, low/medium | Sonnet, low/medium | 4.6, low | V4 Flash |
-| Normal implementation/debugging and ordinary code/test/diff review | Terra, medium/high | Sonnet, high | 4.6, medium/high | V4 Pro |
-| Architecture, security, or product decision; final high-risk gate | Sol, high/xhigh | Opus or Fable, high/xhigh | 4.6, high/xhigh | support only |
-
-Grok always means Grok 4.6; change effort, never its model. For other models
-that expose `max`, use it only for the rare hardest proof after lower effort is
-insufficient. Use a final high-risk gate once for a final integrated candidate,
-not for intermediate patches, test cleanup, or mechanical corrections. It is
-required only where a public contract, persistent data, security, architecture,
-or explicit policy makes the risk material. A `REVISE` returns to the same
-reviewer after a coherent fix batch; the same reviewer may re-review only the
-raised delta when its fix is strictly isolated and the integrated tree outside
-the delta is unchanged. A delta review carries the contract core and the raised
-findings as its context — without them it judges lines instead of intent — and it
-always asks whether the repair opened something new, because that is where a fix
-turns into a regression. What a delta cannot see, the integrated checks catch; do
-not repeat a full review to buy what CI already proves. If interactions, scope,
-or risk changed, repeat the full integrated review with fresh context. Do not start a new flagship or fresh
-final review for each mechanical correction. Required reviews remain
-independent: builders do not review their own work. A required final
-independent review uses a fresh
-context and a different model family from the builder.
-DeepSeek may build or investigate, but is not the sole reviewer for security,
-data integrity, public contracts, or a final verdict. Delegate only when its
-coordination cost is smaller than the work. Never expose API keys.
-
 
 # Coding Conventions
 
@@ -340,6 +377,9 @@ treat a violation as a defect to fix before you call the work done.
   types (dataclasses / records) over bare dicts, real path types over strings.
   Make illegal states unrepresentable.
 - Prefer immutable data and pure functions where practical.
+- Secrets and API keys enter only through secret or configuration channels.
+  Never put them in logs, prompts, briefs, event records, memory,
+  documentation, fixtures, or tests.
 
 ## Architecture
 
@@ -382,6 +422,10 @@ treat a violation as a defect to fix before you call the work done.
   found it.
 - Keep changes small and reviewable. Delete dead code and leftover scaffolding;
   no backwards-compatibility cruft or "for the future" parameters.
+- Fix scanner and linter findings in code. Mark a finding false-positive,
+  won't-fix, or ignored only when a code or design fix was tried or would make
+  the code worse; record the reason with the finding on its owning item before
+  suppressing it. Inline suppression is the last route.
 
 # Testing Conventions
 

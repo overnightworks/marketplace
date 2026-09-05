@@ -7,9 +7,10 @@ Entry points (pointers only; the facts live there): `README.md` owns the plugin
 layout, source-versus-generated ownership, installation, update, and verification
 commands.
 
-Never run `git stash` in a worktree: one stash stack is shared by every worktree
-of a repository, so a pop can land another lane's changes in your tree. Commit
-on the lane branch instead.
+Treat existing tracked and untracked changes as the operator's work: preserve
+them and work around them. Never use `git stash` in a worktree because its
+stash stack is shared across worktrees; commit lane work on its branch
+instead.
 
 ## Growth
 
@@ -82,8 +83,10 @@ not an assumed one.
   does not carry "formerly", "superseded", "replaced X with Y", "since PR", a
   date, or an issue number as provenance. A durable reason citing a decision
   record stays allowed.
-- Do not add inline static-analysis suppressions. Fix the design, narrow the
-  code, or change central policy with verification.
+- Fix scanner and linter findings in code. Mark a finding false-positive,
+  won't-fix, or ignored only when a code or design fix was tried or would
+  make the code worse; record the reason with the finding on its owning item
+  before suppressing it. Inline suppression is the last route.
 - Hold size and complexity with ratchets, not repository-wide allowlists. Files
   from eight hundred lines, functions from sixty, and cyclomatic complexity
   above fifteen are debt-entry thresholds, not quality seals: compared per path
@@ -96,8 +99,9 @@ not an assumed one.
   runtime boundary belong in configuration.
 - Do not make stable internal invariants externally configurable just to avoid a
   constant.
-- Secrets enter through secret or configuration channels only. Never write them
-  to logs, prompts, event records, memory, documentation, fixtures, or tests.
+- Secrets and API keys enter only through secret or configuration channels.
+  Never put them in logs, prompts, briefs, event records, memory,
+  documentation, fixtures, or tests.
 
 ## Value Ownership
 

@@ -54,6 +54,10 @@ rule-level exception moves to the CI scanner first. State of 05.09.2026 in
 4. **Cut slices** in corridor size, one owner each, and dispatch them one at a
    time from the distributor. A finding becomes its own issue only when it is
    dispatched.
+5. **Re-measure main after every landing** while the distributor is open — the
+   default quality gate does not (measured agent-claim #143/PR #145,
+   06.09.2026: three green-merged landings added 16 findings on main
+   unnoticed).
 
 ## The four classes
 
@@ -123,6 +127,13 @@ Negative — tried and refused:
 - The intermediate state `[ \t]*(?P<value>[^\r\n]*)$` with an `.rstrip()` was
   still flagged by `python:S8786`.
 
+Analyzer coverage on test sources (measured agent-claim #143/PR #145,
+06.09.2026):
+- `python:S1192` (duplicated string literal) does **not** run on test sources —
+  a duplicated-literal probe placed in a test stays invisible to the gate.
+- `python:S5778` (two raising calls inside one `pytest.raises` block) **does**
+  run on test sources and is a reliable test-side probe finding.
+
 ## The distributor issue
 
 One issue, this shape:
@@ -150,6 +161,14 @@ standing rulings, which every review of a Sonar finding inherits:
 - A review of a Sonar finding **needs the project context** — the owning item,
   the rulings, the frozen-code list. A finding reviewed without it is mostly
   rejection ware, and the reviewer will argue with the rule instead of the code.
+- The quality gate checks **ratings, not counts**: a PR can merge green while
+  adding findings — three landings added 16 unnoticed (measured agent-claim
+  #143/PR #145, 06.09.2026). The control is a CI step in the sonar job, after
+  `sonar.qualitygate.wait=true`, that pages
+  `api/issues/search?componentKeys=<key>&pullRequest=<n>&statuses=OPEN` and
+  fails on any result — proven red with a probe finding and green without one.
+  Every repository on the CI scanner copies this step, and a distributor's
+  Done when includes it.
 
 ## Cadence and closing
 

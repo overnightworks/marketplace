@@ -3,6 +3,8 @@
 This repository packages reusable skills, provider-native agents, and a
 quality-gate hook as one shared `atelier` plugin.
 
+Licensed under the [MIT License](LICENSE).
+
 ## Layout
 
 - `.agents/plugins/marketplace.json` is the Codex marketplace catalog.

@@ -83,10 +83,11 @@ not an assumed one.
   does not carry "formerly", "superseded", "replaced X with Y", "since PR", a
   date, or an issue number as provenance. A durable reason citing a decision
   record stays allowed.
-- Fix scanner and linter findings in code. Mark a finding false-positive,
-  won't-fix, or ignored only when a code or design fix was tried or would
-  make the code worse; record the reason with the finding on its owning item
-  before suppressing it. Inline suppression is the last route.
+- Fix scanner and linter findings in code. An exception exists only after a
+  code route was tried and measured or judged counterproductive; it is
+  versioned in the repository next to its reason (a rule-specific line marker
+  or a properties entry naming its stronger owner), never a SonarCloud status
+  change, and never a file-wide ignore.
 - Hold size and complexity with ratchets, not repository-wide allowlists. Files
   from eight hundred lines, functions from sixty, and cyclomatic complexity
   above fifteen are debt-entry thresholds, not quality seals: compared per path

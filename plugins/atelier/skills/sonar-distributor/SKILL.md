@@ -23,9 +23,12 @@ https://sonarcloud.io/api/navigation/component?component=<org>_<repo>` reads
 the `autoscanEnabled` field; `POST
 https://sonarcloud.io/api/autoscan/activation` (form fields `projectKey`,
 `enable=true|false`) sets it, with the token from the operator's configured
-SonarCloud credential, never printed. State of 05.09.2026 in `overnightworks`:
-CI scanner and Automatic Analysis off — `atelier-2`, `agent-claim`, `hopin`,
-`songmaker`; Automatic Analysis on — `marketplace`, `claude-revive`.
+SonarCloud credential, never printed. Automatic Analysis ignores
+`sonar-project.properties`; a repository that needs an exclusion or a
+rule-level exception moves to the CI scanner first. State of 05.09.2026 in
+`overnightworks`: CI scanner and Automatic Analysis off — `atelier-2`,
+`agent-claim`, `hopin`, `songmaker`; Automatic Analysis on — `marketplace`,
+`claude-revive`.
 
 ## Procedure
 
@@ -55,7 +58,7 @@ CI scanner and Automatic Analysis off — `atelier-2`, `agent-claim`, `hopin`,
 ## The four classes
 
 Illustrated with the first atelier-2 run (04.09.2026, 131 open Sonar issues)
-and the 05.09.2026 measurement week (agent-claim #116).
+and the 05.09.2026 measurement week (PR overnightworks/agent-claim#116).
 
 - **(a) Noise an exclusion removes** — mockups, vendored assets, generated
   artefacts, fixtures: trees the rules were never written for. Action: one
@@ -65,41 +68,62 @@ and the 05.09.2026 measurement week (agent-claim #116).
   `docs/requirements/0003-ziel-ui-mockup-v8.html`.*
 - **(b) Tried and refused** — a finding whose code route was tried and
   measured; the PR's own SonarCloud analysis is the instrument, never a guess.
-  The fix failed, or fixing it is judged counterproductive. Action: a
+  The fix failed, or fixing it is judged counterproductive. This skill never
+  assigns (b) from a scan; a finding enters (b) only from a (d) slice whose PR
+  analysis proves the route failed, and the head records that judgement on the
+  distributor before the builder versions the exception. Action: a
   **builder** versions the exception in the repository, next to its reason —
   never a SonarCloud UI won't-fix, never a file-wide ignore that hides future
   hits. A rule-level `sonar.issue.ignore.multicriteria` entry in
   `sonar-project.properties` only when a stronger owner already takes the
-  check over; otherwise a documented block/line marker on the single finding.
-  The reason is written next to the entry and on the distributor. *Example:
-  `python:S5886`/`S5890` — annotating a local with the expected type to
-  satisfy S5886 adds S5890 in the same PR analysis; both rules are ignored at
-  rule level, owned instead by the repository's pyright CI gate.*
+  check over *and that owner is named and scheduled*; until that owner's gate
+  is in CI, the entry carries the item number, and a builder must not copy the
+  pattern for a rule without such a named, scheduled owner. For a single
+  finding the mechanism is a rule-specific marker on the line —
+  `# NOSONAR(S8786) reason`, never a bare `# NOSONAR`, which silences every
+  rule on the line. The reason is written next to the entry and on the
+  distributor. *Example: `python:S5886`/`S5890` — the rule-level entry in
+  `sonar-project.properties` is allowed because pyright (#114, a planned CI
+  gate) is named and scheduled as the stronger owner for type consistency; the
+  entry carries `#114` next to it until that gate is actually in CI.*
 - **(c) Frozen code** — code built ahead of its caller (AGENTS.md rule: frozen,
   not deleted; no hardening, no new tests). Action: the finding **stays open**,
   named against the item that will delete or pull that code, so the scanner
   stops being asked the question the board already owns. *Example:
   `pythonsecurity:S8707` in `src/atelier2/adapters/docker_carrier.py:925`.*
 - **(d) Real and small** — the scanner is right and the fix is cheap. Action:
-  one slice per owning module, cut **after the measurement week** so a lane is
-  not spent on a rule that turns out to be class (b). *Example: `python:S5863`,
-  six self-comparing assertions under `tests/domain/`.*
+  one slice per owning module, cut **after the measurement week**. *Example:
+  `python:S5863`, six self-comparing assertions under `tests/domain/`.*
 
-## What the scanner actually recognises (measured 05.09.2026, sonar-python, agent-claim #116)
+## Results: what the SonarCloud Python analyzers accept
 
-- Argparse-typed values stay tainted; an explicit `int(...)` at the boundary
-  right after `parse_args` clears a number.
-- `re.fullmatch(PATTERN, value)` in a guard is recognised as validation;
-  `PATTERN.fullmatch(value)` is not.
-- A nested unbounded quantifier `(?:>[ \t]*)*` is flagged; a possessive
-  quantifier does not clear it, a bounded inner quantifier `(?:[ \t]{0,3}>)*`
-  does.
-- Two adjacent overlapping classes `[ \t]*(?P<v>[^\r\n]*)` are flagged — trim
-  in code instead of tightening the regex.
-- Annotating a local with the expected type to satisfy S5886 adds S5890
-  instead.
-- `S8705` and `S8786` have no published description ("external rule, no
-  details available") — the PR's own analysis is the only oracle for them.
+Source: SonarCloud PR analysis, overnightworks/agent-claim PR #116,
+05.09.2026 (head 5884bdd, quality gate OK). `pythonsecurity:S8705` and
+`python:S8786` carry no SonarCloud description text ("external rule, no
+details available"), so this PR analysis is the only oracle for them.
+
+Positive — cleared:
+- `pythonsecurity:S8705` closed after routing the direct `gh` call through the
+  validating client, `re.fullmatch(REPOSITORY_PATTERN, value)` at every
+  repository guard, and an explicit `int(...)` / `_optional_issue_number`
+  boundary in `main` for argparse-typed numbers.
+- `python:S8786` closed for `FROZEN_LINE_PATTERN` by replacing
+  `(?:>[ \t]*)*` with `(?:[ \t]{0,3}>)*[ \t]{0,3}`.
+- `python:S8786` closed for `CLASSIFICATION_LINE_PATTERN` by capturing the
+  value directly after the colon and trimming with `.strip(" \t")` in code.
+- `python:S5886`/`S5890`: switched off at rule level in
+  `sonar-project.properties`, with the reason that pyright (#114, a planned CI
+  gate) owns type consistency — noted as planned, not yet in CI.
+
+Negative — tried and refused:
+- A possessive quantifier did not clear `python:S8786` (tried in 0957f0d).
+- The compiled-pattern method form `PATTERN.fullmatch(value)` was not accepted
+  as validation — it brought the repository taint back in the analysis of
+  4431370.
+- Annotating a local with the expected type to satisfy `python:S5886` added
+  `python:S5890` in the same PR analysis.
+- The intermediate state `[ \t]*(?P<value>[^\r\n]*)$` with an `.rstrip()` was
+  still flagged by `python:S8786`.
 
 ## The distributor issue
 
@@ -121,9 +145,9 @@ standing rulings, which every review of a Sonar finding inherits:
   not a defect list.
 - SonarCloud and CodeQL are **not required checks** until a measurement week
   has compared them against the repository's own gates. Until then, a gate red
-  only because of a not-yet-tried finding is not a merge blocker; a gate red
-  because of an untried code route — a class (b) candidate whose fix was never
-  attempted — is a merge blocker: try the code route first (operator ruling
+  on a finding whose code route was tried and refused (its exception lands in
+  the same PR) is not a merge blocker; a gate red on a finding whose code
+  route was never tried is one: try the code route first (operator ruling
   05.09.2026).
 - A review of a Sonar finding **needs the project context** — the owning item,
   the rulings, the frozen-code list. A finding reviewed without it is mostly

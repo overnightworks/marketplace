@@ -422,10 +422,11 @@ treat a violation as a defect to fix before you call the work done.
   found it.
 - Keep changes small and reviewable. Delete dead code and leftover scaffolding;
   no backwards-compatibility cruft or "for the future" parameters.
-- Fix scanner and linter findings in code. Mark a finding false-positive,
-  won't-fix, or ignored only when a code or design fix was tried or would make
-  the code worse; record the reason with the finding on its owning item before
-  suppressing it. Inline suppression is the last route.
+- Fix scanner and linter findings in code. An exception exists only after a
+  code route was tried and measured or judged counterproductive; it is
+  versioned in the repository next to its reason (a rule-specific line marker
+  or a properties entry naming its stronger owner), never a SonarCloud status
+  change, and never a file-wide ignore.
 
 # Testing Conventions
 

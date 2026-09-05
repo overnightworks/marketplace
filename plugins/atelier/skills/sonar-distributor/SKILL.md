@@ -58,7 +58,7 @@ rule-level exception moves to the CI scanner first. State of 05.09.2026 in
 ## The four classes
 
 Illustrated with the first atelier-2 run (04.09.2026, 131 open Sonar issues)
-and the 05.09.2026 measurement week (PR overnightworks/agent-claim#116).
+and the 05.09.2026 measurement PR (PR overnightworks/agent-claim#116).
 
 - **(a) Noise an exclusion removes** — mockups, vendored assets, generated
   artefacts, fixtures: trees the rules were never written for. Action: one
@@ -75,8 +75,8 @@ and the 05.09.2026 measurement week (PR overnightworks/agent-claim#116).
   **builder** versions the exception in the repository, next to its reason —
   never a SonarCloud UI won't-fix, never a file-wide ignore that hides future
   hits. A rule-level `sonar.issue.ignore.multicriteria` entry in
-  `sonar-project.properties` only when a stronger owner already takes the
-  check over *and that owner is named and scheduled*; until that owner's gate
+  `sonar-project.properties` only when a stronger owner is named and
+  scheduled to take the check over; until that owner's gate
   is in CI, the entry carries the item number, and a builder must not copy the
   pattern for a rule without such a named, scheduled owner. For a single
   finding the mechanism is a rule-specific marker on the line —
@@ -92,7 +92,8 @@ and the 05.09.2026 measurement week (PR overnightworks/agent-claim#116).
   stops being asked the question the board already owns. *Example:
   `pythonsecurity:S8707` in `src/atelier2/adapters/docker_carrier.py:925`.*
 - **(d) Real and small** — the scanner is right and the fix is cheap. Action:
-  one slice per owning module, cut **after the measurement week**. *Example:
+  one slice per owning module; the first (d) slice is the measurement; the
+  rest are cut after it. *Example:
   `python:S5863`, six self-comparing assertions under `tests/domain/`.*
 
 ## Results: what the SonarCloud Python analyzers accept
@@ -111,9 +112,6 @@ Positive — cleared:
   `(?:>[ \t]*)*` with `(?:[ \t]{0,3}>)*[ \t]{0,3}`.
 - `python:S8786` closed for `CLASSIFICATION_LINE_PATTERN` by capturing the
   value directly after the colon and trimming with `.strip(" \t")` in code.
-- `python:S5886`/`S5890`: switched off at rule level in
-  `sonar-project.properties`, with the reason that pyright (#114, a planned CI
-  gate) owns type consistency — noted as planned, not yet in CI.
 
 Negative — tried and refused:
 - A possessive quantifier did not clear `python:S8786` (tried in 0957f0d).

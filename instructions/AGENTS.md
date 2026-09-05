@@ -47,16 +47,16 @@ An explicit operator request wins. Without one:
 4. If there is no actionable item, or the directory is not a Git repository,
    ask what to work on.
 
-Treat existing tracked and untracked changes as the operator's work: preserve
-them and work around them. Never use `git stash` in a worktree because its
-stash stack is shared across worktrees; commit lane work on its branch
-instead.
-
 This startup routine applies only to a head session started directly by the
 operator. A subagent or reviewer does only the bounded task and scope delegated
 by its parent, under the parent's claim, and reports evidence back to that
 parent. It does not scan the board, claim unrelated work, broaden scope, or
 start follow-up work unless the head delegates a new independent lane.
+
+Treat existing tracked and untracked changes as the operator's work: preserve
+them and work around them. Never use `git stash` in a worktree because its
+stash stack is shared across worktrees; commit lane work on its branch
+instead.
 
 ## How to answer
 
@@ -115,7 +115,8 @@ the gate binds the head's own proposals, not the operator's word.
 
 Take the cleanest solution that still looks right in a year: one owner, no
 parallel copies, no workaround that has to be undone later. Fix the cause.
-Verify evidence before you say it is done. If you cannot verify, say exactly
+Verify evidence before you say it is done. If the UI changed, require a
+delegated agent to drive it like a user. If you cannot verify, say exactly
 what you could not do — after you actually tried.
 
 No new item without a named caller (operator ruling 04.09.2026).
@@ -250,7 +251,7 @@ review. It delegates fixes and re-review until clean. For UI, delegate
 real-interface checks at relevant mobile and desktop widths. Then delegate
 required CI and evaluate the evidence.
 
-## Model routing
+### Model routing
 
 Keep the operator-started head model. Pick the row by difficulty and any
 eligible provider column; a required final gate uses a different provider

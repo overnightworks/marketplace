@@ -11,6 +11,22 @@ repository of the operator is on SonarCloud (Free plan, public projects,
 organisation `overnightworks`, project keys `overnightworks_<repo>`) and on CodeQL default
 setup (operator ruling 04.09.2026).
 
+## Analysis mode
+
+SonarCloud runs exactly one analysis mode per project. A repository whose CI
+carries the scanner (`SonarSource/sonarqube-scan-action` with `SONAR_TOKEN`,
+coverage reports fed) has Automatic Analysis OFF; a repository without a CI
+scanner keeps Automatic Analysis ON. Both on at once makes every CI scan fail
+with a conflict, and both off means no analysis. Check and set it through the
+API, never by hand in the UI: `GET
+https://sonarcloud.io/api/navigation/component?component=<org>_<repo>` reads
+the `autoscanEnabled` field; `POST
+https://sonarcloud.io/api/autoscan/activation` (form fields `projectKey`,
+`enable=true|false`) sets it, with the token from the operator's configured
+SonarCloud credential, never printed. State of 05.09.2026 in `overnightworks`:
+CI scanner and Automatic Analysis off — `atelier-2`, `agent-claim`, `hopin`,
+`songmaker`; Automatic Analysis on — `marketplace`, `claude-revive`.
+
 ## Procedure
 
 1. **Pull the numbers.** SonarCloud's public API needs no token for a public

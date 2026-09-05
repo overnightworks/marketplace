@@ -252,6 +252,37 @@ then, after merge or abandonment, consult `agent-claim release --help`, release
 the claim, and close the item. Subagents and reviewers have no autonomous
 landing authority. Never land another owner's lane.
 
+## Machine load and local runs
+
+The machine runs many lanes at once; the tests, probe stacks, and image
+builds are what overbook it, not the agents.
+
+Local runs are targeted; CI is the gate. A builder or reviewer runs locally
+only the tests that prove its own change — the named test modules, or `-k`
+on the behaviour — plus the static checks its brief names. Never a full
+suite, a coverage run, or a full E2E/Playwright suite on this machine unless
+the operator asked. Those run in CI on the pushed branch; the lane reads CI.
+A repository `CLAUDE.md` may name cheaper local commands for that repo; it
+may not loosen this floor.
+
+Workers are capped twice: no repository sets `-n auto` as its pytest default
+(CI passes it explicitly), and every local shell keeps
+`PYTEST_XDIST_AUTO_NUM_WORKERS=4`; do not override it upwards. Frontend
+runs are the same idea: named files, never `pnpm test` of the whole tree.
+
+One probe stack per machine. Browser proofs, live Docker probe stacks, and
+E2E take `/tmp/probe-stack.lock` (`flock`, shared across repositories). Wait
+for the lock; do not skip the proof, and never point at the operator's live
+stack. Drive only the flow of the slice, at the widths the brief names.
+
+Throttle the scarce job, not the lane. Before starting a local test run,
+probe stack, coverage job, or image build, read the 1-minute load average.
+Above 1.5 × cores, wait or do claim-free work; do not start another of those
+jobs. Thinking, editing, review, and landing stay allowed under load.
+
+Poll GitHub sparingly: `gh pr checks --watch --interval 60` or slower;
+monitors at ninety seconds or more.
+
 ## Orchestration loop
 
 While delegated lanes or executable plan steps remain, the head stays in its
@@ -266,6 +297,20 @@ remains. Stop only when the objective is complete or every useful lane is
 genuinely blocked on the operator or external state.
 
 Do not use Atelier's deprecated Auto-Runner for coordination.
+
+## Local load (operator ruling 05.09.2026)
+
+The machine runs many lanes at once; the tests are what overbook it, not the
+agents. Test targeted: a builder runs the tests of the behaviour it touched and
+the static gates, then the full suite exactly once before it commits, and then
+CI is the arbiter — never the full suite after every edit, never several full
+suites in one lane. `-n auto` is capped to four workers per run through
+`PYTEST_XDIST_AUTO_NUM_WORKERS` in every shell; do not override it upwards.
+Playwright/e2e suites count double: one at a time per repository. Poll GitHub
+sparingly: `gh pr checks --watch --interval 60`, monitors at ninety seconds or
+more — twenty agents polling every ten seconds exhaust the API rate limit for
+everyone. A test that spawns processes owns their end: a suite that leaves
+children behind is a defect on the board, not a cleanup chore.
 
 ## Model routing
 
@@ -425,6 +470,19 @@ code, held to the same bar — and they decide whether a change is "done."
   order dependence, no mutable state leaking between tests.
 - A sentence about what a person does at a surface is proven by driving the
   real interface, never by a unit test.
+
+## Local runs are targeted; CI runs the suite
+
+- One machine carries many lanes at once, so a builder or reviewer runs
+  locally only the tests that cover what it changed — the test modules of the
+  touched code, or `-k` on the behaviour — plus the checks its brief names.
+  The full suite is CI's job: the lane pushes, and the head reads the CI
+  result as the evidence. Running the whole suite locally as a routine step,
+  or `-n auto` on a shared machine, is what pushed the box to a load of 140 on
+  12 cores (measured 05.09.2026); `PYTEST_XDIST_AUTO_NUM_WORKERS` caps `auto`
+  in every session, and a run that needs more workers belongs in CI.
+- A live server or process a test starts is the test's to stop; a worktree is
+  removed only after its processes are gone.
 
 ## No test explosion
 

@@ -4,8 +4,8 @@ description: Turn a repository's SonarCloud and CodeQL findings into exactly ONE
 ---
 
 Classify findings by class, never by count. A scanner reports symptoms across a
-whole tree at once; the cheap win is one exclusion or one won't-fix that
-retires a whole class, and the expensive loss is a lane per finding. **This
+whole tree at once; the cheap win is one exclusion or one versioned exception
+that retires a whole class, and the expensive loss is a lane per finding. **This
 skill reads scanners and writes one issue; it changes no source file.** Every
 repository of the operator is on SonarCloud (Free plan, public projects,
 organisation `overnightworks`, project keys `overnightworks_<repo>`) and on CodeQL default
@@ -43,7 +43,7 @@ CI scanner and Automatic Analysis off — `atelier-2`, `agent-claim`, `hopin`,
    Then group the result twice — by `rule` and by top-level directory of
    `component`. Those two groupings are the whole triage: a rule with dozens of
    hits is one decision, not dozens.
-2. **Classify every group** into the five classes below. A group belongs to
+2. **Classify every group** into the four classes below. A group belongs to
    exactly one class, and each class has one named action and one owner.
 3. **Write ONE distributor issue** per repository (search the board first —
    `gh issue list --search` over open and recently closed — and sharpen an
@@ -52,9 +52,10 @@ CI scanner and Automatic Analysis off — `atelier-2`, `agent-claim`, `hopin`,
    time from the distributor. A finding becomes its own issue only when it is
    dispatched.
 
-## The five classes
+## The four classes
 
-Illustrated with the first atelier-2 run (04.09.2026, 131 open Sonar issues).
+Illustrated with the first atelier-2 run (04.09.2026, 131 open Sonar issues)
+and the 05.09.2026 measurement week (agent-claim #116).
 
 - **(a) Noise an exclusion removes** — mockups, vendored assets, generated
   artefacts, fixtures: trees the rules were never written for. Action: one
@@ -62,13 +63,18 @@ Illustrated with the first atelier-2 run (04.09.2026, 131 open Sonar issues).
   slice. *Example: 52 of 131 findings sat in `docs/`, 35 of them accessibility
   smells (`Web:S6853`) in the single mockup file
   `docs/requirements/0003-ziel-ui-mockup-v8.html`.*
-- **(b) A rule that does not fit this project** — the rule is right in general
-  and wrong here. Action: **operator or head**, in the SonarCloud UI —
-  won't-fix each hit with a one-line reason, or disable the rule in the quality
-  profile when the whole class is wrong. Never a code change and never a
-  builder's task. *Example: `githubactions:S8541`, `uv sync` without
-  `--no-build`, 14 hits — the project installs itself, not third-party
-  build scripts.*
+- **(b) Tried and refused** — a finding whose code route was tried and
+  measured; the PR's own SonarCloud analysis is the instrument, never a guess.
+  The fix failed, or fixing it is judged counterproductive. Action: a
+  **builder** versions the exception in the repository, next to its reason —
+  never a SonarCloud UI won't-fix, never a file-wide ignore that hides future
+  hits. A rule-level `sonar.issue.ignore.multicriteria` entry in
+  `sonar-project.properties` only when a stronger owner already takes the
+  check over; otherwise a documented block/line marker on the single finding.
+  The reason is written next to the entry and on the distributor. *Example:
+  `python:S5886`/`S5890` — annotating a local with the expected type to
+  satisfy S5886 adds S5890 in the same PR analysis; both rules are ignored at
+  rule level, owned instead by the repository's pyright CI gate.*
 - **(c) Frozen code** — code built ahead of its caller (AGENTS.md rule: frozen,
   not deleted; no hardening, no new tests). Action: the finding **stays open**,
   named against the item that will delete or pull that code, so the scanner
@@ -78,11 +84,22 @@ Illustrated with the first atelier-2 run (04.09.2026, 131 open Sonar issues).
   one slice per owning module, cut **after the measurement week** so a lane is
   not spent on a rule that turns out to be class (b). *Example: `python:S5863`,
   six self-comparing assertions under `tests/domain/`.*
-- **(e) Probably a false positive** — verify before you believe it. Action:
-  read the line, then won't-fix with the reason, or move it to (d) if the doubt
-  does not survive. *Examples: `python:S4790` on a SHA-256 used as an identity,
-  not as a password digest (`src/atelier2/contracts/effect_requests.py:406`);
-  `python:S5332` on loopback `http://` addresses (`src/atelier2/host/address.py:16`).*
+
+## What the scanner actually recognises (measured 05.09.2026, sonar-python, agent-claim #116)
+
+- Argparse-typed values stay tainted; an explicit `int(...)` at the boundary
+  right after `parse_args` clears a number.
+- `re.fullmatch(PATTERN, value)` in a guard is recognised as validation;
+  `PATTERN.fullmatch(value)` is not.
+- A nested unbounded quantifier `(?:>[ \t]*)*` is flagged; a possessive
+  quantifier does not clear it, a bounded inner quantifier `(?:[ \t]{0,3}>)*`
+  does.
+- Two adjacent overlapping classes `[ \t]*(?P<v>[^\r\n]*)` are flagged — trim
+  in code instead of tightening the regex.
+- Annotating a local with the expected type to satisfy S5886 adds S5890
+  instead.
+- `S8705` and `S8786` have no published description ("external rule, no
+  details available") — the PR's own analysis is the only oracle for them.
 
 ## The distributor issue
 
@@ -103,8 +120,11 @@ standing rulings, which every review of a Sonar finding inherits:
   rating of the legacy is never chased; a legacy rating of D is a measurement,
   not a defect list.
 - SonarCloud and CodeQL are **not required checks** until a measurement week
-  has compared them against the repository's own gates. Until then they inform;
-  they do not block a landing.
+  has compared them against the repository's own gates. Until then, a gate red
+  only because of a not-yet-tried finding is not a merge blocker; a gate red
+  because of an untried code route — a class (b) candidate whose fix was never
+  attempted — is a merge blocker: try the code route first (operator ruling
+  05.09.2026).
 - A review of a Sonar finding **needs the project context** — the owning item,
   the rulings, the frozen-code list. A finding reviewed without it is mostly
   rejection ware, and the reviewer will argue with the rule instead of the code.

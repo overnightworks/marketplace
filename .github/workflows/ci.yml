@@ -82,6 +82,7 @@ jobs:
       - name: SonarCloud open findings
         env:
           GITHUB_EVENT_NAME: ${{ github.event_name }}
+          GITHUB_REF_NAME: ${{ github.ref_name }}
           PULL_REQUEST_NUMBER: ${{ github.event.pull_request.number }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: |
@@ -90,7 +91,7 @@ jobs:
           if [ "${GITHUB_EVENT_NAME}" = "pull_request" ]; then
             scope_query="pullRequest=${PULL_REQUEST_NUMBER}"
           else
-            scope_query="branch=main"
+            scope_query="branch=${GITHUB_REF_NAME}"
           fi
           python3 - "${component_key}" "${scope_query}" <<'PYTHON'
           import base64
@@ -139,8 +140,11 @@ jobs:
               except urllib.error.HTTPError as error:
                   sys.exit(
                       f"SonarCloud did not resolve {component_key} in scope "
-                      f"{scope_query} (HTTP {error.code}); its findings were "
-                      "never read"
+                      f"{scope_query} (HTTP {error.code}): either no analysis "
+                      "exists for this scope — an unanalysed branch, a pull "
+                      "request that does not exist, a mistyped key — or the "
+                      "credential cannot see the project. Its findings were "
+                      "never read."
                   )
 
           require_resolved_scope()
@@ -163,4 +167,7 @@ jobs:
           if total > 0:
               print(f"{total} open SonarCloud finding(s) in scope {scope_query}", file=sys.stderr)
               sys.exit(1)
+
+          # A step that prints nothing on success cannot be shown to have run.
+          print(f"SonarCloud clean for '{component_key}' ({scope_query}): {total} open finding(s)")
           PYTHON

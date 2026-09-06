@@ -25,34 +25,36 @@ https://sonarcloud.io/api/autoscan/activation` (form fields `projectKey`,
 `enable=true|false`) sets it, with the token from the operator's configured
 SonarCloud credential, never printed. Automatic Analysis ignores
 `sonar-project.properties`; a repository that needs an exclusion or a
-rule-level exception moves to the CI scanner first. Measured 06.09.2026 in
-`overnightworks`: CI scanner, Automatic Analysis off — `marketplace`,
-`atelier-2`, `agent-claim`, `hopin`, `songmaker`, `agent-presentator`;
-Automatic Analysis on — `claude-revive`, `claudebot`, `gmail-cleanup`.
+rule-level exception moves to the CI scanner first. Read the mode of the
+project at hand from the API above; it is not the same across the
+organisation.
 
 ## Procedure
 
-1. **Pull the numbers.** Every call authenticates, for the reason under "API
-   access" below. The credential is basic auth — the token as user name, an
-   empty password — and it goes to `curl` in a header file, never in an
-   argument: `-u` and `-H` both put it in the command line, where any local
-   process reads it out of `ps`, and base64 is encoding, not concealment.
+1. **Pull the numbers.** Read with the credential that produced the analysis
+   and prove the scope, for the reason under "API access" below. The credential
+   is basic auth — the token as user name, an empty password — and it goes to
+   `curl` in a header file, never in an argument: `-u` and `-H` both put it in
+   the command line, where any local process reads it out of `ps`, and base64
+   is encoding, not concealment.
 
    ```bash
    key=overnightworks_<repo>
-   scope=branch=main
-   umask 077
    header="$(mktemp)"
+   trap 'rm -f "$header"' EXIT
    printf 'Authorization: Basic %s\n' "$(printf '%s:' "$SONAR_TOKEN" | base64 -w0)" > "$header"
+   main="$(curl -s -H @"$header" "https://sonarcloud.io/api/project_branches/list?project=$key" | python3 -c 'import json,sys; print(next(b["name"] for b in json.load(sys.stdin)["branches"] if b["isMain"]))')"
+   scope="branch=$main"
    curl -s -H @"$header" "https://sonarcloud.io/api/measures/component?component=$key&$scope&metricKeys=ncloc,bugs,vulnerabilities,security_hotspots,code_smells,duplicated_lines_density,duplicated_blocks,cognitive_complexity,reliability_rating,security_rating,sqale_rating"
    curl -s -H @"$header" "https://sonarcloud.io/api/issues/search?componentKeys=$key&$scope&issueStatuses=OPEN,CONFIRMED,ACCEPTED,FALSE_POSITIVE&ps=500&p=1"
    gh api repos/<owner>/<repo>/code-scanning/alerts --paginate
-   rm -f "$header"
    ```
 
    The measures call carries the same scope as the issue search on purpose: it
    is the proof that the query reached something. If it 404s, stop — the issue
-   search would answer zero about nothing.
+   search would answer zero about nothing. The main branch is asked for, not
+   assumed: a literal `branch=main` copied into a repository whose main branch
+   is `master` is that silent zero.
 
    Page the issue search until you have `total` issues (`ps` maxes at 500).
    Then group the result twice — by `rule` and by top-level directory of
@@ -130,20 +132,41 @@ and the 05.09.2026 measurement PR (PR overnightworks/agent-claim#116).
 
 A scoped `api/issues/search` answers HTTP 200 with `total: 0` and no `errors`
 field whenever it was asked about nothing, and nothing in that response tells it
-apart from a clean project. Four ways in (measured 06.09.2026): an
-unauthenticated query against a private project (`overnightworks_claudebot`:
-anonymous 0 against 12 authenticated), a branch that was never analysed
-(`branch=no-such-branch`), a pull request number that does not exist, and a
-mistyped component key. So: **a query that answered about nothing must never
-read as clean.**
+apart from a clean project. It answers that way for a private project queried
+without a credential — where `api/measures/component` and `api/components/show`
+say 404 "Project doesn't exist" while the issue search stays cheerfully empty —
+and equally for a branch that was never analysed, a pull request number that
+does not exist, and a mistyped component key. So: **a query that answered about
+nothing must never read as clean.**
 
-One call proves token, key and scope together — `api/measures/component` under
-the **same scope** as the issue search, which answers 404 when any of the three
-does not resolve and 200 when all do. The gate step and every pull make it
-first and fail loud by name when it fails; only then is a zero a clean result.
-`api/components/show` is not enough: it is unscoped, so it resolves happily
-while the scope names nothing. `api/authentication/validate` proves nothing at
-all — it answers `valid: true` anonymously.
+One call proves credential, key and scope together: `api/measures/component`
+under the **same scope** as the issue search, 404 when any of the three does not
+resolve. The gate step and every pull make it first, and its failure names both
+causes — no analysis exists for this scope (an unanalysed branch, a pull request
+that does not exist, a mistyped key), or the credential cannot see the project.
+`api/components/show` cannot do the job because it is unscoped: it resolves
+while the scope names nothing, and `api/authentication/validate` proves nothing
+at all — it answers `valid: true` anonymously.
+
+Success says so, in one shape across the fleet, because a step that prints
+nothing on success cannot be shown to have run:
+`SonarCloud clean for '<key>' (<scope>): <n> open finding(s)`.
+
+The rule is therefore not "authenticate when the project is private": **read
+with the same credential that produced the analysis you are reading, and assert
+the scope always.** A repository whose CI carries the scanner has Automatic
+Analysis off, so a fork pull request produces no analysis at all, and the
+question is never who may read but whether anything was written.
+
+Scopes come from the repository, never from a literal: `${GITHUB_REF_NAME}` in
+a workflow, and `api/project_branches/list` (`isMain`) in a pull. A copied
+`branch=main` in a repository whose main branch is `master` is the trap.
+
+A third way to read clean escapes both the credential and the scope proof: a
+**skipped job**. Where a fork pull request has no token, the scan step does not
+run, so nothing is analysed and nothing is asserted — and a skipped check does
+not block, even where the gate is required. A fork's code is measured when it
+runs from a branch in the repository.
 
 Every query asks for `issueStatuses=OPEN,CONFIRMED,ACCEPTED,FALSE_POSITIVE`,
 never the legacy `statuses` parameter, whose vocabulary drops an issue a person
@@ -152,19 +175,15 @@ query sees. The two holes compound, so the two fixes ship together: an
 authenticated gate still querying `statuses=OPEN` is blind in exactly that way,
 and a reader who repairs only the authentication is not done.
 
-A project's SonarCloud visibility is its own — SonarCloud follows the GitHub
+`issues/search` cannot answer for security hotspots at all: it rejects
+`types=SECURITY_HOTSPOT` with "must be one of: [CODE_SMELL, BUG,
+VULNERABILITY]". "Zero open findings" therefore excludes a class that a person
+can also silence in the interface.
+
+A project's SonarCloud visibility is its own: SonarCloud follows the GitHub
 repository only when it auto-creates the project, and either can change
-afterwards. Read it from the API for the project at hand instead of inferring
-it, and treat authentication as mandatory: it costs nothing where the project is
-public.
-
-### The stronger floor
-
-The server-side quality gate judges new code only, so a repository that wants a
-stronger floor — zero open findings, a coverage fail-under — carries it in
-its own tooling. That is how these repositories are set up, and it is why a
-distributor reads a green build as evidence only after checking what that
-repository actually asserts.
+afterwards. Read it from the API for the project at hand rather than inferring
+it.
 
 ### Python rules
 
@@ -245,7 +264,10 @@ standing rulings, which every review of a Sonar finding inherits:
   `issueStatuses`, the authentication, and the scope proof of "API access"
   above, and fails on any result — proven red with a probe finding and green
   without one. Every repository on the CI scanner copies this step, and a
-  distributor's Done when includes it.
+  distributor's Done when includes it. A floor stronger than the server
+  gate's new-code judgement — zero open findings, a coverage fail-under — lives
+  in the repository's own tooling, so a green build is evidence only once you
+  know what that repository asserts.
 
 ## Cadence and closing
 

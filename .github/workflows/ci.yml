@@ -23,7 +23,14 @@ jobs:
       - name: Check generated agents
         run: python3 scripts/sync_agents.py --check
       - name: Run tests
-        run: uvx --from pytest==9.1.1 --no-build pytest tests -q
+        run: >-
+          uvx --from pytest==9.1.1 --with pytest-cov --no-build
+          pytest tests -q --cov=scripts --cov-branch --cov-report=xml:coverage.xml
+      - name: Upload coverage report
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: coverage-report
+          path: coverage.xml
 
   secret-scan:
     name: Secret scan
@@ -40,3 +47,84 @@ jobs:
         run: go install github.com/zricethezav/gitleaks/v8@83d9cd684c87d95d656c1458ef04895a7f1cbd8e # v8.30.1
       - name: Scan for secrets
         run: '"${RUNNER_TEMP}/gitleaks" git --redact --no-banner --verbose .'
+
+  sonar:
+    name: SonarCloud scan
+    needs: checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repository and history
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Download coverage report
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: coverage-report
+      - name: Scan with SonarCloud
+        uses: SonarSource/sonarqube-scan-action@22918119ff8e1ca75a623e15c8296b6ea4fbe28f # v8.2.1
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      # The scan step above blocks on the analysis (sonar.qualitygate.wait=true
+      # in sonar-project.properties), so the report this reads is already
+      # final. The quality gate itself passes on ratings (A/B/C), not on "0
+      # findings on new code" (issue #143 in agent-claim); this queries the
+      # public API directly for that stronger bar and fails loud, with the
+      # list, when it is not met. The project is private, so the request
+      # authenticates with SONAR_TOKEN as the HTTP basic auth user name and an
+      # empty password; the token is read from the environment and never
+      # printed.
+      - name: SonarCloud open findings
+        env:
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+          PULL_REQUEST_NUMBER: ${{ github.event.pull_request.number }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: |
+          set -euo pipefail
+          component_key="$(sed -n 's/^sonar\.projectKey=//p' sonar-project.properties)"
+          if [ "${GITHUB_EVENT_NAME}" = "pull_request" ]; then
+            scope_query="pullRequest=${PULL_REQUEST_NUMBER}"
+          else
+            scope_query="branch=main"
+          fi
+          python3 - "${component_key}" "${scope_query}" <<'PYTHON'
+          import base64
+          import json
+          import os
+          import sys
+          import urllib.request
+
+          component_key, scope_query = sys.argv[1], sys.argv[2]
+          credentials = base64.b64encode(f'{os.environ["SONAR_TOKEN"]}:'.encode()).decode()
+
+          def fetch_page(page: int) -> dict:
+              url = (
+                  "https://sonarcloud.io/api/issues/search"
+                  f"?componentKeys={component_key}&{scope_query}&statuses=OPEN&ps=100&p={page}"
+              )
+              request = urllib.request.Request(
+                  url, headers={"Authorization": f"Basic {credentials}"}
+              )
+              with urllib.request.urlopen(request) as response:
+                  return json.load(response)
+
+          page = 1
+          printed = 0
+          total = None
+          while total is None or printed < total:
+              report = fetch_page(page)
+              total = report["total"]
+              for issue in report["issues"]:
+                  file_path = issue["component"].split(":", 1)[1]
+                  line = issue.get("line", "?")
+                  print(f'{issue["rule"]} {file_path}:{line} {issue["message"]}')
+                  printed += 1
+              if not report["issues"]:
+                  break
+              page += 1
+
+          if total > 0:
+              print(f"{total} open SonarCloud finding(s) on new code", file=sys.stderr)
+              sys.exit(1)
+          PYTHON

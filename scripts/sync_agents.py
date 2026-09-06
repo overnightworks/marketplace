@@ -42,38 +42,53 @@ def main() -> int:
     args = parse_args()
     expected = build_expected_codex_agents()
     stale = find_stale_generated_codex_files(expected)
-    changed = []
-
-    for path, content in expected.items():
-        current = path.read_text(encoding="utf-8") if path.exists() else None
-        if current != content:
-            changed.append(path)
-            if not args.check:
-                path.parent.mkdir(parents=True, exist_ok=True)
-                path.write_text(content, encoding="utf-8")
+    changed = write_changed_codex_agents(expected, write=not args.check)
 
     if args.check:
-        if changed or stale:
-            print("Generated Codex agents are out of sync.", file=sys.stderr)
-            for path in changed:
-                print(f"- update required: {relative(path)}", file=sys.stderr)
-            for path in stale:
-                print(f"- stale generated file: {relative(path)}", file=sys.stderr)
-            return 1
+        return report_check_result(changed, stale)
+
+    remove_stale_codex_files(stale)
+    report_sync_result(changed + stale)
+    return 0
+
+
+def write_changed_codex_agents(expected: dict[Path, str], *, write: bool) -> list[Path]:
+    changed = []
+    for path, content in expected.items():
+        current = path.read_text(encoding="utf-8") if path.exists() else None
+        if current == content:
+            continue
+        changed.append(path)
+        if write:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(content, encoding="utf-8")
+    return changed
+
+
+def report_check_result(changed: list[Path], stale: list[Path]) -> int:
+    if not changed and not stale:
         print("Generated Codex agents are in sync.")
         return 0
+    print("Generated Codex agents are out of sync.", file=sys.stderr)
+    for path in changed:
+        print(f"- update required: {relative(path)}", file=sys.stderr)
+    for path in stale:
+        print(f"- stale generated file: {relative(path)}", file=sys.stderr)
+    return 1
 
+
+def remove_stale_codex_files(stale: list[Path]) -> None:
     for path in stale:
         path.unlink()
-        changed.append(path)
 
-    if changed:
-        print("Synced Codex agent translations:")
-        for path in changed:
-            print(f"- {relative(path)}")
-    else:
+
+def report_sync_result(changed: list[Path]) -> None:
+    if not changed:
         print("Generated Codex agents already in sync.")
-    return 0
+        return
+    print("Synced Codex agent translations:")
+    for path in changed:
+        print(f"- {relative(path)}")
 
 
 def parse_args() -> argparse.Namespace:
@@ -191,11 +206,11 @@ def parse_simple_yaml(lines: list[str], path: Path) -> dict[str, Any]:
 
 
 def parse_scalar(value: str) -> str:
+    # A value starting with `"` is a JSON string literal, which json.loads can
+    # only resolve to a Python str; a leading `'` is invalid JSON and raises
+    # instead of resolving. Neither path can yield a non-string result.
     if value and value[0] in {'"', "'"}:
-        parsed = json.loads(value)
-        if not isinstance(parsed, str):
-            raise SystemExit(f"Frontmatter scalar must be a string: {value!r}")
-        return parsed
+        return json.loads(value)
     return value
 
 
@@ -295,11 +310,10 @@ def find_stale_generated_codex_files(expected: dict[Path, str]) -> list[Path]:
 
 
 def relative(path: Path) -> str:
-    try:
-        return str(path.relative_to(REPO_ROOT))
-    except ValueError:
-        return str(path)
+    # SOURCE_DIR and CODEX_TARGET_DIR are both derived from REPO_ROOT, so
+    # every path this module prints is guaranteed to live under it.
+    return str(path.relative_to(REPO_ROOT))
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover - process entry point, no logic of its own
     raise SystemExit(main())

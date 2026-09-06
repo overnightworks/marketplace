@@ -7,9 +7,9 @@ Classify findings by class, never by count. A scanner reports symptoms across a
 whole tree at once; the cheap win is one exclusion or one versioned exception
 that retires a whole class, and the expensive loss is a lane per finding. **This
 skill reads scanners and writes one issue; it changes no source file.** Every
-repository of the operator is on SonarCloud (Free plan, public projects,
-organisation `overnightworks`, project keys `overnightworks_<repo>`) and on CodeQL default
-setup (operator ruling 04.09.2026).
+repository of the operator is on SonarCloud (organisation `overnightworks`,
+project keys `overnightworks_<repo>`) and on CodeQL default setup (operator
+ruling 04.09.2026).
 
 ## Analysis mode
 
@@ -25,30 +25,34 @@ https://sonarcloud.io/api/autoscan/activation` (form fields `projectKey`,
 `enable=true|false`) sets it, with the token from the operator's configured
 SonarCloud credential, never printed. Automatic Analysis ignores
 `sonar-project.properties`; a repository that needs an exclusion or a
-rule-level exception moves to the CI scanner first. State of 05.09.2026 in
-`overnightworks`: CI scanner and Automatic Analysis off — `atelier-2`,
-`agent-claim`, `hopin`, `songmaker`; Automatic Analysis on — `marketplace`,
-`claude-revive`.
+rule-level exception moves to the CI scanner first. Measured 06.09.2026 in
+`overnightworks`: CI scanner, Automatic Analysis off — `marketplace`,
+`atelier-2`, `agent-claim`, `hopin`, `songmaker`, `agent-presentator`;
+Automatic Analysis on — `claude-revive`, `claudebot`, `gmail-cleanup`.
 
 ## Procedure
 
-1. **Pull the numbers.** `SONAR_TOKEN` carries the operator's SonarCloud
-   credential, never printed; an unauthenticated pull is unsafe for the reason
-   under "API access" below. The credential travels in the header, as basic
-   auth with the token as user name and an empty password, so it stays out of
-   the process list:
+1. **Pull the numbers.** Every call authenticates, for the reason under "API
+   access" below. The credential is basic auth — the token as user name, an
+   empty password — and it goes to `curl` in a header file, never in an
+   argument: `-u` and `-H` both put it in the command line, where any local
+   process reads it out of `ps`, and base64 is encoding, not concealment.
 
    ```bash
    key=overnightworks_<repo>
-   auth="Authorization: Basic $(printf '%s:' "$SONAR_TOKEN" | base64 -w0)"
-   curl -s -H "$auth" "https://sonarcloud.io/api/components/show?component=$key"
-   curl -s -H "$auth" "https://sonarcloud.io/api/measures/component?component=$key&metricKeys=ncloc,bugs,vulnerabilities,security_hotspots,code_smells,duplicated_lines_density,duplicated_blocks,cognitive_complexity,reliability_rating,security_rating,sqale_rating"
-   curl -s -H "$auth" "https://sonarcloud.io/api/issues/search?componentKeys=$key&issueStatuses=OPEN,CONFIRMED,ACCEPTED,FALSE_POSITIVE&ps=500&p=1"
+   scope=branch=main
+   umask 077
+   header="$(mktemp)"
+   printf 'Authorization: Basic %s\n' "$(printf '%s:' "$SONAR_TOKEN" | base64 -w0)" > "$header"
+   curl -s -H @"$header" "https://sonarcloud.io/api/measures/component?component=$key&$scope&metricKeys=ncloc,bugs,vulnerabilities,security_hotspots,code_smells,duplicated_lines_density,duplicated_blocks,cognitive_complexity,reliability_rating,security_rating,sqale_rating"
+   curl -s -H @"$header" "https://sonarcloud.io/api/issues/search?componentKeys=$key&$scope&issueStatuses=OPEN,CONFIRMED,ACCEPTED,FALSE_POSITIVE&ps=500&p=1"
    gh api repos/<owner>/<repo>/code-scanning/alerts --paginate
+   rm -f "$header"
    ```
 
-   The first call proves the key resolved; a pull that skips it can report a
-   clean repository it never reached.
+   The measures call carries the same scope as the issue search on purpose: it
+   is the proof that the query reached something. If it 404s, stop — the issue
+   search would answer zero about nothing.
 
    Page the issue search until you have `total` issues (`ps` maxes at 500).
    Then group the result twice — by `rule` and by top-level directory of
@@ -124,25 +128,22 @@ and the 05.09.2026 measurement PR (PR overnightworks/agent-claim#116).
 
 ### API access
 
-An anonymous `api/issues/search` against a **private** SonarCloud project
-answers HTTP 200 with `total: 0` and no `errors` field — a response nothing can
-tell apart from a genuinely clean project (measured 06.09.2026 on
-`overnightworks_claudebot`: anonymous 0, authenticated 12). A tokenless gate on
-a private project therefore never goes red: the repository reads clean forever
-while its findings pile up. Checking the visibility first does not rescue it,
-because that probe is blind without a token too — anonymous
-`api/navigation/component` and `api/components/show` both answer 404 "Project
-doesn't exist" for the same project. SonarCloud also auto-creates a project as
-private when the GitHub repository is private, so a repository arrives in this
-state without anyone choosing it. The rule is therefore not endpoint-specific:
-**a query that answered about nothing must never read as clean.**
+A scoped `api/issues/search` answers HTTP 200 with `total: 0` and no `errors`
+field whenever it was asked about nothing, and nothing in that response tells it
+apart from a clean project. Four ways in (measured 06.09.2026): an
+unauthenticated query against a private project (`overnightworks_claudebot`:
+anonymous 0 against 12 authenticated), a branch that was never analysed
+(`branch=no-such-branch`), a pull request number that does not exist, and a
+mistyped component key. So: **a query that answered about nothing must never
+read as clean.**
 
-So the gate step and every pull **authenticate always** and prove the component
-resolved before reading a zero as clean: `api/components/show?component=<key>`
-returns the component and its key when authorized. An `errors` field, a missing
-component, or a key differing from `sonar.projectKey` fails the step by name.
-`api/issues/search` cannot carry that assertion itself — its `components` array
-is empty for an authenticated clean project as well.
+One call proves token, key and scope together — `api/measures/component` under
+the **same scope** as the issue search, which answers 404 when any of the three
+does not resolve and 200 when all do. The gate step and every pull make it
+first and fail loud by name when it fails; only then is a zero a clean result.
+`api/components/show` is not enough: it is unscoped, so it resolves happily
+while the scope names nothing. `api/authentication/validate` proves nothing at
+all — it answers `valid: true` anonymously.
 
 Every query asks for `issueStatuses=OPEN,CONFIRMED,ACCEPTED,FALSE_POSITIVE`,
 never the legacy `statuses` parameter, whose vocabulary drops an issue a person
@@ -151,29 +152,19 @@ query sees. The two holes compound, so the two fixes ship together: an
 authenticated gate still querying `statuses=OPEN` is blind in exactly that way,
 and a reader who repairs only the authentication is not done.
 
-The measurement that produced this, 06.09.2026 in `overnightworks`: private
-SonarCloud projects — `marketplace` (behind a public GitHub repository),
-`claudebot`, `gmail-cleanup`; public — `hopin`, `agent-claim`, `atelier-2`,
-`songmaker`, `agent-presentator`. A repository's SonarCloud visibility is its
-own; the GitHub repository's says nothing about it.
+A project's SonarCloud visibility is its own — SonarCloud follows the GitHub
+repository only when it auto-creates the project, and either can change
+afterwards. Read it from the API for the project at hand instead of inferring
+it, and treat authentication as mandatory: it costs nothing where the project is
+public.
 
-### Quality gate scope
+### The stronger floor
 
-On the free plan a project cannot be given a custom quality gate:
-`api/qualitygates/select` answers 403 (measured 06.09.2026). The server-side
-gate is the built-in one, which judges new code only, so any stronger floor is
-the repository's own tooling — a coverage fail-under, a findings query, or
-both.
-A distributor run reads a green build as evidence only after checking which of
-those the repository actually has.
-
-What each repository asserted on 06.09.2026: `marketplace` and `hopin` run the
-zero-findings query; `claudebot` and `gmail-cleanup` carry the step but it
-self-skips while they are private without a token, leaving Automatic Analysis as
-their only measurement; `agent-claim` and `atelier-2` are repairing their step
-under their own items; `songmaker` scans with `continue-on-error` and asserts
-nothing about main; `agent-presentator` scans only, against the server gate,
-and its floor is a 100 % coverage fail-under plus Vitest thresholds.
+The server-side quality gate judges new code only, so a repository that wants a
+stronger floor — zero open findings, a coverage fail-under — carries it in
+its own tooling. That is how these repositories are set up, and it is why a
+distributor reads a green build as evidence only after checking what that
+repository actually asserts.
 
 ### Python rules
 
@@ -217,9 +208,7 @@ install the workspace project itself — "can't be installed because it is marke
 as `--no-build` but has no binary distribution" (uv 0.10.9, cold and warm
 environment) — and the flag therefore blocks every command the project's own
 code serves. A non-packaged project (`[tool.uv] package = false`) takes the flag,
-and `uvx` keeps it legitimately because it installs no local project. A hook or
-script whose tests stub the package manager proves nothing about this: green
-checks are not evidence, the real invocation is.
+and `uvx` keeps it legitimately because it installs no local project.
 
 ## The distributor issue
 
@@ -253,11 +242,10 @@ standing rulings, which every review of a Sonar finding inherits:
   #143/PR #145, 06.09.2026). The control is a CI step in the sonar job, after
   `sonar.qualitygate.wait=true`, that pages
   `api/issues/search?componentKeys=<key>&pullRequest=<n>` with the
-  `issueStatuses`, the authentication, and the resolution check of "API access"
+  `issueStatuses`, the authentication, and the scope proof of "API access"
   above, and fails on any result — proven red with a probe finding and green
-  without one.
-  Every repository on the CI scanner copies this step, and a distributor's
-  Done when includes it.
+  without one. Every repository on the CI scanner copies this step, and a
+  distributor's Done when includes it.
 
 ## Cadence and closing
 

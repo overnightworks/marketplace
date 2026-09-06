@@ -73,8 +73,11 @@ else
   exit 0
 fi
 
-if output="$(uv run --locked --no-build nox -s "$gate_session" 2>&1)"; then
+# The only source build this command can trigger is the gated workspace project
+# itself, whose code the hook is here to run; `--no-build` refuses to install that
+# project (uv 0.10.9) and would hard-block every commit in the gated repositories.
+if output="$(uv run --locked nox -s "$gate_session" 2>&1)"; then # NOSONAR(S8541) workspace project must build
   exit 0
 fi
-printf 'Atelier commit gate failed (uv run --locked --no-build nox -s %s). Fix the findings before committing:\n%s\n' "$gate_session" "$output" >&2
+printf 'Atelier commit gate failed (uv run --locked nox -s %s). Fix the findings before committing:\n%s\n' "$gate_session" "$output" >&2
 exit 2

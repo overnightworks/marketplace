@@ -206,23 +206,21 @@ def run_main(monkeypatch: pytest.MonkeyPatch, *args: str) -> int:
 
 
 @pytest.mark.parametrize(
-    ("case_id", "markdown_text", "expected_fragment"),
-    MALFORMED_AGENT_CASES,
-    ids=[case[0] for case in MALFORMED_AGENT_CASES],
+    ("markdown_text", "expected_fragment"),
+    [(markdown_text, fragment) for _, markdown_text, fragment in MALFORMED_AGENT_CASES],
+    ids=[case_id for case_id, _, _ in MALFORMED_AGENT_CASES],
 )
 def test_main_rejects_malformed_agent_source(
     agent_tree: tuple[Path, Path],
     monkeypatch: pytest.MonkeyPatch,
-    case_id: str,
     markdown_text: str,
     expected_fragment: str,
 ) -> None:
     source_dir, _ = agent_tree
     write_source_agent(source_dir, markdown_text)
-    monkeypatch.setattr(sys, "argv", ["sync_agents.py"])
 
     with pytest.raises(SystemExit) as excinfo:
-        sync_agents.main()
+        run_main(monkeypatch)
 
     assert expected_fragment in str(excinfo.value)
 
@@ -230,10 +228,8 @@ def test_main_rejects_malformed_agent_source(
 def test_main_rejects_empty_source_directory(
     agent_tree: tuple[Path, Path], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(sys, "argv", ["sync_agents.py"])
-
     with pytest.raises(SystemExit) as excinfo:
-        sync_agents.main()
+        run_main(monkeypatch)
 
     assert "No source agents found in" in str(excinfo.value)
 
@@ -317,7 +313,7 @@ def test_check_mode_detects_drift_without_writing(
 
     assert exit_code == 1
     assert "Generated Codex agents are out of sync." in error_output
-    assert f"- update required: {sync_agents.relative(generated_path)}" in error_output
+    assert "- update required: codex-agents/demo-agent.toml" in error_output
     assert generated_path.read_text(encoding="utf-8") == original_content
 
 
@@ -337,7 +333,7 @@ def test_generation_mode_removes_stale_generated_file_and_reports_it(
 
     assert exit_code == 0
     assert not stale_path.exists()
-    assert f"- {sync_agents.relative(stale_path)}" in output
+    assert "- codex-agents/ghost-agent.toml" in output
 
 
 def test_check_mode_reports_stale_generated_file_without_removing(
@@ -356,7 +352,7 @@ def test_check_mode_reports_stale_generated_file_without_removing(
     error_output = capsys.readouterr().err
 
     assert exit_code == 1
-    assert f"- stale generated file: {sync_agents.relative(stale_path)}" in error_output
+    assert "- stale generated file: codex-agents/ghost-agent.toml" in error_output
     assert stale_path.exists()
 
 

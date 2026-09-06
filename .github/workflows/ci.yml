@@ -76,10 +76,15 @@ jobs:
       # final. The quality gate itself passes on ratings (A/B/C), not on "0
       # findings on new code" (issue #143 in agent-claim); this queries
       # SonarCloud's `api/issues/search` directly for that stronger bar and
-      # fails loud, with the list, when it is not met. The project is
-      # private, so the request authenticates with SONAR_TOKEN as the HTTP
-      # basic auth user name and an empty password; the token is read from
-      # the environment and never printed.
+      # fails loud, with the list, when it is not met. The query names
+      # `issueStatuses`, never the legacy `statuses` parameter, whose
+      # vocabulary drops an issue a person accepts or marks false positive in
+      # the SonarCloud UI — the gate would go green with the finding still in
+      # the code. The SonarCloud project is private although this GitHub
+      # repository is public, so the request authenticates with SONAR_TOKEN as
+      # the HTTP basic auth user name and an empty password; the token is read
+      # from the environment and never printed. Anonymously a private project
+      # answers 200 with zero issues, which would let this gate pass forever.
       - name: SonarCloud open findings
         env:
           GITHUB_EVENT_NAME: ${{ github.event_name }}

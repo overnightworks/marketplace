@@ -116,7 +116,7 @@ jobs:
           def fetch_page(page: int) -> dict:
               url = (
                   "https://sonarcloud.io/api/issues/search"
-                  f"?componentKeys={component_key}&{scope_query}&statuses=OPEN&ps=100&p={page}"
+                  f"?componentKeys={component_key}&{scope_query}&statuses=OPEN,CONFIRMED,REOPENED&ps=100&p={page}"
               )
               request = urllib.request.Request(
                   url, headers={"Authorization": f"Basic {credentials}"}

@@ -51,16 +51,16 @@ while index < len(tokens):
 if index < len(tokens) and tokens[index] == "commit":
     print(directory)
 ' 2>/dev/null)" || exit 0
-[ -n "$commit_directory" ] || exit 0
+[[ -n "$commit_directory" ]] || exit 0
 
 # Codex exposes only the session cwd to hooks, not a Bash tool's separate workdir.
 # A commit outside that session must therefore carry an explicit ``git -C`` so the
 # hook can resolve and gate the same tree without evaluating arbitrary shell code.
 project_root="$(git -C "$commit_directory" rev-parse --show-toplevel 2>/dev/null || true)"
-[ -n "$project_root" ] || exit 0
+[[ -n "$project_root" ]] || exit 0
 cd "$project_root" || exit 0
-[ -f uv.lock ] || exit 0
-[ -f noxfile.py ] || exit 0
+[[ -f uv.lock ]] || exit 0
+[[ -f noxfile.py ]] || exit 0
 # Prefer a fast `lint` session (format+lint only) so pyright, tach, policy, and
 # tests do not tax every intermediate commit — those run in the repo's
 # `full`/`agent` land-gate before merge. Fall back to `agent` for repos that
@@ -73,8 +73,8 @@ else
   exit 0
 fi
 
-if output="$(uv run --locked nox -s "$gate_session" 2>&1)"; then
+if output="$(uv run --locked --no-build nox -s "$gate_session" 2>&1)"; then
   exit 0
 fi
-printf 'Atelier commit gate failed (uv run --locked nox -s %s). Fix the findings before committing:\n%s\n' "$gate_session" "$output" >&2
+printf 'Atelier commit gate failed (uv run --locked --no-build nox -s %s). Fix the findings before committing:\n%s\n' "$gate_session" "$output" >&2
 exit 2

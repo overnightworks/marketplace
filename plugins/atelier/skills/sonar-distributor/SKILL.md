@@ -32,15 +32,23 @@ rule-level exception moves to the CI scanner first. State of 05.09.2026 in
 
 ## Procedure
 
-1. **Pull the numbers.** SonarCloud's public API needs no token for a public
-   project:
+1. **Pull the numbers.** `SONAR_TOKEN` carries the operator's SonarCloud
+   credential, never printed; an unauthenticated pull is unsafe for the reason
+   under "API access" below. The credential travels in the header, as basic
+   auth with the token as user name and an empty password, so it stays out of
+   the process list:
 
    ```bash
    key=overnightworks_<repo>
-   curl -s "https://sonarcloud.io/api/measures/component?component=$key&metricKeys=ncloc,bugs,vulnerabilities,security_hotspots,code_smells,duplicated_lines_density,duplicated_blocks,cognitive_complexity,reliability_rating,security_rating,sqale_rating"
-   curl -s "https://sonarcloud.io/api/issues/search?componentKeys=$key&statuses=OPEN&ps=500&p=1"
+   auth="Authorization: Basic $(printf '%s:' "$SONAR_TOKEN" | base64 -w0)"
+   curl -s -H "$auth" "https://sonarcloud.io/api/components/show?component=$key"
+   curl -s -H "$auth" "https://sonarcloud.io/api/measures/component?component=$key&metricKeys=ncloc,bugs,vulnerabilities,security_hotspots,code_smells,duplicated_lines_density,duplicated_blocks,cognitive_complexity,reliability_rating,security_rating,sqale_rating"
+   curl -s -H "$auth" "https://sonarcloud.io/api/issues/search?componentKeys=$key&issueStatuses=OPEN,CONFIRMED,ACCEPTED,FALSE_POSITIVE&ps=500&p=1"
    gh api repos/<owner>/<repo>/code-scanning/alerts --paginate
    ```
+
+   The first call proves the key resolved; a pull that skips it can report a
+   clean repository it never reached.
 
    Page the issue search until you have `total` issues (`ps` maxes at 500).
    Then group the result twice — by `rule` and by top-level directory of
@@ -100,7 +108,74 @@ and the 05.09.2026 measurement PR (PR overnightworks/agent-claim#116).
   rest are cut after it. *Example:
   `python:S5863`, six self-comparing assertions under `tests/domain/`.*
 
-## Results: what the SonarCloud Python analyzers accept
+## Results: what the SonarCloud analyzers accept
+
+### Marker grammar
+
+- The rule key in a marker is bare — `# NOSONAR(S7503) reason`. A
+  `language:`-prefixed key is not parsed as a key: the prefixed form raised
+  `python:S7632` ("Fix the syntax of this issue suppression comment.") three
+  times in overnightworks/hopin PR #8 and left `python:S7503` open, where the
+  repository's own zero-findings step caught it; the bare form cleared both.
+- The shell analyzer honours the same `# NOSONAR(<key>) reason` grammar —
+  measured in this repository's PR #24 on
+  `plugins/atelier/hooks/pre_commit_gate.sh`, where the marker took
+  `shell:S8541` out of the PR analysis.
+
+### API access
+
+An anonymous `api/issues/search` against a **private** SonarCloud project
+answers HTTP 200 with `total: 0` and no `errors` field — a response nothing can
+tell apart from a genuinely clean project (measured 06.09.2026 on
+`overnightworks_claudebot`: anonymous 0, authenticated 12). A tokenless gate on
+a private project therefore never goes red: the repository reads clean forever
+while its findings pile up. Checking the visibility first does not rescue it,
+because that probe is blind without a token too — anonymous
+`api/navigation/component` and `api/components/show` both answer 404 "Project
+doesn't exist" for the same project. SonarCloud also auto-creates a project as
+private when the GitHub repository is private, so a repository arrives in this
+state without anyone choosing it. The rule is therefore not endpoint-specific:
+**a query that answered about nothing must never read as clean.**
+
+So the gate step and every pull **authenticate always** and prove the component
+resolved before reading a zero as clean: `api/components/show?component=<key>`
+returns the component and its key when authorized. An `errors` field, a missing
+component, or a key differing from `sonar.projectKey` fails the step by name.
+`api/issues/search` cannot carry that assertion itself — its `components` array
+is empty for an authenticated clean project as well.
+
+Every query asks for `issueStatuses=OPEN,CONFIRMED,ACCEPTED,FALSE_POSITIVE`,
+never the legacy `statuses` parameter, whose vocabulary drops an issue a person
+accepts or marks false positive in the UI — a finding still in the code that no
+query sees. The two holes compound, so the two fixes ship together: an
+authenticated gate still querying `statuses=OPEN` is blind in exactly that way,
+and a reader who repairs only the authentication is not done.
+
+The measurement that produced this, 06.09.2026 in `overnightworks`: private
+SonarCloud projects — `marketplace` (behind a public GitHub repository),
+`claudebot`, `gmail-cleanup`; public — `hopin`, `agent-claim`, `atelier-2`,
+`songmaker`, `agent-presentator`. A repository's SonarCloud visibility is its
+own; the GitHub repository's says nothing about it.
+
+### Quality gate scope
+
+On the free plan a project cannot be given a custom quality gate:
+`api/qualitygates/select` answers 403 (measured 06.09.2026). The server-side
+gate is the built-in one, which judges new code only, so any stronger floor is
+the repository's own tooling — a coverage fail-under, a findings query, or
+both.
+A distributor run reads a green build as evidence only after checking which of
+those the repository actually has.
+
+What each repository asserted on 06.09.2026: `marketplace` and `hopin` run the
+zero-findings query; `claudebot` and `gmail-cleanup` carry the step but it
+self-skips while they are private without a token, leaving Automatic Analysis as
+their only measurement; `agent-claim` and `atelier-2` are repairing their step
+under their own items; `songmaker` scans with `continue-on-error` and asserts
+nothing about main; `agent-presentator` scans only, against the server gate,
+and its floor is a 100 % coverage fail-under plus Vitest thresholds.
+
+### Python rules
 
 Source: SonarCloud PR analysis, overnightworks/agent-claim PR #116,
 05.09.2026 (head 5884bdd, quality gate OK). `pythonsecurity:S8705` and
@@ -134,6 +209,18 @@ Analyzer coverage on test sources (measured agent-claim #143/PR #145,
 - `python:S5778` (two raising calls inside one `pytest.raises` block) **does**
   run on test sources and is a reliable test-side probe finding.
 
+### Shell rules
+
+`shell:S8541` (package-manager command without `--no-build`) has no code route
+in a packaged project, so it is class (b) there: `uv run --no-build` refuses to
+install the workspace project itself — "can't be installed because it is marked
+as `--no-build` but has no binary distribution" (uv 0.10.9, cold and warm
+environment) — and the flag therefore blocks every command the project's own
+code serves. A non-packaged project (`[tool.uv] package = false`) takes the flag,
+and `uvx` keeps it legitimately because it installs no local project. A hook or
+script whose tests stub the package manager proves nothing about this: green
+checks are not evidence, the real invocation is.
+
 ## The distributor issue
 
 One issue, this shape:
@@ -165,8 +252,10 @@ standing rulings, which every review of a Sonar finding inherits:
   adding findings — three landings added 16 unnoticed (measured agent-claim
   #143/PR #145, 06.09.2026). The control is a CI step in the sonar job, after
   `sonar.qualitygate.wait=true`, that pages
-  `api/issues/search?componentKeys=<key>&pullRequest=<n>&statuses=OPEN` and
-  fails on any result — proven red with a probe finding and green without one.
+  `api/issues/search?componentKeys=<key>&pullRequest=<n>` with the
+  `issueStatuses`, the authentication, and the resolution check of "API access"
+  above, and fails on any result — proven red with a probe finding and green
+  without one.
   Every repository on the CI scanner copies this step, and a distributor's
   Done when includes it.
 

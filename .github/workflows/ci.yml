@@ -31,6 +31,7 @@ jobs:
         with:
           name: coverage-report
           path: coverage.xml
+          if-no-files-found: error
 
   secret-scan:
     name: Secret scan
@@ -51,6 +52,9 @@ jobs:
   sonar:
     name: SonarCloud scan
     needs: checks
+    # SONAR_TOKEN is empty for fork-originated pull requests, so skip the scan
+    # there; the push to main and same-repo PRs still run it.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     steps:
       - name: Check out the repository and history
@@ -69,9 +73,10 @@ jobs:
       # The scan step above blocks on the analysis (sonar.qualitygate.wait=true
       # in sonar-project.properties), so the report this reads is already
       # final. The quality gate itself passes on ratings (A/B/C), not on "0
-      # findings on new code" (issue #143 in agent-claim); this queries the
-      # public API directly for that stronger bar and fails loud, with the
-      # list, when it is not met. The project is private, so the request
+      # findings on new code" (issue #143 in agent-claim); this queries
+      # SonarCloud's `api/issues/search` directly, authenticated with
+      # SONAR_TOKEN because the project is private, for that stronger bar and
+      # fails loud, with the list, when it is not met. The request
       # authenticates with SONAR_TOKEN as the HTTP basic auth user name and an
       # empty password; the token is read from the environment and never
       # printed.
@@ -98,6 +103,16 @@ jobs:
           component_key, scope_query = sys.argv[1], sys.argv[2]
           credentials = base64.b64encode(f'{os.environ["SONAR_TOKEN"]}:'.encode()).decode()
 
+
+          class NoRedirect(urllib.request.HTTPRedirectHandler):
+              # A redirect would forward the Authorization header to another
+              # host; raise instead of following it.
+              def redirect_request(self, *args, **kwargs):
+                  return None
+
+
+          opener = urllib.request.build_opener(NoRedirect())
+
           def fetch_page(page: int) -> dict:
               url = (
                   "https://sonarcloud.io/api/issues/search"
@@ -106,7 +121,7 @@ jobs:
               request = urllib.request.Request(
                   url, headers={"Authorization": f"Basic {credentials}"}
               )
-              with urllib.request.urlopen(request) as response:
+              with opener.open(request) as response:
                   return json.load(response)
 
           page = 1
@@ -125,6 +140,6 @@ jobs:
               page += 1
 
           if total > 0:
-              print(f"{total} open SonarCloud finding(s) on new code", file=sys.stderr)
+              print(f"{total} open SonarCloud finding(s) in scope {scope_query}", file=sys.stderr)
               sys.exit(1)
           PYTHON

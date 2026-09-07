@@ -331,16 +331,20 @@ large binary run with the project's credential:
 
 ```bash
 version=8.1.0.6389
-base="https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-$version-linux-x64.zip"
-curl -sSLO "$base" && curl -sSLO "$base.sha256"
-printf '%s  %s\n' "$(cat "sonar-scanner-cli-$version-linux-x64.zip.sha256")" \
-  "sonar-scanner-cli-$version-linux-x64.zip" | sha256sum -c -
-unzip -q "sonar-scanner-cli-$version-linux-x64.zip"
-SONAR_TOKEN="$(cat <credential>)" SONAR_HOST_URL=https://sonarcloud.io \
-  "./sonar-scanner-$version-linux-x64/bin/sonar-scanner" \
-  -Dsonar.pullrequest.key=<n> -Dsonar.pullrequest.branch=<head> -Dsonar.pullrequest.base=main \
-  -Dsonar.scm.disabled=true -Dsonar.qualitygate.wait=false
+archive="sonar-scanner-cli-$version-linux-x64.zip"
+base="https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/$archive"
+curl -sSLO "$base" && curl -sSLO "$base.sha256" &&
+  printf '%s  %s\n' "$(cat "$archive.sha256")" "$archive" | sha256sum -c - &&
+  unzip -q "$archive" &&
+  SONAR_TOKEN="$(cat <credential>)" SONAR_HOST_URL=https://sonarcloud.io \
+    "./sonar-scanner-$version-linux-x64/bin/sonar-scanner" \
+    -Dsonar.pullrequest.key=<n> -Dsonar.pullrequest.branch=<head> -Dsonar.pullrequest.base=main \
+    -Dsonar.scm.disabled=true -Dsonar.qualitygate.wait=false
 ```
+
+It is one `&&` chain on purpose: a checksum that only prints its mismatch while
+the next line unpacks and runs the binary anyway is the guard this ledger's own
+cited finding is about.
 
 The token goes in the environment, never `-Dsonar.token=`, for the `ps` reason
 of "API access". Read the result under `pullRequest=<n>` with the API route
@@ -366,19 +370,13 @@ Two refusals a reader hits first (measured here, 07.09.2026, scanner CLI
   no entry created. The key names a pull request that really exists; there is no
   inventing a scratch scope to keep the run out of everyone's way.
 
-What the route is for, in one case: `githubactions:S8544` ("Define exact package
-version to avoid installing unverified releases") sat on this repository's CI
-workflow, on a line no change touched, where every route above reported zero. It
-was read this way and fixed in commit `3f02341`. The before-and-after pair was
+What the route is for, in one case: `githubactions:S8544` ("Python dependencies
+should be locked to verified versions", type vulnerability) sat on this
+repository's CI workflow, on a line no change touched, where every route above
+reported zero. It was read this way and fixed in commit `3f02341`. The before-and-after pair was
 measured in that lane and is deliberately not re-measured here — CI has since
 overwritten the analysis that held it, exactly as the warning above says, and a
 fresh measurement would mean another write.
-
-Three routes, in weight order: `api/issues/search` for a project whose analysis
-you can read; the check-run annotations for the findings your own change
-introduced; and this one **last, because it writes** — for a tree whose
-pre-existing findings nothing else reports, when the answer cannot wait for the
-landing.
 
 ### Python rules
 

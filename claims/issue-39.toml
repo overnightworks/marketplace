@@ -1,8 +1,0 @@
-claim_id = "b3a031df440240388c34ef97c54b727e"
-agent = "claude"
-role = "builder"
-base = "3d1f71b3185ed857898df2f83a4099edc0652265"
-branch = "claude/issue-39-publish-the-gate-as-an-action"
-scope = ["scripts/sonar_findings_gate.py", "tests/test_sonar_findings_gate.py", ".github", "plugins/atelier/skills/sonar-distributor/SKILL.md"]
-opened_commit = "28ebe86379e331fc92e33b70afac5912151f6be3"
-whole_reason = "the script's workspace fix, the action that wraps it, this repository's own step and the document that tells a copier what to do are one change: shipping any part alone leaves the fleet with two answers"

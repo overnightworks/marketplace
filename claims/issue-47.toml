@@ -1,7 +1,0 @@
-claim_id = "80cbf48612224391a65353e7dd334f17"
-agent = "claude"
-role = "builder"
-base = "056460b99f15cdc4b65db6e4979c8ae4db8824df"
-branch = "claude/issue-47-an-update-path-for-the-pins"
-scope = [".github/dependabot.yml"]
-opened_commit = "9a7646b0966eb245a5e7ea2e82d92812c5df7cd2"

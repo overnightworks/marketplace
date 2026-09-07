@@ -276,6 +276,19 @@ def test_stops_when_a_page_reports_more_findings_than_it_returns(
     assert capsys.readouterr().err.strip() == "7 open SonarCloud finding(s) in scope branch=main"
 
 
+def test_stops_at_the_page_limit_when_the_service_keeps_claiming_more(
+    sonar_cloud: SonarCloudStub, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setattr(gate, "MAXIMUM_FINDINGS_PAGES", 2)
+    sonar_cloud.answers(ISSUES_ENDPOINT, issues_page(issue_payload(), total=9_999))
+
+    exit_code = run_gate(monkeypatch)
+
+    assert exit_code == 1
+    assert sonar_cloud.endpoints_requested().count(ISSUES_ENDPOINT) == 2
+    assert capsys.readouterr().err.strip() == "9999 open SonarCloud finding(s) in scope branch=main"
+
+
 @pytest.mark.parametrize(
     ("environment", "expected_scope"),
     [

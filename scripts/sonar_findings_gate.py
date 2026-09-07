@@ -27,6 +27,10 @@ FINDINGS_ENDPOINT = "issues/search"
 # paging above it.
 REQUEST_TIMEOUT_SECONDS = 30
 FINDINGS_PAGE_SIZE = 100
+# `issues/search` refuses a page past its ten-thousandth issue, so the paging
+# is bounded by that limit and never by the total an answer claims.
+FINDINGS_SEARCH_LIMIT = 10_000
+MAXIMUM_FINDINGS_PAGES = FINDINGS_SEARCH_LIMIT // FINDINGS_PAGE_SIZE
 # `issueStatuses`, never the legacy `statuses`, whose vocabulary drops an issue
 # a person accepts or marks false positive in the SonarCloud interface.
 OPEN_ISSUE_STATUSES = "OPEN,CONFIRMED,ACCEPTED,FALSE_POSITIVE"
@@ -110,9 +114,8 @@ class SonarCloudProject:
 
     def open_findings(self) -> OpenFindings:
         findings: list[Finding] = []
-        reported_total = None
-        page = 1
-        while reported_total is None or len(findings) < reported_total:
+        reported_total = 0
+        for page in range(1, MAXIMUM_FINDINGS_PAGES + 1):
             report = self.read(
                 FINDINGS_ENDPOINT,
                 componentKeys=self.component_key,
@@ -124,7 +127,8 @@ class SonarCloudProject:
             if not report["issues"]:
                 break
             findings.extend(finding_from_issue(issue) for issue in report["issues"])
-            page += 1
+            if len(findings) >= reported_total:
+                break
         return OpenFindings(total=reported_total, listed=tuple(findings))
 
     def read(self, endpoint: str, **parameters: object) -> dict:

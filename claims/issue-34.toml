@@ -1,0 +1,7 @@
+claim_id = "99498903b4de479784d67ee02ad798a0"
+agent = "claude"
+role = "builder"
+base = "056460b99f15cdc4b65db6e4979c8ae4db8824df"
+branch = "claude/issue-34-lockfile-for-the-test-job"
+scope = ["pyproject.toml", "uv.lock", ".github/workflows/ci.yml"]
+opened_commit = "3c6b2eb794ef9f924c2d5e3d941b693a88b3d430"

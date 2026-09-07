@@ -1,0 +1,8 @@
+claim_id = "8472292dd9e4442f9fa5e12fb5fabc61"
+agent = "claude"
+role = "builder"
+base = "0f73f6e0331bae6de7ea800e3f7551c2a49c8058"
+branch = "claude/issue-45-remove-the-committed-symlink"
+scope = ["plugins/atelier/bin"]
+opened_commit = "1d22d8170e3658ec52263ef1b24bfd24c19cc50d"
+whole_reason = "one dead entry and whatever else the same sweep finds"

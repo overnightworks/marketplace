@@ -47,7 +47,8 @@ def main() -> int:
             file=sys.stderr,
         )
         return 1
-    BASELINE_PATH.write_text(expected, encoding="utf-8")
+    with BASELINE_PATH.open("w", encoding="utf-8") as baseline:
+        baseline.write(expected)
     print(f"Regenerated {relative(BASELINE_PATH)} from {relative(POLICY_PATH)}.")
     return 0
 

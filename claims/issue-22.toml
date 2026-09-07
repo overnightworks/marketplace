@@ -1,0 +1,8 @@
+claim_id = "66707172db7648959375878cff7c02ac"
+agent = "claude"
+role = "builder"
+base = "85b0e13e0530ed12b5a81208681015eda6f7854b"
+branch = "claude/issue-22-policy-owner-and-layout-check"
+scope = ["AGENTS.md", "scripts", ".github/workflows/ci.yml", "plugins/atelier/skills"]
+opened_commit = "9973596ddd4db40495c5222a80196eecc0de127b"
+whole_reason = "der Owner-Zeiger, die abgeleitete Baseline und der Check, der beides haelt, sind eine Entscheidung mit einem Owner"

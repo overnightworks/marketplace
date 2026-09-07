@@ -165,7 +165,7 @@ derived scope is encoded into the query, never interpolated into it.** A ref
 name may legally carry a `+`, which a query string decodes as a space — the
 scope proof catches that one, because a branch nobody named does not resolve.
 The sharper case is a `%` that starts no valid escape: measured against the
-live service on 06.09.2026, `api/measures/component` answered such a scope 200
+live service on 07.09.2026, `api/measures/component` answered such a scope 200
 with the project's measures, so the assertion passes and the findings query
 drops the scope it could not read — a zero that this section forbids reading as
 clean, waved through by the very call that exists to stop it. The scope proof

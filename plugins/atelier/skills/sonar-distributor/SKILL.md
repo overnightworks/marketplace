@@ -160,7 +160,18 @@ question is never who may read but whether anything was written.
 
 Scopes come from the repository, never from a literal: `${GITHUB_REF_NAME}` in
 a workflow, and `api/project_branches/list` (`isMain`) in a pull. A copied
-`branch=main` in a repository whose main branch is `master` is the trap.
+`branch=main` in a repository whose main branch is `master` is the trap. **A
+derived scope is encoded into the query, never interpolated into it**: a ref
+name may legally carry a `+` or a `%`, which a query string decodes into a
+branch nobody named, and a query about a branch nobody named is exactly the
+question this section forbids reading an answer to.
+
+**Every call carries a timeout, and the timed-out call says so.** A SonarCloud
+that accepts the connection and then stops answering would otherwise hold the
+step until the runner's own six-hour ceiling: a gate built to fail loudly,
+burning a private repository's minutes while looking fine. Its failure names
+the timeout as the cause, apart from an unresolved scope and from open
+findings.
 
 A third way to read clean escapes both the credential and the scope proof: a
 **skipped job**. Where a fork pull request has no token, the scan step does not
@@ -454,13 +465,13 @@ standing rulings, which every review of a Sonar finding inherits:
   #143/PR #145, 06.09.2026). The control is a CI step in the sonar job, after
   `sonar.qualitygate.wait=true`, that pages
   `api/issues/search?componentKeys=<key>&pullRequest=<n>` with the
-  `issueStatuses`, the authentication, and the scope proof of "API access"
-  above, and fails on any result — proven red with a probe finding and green
-  without one. Every repository on the CI scanner copies this step, and a
-  distributor's Done when includes it. A floor stronger than the server
-  gate's new-code judgement — zero open findings, a coverage fail-under — lives
-  in the repository's own tooling, so a green build is evidence only once you
-  know what that repository asserts.
+  `issueStatuses`, the authentication, the scope proof, the timeout and the
+  scope encoding of "API access" above, and fails on any result — proven red
+  with a probe finding and green without one. Every repository on the CI
+  scanner copies this step, and a distributor's Done when includes it. A floor
+  stronger than the server gate's new-code judgement — zero open findings, a
+  coverage fail-under — lives in the repository's own tooling, so a green build
+  is evidence only once you know what that repository asserts.
 
 ## Cadence and closing
 

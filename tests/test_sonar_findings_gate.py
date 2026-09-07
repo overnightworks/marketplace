@@ -351,6 +351,19 @@ def test_asks_about_the_scope_of_the_run_with_its_value_encoded(
         assert sonar_cloud.last_request_to(endpoint).query[parameter_name] == [value]
 
 
+def test_asks_for_findings_accepted_or_marked_false_positive_in_the_interface(
+    sonar_cloud: SonarCloudStub, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    run_gate(monkeypatch)
+    capsys.readouterr()
+
+    # The legacy `statuses` parameter has no word for a finding someone accepted
+    # or marked false positive in the SonarCloud interface, so asking with it
+    # would let a build pass whose findings had been clicked away.
+    requested = sonar_cloud.last_request_to(ISSUES_ENDPOINT).query["issueStatuses"]
+    assert set(requested[0].split(",")) == {"OPEN", "CONFIRMED", "ACCEPTED", "FALSE_POSITIVE"}
+
+
 def test_sends_the_credential_in_a_header_and_never_in_the_query(
     sonar_cloud: SonarCloudStub, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:

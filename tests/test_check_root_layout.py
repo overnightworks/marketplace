@@ -154,14 +154,23 @@ def test_the_gate_exits_non_zero_as_a_command(allowlisted_repository: Path) -> N
     assert "stray.txt" in completed.stderr
 
 
-def test_an_allowlisted_listing_carries_no_problem() -> None:
+def test_every_entry_the_layout_rule_admits_at_the_root_is_accepted() -> None:
+    """The names are spelled out, so narrowing the allowlist cannot pass unnoticed.
+
+    Three of them are admissions the tree does not exercise: `HEART.md` is the
+    entry document this repository does not carry yet, and a Python toolchain
+    would bring `pyproject.toml` with its lockfile.
+    """
     listing = [
         ".gitignore",
         "AGENTS.md",
         "CLAUDE.md",
+        "HEART.md",
         "LICENSE",
         "README.md",
+        "pyproject.toml",
         "sonar-project.properties",
+        "uv.lock",
         ".agents/plugins/marketplace.json",
         ".claude-plugin/marketplace.json",
         ".github/workflows/ci.yml",
@@ -175,23 +184,31 @@ def test_an_allowlisted_listing_carries_no_problem() -> None:
 
 
 @pytest.mark.parametrize(
-    ("stray", "home"),
+    ("stray", "problem"),
     [
-        ("NOTES.md", check_root_layout.HOME_BY_SUFFIX[".md"]),
-        ("sync_agents.py", check_root_layout.HOME_BY_SUFFIX[".py"]),
-        ("marketplace.json", check_root_layout.DEFAULT_HOME),
+        ("NOTES.md", "NOTES.md: a document belongs next to its owner"),
+        ("sync_agents.py", "sync_agents.py: a helper belongs under scripts/"),
+        (
+            "marketplace.json",
+            "marketplace.json: the root holds only what a tool must find there; "
+            "a file lives in the directory of its owner",
+        ),
     ],
 )
-def test_a_stray_root_file_is_named_with_the_sentence_where_it_belongs(stray: str, home: str) -> None:
+def test_a_stray_root_file_is_named_with_the_sentence_where_it_belongs(stray: str, problem: str) -> None:
+    """The sentence is spelled out, because it is what the person reading CI acts on."""
     problems = check_root_layout.root_layout_problems(["README.md", stray], ALLOWLIST)
 
-    assert problems == (f"{stray}: {home}",)
+    assert problems == (problem,)
 
 
 def test_a_stray_root_directory_is_named_with_the_sentence_where_it_belongs() -> None:
     problems = check_root_layout.root_layout_problems(["README.md", "tooling/helper.py"], ALLOWLIST)
 
-    assert problems == (f"tooling/: {check_root_layout.DIRECTORY_HOME}",)
+    assert problems == (
+        "tooling/: a new top-level directory needs a named owner and an entry in "
+        "scripts/check_root_layout.py",
+    )
 
 
 def test_only_the_symlink_mode_is_named_among_tracked_entries() -> None:
@@ -204,5 +221,7 @@ def test_only_the_symlink_mode_is_named_among_tracked_entries() -> None:
     )
 
     assert check_root_layout.tracked_symlink_problems(entries) == (
-        f"plugins/atelier/bin/uv: {check_root_layout.SYMLINK_HOME}",
+        "plugins/atelier/bin/uv: a tracked symlink makes this repository unextractable for "
+        "every consumer of its published action, because `uses:` checks the whole repository "
+        "out; commit the content",
     )

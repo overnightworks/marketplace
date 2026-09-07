@@ -72,7 +72,7 @@ def test_the_seed_drops_what_the_policy_says_about_this_repository_alone(policy_
 
     seed = baseline_of(policy_repository).read_text(encoding="utf-8")
     assert REPOSITORY_SPECIFIC_LINE not in seed
-    assert sync_agents_baseline.SKIP_START not in seed
+    assert "baseline-skip" not in seed
 
 
 def test_a_drifted_seed_is_rewritten_from_the_policy(policy_repository: Path) -> None:
@@ -93,8 +93,21 @@ def test_the_check_names_the_drift_and_leaves_the_seed_alone(
     check_argv(monkeypatch)
 
     assert sync_agents_baseline.main() == 1
-    assert sync_agents_baseline.REGENERATE_COMMAND in capsys.readouterr().err
+    assert "python3 scripts/sync_agents_baseline.py" in capsys.readouterr().err
     assert baseline_of(policy_repository).read_text(encoding="utf-8") == stale
+
+
+def test_the_check_fails_when_the_seed_is_missing(
+    policy_repository: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """A deleted seed is the drift the check exists to notice, and it stays deleted."""
+    check_argv(monkeypatch)
+
+    assert sync_agents_baseline.main() == 1
+    assert "python3 scripts/sync_agents_baseline.py" in capsys.readouterr().err
+    assert not baseline_of(policy_repository).exists()
 
 
 def test_the_check_passes_on_a_generated_seed(

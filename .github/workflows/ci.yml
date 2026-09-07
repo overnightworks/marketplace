@@ -80,6 +80,9 @@ jobs:
       # run proves its scope resolves before reading a zero as clean, with the
       # token as basic auth user name and an empty password, never printed.
       - name: SonarCloud open findings
+        # The per-call timeout gives the honest message; this is the hard
+        # ceiling, because the step pages and a per-call bound multiplies.
+        timeout-minutes: 5
         env:
           GITHUB_EVENT_NAME: ${{ github.event_name }}
           GITHUB_REF_NAME: ${{ github.ref_name }}
@@ -105,7 +108,8 @@ jobs:
           import urllib.request
 
           # A SonarCloud that accepts the connection and then stops answering
-          # must fail the job, not ride it to the runner's six-hour ceiling.
+          # must fail the job. This bounds one call; the step's own
+          # timeout-minutes bounds the paging above it.
           REQUEST_TIMEOUT_SECONDS = 30
 
           component_key, scope_name, scope_value = sys.argv[1], sys.argv[2], sys.argv[3]
@@ -131,7 +135,7 @@ jobs:
                   and isinstance(error.reason, TimeoutError)
               )
 
-          def api_url(endpoint: str, **parameters: object) -> str:
+          def scoped_api_url(endpoint: str, **parameters: object) -> str:
               # The scope carries a branch name the runner derived, and a ref name
               # may legally contain characters a query string reads differently.
               query = urllib.parse.urlencode({**parameters, **scope_parameters})
@@ -150,12 +154,13 @@ jobs:
                   sys.exit(
                       f"SonarCloud did not answer within {REQUEST_TIMEOUT_SECONDS}s: "
                       f"the request for {component_key} in scope {scope_label} timed "
-                      "out. Its findings were never read."
+                      "out. Its findings were never read, so re-run the job before "
+                      "investigating SonarCloud."
                   )
 
           def fetch_page(page: int) -> dict:
               return fetch(
-                  api_url(
+                  scoped_api_url(
                       "issues/search",
                       componentKeys=component_key,
                       issueStatuses="OPEN,CONFIRMED,ACCEPTED,FALSE_POSITIVE",
@@ -170,7 +175,7 @@ jobs:
               # measures of this exact scope first: it is 404 when the token,
               # the key or the scope does not resolve.
               try:
-                  fetch(api_url("measures/component", component=component_key, metricKeys="ncloc"))
+                  fetch(scoped_api_url("measures/component", component=component_key, metricKeys="ncloc"))
               except urllib.error.HTTPError as error:
                   sys.exit(
                       f"SonarCloud did not resolve {component_key} in scope "

@@ -78,6 +78,11 @@ class OpenFindings:
     total: int
     listed: tuple[Finding, ...]
 
+    @property
+    def count(self) -> int:
+        # A total the same answer contradicts by listing findings is not a zero.
+        return max(self.total, len(self.listed))
+
 
 class RedirectRefusingHandler(urllib.request.HTTPRedirectHandler):
     # A redirect would forward the Authorization header to another host; refuse
@@ -170,7 +175,7 @@ def timed_out(error: OSError) -> bool:
 def finding_from_issue(issue: dict) -> Finding:
     return Finding(
         rule=issue["rule"],
-        file_path=issue["component"].split(":", 1)[-1],
+        file_path=issue["component"].split(":", 1)[1],
         line=issue.get("line"),
         message=issue["message"],
     )
@@ -218,9 +223,9 @@ def main() -> int:
     findings = project.open_findings()
     for finding in findings.listed:
         print(finding.as_report_line())
-    if findings.total > 0:
+    if findings.count > 0:
         print(
-            f"{findings.total} open SonarCloud finding(s) in scope {project.scope.label}",
+            f"{findings.count} open SonarCloud finding(s) in scope {project.scope.label}",
             file=sys.stderr,
         )
         return 1
@@ -228,7 +233,7 @@ def main() -> int:
     # A step that prints nothing on success cannot be shown to have run.
     print(
         f"SonarCloud clean for '{project.component_key}' ({project.scope.label}): "
-        f"{findings.total} open finding(s)"
+        f"{findings.count} open finding(s)"
     )
     return 0
 

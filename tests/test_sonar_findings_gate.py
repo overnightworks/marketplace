@@ -1,11 +1,11 @@
 from __future__ import annotations
 
+import base64
 import http.server
-import importlib.util
 import json
 import socket
-import sys
 import threading
+import urllib.error
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -13,20 +13,10 @@ from urllib.parse import parse_qs, urlparse
 
 import pytest
 
-
-REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
-MODULE_PATH = REPOSITORY_ROOT / "scripts" / "sonar_findings_gate.py"
+from script_under_test import load_script
 
 
-def _load_gate_module():
-    spec = importlib.util.spec_from_file_location("sonar_findings_gate_under_test", MODULE_PATH)
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-    return module
-
-
-gate = _load_gate_module()
+gate = load_script("sonar_findings_gate")
 
 
 PROJECT_KEY = "overnightworks_demo"
@@ -276,6 +266,51 @@ def test_stops_when_a_page_reports_more_findings_than_it_returns(
     assert capsys.readouterr().err.strip() == "7 open SonarCloud finding(s) in scope branch=main"
 
 
+def test_reports_findings_an_answer_lists_while_claiming_a_total_of_zero(
+    sonar_cloud: SonarCloudStub, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    sonar_cloud.answers(ISSUES_ENDPOINT, issues_page(issue_payload(), total=0))
+
+    exit_code = run_gate(monkeypatch)
+
+    captured = capsys.readouterr()
+    assert exit_code == 1
+    assert captured.out.splitlines() == [
+        "python:S1481 scripts/example.py:12 Remove this unused local variable."
+    ]
+    assert captured.err.strip() == "1 open SonarCloud finding(s) in scope branch=main"
+
+
+def test_fails_loudly_when_a_finding_names_no_file_within_the_project(
+    sonar_cloud: SonarCloudStub, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    sonar_cloud.answers(
+        ISSUES_ENDPOINT,
+        issues_page({"rule": "python:S1481", "component": "no-project-key", "message": "Unused."}),
+    )
+
+    # A component the project key does not prefix is not a file this gate can
+    # name, and a report that quietly names the wrong path is worse than a red
+    # job that says the answer was malformed.
+    with pytest.raises(IndexError):
+        run_gate(monkeypatch)
+
+
+@pytest.mark.parametrize(
+    ("error", "expected"),
+    [
+        pytest.param(TimeoutError(), True, id="read_ran_out_of_time"),
+        pytest.param(urllib.error.URLError(TimeoutError()), True, id="connect_ran_out_of_time"),
+        pytest.param(urllib.error.URLError(ConnectionRefusedError()), False, id="connection_refused"),
+        pytest.param(OSError("broken pipe"), False, id="other_transport_failure"),
+    ],
+)
+def test_recognises_which_transport_failures_ran_out_of_time(
+    error: OSError, expected: bool
+) -> None:
+    assert gate.timed_out(error) is expected
+
+
 def test_stops_at_the_page_limit_when_the_service_keeps_claiming_more(
     sonar_cloud: SonarCloudStub, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -323,7 +358,9 @@ def test_sends_the_credential_in_a_header_and_never_in_the_query(
     capsys.readouterr()
 
     for request in sonar_cloud.requests:
-        assert request.authorization == gate.basic_authorization(STUB_CREDENTIAL)
+        scheme, _, encoded = request.authorization.partition(" ")
+        assert scheme == "Basic"
+        assert base64.b64decode(encoded).decode() == f"{STUB_CREDENTIAL}:"
         assert STUB_CREDENTIAL not in request.raw_query
 
 

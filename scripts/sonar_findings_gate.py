@@ -173,9 +173,17 @@ def timed_out(error: OSError) -> bool:
 
 
 def finding_from_issue(issue: dict) -> Finding:
+    component = issue["component"]
+    _, separator, file_path = component.partition(":")
+    if not separator:
+        raise SystemExit(
+            f"SonarCloud reported a finding whose component {component!r} carries no "
+            "file path, so this answer could not be read. An answer that could not be "
+            "read is not a clean one."
+        )
     return Finding(
         rule=issue["rule"],
-        file_path=issue["component"].split(":", 1)[1],
+        file_path=file_path,
         line=issue.get("line"),
         message=issue["message"],
     )

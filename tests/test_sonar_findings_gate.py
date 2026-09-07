@@ -281,19 +281,19 @@ def test_reports_findings_an_answer_lists_while_claiming_a_total_of_zero(
     assert captured.err.strip() == "1 open SonarCloud finding(s) in scope branch=main"
 
 
-def test_fails_loudly_when_a_finding_names_no_file_within_the_project(
-    sonar_cloud: SonarCloudStub, monkeypatch: pytest.MonkeyPatch
+def test_stops_when_a_finding_names_no_file_within_the_project(
+    sonar_cloud: SonarCloudStub, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     sonar_cloud.answers(
         ISSUES_ENDPOINT,
         issues_page({"rule": "python:S1481", "component": "no-project-key", "message": "Unused."}),
     )
 
-    # A component the project key does not prefix is not a file this gate can
-    # name, and a report that quietly names the wrong path is worse than a red
-    # job that says the answer was malformed.
-    with pytest.raises(IndexError):
+    with pytest.raises(SystemExit) as failure:
         run_gate(monkeypatch)
+
+    assert "'no-project-key'" in str(failure.value)
+    assert "SonarCloud clean" not in capsys.readouterr().out
 
 
 @pytest.mark.parametrize(

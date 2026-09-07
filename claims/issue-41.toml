@@ -1,7 +1,0 @@
-claim_id = "38c44eefabf74a61865c000de8e33d55"
-agent = "claude"
-role = "builder"
-base = "056460b99f15cdc4b65db6e4979c8ae4db8824df"
-branch = "claude/issue-41-say-what-each-analysis-mode-guarantees"
-scope = ["plugins/atelier/skills/sonar-distributor/SKILL.md"]
-opened_commit = "41e2378937f646845343724dbdd120bdd4f35c33"

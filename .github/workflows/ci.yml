@@ -18,17 +18,34 @@ jobs:
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
           persist-credentials: false
+      # The action is pinned by commit and the tool it installs by version: an
+      # unversioned `setup-uv` fetches whatever uv is newest, which is a
+      # run-time resolution in the job that carries this repository's
+      # SonarCloud credential. 0.12.4 is the newest uv this pinned commit
+      # carries a checksum for, and it verifies a download only when it knows
+      # its checksum — a newer version would arrive unverified and silently so.
+      # The Python minor is pinned for the same reason, and it is the version
+      # sonar-project.properties analyses this code as.
       - name: Install uv
         uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          version: '0.12.4'
+          python-version: '3.12'
       - name: Check generated agents
         run: python3 scripts/sync_agents.py --check
       - name: Check the generated policy baseline
         run: python3 scripts/sync_agents_baseline.py --check
       - name: Check the repository layout
         run: python3 scripts/check_root_layout.py
+      # `--locked` fails rather than re-resolving, so the closure this job
+      # installs is the one uv.lock names and a stale lock is red here instead
+      # of being silently updated. It runs after the layout check because the
+      # environment it creates is untracked.
+      - name: Install the test dependencies from the lockfile
+        run: uv sync --locked --no-build
       - name: Run tests
         run: >-
-          uvx --from pytest==9.1.1 --with pytest-cov==7.1.0 --no-build
+          uv run --locked --no-build
           pytest tests -q --cov=scripts --cov-branch --cov-report=xml:coverage.xml
           --cov-fail-under=100
       - name: Upload coverage report

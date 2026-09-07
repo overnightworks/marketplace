@@ -161,17 +161,25 @@ question is never who may read but whether anything was written.
 Scopes come from the repository, never from a literal: `${GITHUB_REF_NAME}` in
 a workflow, and `api/project_branches/list` (`isMain`) in a pull. A copied
 `branch=main` in a repository whose main branch is `master` is the trap. **A
-derived scope is encoded into the query, never interpolated into it**: a ref
-name may legally carry a `+` or a `%`, which a query string decodes into a
-branch nobody named, and a query about a branch nobody named is exactly the
-question this section forbids reading an answer to.
+derived scope is encoded into the query, never interpolated into it.** A ref
+name may legally carry a `+`, which a query string decodes as a space — the
+scope proof catches that one, because a branch nobody named does not resolve.
+The sharper case is a `%` that starts no valid escape: measured against the
+live service on 06.09.2026, `api/measures/component` answered such a scope 200
+with the project's measures, so the assertion passes and the findings query
+drops the scope it could not read — a zero that this section forbids reading as
+clean, waved through by the very call that exists to stop it. The scope proof
+is not the safety net here; the encoding is.
 
-**Every call carries a timeout, and the timed-out call says so.** A SonarCloud
+**Every call carries a timeout, and the step carries a ceiling.** A SonarCloud
 that accepts the connection and then stops answering would otherwise hold the
-step until the runner's own six-hour ceiling: a gate built to fail loudly,
-burning a private repository's minutes while looking fine. Its failure names
+step until the runner's six-hour ceiling, burning a private repository's
+minutes while looking fine. The per-call timeout is what fails loudly: it names
 the timeout as the cause, apart from an unresolved scope and from open
-findings.
+findings, and says to re-run before investigating, because a transient blip
+should not read as a verdict. It does not bound the step, though — the step
+pages, so a per-call bound multiplies by the page count — which is why the step
+carries a `timeout-minutes` of its own as the hard limit.
 
 A third way to read clean escapes both the credential and the scope proof: a
 **skipped job**. Where a fork pull request has no token, the scan step does not

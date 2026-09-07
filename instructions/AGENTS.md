@@ -35,13 +35,13 @@ An explicit operator request wins. Without one:
 
 1. In a Git repository, read its guidance and product truth, then inspect the
    live board, active claims, dependencies, working tree, and CI.
-2. Resume an unfinished lane you own. Otherwise run `agent-claim next` and
+2. Resume an unfinished lane you own. Otherwise run `aco next` and
    take the item it names; production/security/data loss and red CI still
    come first. Claim a different item only with `--out-of-order REASON`; the
-   reason lands in the claim comment. Prefer the smallest coherent item that
+   reason lands in the claim record. Prefer the smallest coherent item that
    unlocks later work.
-3. Run `agent-claim status`. Before a writer's first edit, the head owns a full
-   exact-scope claim from a clean isolated worktree; consult `agent-claim claim
+3. Run `aco status`. Before a writer's first edit, the head owns a full
+   exact-scope claim from a clean isolated worktree; consult `aco claim
    --help`. On a legacy or foreign contract, migrate it rather than create a
    competing ledger; otherwise bootstrap only when no ledger exists.
 4. If there is no actionable item, or the directory is not a Git repository,
@@ -123,9 +123,10 @@ No new item without a named caller (operator ruling 04.09.2026).
 
 ## How to coordinate
 
-Coordination authority is this global contract, installed `agent-claim`, and
-live GitHub issues/claim comments. Do not use Atelier's deprecated Auto-Runner
-for coordination.
+Coordination authority is this global contract, the installed `aco` and the
+claim state it keeps in the repository's `refs/aco/state`, and live GitHub
+issues as the board. Do not use Atelier's deprecated Auto-Runner for
+coordination.
 
 One subject, one issue. Before opening any item, the head searches the board
 (`gh issue list --search`, open and recently closed) for an owner or twin and
@@ -143,8 +144,7 @@ branch. The head checks `git worktree list` at session start and prunes.
 
 One exclusive build claim per issue before the first edit; read-only review
 stays free. Do not use a value another lane holds exclusively. GitHub issue
-comments are the durable handoff; `/tmp` is only transport. `agent-claim
-reconcile` only repairs projections; its help and README own operating details.
+comments are the durable handoff; `/tmp` is only transport.
 
 A landing is not finished while the items it freed sit untouched. The moment a
 landing closes an item is the only moment at which everyone knows what that
@@ -155,8 +155,9 @@ is how the highest-scored work on a board stands still for days.
 A blocker may name only an open work item. A claim, a branch, or a pull
 request is never written into a body as a blocker: live state disappears when
 released, while the body persists. Who holds what is answered by
-`agent-claim status`, not by prose. `Blocked by: nichts` is the required
-no-dependency literal; a dependency worth recording is worth an item.
+`aco status`, and who holds a path by `aco status --path PATH`, not by
+prose. `Blocked by: nichts` is the required no-dependency literal; a
+dependency worth recording is worth an item.
 
 Comments preserve evidence; the issue body alone is the current handoff. After
 every landing or plan pivot, update each still-open affected item with a
@@ -175,7 +176,7 @@ A fact stands once in a body (operator ruling 31.08.2026, after independent
 counter-review). A phase or slice table carries order and done-when, never a
 status: a landed phase leaves the table instead of gaining a status cell — its
 proof lives in the PR and in its own item, and whether something landed
-`agent-claim board` derives from PR references anyway. A dispatched phase
+`aco board` derives from PR references anyway. A dispatched phase
 stands as a link to its item; no line means "not yet dispatched". An
 "overtaken on …" insert beside an old sentence is the same double bookkeeping
 as a second status column. Between pull and dispatch a stale body costs
@@ -284,7 +285,7 @@ public contracts, or a final verdict.
 The head owns the landing decision for its claimed lane but never executes a
 landing itself. After required gates are green, it may delegate one explicit
 named landing task to push, merge, or deploy that lane. After merge, it
-evaluates the result, consults `agent-claim release --help`, releases the
+evaluates the result, consults `aco release --help`, releases the
 claim, and closes the item. After abandonment, it releases the claim and
 leaves the item open unless its `Done when` is met. Subagents and reviewers
 have no autonomous landing authority. Never land another owner's lane.
@@ -331,7 +332,7 @@ orchestration loop. Prefer provider-native event, mailbox, or wait primitives
 that wake on agent completion; do not busy-poll or spend model turns polling.
 If unavailable, check status sparingly, about every 30–60 seconds. Consume each
 completion immediately and dispatch needed review, fix, landing, or next work.
-After every landing, plan pivot, or claim release, run `agent-claim next`
+After every landing, plan pivot, or claim release, run `aco next`
 before dispatching the next lane.
 Do not end or report finished while agents are active or executable work
 remains. Stop only when the objective is complete or every useful lane is

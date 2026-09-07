@@ -280,6 +280,67 @@ new finding, never a clean project — findings already on main stay invisible t
 this route, and reading those keeps the credential and the scope proof above,
 which stays the head's job.
 
+### Reading a whole tree's findings when the branch scope is refused
+
+A pull request analysis reports **new code only**, and main's analysis answers
+for main under the configuration main carries. Neither answers "what does this
+tree carry, in full, right now" — the question a scanner-configuration change
+asks, where the rules or the scope being widened do not exist on main yet, and
+where a finding on a line the change never touches is reported by nothing. Run
+the scanner yourself over the working tree, in a pull request scope, with
+source-control detection off: without SCM data the analysis has no blame to date
+lines by and reports the whole tree as new, so pre-existing findings surface.
+
+Use the scanner the action runs at the version it resolves — the `scannerVersion`
+default of `action.yml` at the SHA the workflow pins (this repository pins
+`sonarqube-scan-action` v8.2.1, whose default is `8.1.0.6389`).
+
+```bash
+version=8.1.0.6389
+curl -sSLO "https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-$version-linux-x64.zip"
+unzip -q "sonar-scanner-cli-$version-linux-x64.zip"
+SONAR_TOKEN="$(cat <credential>)" SONAR_HOST_URL=https://sonarcloud.io \
+  "./sonar-scanner-$version-linux-x64/bin/sonar-scanner" \
+  -Dsonar.pullrequest.key=<n> -Dsonar.pullrequest.branch=<head> -Dsonar.pullrequest.base=main \
+  -Dsonar.scm.disabled=true -Dsonar.qualitygate.wait=false
+```
+
+The token goes in the environment, never `-Dsonar.token=`, for the `ps` reason
+of "API access". Read the result under `pullRequest=<n>` with the API route
+above, and `api/components/tree` in the same scope for the file list, which
+tells a finding that was fixed apart from a file that dropped out of scope.
+
+Measured in this repository's PR #31 (07.09.2026): the run reported
+`githubactions:S8544` on `.github/workflows/ci.yml:27` before the fix and zero
+after, with that file list unchanged in both.
+
+Three things a reader hits before any of that (measured here, 07.09.2026):
+
+- **The branch scope is not the way out, and it is not refused where you expect.**
+  `-Dsonar.branch.name=<branch>` uploads and processes — the compute engine task
+  answers `SUCCESS` — and only the read is refused: `api/measures/component` and
+  `api/issues/search` both answer HTTP 403 `Organization is not allowed to access
+  data from non main branches.` A scan that was accepted is not an analysis you
+  can read.
+- **A pull request key that does not exist stops before anything is uploaded**:
+  `ERROR Could not find the pullrequest with key '999999'`, `EXECUTION FAILURE`,
+  no entry created. The key names a pull request that really exists; there is no
+  inventing a scratch scope to keep the run out of everyone's way.
+- **Clean up after yourself.** The refused branch run leaves the branch in the
+  project — `api/project_branches/list` shows it as `SHORT` with no analysis date
+  and no status. Delete it: `POST api/project_branches/delete` with form fields
+  `project` and `branch` (204, and the list is back to the main branch alone).
+  The pull request run needs no deletion but overwrites what that pull request's
+  scope holds — with an analysis made outside CI, every line new and no coverage
+  report — until CI analyses that head again, so run it only on a pull request
+  you own.
+
+Three routes, in weight order: `api/issues/search` for a project whose analysis
+you can read; the check-run annotations for the findings your own change
+introduced; and this one **last, because it writes an analysis** — for a tree
+whose pre-existing findings nothing else reports and whose branch scope the plan
+refuses.
+
 ### Python rules
 
 Source: SonarCloud PR analysis, overnightworks/agent-claim PR #116,

@@ -17,6 +17,26 @@ Licensed under the [MIT License](LICENSE).
 - `plugins/atelier/.codex-plugin/plugin.json` is the Codex plugin manifest.
 - `plugins/atelier/.claude-plugin/plugin.json` is the Claude Code plugin
   manifest.
+- `.github/actions/sonar-findings-gate/` is the SonarCloud findings gate this
+  repository publishes to the fleet; it runs `scripts/sonar_findings_gate.py`.
+
+## Published Actions
+
+`.github/actions/sonar-findings-gate` is used by other repositories as
+`overnightworks/marketplace/.github/actions/sonar-findings-gate@<commit>`, so
+this repository is a runtime dependency of every consumer's CI. Two constraints
+follow, and both break every consumer at once when they are broken:
+
+- **This repository stays public.** A consumer's `uses:` checks it out with the
+  consumer's own token, which cannot read a private repository here, so making
+  it private stops every consuming build.
+- **History a consumer pins is never rewritten.** A pinned commit that
+  disappears — a force-push, a rewritten branch, a deleted history — makes
+  every consumer that pins it fail to resolve the action.
+
+Both failures are loud and immediate, which is the trade this shape accepts
+against the failure copying produced: a defect fixed in one repository and left
+live in another for weeks.
 
 ## Install From GitHub
 

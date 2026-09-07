@@ -20,6 +20,7 @@ gate = load_script("sonar_findings_gate")
 
 
 PROJECT_KEY = "overnightworks_demo"
+PROPERTIES_BESIDE_THE_SCRIPT = Path(gate.__file__).resolve().parents[1] / gate.SONAR_PROPERTIES_NAME
 STUB_CREDENTIAL = "stub-credential"
 DEFAULT_ENVIRONMENT = {
     gate.EVENT_NAME_VARIABLE: "push",
@@ -174,12 +175,12 @@ def issues_page(*issues: dict[str, object], total: int | None = None) -> Respond
 
 @pytest.fixture
 def sonar_cloud(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[SonarCloudStub]:
-    properties_path = tmp_path / "sonar-project.properties"
-    properties_path.write_text(
+    workspace_properties = tmp_path / gate.SONAR_PROPERTIES_NAME
+    workspace_properties.write_text(
         f"sonar.organization=overnightworks\n{gate.PROJECT_KEY_PROPERTY}={PROJECT_KEY}\n",
         encoding="utf-8",
     )
-    monkeypatch.setattr(gate, "SONAR_PROPERTIES_PATH", properties_path)
+    monkeypatch.setenv(gate.WORKSPACE_VARIABLE, str(tmp_path))
     stub = SonarCloudStub()
     monkeypatch.setattr(gate, "SONAR_API_ROOT", stub.api_root)
     stub.answers(MEASURES_ENDPOINT, json_body({"component": {"key": PROJECT_KEY}}))
@@ -457,12 +458,38 @@ def unused_port() -> int:
         return probe.getsockname()[1]
 
 
-def test_reads_the_project_key_from_the_properties_file_of_this_repository() -> None:
-    assert gate.read_project_key(gate.SONAR_PROPERTIES_PATH)
+def test_gates_the_project_the_workspace_names_and_not_the_one_beside_the_script(
+    sonar_cloud: SonarCloudStub, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    # Run as a published action, the script sits in its own checkout while the
+    # project under the gate is the caller's workspace; reading the properties
+    # beside the script would answer cleanly about a different project.
+    key_beside_the_script = gate.read_project_key(PROPERTIES_BESIDE_THE_SCRIPT)
+
+    exit_code = run_gate(monkeypatch)
+
+    capsys.readouterr()
+    assert key_beside_the_script != PROJECT_KEY
+    assert exit_code == 0
+    for endpoint, parameter in ((MEASURES_ENDPOINT, "component"), (ISSUES_ENDPOINT, "componentKeys")):
+        assert sonar_cloud.last_request_to(endpoint).query[parameter] == [PROJECT_KEY]
+
+
+@pytest.mark.parametrize(
+    "workspace_named_by_the_runner",
+    [pytest.param(True, id="runner_names_the_workspace"), pytest.param(False, id="local_run")],
+)
+def test_takes_the_properties_file_from_the_workspace_being_gated(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, workspace_named_by_the_runner: bool
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    environment = {gate.WORKSPACE_VARIABLE: str(tmp_path)} if workspace_named_by_the_runner else {}
+
+    assert gate.sonar_properties_path(environment) == tmp_path / gate.SONAR_PROPERTIES_NAME
 
 
 def test_stops_when_the_properties_file_names_no_project(tmp_path: Path) -> None:
-    properties_path = tmp_path / "sonar-project.properties"
+    properties_path = tmp_path / gate.SONAR_PROPERTIES_NAME
     properties_path.write_text("sonar.organization=overnightworks\n", encoding="utf-8")
 
     with pytest.raises(SystemExit) as failure:

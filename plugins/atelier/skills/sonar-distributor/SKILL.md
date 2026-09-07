@@ -478,15 +478,31 @@ standing rulings, which every review of a Sonar finding inherits:
   `api/issues/search?componentKeys=<key>&pullRequest=<n>` with the
   `issueStatuses`, the authentication, the scope proof, the timeout and the
   scope encoding of "API access" above, and fails on any result — proven red
-  with a probe finding and green without one. Its logic lives in
-  `scripts/sonar_findings_gate.py` in overnightworks/marketplace rather than in
-  the workflow, because a heredoc inside YAML is reached by no rule and measured
-  by no coverage: three reviews found defects in it by reading, and the first
-  scan of the extracted script found a fourth. Every repository on the CI
-  scanner therefore copies that script and its test alongside the step that
-  calls them, and a distributor's Done when includes all three. The copying is
-  deliberate for now and carries the divergence a copy always carries; whether
-  it becomes one shared artefact is decided in overnightworks/marketplace #39.
+  with a probe finding and green without one. That logic is owned once, by the
+  composite action overnightworks/marketplace publishes at
+  `.github/actions/sonar-findings-gate`, because a heredoc inside YAML is
+  reached by no rule and measured by no coverage: three reviews found defects
+  in it by reading, and the first scan of the extracted script found a fourth.
+  A repository on the CI scanner **uses** that action and copies nothing:
+
+  ```yaml
+  - name: SonarCloud open findings
+    # A composite action's steps take no timeout-minutes, so the ceiling over
+    # the gate's paging lives here.
+    timeout-minutes: 5
+    uses: overnightworks/marketplace/.github/actions/sonar-findings-gate@<commit>
+    with:
+      sonar-token: ${{ secrets.SONAR_TOKEN }}
+  ```
+
+  The pin is an **exact commit SHA, never a tag or a branch**: a mutable
+  reference on the step that guards security findings is both a supply-chain
+  hole — whoever can move the ref runs code in every consumer's job — and a
+  silent change of what the gate asserts, which is the one thing a gate may
+  never do quietly. Write the version beside it as a comment, the way the
+  fleet pins every other action. The action reads the project key from the
+  consumer's own `sonar-project.properties` through `GITHUB_WORKSPACE`, so a
+  distributor's Done when names the step and that file, not a copied script.
   A floor
   stronger than the server gate's new-code judgement — zero open findings, a
   coverage fail-under — lives in the repository's own tooling, so a green build

@@ -14,7 +14,9 @@ When a repository has no `AGENTS.md` (or one missing whole policy areas), seed
 it from `AGENTS.baseline.md` shipped next to this skill: copy the baseline,
 drop its provenance comment, and fill the entry-points placeholder from the
 repository's real coordination/verification/state docs (delete it when none
-exist yet). Create `CLAUDE.md` containing exactly `@AGENTS.md` when the host
+exist yet). That baseline is a generated view of the marketplace's root
+`AGENTS.md`, which owns every rule in it: a rule that is wrong, missing, or
+stale is fixed in that owner and the view regenerated, never edited here. Create `CLAUDE.md` containing exactly `@AGENTS.md` when the host
 loads `CLAUDE.md` and none exists. Merge into an existing file — never
 overwrite deliberate project policy; add what is missing and report what was
 kept.

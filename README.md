@@ -13,6 +13,8 @@ Licensed under the [MIT License](LICENSE).
 - `plugins/atelier/agents/` is the canonical Markdown source for agent
   definitions and the native Claude Code agent directory.
 - `plugins/atelier/.codex/agents/` contains generated Codex TOML agents.
+- `plugins/atelier/skills/agent-documentation/AGENTS.baseline.md` is the
+  generated seed of the root `AGENTS.md`.
 - `plugins/atelier/hooks/hooks.json` is the shared quality-gate hook configuration.
 - `plugins/atelier/.codex-plugin/plugin.json` is the Codex plugin manifest.
 - `plugins/atelier/.claude-plugin/plugin.json` is the Claude Code plugin
@@ -134,6 +136,41 @@ Compatibility notes:
   sync script validates it against `codex_sandbox_mode`.
 - Generated files under `plugins/atelier/.codex/agents/` should not be edited by
   hand; update the Markdown source instead.
+
+## Policy Baseline
+
+The root `AGENTS.md` owns the code policy. The seed the `agent-documentation`
+skill ships is a view of it: `AGENTS.baseline.md` is generated from that file
+plus the seed preamble in `scripts/agents_baseline_preamble.md`, and the
+paragraphs that speak about this repository alone stay behind the
+`baseline-skip` markers in `AGENTS.md`. Fix a rule in the owner, never in the
+view.
+
+To regenerate the baseline after changing the policy:
+
+```bash
+python3 scripts/sync_agents_baseline.py
+```
+
+To check drift without writing files:
+
+```bash
+python3 scripts/sync_agents_baseline.py --check
+```
+
+## Repository Layout Check
+
+`scripts/check_root_layout.py` holds the root to the allowlist the "Repository
+layout" section of `AGENTS.md` describes, and refuses a tracked symlink
+anywhere in the tree: a consumer's `uses:` checks the whole repository out, so
+a link that resolves nowhere breaks every consuming build. A new root entry or
+top-level directory needs its owner named and an entry added to that script.
+
+```bash
+python3 scripts/check_root_layout.py
+```
+
+CI runs both checks next to the agent sync check.
 
 ## Hook Behavior
 

@@ -15,8 +15,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 
-REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
-SONAR_PROPERTIES_PATH = REPOSITORY_ROOT / "sonar-project.properties"
+SONAR_PROPERTIES_NAME = "sonar-project.properties"
 PROJECT_KEY_PROPERTY = "sonar.projectKey"
 
 SONAR_API_ROOT = "https://sonarcloud.io/api"
@@ -41,6 +40,7 @@ EVENT_NAME_VARIABLE = "GITHUB_EVENT_NAME"
 BRANCH_NAME_VARIABLE = "GITHUB_REF_NAME"
 PULL_REQUEST_NUMBER_VARIABLE = "PULL_REQUEST_NUMBER"
 CREDENTIAL_VARIABLE = "SONAR_TOKEN"
+WORKSPACE_VARIABLE = "GITHUB_WORKSPACE"
 
 
 @dataclass(frozen=True)
@@ -203,6 +203,15 @@ def read_project_key(properties_path: Path) -> str:
     raise SystemExit(f"{properties_path} does not define {PROJECT_KEY_PROPERTY}.")
 
 
+def sonar_properties_path(environment: Mapping[str, str]) -> Path:
+    # Published as an action, this script sits in its own checkout while the
+    # project under the gate is the workspace the runner checked out for the
+    # caller. Deriving the path from this file's location would ask SonarCloud
+    # about the wrong project and report that answer as clean.
+    workspace = environment.get(WORKSPACE_VARIABLE)
+    return (Path(workspace) if workspace else Path.cwd()) / SONAR_PROPERTIES_NAME
+
+
 def analysis_scope(environment: Mapping[str, str]) -> AnalysisScope:
     if environment[EVENT_NAME_VARIABLE] == PULL_REQUEST_EVENT:
         return AnalysisScope("pullRequest", environment[PULL_REQUEST_NUMBER_VARIABLE])
@@ -222,7 +231,7 @@ def require_credential(environment: Mapping[str, str]) -> str:
 
 def main() -> int:
     project = SonarCloudProject(
-        component_key=read_project_key(SONAR_PROPERTIES_PATH),
+        component_key=read_project_key(sonar_properties_path(os.environ)),
         scope=analysis_scope(os.environ),
         credential=require_credential(os.environ),
     )

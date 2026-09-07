@@ -74,15 +74,14 @@ jobs:
       # The gate the scan waits on grades ratings, so this step asks the API
       # for open findings itself. How it asks — the scoped query, the proof
       # that the scope resolves before a zero reads as clean, the credential
-      # that never leaves a header — is owned by the script, where it is
-      # scanned and covered like the rest of this repository.
+      # that never leaves a header — is owned by the action this repository
+      # publishes, which every repository on the CI scanner names by commit.
+      # This one names it by path, because it is the checkout it lives in.
       - name: SonarCloud open findings
         # The script bounds each call; this is the hard ceiling, because it
-        # pages and a per-call bound multiplies.
+        # pages and a per-call bound multiplies. A composite action's own
+        # steps take no timeout-minutes, so it belongs here.
         timeout-minutes: 5
-        env:
-          GITHUB_EVENT_NAME: ${{ github.event_name }}
-          GITHUB_REF_NAME: ${{ github.ref_name }}
-          PULL_REQUEST_NUMBER: ${{ github.event.pull_request.number }}
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        run: python3 scripts/sonar_findings_gate.py
+        uses: ./.github/actions/sonar-findings-gate
+        with:
+          sonar-token: ${{ secrets.SONAR_TOKEN }}

@@ -1,0 +1,32 @@
+name: SonarCloud open findings
+description: >-
+  Fail the build when SonarCloud holds open findings for the analysis of the
+  calling workflow's branch or pull request.
+
+inputs:
+  sonar-token:
+    description: >-
+      SonarCloud token that can read the project named by the workspace's
+      sonar-project.properties. An anonymous reader gets zero findings from a
+      private project, so the gate refuses an empty one.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    # A composite step takes no timeout-minutes, so the ceiling over the paging
+    # stays on the calling workflow's step.
+    - name: Ask SonarCloud for open findings
+      shell: bash
+      env:
+        # The scope comes from the calling workflow's own context, so no
+        # consumer can gate a branch it is not building.
+        GITHUB_EVENT_NAME: ${{ github.event_name }}
+        GITHUB_REF_NAME: ${{ github.ref_name }}
+        PULL_REQUEST_NUMBER: ${{ github.event.pull_request.number }}
+        SONAR_TOKEN: ${{ inputs.sonar-token }}
+      # `uses:` checks out the whole of this repository, so the script is a
+      # sibling of this action and is reached by traversing out of it. The
+      # alternative is declaring the repository root to be this action, which
+      # would publish every plugin in it as the action's tree.
+      run: python3 "${GITHUB_ACTION_PATH}/../../../scripts/sonar_findings_gate.py"

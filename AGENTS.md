@@ -1,3 +1,4 @@
+<!-- baseline-skip-start: repository-specific; scripts/sync_agents_baseline.py keeps it out of the seeded baseline -->
 This file owns the code policy: how code, configuration, tests, and
 documentation are written and verified, here and in every repository seeded
 from it. `instructions/AGENTS.md` owns the operator's coordination contract —
@@ -8,6 +9,7 @@ state, tool commands, and plans outside both.
 Entry points (pointers only; the facts live there): `README.md` owns the plugin
 layout, source-versus-generated ownership, installation, update, and verification
 commands.
+<!-- baseline-skip-end -->
 
 Treat existing tracked and untracked changes as the operator's work: preserve
 them and work around them. Never use `git stash` in a worktree because its

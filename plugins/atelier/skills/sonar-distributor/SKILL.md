@@ -352,7 +352,7 @@ large binary run with the project's credential:
 version=8.1.0.6389
 archive="sonar-scanner-cli-$version-linux-x64.zip"
 base="https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/$archive"
-curl -sSLO "$base" && curl -sSLO "$base.sha256" &&
+curl -fsSLO "$base" && curl -fsSLO "$base.sha256" &&
   printf '%s  %s\n' "$(cat "$archive.sha256")" "$archive" | sha256sum -c - &&
   unzip -q "$archive" &&
   SONAR_TOKEN="$(cat <credential>)" SONAR_HOST_URL=https://sonarcloud.io \
@@ -363,7 +363,10 @@ curl -sSLO "$base" && curl -sSLO "$base.sha256" &&
 
 It is one `&&` chain on purpose: a checksum that only prints its mismatch while
 the next line unpacks and runs the binary anyway is the guard this ledger's own
-cited finding is about.
+cited finding is about. `-f` belongs on both downloads for the same reason one
+step earlier: without it an error page is written into the file and the chain
+stops at a checksum that cannot parse, which names the wrong cause and one step
+too late.
 
 The token goes in the environment, never `-Dsonar.token=`, for the `ps` reason
 of "API access". Read the result under `pullRequest=<n>` with the API route
@@ -475,8 +478,16 @@ standing rulings, which every review of a Sonar finding inherits:
   `api/issues/search?componentKeys=<key>&pullRequest=<n>` with the
   `issueStatuses`, the authentication, the scope proof, the timeout and the
   scope encoding of "API access" above, and fails on any result — proven red
-  with a probe finding and green without one. Every repository on the CI
-  scanner copies this step, and a distributor's Done when includes it. A floor
+  with a probe finding and green without one. Its logic lives in
+  `scripts/sonar_findings_gate.py` in overnightworks/marketplace rather than in
+  the workflow, because a heredoc inside YAML is reached by no rule and measured
+  by no coverage: three reviews found defects in it by reading, and the first
+  scan of the extracted script found a fourth. Every repository on the CI
+  scanner therefore copies that script and its test alongside the step that
+  calls them, and a distributor's Done when includes all three. The copying is
+  deliberate for now and carries the divergence a copy always carries; whether
+  it becomes one shared artefact is decided in overnightworks/marketplace #39.
+  A floor
   stronger than the server gate's new-code judgement — zero open findings, a
   coverage fail-under — lives in the repository's own tooling, so a green build
   is evidence only once you know what that repository asserts.

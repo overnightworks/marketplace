@@ -1,26 +1,15 @@
 from __future__ import annotations
 
-import importlib.util
 import json
 import sys
 from pathlib import Path
 
 import pytest
 
-
-REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
-MODULE_PATH = REPOSITORY_ROOT / "scripts" / "sync_agents.py"
+from script_under_test import load_script
 
 
-def _load_sync_agents_module():
-    spec = importlib.util.spec_from_file_location("sync_agents_under_test", MODULE_PATH)
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-    return module
-
-
-sync_agents = _load_sync_agents_module()
+sync_agents = load_script("sync_agents")
 
 
 DEFAULT_FRONTMATTER_LINES = [

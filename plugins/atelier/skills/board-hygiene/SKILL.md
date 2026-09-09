@@ -62,13 +62,16 @@ tracking issue, no state-ref write. Each run inspects the live board fresh.
    - Ambiguous: the evidence both ways, left for the head or operator.
 3. Run `aco check <number>` only when an `agent-claim` block itself looks
    broken, or a specific pull request's classification is in doubt (pass
-   that PR's own number, not the issue number). `check` reads the block and
-   GitHub's `blocked_by` relation, never a prose "Blocked by" line, and
-   answers exactly one of: `body ok` (not proof of done), `body legacy`
-   (an old block shape, not malformed), `body malformed: …` (the block
-   itself is broken — the only case worth a repair proposal), `body
-   incomplete: <sections>` (expected for a not-yet-refined idea, not a
-   defect), or `blocked by <#N>` (a real dependency — keep it).
+   that PR's own number, not the issue number — the two probes print
+   differently). `check` reads the block and GitHub's `blocked_by`
+   relation, never a prose "Blocked by" line. On an issue number it answers
+   exactly one of: `body ok` (not proof of done), `body legacy` (no
+   recognized `agent-claim` block at all, not malformed), `body malformed:
+   …` (a block is present but broken — the only case worth a repair
+   proposal), `body incomplete: <sections>` (expected for a not-yet-refined
+   idea, not a defect), or `blocked by <#N>` (a real dependency — keep it).
+   On a pull-request number it instead prints the PR's work-item
+   classification or refusal, not one of those five issue outcomes.
 4. Return the report to whoever dispatched you. Do not post it to GitHub,
    edit any body, or apply a proposal yourself.
 

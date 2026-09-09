@@ -1,7 +1,0 @@
-claim_id = "eef90055a0a0410b975ad05d8a30a7ba"
-agent = "Claude head (coordinator)"
-role = "coordinator"
-base = "110ae56d4ae59460a50ae580c6491704fd767d9c"
-branch = "claude/issue-54-board-hygiene-aco"
-scope = ["plugins/atelier/skills/board-hygiene/SKILL.md"]
-opened_commit = "b19f3d0bfee0232088aa03a40fd13bd987db7bc6"

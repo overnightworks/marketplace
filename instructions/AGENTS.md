@@ -248,9 +248,9 @@ board hygiene, a live proof, or a lane in another repository.
 For a lane carrying material risk or spanning multiple owners, the head
 sharpens scope and acceptance criteria, then delegates an independent plan
 review, proportionate implementation and tests, and independent code/risk
-review. It delegates fixes and re-review until clean. For UI, delegate
-real-interface checks at relevant mobile and desktop widths. Then delegate
-required CI and evaluate the evidence.
+review. It delegates fixes and re-review until no blocking finding remains. For
+UI, delegate real-interface checks at relevant mobile and desktop widths. Then
+delegate required CI and evaluate the evidence.
 
 ### Model routing
 
@@ -266,21 +266,44 @@ column from the builder.
 
 Grok always means Grok 4.6; change effort, never its model. Where a model
 exposes an effort above the table's highest, use it only for the rare hardest
-proof after lower effort proved insufficient. Use a required final gate once
-on the integrated candidate, not for intermediate patches, test cleanup, or
-mechanical corrections. It is required only where the lane carries material
-risk. A `REVISE` returns to the same reviewer after a coherent fix batch; that
-reviewer may review only the raised delta when the fix is strictly isolated
-and the integrated tree outside it is unchanged. A delta review carries the
-contract core and raised findings and asks whether the repair opened something
-new. What a delta cannot see, integrated checks catch; do not repeat a full
-review to buy what CI already proves. If interaction, scope, or risk changes,
-repeat the required final gate with fresh context. Do not start a fresh final
-gate for each mechanical correction. Required reviews remain independent:
-builders do not review their own work. A required final gate uses fresh
-context and a different provider column from the builder. DeepSeek may build
-or investigate, but is not the sole reviewer for security, data integrity,
-public contracts, or a final verdict.
+proof after lower effort proved insufficient.
+
+A required final gate is required only where the lane carries material risk.
+Start it once, in parallel with the lane's first independent review, on the
+lane tip — not after CI — so its findings join the first fix batch; CI still
+runs on the merged result. A `REVISE` returns to the same reviewer after a
+coherent fix batch; that reviewer may review only the raised delta when the fix
+is strictly isolated and the integrated tree outside it is unchanged. A delta
+review carries the contract core and raised findings and asks whether the
+repair opened something new. What a delta cannot see, integrated checks catch;
+do not repeat a full review to buy what CI already proves.
+
+Every review finding is marked **blocking** or **follow-up**. Blocking is a
+defect the reviewed diff introduces against the ruled sentences, the contract,
+or a repository rule, and always anything touching data safety, security,
+secrets, a public contract, or a failing check. Follow-up is polish with no
+behavioural effect, pre-existing behaviour the lane did not change (the
+reviewer cites the unchanged evidence), or work outside the lane's scope (the
+reviewer names its owning item). A verdict of `architectural` stops the lane;
+it is never a follow-up. Only blocking findings are a `REVISE`: they return to
+the builder and earn a delta re-check. A follow-up goes to its owning item, or
+to the review's distributor issue when it has none, before the lane lands,
+without another review round and without opening a fresh item; the head may
+reclassify a finding, never drop it. A lane without material risk gets one
+review, and a delta only if a blocking finding was raised.
+
+Repeat the final gate with fresh context when a later fix changes interaction,
+scope, or risk — an edit to production behaviour, a data path, secrets, or a
+public contract is such a change — or when the trunk pull or the integration
+merge needed conflict resolution in the lane's files; never for intermediate
+patches, test cleanup, or mechanical corrections. Do not land a material-risk
+tip the final gate has not seen, apart from such mechanical or test-only
+deltas.
+
+Required reviews remain independent: builders do not review their own work. A
+required final gate uses fresh context and a different provider column from the
+builder. DeepSeek may build or investigate, but is not the sole reviewer for
+security, data integrity, public contracts, or a final verdict.
 
 The head owns the landing decision for its claimed lane but never executes a
 landing itself. After required gates are green, it may delegate one explicit

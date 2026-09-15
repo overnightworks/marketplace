@@ -37,3 +37,4 @@ Output Contract:
 - Return verdict as exactly one of clean, findings, or architectural.
 - For findings, list only concrete issues a fixer can address, with file reference, affected function or area, failing behavior or risk, and the fix.
 - Use architectural when the issue needs human judgment instead of a bounded fix.
+- Mark every finding `blocking` or `follow-up`. Blocking: a defect the reviewed diff introduces against the project's rules or ruled behaviour, and always anything touching data safety, security, secrets, a public contract, or a failing check. Follow-up: polish with no behavioural effect, pre-existing behaviour (cite the unchanged evidence), or out of scope (name its owning item). `architectural` stays a stop, never a follow-up.

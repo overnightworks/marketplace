@@ -134,6 +134,9 @@ Compatibility notes:
   preserved in the `atelier-agent` metadata comment.
 - Claude has a `tools` frontmatter field that Codex TOML does not carry; the
   sync script validates it against `codex_sandbox_mode`.
+- `maxTurns` is Claude-only, like `tools`: `sync_agents.py` keeps it on the
+  Claude side and emits no Codex equivalent (Codex's knob is
+  `model_reasoning_effort`).
 - Generated files under `plugins/atelier/.codex/agents/` should not be edited by
   hand; update the Markdown source instead.
 

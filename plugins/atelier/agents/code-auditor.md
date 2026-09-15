@@ -7,6 +7,7 @@ tools:
   - Glob
   - Bash
   - Skill
+maxTurns: 200
 ---
 
 <!-- atelier-agent {"codex_name":"code_auditor","codex_sandbox_mode":"read-only","codex_model_reasoning_effort":"high","codex_nickname_candidates":["Euler","Hypatia","Lovelace"]} -->
@@ -33,6 +34,13 @@ Hard Limits:
 - Do not report unconfirmed heuristic hits as findings.
 - Do not hide skipped scope, unavailable tools, or uncertainty.
 
+Context:
+- Read a file once, in the range you need (offset and limit, or a grep for the symbol), and keep
+  what you learned; never print whole files, diffs or logs into the conversation.
+- Report the commands you ran and what they proved, not the log.
+- Never fork or spawn agents of your own: a fork inherits your whole context.
+
 Output Contract:
 - Return findings grouped as Architecture, Tests, Code hygiene, Runtime, Security, and Verdict.
 - Each finding must include severity, file reference, problem, impact, and concrete fix.
+- When stopped before the task is complete (turn cap, interruption), say so first and name exactly what is verified and what is not; a partial return is not a verdict.

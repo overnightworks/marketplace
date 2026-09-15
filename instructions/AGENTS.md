@@ -198,6 +198,18 @@ briefs therefore point at the body, not at `--comments`; a body that cannot
 carry a fresh agent by itself is not done. Questions that arise during
 implementation go to the journal as usual.
 
+The unit of delegation is the lane step — a build, a fix batch, a review, a
+delta re-check — and every step starts a fresh delegated agent. The head
+resumes an agent only for one immediate, mechanical follow-up of the step it
+just finished — a rename, a format fix, a renumbered ID, a one-file edit —
+never for a second correction, a new fix batch or a re-review, and never past a
+reported lifetime context of 200k tokens; an unreported size counts as over.
+Resuming for the next fix batch is how builder contexts reached 900k (measured
+15.09.2026). A step ends with its work committed on the lane branch and its
+evidence in the journal, so nothing a later step needs lives only in a
+transcript; the next brief names the body, the lane tip, the files touched, the
+findings verbatim, and the commands that proved the step.
+
 Review and audit findings (operator rulings 24.08. and 25.08.2026): a review
 yields ONE distributor issue holding the numbered findings list with evidence;
 a finding becomes its own issue only when it is dispatched (then it needs a
@@ -271,12 +283,15 @@ proof after lower effort proved insufficient.
 A required final gate is required only where the lane carries material risk.
 Start it once, in parallel with the lane's first independent review, on the
 lane tip — not after CI — so its findings join the first fix batch; CI still
-runs on the merged result. A `REVISE` returns to the same reviewer after a
-coherent fix batch; that reviewer may review only the raised delta when the fix
-is strictly isolated and the integrated tree outside it is unchanged. A delta
-review carries the contract core and raised findings and asks whether the
-repair opened something new. What a delta cannot see, integrated checks catch;
-do not repeat a full review to buy what CI already proves.
+runs on the merged result. A `REVISE` is a delta re-check after a coherent fix
+batch: the same reviewer when its reported lifetime context is under 200k
+tokens (unknown counts as over), otherwise a fresh reviewer from the same row
+and provider column who receives the original findings verbatim; that reviewer
+may review only the raised delta when the fix is strictly isolated and the
+integrated tree outside it is unchanged. A delta review carries the contract
+core and raised findings and asks whether the repair opened something new. What
+a delta cannot see, integrated checks catch; do not repeat a full review to buy
+what CI already proves.
 
 Every review finding is marked **blocking** or **follow-up**. Blocking is a
 defect the reviewed diff introduces against the ruled sentences, the contract,
@@ -286,11 +301,11 @@ behavioural effect, pre-existing behaviour the lane did not change (the
 reviewer cites the unchanged evidence), or work outside the lane's scope (the
 reviewer names its owning item). A verdict of `architectural` stops the lane;
 it is never a follow-up. Only blocking findings are a `REVISE`: they return to
-the builder and earn a delta re-check. A follow-up goes to its owning item, or
-to the review's distributor issue when it has none, before the lane lands,
-without another review round and without opening a fresh item; the head may
-reclassify a finding, never drop it. A lane without material risk gets one
-review, and a delta only if a blocking finding was raised.
+the lane's builder step and earn a delta re-check. A follow-up goes to its
+owning item, or to the review's distributor issue when it has none, before the
+lane lands, without another review round and without opening a fresh item; the
+head may reclassify a finding, never drop it. A lane without material risk gets
+one review, and a delta only if a blocking finding was raised.
 
 Repeat the final gate with fresh context when a later fix changes interaction,
 scope, or risk — an edit to production behaviour, a data path, secrets, or a

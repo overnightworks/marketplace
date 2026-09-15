@@ -1,7 +1,0 @@
-claim_id = "117c9189590c4e8a9a612bd1a18852c7"
-agent = "claude-head"
-role = "builder"
-base = "512cc1eb1a5936d4079be94b0af3198a2b5733d2"
-branch = "docs/fresh-agents"
-scope = ["instructions/AGENTS.md"]
-opened_commit = "0baad6d3ccd816d35485575cae70dc8a6b294aff"

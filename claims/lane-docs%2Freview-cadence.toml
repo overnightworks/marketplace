@@ -1,7 +1,0 @@
-claim_id = "715a901ca761482ab5e46f79916fa438"
-agent = "claude-head"
-role = "builder"
-base = "5da058dc8838294b7ed5b8b9988519be711b70e2"
-branch = "docs/review-cadence"
-scope = ["instructions/AGENTS.md", "plugins/atelier/agents/code-reviewer.md", "plugins/atelier/.codex/agents/code-reviewer.toml"]
-opened_commit = "97444ae6f5e79cdf81cf2cd50c08a9eab38cac7d"

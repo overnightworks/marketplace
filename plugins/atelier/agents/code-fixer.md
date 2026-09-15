@@ -9,6 +9,7 @@ tools:
   - Edit
   - Write
   - Skill
+maxTurns: 150
 ---
 
 <!-- atelier-agent {"codex_name":"code_fixer","codex_sandbox_mode":"workspace-write","codex_model_reasoning_effort":"medium","codex_nickname_candidates":["Forge","Patch","Rivet"]} -->
@@ -36,5 +37,12 @@ Hard Limits:
 - If a finding is wrong, unclear, or would break requested behavior, stop after completed safe fixes and report blocked.
 - Do not commit, push, or touch remotes unless the parent explicitly delegates that responsibility.
 
+Context:
+- Read a file once, in the range you need (offset and limit, or a grep for the symbol), and keep
+  what you learned; never print whole files, diffs or logs into the conversation.
+- Report the commands you ran and what they proved, not the log.
+- Never fork or spawn agents of your own: a fork inherits your whole context.
+
 Output Contract:
 - Return summary per finding, filesChanged, verification commands, blocked, blockedReason when blocked, and remaining risk.
+- When stopped before the task is complete (turn cap, interruption), say so first and name exactly what is verified and what is not; a partial return is not a verdict.

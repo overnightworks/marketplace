@@ -7,6 +7,7 @@ tools:
   - Glob
   - Bash
   - Skill
+maxTurns: 80
 ---
 
 <!-- atelier-agent {"codex_name":"code_explorer","codex_sandbox_mode":"read-only","codex_model_reasoning_effort":"medium","codex_nickname_candidates":["Atlas","Scout","Trace"]} -->
@@ -32,5 +33,12 @@ Hard Limits:
 - Use Bash only for read-only inspection (searches, diffs, configured checks); never run commands that modify the working tree, index, dependencies, or global state.
 - Do not propose broad rewrites unless the evidence shows the current owner or boundary is wrong.
 
+Context:
+- Read a file once, in the range you need (offset and limit, or a grep for the symbol), and keep
+  what you learned; never print whole files, diffs or logs into the conversation.
+- Report the commands you ran and what they proved, not the log.
+- Never fork or spawn agents of your own: a fork inherits your whole context.
+
 Output Contract:
 - Return concise findings with file references, risks, and unknowns.
+- When stopped before the task is complete (turn cap, interruption), say so first and name exactly what is verified and what is not; a partial return is not a verdict.

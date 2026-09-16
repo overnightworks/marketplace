@@ -204,14 +204,14 @@ resumes an agent only for one immediate, mechanical follow-up of the step it
 just finished — a rename, a format fix, a renumbered ID, a one-file edit —
 never for a second correction, a new fix batch or a re-review, and never past a
 reported lifetime context of 200k tokens; an unreported size counts as over —
-except one turn-cap stop: an agent that stops at its turn cap with
-uncommitted work is resumed once, at any context size, with "commit what is
-green and report", and gets a fresh finisher if that resume fails. Resuming
-for the next fix batch is how builder contexts reached 900k (measured
-15.09.2026). A step ends with its work committed on the lane branch
-and its evidence in the journal, so nothing a later step needs lives only in a
-transcript; the next brief names the body, the lane tip, the files touched, the
-findings verbatim, and the commands that proved the step.
+except one turn-cap stop: an agent that stops at its turn cap with uncommitted
+work is resumed once, at any context size, with "commit what is green and
+report", and gets a fresh finisher if that resume fails. Resuming for the next
+fix batch is how builder contexts reached 900k (measured 15.09.2026). A step
+ends with its work committed on the lane branch and its evidence in the
+journal, so nothing a later step needs lives only in a transcript; the next
+brief names the body, the lane tip, the files touched, the findings verbatim,
+and the commands that proved the step.
 
 Review and audit findings (operator rulings 24.08. and 25.08.2026): a review
 yields ONE distributor issue holding the numbered findings list with evidence;
@@ -248,13 +248,15 @@ breakdown workflow first and writes its slices — files, done-when, dependencie
 for a large change is how a lane becomes a forty-file candidate with dozens of
 findings; the planner exists so the cut is argued before the build, not after.
 
-A small card is not a slice: three or four land together as one lane, under
-the lead card's issue number for its claim, worktree and branch, with the
-other cards named in its body — bundling amortizes the claim, worktree,
-dispatch and landing overhead a lane pays regardless of card count (measured
-16.09.2026: about 1.5 h per bundle including review, against a 1.6 h median
-for a single small card). A card that is urgent or carries material risk
-lands alone.
+A small card is not a slice: three or four land together as one lane, under the
+lead card's issue number for its claim, worktree and branch, with the other
+cards named in its body — bundling amortizes the claim, worktree, dispatch and
+landing overhead a lane pays regardless of card count (measured 16.09.2026:
+about 1.5 h per bundle including review, against a 1.6 h median for a single
+small card). A card that is urgent or carries material risk lands alone. The
+claim runs under the lead card's issue with `--scope` covering every bundled
+card's paths and `--whole` naming the bundle; each non-lead body says 'lands
+with #<lead>', and the PR closes all of them.
 
 Run as many lanes as the work has disjoint scopes, not a fixed number: each has
 its own issue, exact claim, worktree, branch, and builder. Width is set by
@@ -273,14 +275,14 @@ For a lane carrying material risk or spanning multiple owners, the head
 sharpens scope and acceptance criteria, then delegates an independent plan
 review, proportionate implementation and tests, and independent code/risk
 review. The first review on such a lane drives a scenario matrix the head
-writes from the item's ruled sentences — its expectation lines crossed with
-the relevant axes such as type, state, edit, sources, and command — and
-reports every cell held, failed, or not driven, so later gates stay true
-deltas instead of rediscovering the matrix; a matrix larger than one reviewer
-can drive means the item is cut, not the matrix sampled. It delegates fixes
-and re-review until no blocking
-finding remains. For UI, delegate real-interface checks at relevant mobile and
-desktop widths. Then delegate required CI and evaluate the evidence.
+writes from the item's ruled sentences crossed with the axes that matter for
+the change (the explorative-testing skill holds the template), and reports
+every cell held, failed, or not driven, so later gates stay true deltas; a
+matrix one reviewer cannot drive in one session -- past roughly forty cells --
+means the item is cut, not the matrix sampled. It delegates fixes and re-review
+until no blocking finding remains. For UI, delegate real-interface checks at
+relevant mobile and desktop widths. Then delegate required CI and evaluate the
+evidence.
 
 ### Model routing
 
@@ -358,14 +360,16 @@ full local suites and uncapped `-n auto` drove this 12-core machine to load
 140.
 
 Local runs are targeted; CI is the gate. A builder or reviewer runs locally
-only the tests that prove its own change — the named test modules, or `-k`
-on the behaviour — plus the static checks its brief names. Never a full
-suite, a coverage run, or a full E2E/Playwright suite on this machine unless
-the operator asked. Those run in CI on the pushed branch; the lane reads CI.
-A repository `CLAUDE.md` may name cheaper local commands for that repo; it
-may not loosen this floor. A lane that changes a public default value greps
-the old value across every test before that review and runs every matching
-module; a reviewer treats a hit the lane left unrun as blocking.
+only the tests that prove its own change — the named test modules, or `-k` on
+the behaviour — plus the static checks its brief names. Never a full suite, a
+coverage run, or a full E2E/Playwright suite on this machine unless the
+operator asked. Those run in CI on the pushed branch; the lane reads CI. A
+repository `CLAUDE.md` may name cheaper local commands for that repo; it may
+not loosen this floor. A lane that changes a default value a caller or a test
+can observe greps the old value across the tests before its first review and
+runs the matching modules under the worker cap; where the hits span more than a
+handful of modules, CI on the pushed branch is the proof, and a reviewer treats
+a hit neither run nor named as blocking.
 
 Workers are capped twice: no repository sets `-n auto` as its pytest default
 (CI passes it explicitly), and every local shell keeps

@@ -30,9 +30,10 @@ Procedure:
 - Take `/tmp/probe-stack.lock` and check the machine load before starting any server, browser or container.
 - Build the smallest real setup in the scratch location the parent names.
 - Drive the named area and its neighbours through the real entry point.
-- Repeat commands; probe error paths; check every count and status label the surface claims against its source of truth.
+- Run every command you tried at least twice, including the project's refresh or sync equivalent twice in a row, taking the load check and lock again if it starts a server, container, or browser; compare the state after the first and the second run and report any difference.
+- Probe error paths: missing input, wrong input, an unreachable or corrupt resource, an interrupted run. Check every count, status, and success claim the surface prints against its source of truth, and report any non-zero exit without a printed reason and any printed failure with a zero exit.
 - Time-box the exploration as the parent briefs.
-- Stop at two thirds of your turn cap and report the cards you have plus what you did not reach.
+- Stop at two thirds of your turn cap, or at 180k lifetime context (use the turn count if you cannot read it), whichever comes first, and report the cards you have plus what you did not reach.
 
 Hard Limits:
 - Never read the diff or the implementation plan.

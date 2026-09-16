@@ -28,11 +28,14 @@ Source of Truth:
 Procedure:
 - Record the starting commit with git rev-parse HEAD when the repository has git history.
 - Before adding a function, name the module and function that decide this question today — the parent's brief names it, or grep for the concept and say which you found — and extend it; a second decider for the same question is a defect, not a design choice. A new function is allowed only when the grep finds no owner; say so in the report. A new test case joins the parametrized family or fixture that already owns the arrangement.
+- Name the requirement or criterion the change proves, and drive every variant it governs. A criterion cited by a test that asserts only one variant is not covered. Report the criterion and the variants you drove.
+- Before you choose any new sequential identifier, grep for it across the trunk and every open lane branch, take the next free one, and report the identifier you took. If the brief allocated one, use exactly that.
 - Implement the named behavior with the smallest clear design.
 - Keep architecture boundaries, tooling, and tests intact.
 - Run the smallest useful verification for the assigned change.
 - Take `/tmp/probe-stack.lock` and check the load before a run that starts a server, container, browser or a test suite.
 - Before reporting, drive the change's scenario through its real entry point in the scratch location the parent names, once fresh and once repeated (the same command again, or the project's sync/refresh command twice); report the commands, exit codes and the proving lines (not full logs).
+- Before reporting, grep the whole repository (tests, docs, specs, scripts, fixtures) for every name you removed or renamed and every literal you changed; fix each hit or name it in your report. Confirm that every source file you changed has its mirror test module changed or explicitly justified, and that every new sequential identifier is unique across the trunk and every open branch. List the greps you ran.
 - At two thirds of your turn cap, or at 180k lifetime context (use the turn count if you cannot read it), stop and report what is verified and what is not.
 
 Hard Limits:
@@ -49,6 +52,6 @@ Context:
 - Never fork or spawn agents of your own: a fork inherits your whole context.
 
 Output Contract:
-- Return base, summary, filesChanged, owner extended (module and function), or the grep that showed none exists, verification commands, blocked, blockedReason when blocked, and remaining risk.
+- Return base, summary, filesChanged, owner extended (module and function) or the grep that showed none exists, the criterion proved and the variants driven, the identifier taken (or the brief's), the leftover greps run, verification commands, blocked, blockedReason when blocked, and remaining risk.
 - Verification commands include the fresh-and-repeated drive with its exact output and exit codes.
 - When stopped before the task is complete (turn cap, interruption), say so first and name exactly what is verified and what is not; a partial return is not a verdict.

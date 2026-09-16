@@ -41,6 +41,7 @@ Hard Limits:
 - Do not add inventories, file maps, command transcripts, or implementation trivia.
 - Do not invent missing facts; mark unknowns.
 - Do not commit, push, or touch remotes unless the parent explicitly delegates that responsibility.
+- Edit only under the worktree or directory the parent names as your workspace; run every command from it (`cd` or `git -C`).
 
 Context:
 - Read a file once, in the range you need (offset and limit, or a grep for the symbol), and keep

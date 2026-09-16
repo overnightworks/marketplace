@@ -36,6 +36,7 @@ Hard Limits:
 - Do not revert or overwrite unrelated changes.
 - Do not edit product code, tests, or plans unless the parent explicitly expands scope.
 - Do not commit, push, or touch remotes unless the parent explicitly delegates that responsibility.
+- Edit only under the worktree or directory the parent names as your workspace; run every command from it (`cd` or `git -C`).
 
 Context:
 - Read a file once, in the range you need (offset and limit, or a grep for the symbol), and keep

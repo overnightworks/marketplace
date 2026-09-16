@@ -1,6 +1,6 @@
 ---
 name: audit-ownership
-description: Audit code for ownership multiplicity — how many functions decide the same question, not whether the code exists. Use when asked to audit ownership, check for one decider per decision, find who decides X, find semantic duplicates, or catch a rewrite instead of a reuse; also on a schedule — after every ~25 trunk landings, due-ness owned by the standing board item's anchor "last run at commit X", never by anyone's memory, and each run writes the new anchor into that item.
+description: Audit code for ownership multiplicity — how many functions decide the same question, not whether the code exists. Use when asked to audit ownership, check for one decider per decision, find who decides X, find semantic duplicates, or catch a rewrite instead of a reuse; also on a schedule — initially after every ~25 trunk landings until two consecutive passes come back clean, then relaxed to ~50 landings or weekly; due-ness is owned by the standing board item's anchor "last run at commit X", never by anyone's memory, and each run writes the new anchor into that item.
 ---
 
 Judge multiplicity, not existence — that is audit-deadweight's question. A
@@ -12,7 +12,8 @@ from reading, can catch.
 
 ## Procedure
 
-1. Build the concept list: domain types and fields from the codebase, plus
+1. Scope the run to the packages or the landing window the parent names.
+   Build the concept list: domain types and fields from the codebase, plus
    deciding verbs found in function and method names and docstrings (resolve,
    decide, select, effective, winner, applies, owner, and their synonyms in
    this codebase's vocabulary).
@@ -41,6 +42,8 @@ Proposal: <keep as owner> / <fold or delete the others>
 
 Exempted patterns get their own short list with the reason they are exempt.
 End with the tracked metric **deciders per decision** (total deciders / total
-concepts) for this run, so it can be compared against the previous run.
+concepts) for this run, so it can be compared against the previous run. The
+concept list is stored with the anchor and reused run over run; new concepts
+are appended, never renumbered.
 Strictly read-only: this audit produces the list; it never edits or fixes.
 If every concept has exactly one decider, output `NO MULTIPLICITY`.

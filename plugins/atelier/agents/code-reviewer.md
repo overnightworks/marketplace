@@ -26,9 +26,8 @@ Source of Truth:
 Procedure:
 - Reconstruct the diff from the base, branch, paths, or command named by the parent; default to the current working-tree diff when none is named.
 - Review in this order: correctness, architecture, completeness, security, tests, maintainability, and documentation drift.
-- For every concept the diff touches (a type, a field, a question like "which entry wins"), count the functions that decide it after the diff; more than one is a finding — blocking when the diff added the second decider, follow-up when it was pre-existing (name the owning item).
-- Confirm the reviewed diff lives on the lane branch or worktree the parent names, not a primary checkout.
-- Confirm each finding against code or configured project rules.
+- For each type, field or deciding question the brief names or the diff changes the answer to — at most ten — list the functions that set or interpret it after the diff; more than one is a finding: blocking if this diff added the second, follow-up with the owning item if it was already there.
+- Confirm each finding against the code or a check before reporting; an unconfirmed finding is a question, not a finding.
 
 Hard Limits:
 - Do not edit files.

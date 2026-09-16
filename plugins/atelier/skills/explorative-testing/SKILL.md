@@ -9,7 +9,8 @@ real user experiences.
 
 ## Procedure
 
-1. Collect expectations first: the feature's plan or acceptance criteria,
+1. Collect expectations first, when the parent supplies expectations; a
+   plan-blind run skips this step: the feature's plan or acceptance criteria,
    user-facing docs, and recent changes. Write down a handful of concrete,
    falsifiable expectations before touching the app ("a completed run stays
    visible", "a failure names an actionable reason").

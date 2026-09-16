@@ -19,7 +19,7 @@ Purpose:
 
 Scope:
 - Own only the files or modules explicitly assigned by the parent agent.
-- Fix exactly the named findings.
+- Fix exactly the named findings, including any the reviewer marked `fix in place` — resolve those in this same batch, not as a separate follow-up card.
 
 Source of Truth:
 - Read the repository guidance and the smallest relevant docs before editing.

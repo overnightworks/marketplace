@@ -57,7 +57,9 @@ CI keeps the rule, so nobody has to remember it (operator ruling 06.09.2026).
 - Create a new boundary only when no existing owner can honestly own the
   decision.
 - Do not add architecture, extension points, compatibility layers, or options
-  without a current caller.
+  without a current caller. Delete the predecessor in the same change that
+  replaces it, unless an open item explicitly freezes it ahead of a caller —
+  and then do not harden or extend it either.
 - Build vertically first: shapes early, surfaces thin, hardening after use. A
   capability's first slice is the thinnest honest end-to-end proof; edge cases
   are mandatory before that first run only where their absence corrupts durable
@@ -118,6 +120,9 @@ CI keeps the rule, so nobody has to remember it (operator ruling 06.09.2026).
 - Secrets and API keys enter only through secret or configuration channels.
   Never put them in logs, prompts, briefs, event records, memory,
   documentation, fixtures, or tests.
+- A value that can carry a credential is classified at its call site and
+  refused or sanitized before any egress — logs, stdout, error strings, and
+  the files the repository keeps.
 
 ## Value Ownership
 
@@ -165,10 +170,13 @@ Before adding a literal, constant, default, or fixture value, classify its owner
 - Fail loud when durable state, user data, verification, integration, security,
   or process ownership could be corrupted.
 - Fail soft only when the failure is visible, recoverable, and cannot corrupt
-  important state.
+  important state. A degraded or partial result is reported as degraded,
+  never as success.
 - Validate external input, provider output, configuration, and filesystem state.
 - Enforce privileged, irreversible, or external side-effect boundaries in code
   or tool permissions; prompts are not controls.
+- Every non-zero exit prints its reason, every printed failure exits
+  non-zero, and a failure is never one line among per-item progress.
 
 ## Tests
 
@@ -184,6 +192,8 @@ Before adding a literal, constant, default, or fixture value, classify its owner
   against the contract; syntax or mutation metrics become gates only after a
   project pilot proves signal and runtime cost.
 - Add focused tests for new behavior and regression tests for bug fixes.
+- Every source module has a test module that mirrors its path, and
+  end-to-end proof does not replace it.
 - Put a regression test at the observable boundary that owns the defect; use a
   port fake only when the defect crosses a port boundary.
 - Coverage is evidence, not the goal. Do not add tests that only execute lines.

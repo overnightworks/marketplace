@@ -64,8 +64,8 @@ alive to every mechanical check.
 
 ## Output
 
-Return the report inline; the dispatching caller turns findings into
-retire/delete work items or one consolidated diet epic (on this deployment
+Return the report inline; the dispatching caller turns findings into exactly
+one distributor item holding the numbered findings list (on this deployment
 the work board lives at the atelier server's `/api/work`; the auditor itself
 posts nothing). Rank by deletable lines, largest first:
 

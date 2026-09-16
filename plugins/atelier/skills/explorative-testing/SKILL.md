@@ -26,7 +26,9 @@ real user experiences.
    UI is involved, capture screenshots and judge the rendered image (see
    skill), not the source. Cover at least: the happy path, one error path,
    one interrupt/restart path (state durability), and the empty first-run
-   state.
+   state. Run every flow you drive at least twice, including the project's
+   refresh or sync equivalent twice in a row; compare the state after the
+   first and the second run and report any difference.
 4. Probe like a user, not a fuzzer: what would confuse, mislead, or dead-end
    a person? Stale views, vanished state, unlabeled failures, copy that
    overpromises, controls that silently do nothing.
@@ -52,6 +54,20 @@ real user experiences.
 
 ## Output
 
-Return: expectations checked (met / violated / unverifiable), findings with
-severity + reproduction + evidence, work items filed (with ids) when
-authorized, and what was deliberately not explored.
+For a standalone invocation not wrapped by an agent definition's own Output
+Contract, return: expectations checked (met / violated / unverifiable), and
+findings as at most twelve cards, ordered by severity, each exactly:
+
+```
+### <title in plain words>
+- Now:
+- Now output: `command` -> `output` (exit N)
+- Should:
+- Should output: ... (proposed)
+- Matters because:
+- Size: small | medium
+- Severity: blocking | follow-up
+```
+
+Use no other severity words. After the cards, return work items filed (with
+ids) when authorized, and what was deliberately not explored.

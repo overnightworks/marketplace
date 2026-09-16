@@ -203,12 +203,12 @@ delta re-check — and every step starts a fresh delegated agent. The head
 resumes an agent only for one immediate, mechanical follow-up of the step it
 just finished — a rename, a format fix, a renumbered ID, a one-file edit —
 never for a second correction, a new fix batch or a re-review, and never past a
-reported lifetime context of 200k tokens; an unreported size counts as over.
-The worked example is the turn cap: an agent that stops there with
-uncommitted work is resumed first with "commit what is green and report" —
-that one mechanical follow-up — and only gets a fresh finisher if that resume
-fails. Resuming for the next fix batch is how builder contexts reached 900k
-(measured 15.09.2026). A step ends with its work committed on the lane branch
+reported lifetime context of 200k tokens; an unreported size counts as over —
+except one turn-cap stop: an agent that stops at its turn cap with
+uncommitted work is resumed once, at any context size, with "commit what is
+green and report", and gets a fresh finisher if that resume fails. Resuming
+for the next fix batch is how builder contexts reached 900k (measured
+15.09.2026). A step ends with its work committed on the lane branch
 and its evidence in the journal, so nothing a later step needs lives only in a
 transcript; the next brief names the body, the lane tip, the files touched, the
 findings verbatim, and the commands that proved the step.
@@ -232,7 +232,8 @@ holding is for a value that must exist once and whose double use survives a
 merge—a schema version, generated artifact, or the one live store. Name it in
 the dispatch and hold it for the lane so it is allocated rather than guessed.
 When two lanes need the same contract, that is a cut problem: one slice owns
-it.
+it. A lane that must land on its own never merges an unlanded sibling lane
+into its branch; the two merge only when they land together.
 
 A landing closes an item. When it does not, the item was cut too large: the
 slice, not the epic, is the unit of work, so a slice becomes its own item at the
@@ -247,12 +248,13 @@ breakdown workflow first and writes its slices — files, done-when, dependencie
 for a large change is how a lane becomes a forty-file candidate with dozens of
 findings; the planner exists so the cut is argued before the build, not after.
 
-Small cards land in bundles of three or four per lane, not one at a time:
-measured 16.09.2026, one bundle cost about 1.5 h including its review, against
-roughly 1.3 h for landing a single card alone — bundling amortizes the claim,
-worktree, dispatch, and landing overhead a lane pays regardless of card count.
-One review covers the bundle; skip the cross-provider final gate unless the
-bundle carries material risk.
+A small card is not a slice: three or four land together as one lane, under
+the lead card's issue number for its claim, worktree and branch, with the
+other cards named in its body — bundling amortizes the claim, worktree,
+dispatch and landing overhead a lane pays regardless of card count (measured
+16.09.2026: about 1.5 h per bundle including review, against a 1.6 h median
+for a single small card). A card that is urgent or carries material risk
+lands alone.
 
 Run as many lanes as the work has disjoint scopes, not a fixed number: each has
 its own issue, exact claim, worktree, branch, and builder. Width is set by
@@ -262,8 +264,6 @@ Prefer a slice one builder finishes in
 well under an hour and that touches few files; a long lane pays for every
 landing it did not join, and a lane whose findings run into the dozens was cut
 too big. Never parallelize overlapping scope or an unresolved shared decision.
-A lane that must land on its own never merges an unlanded sibling lane into
-its branch; the two merge only when they land together.
 Serial by nature: migration, redeploy, and anything touching the one live
 instance. While CI or review waits, dispatch another clear lane; when no scope
 is free, spend the slot on work that needs no claim — refining upcoming items,
@@ -274,10 +274,11 @@ sharpens scope and acceptance criteria, then delegates an independent plan
 review, proportionate implementation and tests, and independent code/risk
 review. The first review on such a lane drives a scenario matrix the head
 writes from the item's ruled sentences — its expectation lines crossed with
-the relevant axes such as type, state, edit, sources, and command (template
-and report shape in the explorative-testing skill) — and reports every cell
-held, failed, or not driven, so later gates stay true deltas instead of
-rediscovering the matrix. It delegates fixes and re-review until no blocking
+the relevant axes such as type, state, edit, sources, and command — and
+reports every cell held, failed, or not driven, so later gates stay true
+deltas instead of rediscovering the matrix; a matrix larger than one reviewer
+can drive means the item is cut, not the matrix sampled. It delegates fixes
+and re-review until no blocking
 finding remains. For UI, delegate real-interface checks at relevant mobile and
 desktop widths. Then delegate required CI and evaluate the evidence.
 
@@ -321,14 +322,12 @@ it is never a follow-up. Only blocking findings are a `REVISE`: they return to
 the lane's builder step and earn a delta re-check. A follow-up goes to its
 owning item, or to the review's distributor issue when it has none, before the
 lane lands, without another review round and without opening a fresh item —
-except a follow-up that lies in a file the lane already changed and stays
-under about ten lines, which the lane's own fixer resolves in the same fix
-batch instead, no card; a follow-up outside those files still goes to its
-owning item. The head may reclassify a finding, never drop it. A lane without
-material risk gets one review, and a delta only if a blocking finding was
-raised. A lane that changes a public default value greps the old value across
-every test before that review and runs every matching module; a reviewer
-treats a hit the lane left unrun as blocking.
+except a follow-up inside a file the lane already changed whose fix cannot
+change behaviour outside the reviewed diff (about ten lines is the practical
+cap), which the lane's fixer resolves in the same fix batch, no card; where
+the lane has no fix batch it goes to its owning item unchanged. The head may
+reclassify a finding, never drop it. A lane without material risk gets one
+review, and a delta only if a blocking finding was raised.
 
 Repeat the final gate with fresh context when a later fix changes interaction,
 scope, or risk — an edit to production behaviour, a data path, secrets, or a
@@ -364,7 +363,9 @@ on the behaviour — plus the static checks its brief names. Never a full
 suite, a coverage run, or a full E2E/Playwright suite on this machine unless
 the operator asked. Those run in CI on the pushed branch; the lane reads CI.
 A repository `CLAUDE.md` may name cheaper local commands for that repo; it
-may not loosen this floor.
+may not loosen this floor. A lane that changes a public default value greps
+the old value across every test before that review and runs every matching
+module; a reviewer treats a hit the lane left unrun as blocking.
 
 Workers are capped twice: no repository sets `-n auto` as its pytest default
 (CI passes it explicitly), and every local shell keeps

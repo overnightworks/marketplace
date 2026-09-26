@@ -35,6 +35,8 @@ if (A.builderProvider && A.builderProvider !== 'claude') {
 const isPathList = (value) => Array.isArray(value) && value.every(path => typeof path === 'string' && path.length > 0)
 if (A.productionPaths !== undefined && !isPathList(A.productionPaths)) return { status: 'failed', stage: 'input', reason: 'productionPaths must be a list of path prefixes' }
 if (A.ledgers !== undefined && !isPathList(A.ledgers)) return { status: 'failed', stage: 'input', reason: 'ledgers must be a list of file paths' }
+// A misspelled risk must not run as a normal lane: that would silently drop the material lane's final gate.
+if (A.risk !== undefined && !['normal', 'material'].includes(A.risk)) return { status: 'failed', stage: 'input', reason: 'risk must be "normal" or "material"' }
 const MATERIAL = A.risk === 'material'
 // Every gh call names the repository explicitly: agents start in the head's own checkout, which may be another repository.
 if (A.repo && !/^[\w.-]+\/[\w.-]+$/.test(A.repo)) return { status: 'failed', stage: 'input', reason: 'repo must be owner/name' }

@@ -496,6 +496,5 @@ return {
     `land with \`aco land ${pr}\` only while the pull request head is still ${tip}`,
     ...(openFollowups.length ? [`route ${openFollowups.length} follow-up(s) to their owning items before landing`] : []),
     `update the body of item #${A.item}'s parent and name what the landing freed`,
-    'reinstall the tool and restart the board server when this repository is aco itself',
   ],
 }

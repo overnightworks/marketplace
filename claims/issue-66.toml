@@ -1,0 +1,8 @@
+claim_id = "308c0776ac2e404190a9dba860a6a477"
+agent = "Claude head (coordinator)"
+role = "builder"
+base = "b4a705a0d031adf6bcae06884cecd5df3e1509a9"
+branch = "claude/issue-66-opus-lane"
+scope = [".agent-claim/board.toml", "instructions/AGENTS.md", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/README.md", "plugins/atelier/workflows/lane.js"]
+opened_commit = "77958b6aeb4b7469b66f80233ea9f50db06e7b74"
+whole_reason = "zwei Operator-Worte vom selben Tag im selben Repository plus die Konfiguration, ohne die hier kein Claim geht"

@@ -35,8 +35,10 @@ if (A.builderProvider && A.builderProvider !== 'claude') {
 const isPathList = (value) => Array.isArray(value) && value.every(path => typeof path === 'string' && path.length > 0)
 if (A.productionPaths !== undefined && !isPathList(A.productionPaths)) return { status: 'failed', stage: 'input', reason: 'productionPaths must be a list of path prefixes' }
 if (A.ledgers !== undefined && !isPathList(A.ledgers)) return { status: 'failed', stage: 'input', reason: 'ledgers must be a list of file paths' }
-// A misspelled risk must not run as a normal lane: that would silently drop the material lane's final gate.
+// A misspelled choice must never fall back to its default: a misspelled risk would silently drop the material lane's final gate.
 if (A.risk !== undefined && !['normal', 'material'].includes(A.risk)) return { status: 'failed', stage: 'input', reason: 'risk must be "normal" or "material"' }
+if (A.reviewer !== undefined && !['claude', 'codex'].includes(A.reviewer)) return { status: 'failed', stage: 'input', reason: 'reviewer must be "claude" or "codex"' }
+if (A.size !== undefined && !['S', 'M', 'L'].includes(A.size)) return { status: 'failed', stage: 'input', reason: 'size must be "S", "M" or "L"' }
 const MATERIAL = A.risk === 'material'
 // Every gh call names the repository explicitly: agents start in the head's own checkout, which may be another repository.
 if (A.repo && !/^[\w.-]+\/[\w.-]+$/.test(A.repo)) return { status: 'failed', stage: 'input', reason: 'repo must be owner/name' }
@@ -52,7 +54,7 @@ const LEDGERS = A.ledgers || []
 const MECHANICAL = { agentType: 'general-purpose', model: 'opus', effort: 'low' }
 const WATCHER = MECHANICAL
 // With one model, effort is the switch (operator, 26.09.2026): it follows the item's size and risk, not a fixed "high".
-const SIZE = ['S', 'M', 'L'].includes(A.size) ? A.size : 'M'
+const SIZE = A.size || 'M'
 const EFFORT = {
   build: SIZE === 'S' ? 'medium' : 'high',
   fix: SIZE === 'S' ? 'medium' : 'high',

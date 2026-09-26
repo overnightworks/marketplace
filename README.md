@@ -16,6 +16,8 @@ Licensed under the [MIT License](LICENSE).
 - `plugins/atelier/skills/agent-documentation/AGENTS.baseline.md` is the
   generated seed of the root `AGENTS.md`.
 - `plugins/atelier/hooks/hooks.json` is the shared quality-gate hook configuration.
+- `plugins/atelier/workflows/` holds the Claude Code workflows; `lane` drives
+  one claimed aco lane from build to ready-to-land.
 - `plugins/atelier/.codex-plugin/plugin.json` is the Codex plugin manifest.
 - `plugins/atelier/.claude-plugin/plugin.json` is the Claude Code plugin
   manifest.

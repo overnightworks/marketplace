@@ -292,13 +292,15 @@ column from the builder.
 
 | Work | Codex | Claude | Grok | DeepSeek |
 |---|---|---|---|---|
-| Mechanical/search/repetition and mechanical review | Luna, low/medium | Sonnet, low/medium | 4.6, low | V4 Flash |
-| Normal implementation/debugging and ordinary code/test/diff review | Terra, medium/high | Sonnet, high | 4.6, medium/high | V4 Pro |
+| Mechanical/search/repetition and mechanical review | Luna, low/medium | Opus, low/medium | 4.6, low | V4 Flash |
+| Normal implementation/debugging and ordinary code/test/diff review | Terra, medium/high | Opus, high | 4.6, medium/high | V4 Pro |
 | Architecture, security, or product decision; required final gate | Sol, high/xhigh | Opus or Fable, high/xhigh | 4.6, high/xhigh | support only; never final gate |
 
-Grok always means Grok 4.6; change effort, never its model. Where a model
-exposes an effort above the table's highest, use it only for the rare hardest
-proof after lower effort proved insufficient.
+Claude always means Opus (Fable where the gate row allows it); with one Claude
+model, its effort follows the work's difficulty. Grok always means Grok 4.6;
+change effort, never its model. Where a model exposes an effort above the
+table's highest, use it only for the rare hardest proof after lower effort
+proved insufficient.
 
 A required final gate is required only where the lane carries material risk.
 Start it once, in parallel with the lane's first independent review, on the

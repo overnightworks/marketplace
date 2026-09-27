@@ -43,7 +43,13 @@ An explicit operator request wins. Without one:
 3. Run `aco status`. Before a writer's first edit, the head owns a full
    exact-scope claim from a clean isolated worktree; consult `aco claim
    --help`. On a legacy or foreign contract, migrate it rather than create a
-   competing ledger; otherwise bootstrap only when no ledger exists.
+   competing ledger. A repository whose default branch has no
+   `.agent-claim/board.toml` adopts aco once, outside the claim protocol: one
+   commit (a pull request on a forge) that adds that file and nothing else
+   lands on the default branch without a claim, the head confirms
+   `git diff --name-only <merge>^1 <merge>` names only that path, then runs
+   `aco bootstrap`. Any other work, including a lane that bundled the
+   configuration, drops it from its branch and claims after adoption.
 4. If there is no actionable item, or the directory is not a Git repository,
    ask what to work on.
 

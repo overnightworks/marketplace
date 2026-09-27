@@ -21,9 +21,9 @@ jobs:
       # The action is pinned by commit and the tool it installs by version: an
       # unversioned `setup-uv` fetches whatever uv is newest, a run-time
       # resolution in a job that holds the GitHub token and produces the
-      # coverage report the credentialed `sonar` job consumes. 0.12.4 is the newest uv this pinned commit
-      # carries a checksum for, and it verifies a download only when it knows
-      # its checksum — a newer version would arrive unverified and silently so.
+      # coverage report the credentialed `sonar` job consumes. The pinned uv
+      # must be a version the pinned action carries a checksum for: setup-uv
+      # skips verification silently for a version it does not know.
       # The Python minor is pinned for the same reason, and it is the version
       # sonar-project.properties analyses this code as.
       - name: Install uv
@@ -41,8 +41,7 @@ jobs:
         run: node --test tests/*.test.mjs
       # `--locked` fails rather than re-resolving, so the closure this job
       # installs is the one uv.lock names and a stale lock is red here instead
-      # of being silently updated. It runs after the layout check because the
-      # environment it creates is untracked.
+      # of being silently updated.
       - name: Install the test dependencies from the lockfile
         run: uv sync --locked --no-build
       - name: Run tests

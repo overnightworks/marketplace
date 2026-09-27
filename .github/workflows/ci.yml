@@ -19,9 +19,9 @@ jobs:
         with:
           persist-credentials: false
       # The action is pinned by commit and the tool it installs by version: an
-      # unversioned `setup-uv` fetches whatever uv is newest, which is a
-      # run-time resolution in the job that carries this repository's
-      # SonarCloud credential. 0.12.4 is the newest uv this pinned commit
+      # unversioned `setup-uv` fetches whatever uv is newest, a run-time
+      # resolution in a job that holds the GitHub token and produces the
+      # coverage report the credentialed `sonar` job consumes. 0.12.4 is the newest uv this pinned commit
       # carries a checksum for, and it verifies a download only when it knows
       # its checksum — a newer version would arrive unverified and silently so.
       # The Python minor is pinned for the same reason, and it is the version

@@ -157,9 +157,8 @@ def test_the_gate_exits_non_zero_as_a_command(allowlisted_repository: Path) -> N
 def test_every_entry_the_layout_rule_admits_at_the_root_is_accepted() -> None:
     """The names are spelled out, so narrowing the allowlist cannot pass unnoticed.
 
-    Three of them are admissions the tree does not exercise: `HEART.md` is the
-    entry document this repository does not carry yet, and a Python toolchain
-    would bring `pyproject.toml` with its lockfile.
+    One of them is an admission the tree does not exercise: `HEART.md` is the
+    entry document this repository does not carry yet.
     """
     listing = [
         ".gitignore",

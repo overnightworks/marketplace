@@ -1,0 +1,22 @@
+[project]
+name = "marketplace"
+version = "0.1.0"
+description = "The generator, layout, and findings-gate scripts behind the atelier plugin"
+requires-python = ">=3.12"
+dependencies = []
+
+# Nothing here is distributed: a host installs the plugin from a marketplace
+# catalog, never from a Python installer. So uv owns the test environment
+# only, and the project declares itself no package — `uv run --no-build`,
+# which CI runs, refuses to install a workspace project.
+[tool.uv]
+package = false
+
+# The test job installs this group; the closure it pulls is pinned in uv.lock,
+# which is what makes the run reproducible. These bounds say which versions the
+# repository is written against, not which ones a run gets.
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "pytest-cov>=7.1.0",
+]

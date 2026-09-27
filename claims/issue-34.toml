@@ -1,8 +1,0 @@
-claim_id = "fe90c0d42b674e769303b090f83d880a"
-agent = "Claude head (coordinator)"
-role = "builder"
-base = "9a5967dbe843042a124ee64ed7bd80d5a86f6a37"
-branch = "claude/issue-34-lockfile-for-the-test-job"
-scope = [".github/workflows/ci.yml", ".gitignore", "pyproject.toml", "uv.lock"]
-opened_commit = "169771935848facdaddf3659e28f52b792e01a9c"
-whole_reason = "the test job installs from a lockfile"

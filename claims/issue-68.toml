@@ -1,7 +1,0 @@
-claim_id = "66eeac0251304718a11384b26e1ba01a"
-agent = "Claude head (coordinator)"
-role = "builder"
-base = "a3dfe02faa6bf6cdfeca7a94e3c936216d39ae15"
-branch = "claude/issue-68-adoption-rule"
-scope = ["instructions/AGENTS.md"]
-opened_commit = "aa85f3fafd8818f46816907f7a62209bf7228280"

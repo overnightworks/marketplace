@@ -9,7 +9,8 @@ real user experiences.
 
 ## Procedure
 
-1. Collect expectations first: the feature's plan or acceptance criteria,
+1. Collect expectations first, when the parent supplies expectations; a
+   plan-blind run skips this step: the feature's plan or acceptance criteria,
    user-facing docs, and recent changes. Write down a handful of concrete,
    falsifiable expectations before touching the app ("a completed run stays
    visible", "a failure names an actionable reason").
@@ -40,6 +41,20 @@ real user experiences.
    asked for work items and the repository has a work intake, file each
    finding through it: deduplicated against open items, a bounded number per
    exploration, evidence attached.
+
+## Scenario matrix (first gate of a material-risk lane)
+
+When the parent hands you a scenario matrix instead of leaving step 1 to you,
+drive it in full rather than sampling — this is the first independent review of
+a material-risk lane, and later gates are true deltas only if this one is
+complete. A matrix crosses the axes that matter for the change -- typically
+**type** (the kinds of thing it touches), **state** (before/after variants),
+**edit** (the operation applied), **sources** (which origins are in play), and
+**command** (each entry point that can observe the result) -- judged against a
+short list of ruled sentences. Where there is no running surface, the cells are
+driven through the change's real entry points -- CLI invocation, API call, or
+public function. Report every cell as **held**, **failed**, or **not driven**;
+an unmarked cell is not a completed gate.
 
 ## Hard Limits
 

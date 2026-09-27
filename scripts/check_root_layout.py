@@ -42,12 +42,14 @@ ROOT_FILES = frozenset(
     }
 )
 # `.agents/` and `.claude-plugin/` are the two hosts' marketplace catalogs,
-# `.codex/` and `.claude/` this repository's own host configuration, `.github/`
-# the workflows and the published action: every one of them is a path its tool
-# fixes. `instructions/` owns the operator's coordination contract, `plugins/`
-# the payload both catalogs name as their source.
+# `.codex/` and `.claude/` this repository's own host configuration,
+# `.agent-claim/` the board configuration aco reads, `.github/` the workflows
+# and the published action: every one of them is a path its tool fixes.
+# `instructions/` owns the operator's coordination contract, `plugins/` the
+# payload both catalogs name as their source.
 ROOT_DIRECTORIES = frozenset(
     {
+        ".agent-claim",
         ".agents",
         ".claude",
         ".claude-plugin",

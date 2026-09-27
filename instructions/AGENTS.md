@@ -35,15 +35,21 @@ An explicit operator request wins. Without one:
 
 1. In a Git repository, read its guidance and product truth, then inspect the
    live board, active claims, dependencies, working tree, and CI.
-2. Resume an unfinished lane you own. Otherwise run `agent-claim next` and
+2. Resume an unfinished lane you own. Otherwise run `aco next` and
    take the item it names; production/security/data loss and red CI still
    come first. Claim a different item only with `--out-of-order REASON`; the
-   reason lands in the claim comment. Prefer the smallest coherent item that
+   reason lands in the claim record. Prefer the smallest coherent item that
    unlocks later work.
-3. Run `agent-claim status`. Before a writer's first edit, the head owns a full
-   exact-scope claim from a clean isolated worktree; consult `agent-claim claim
+3. Run `aco status`. Before a writer's first edit, the head owns a full
+   exact-scope claim from a clean isolated worktree; consult `aco claim
    --help`. On a legacy or foreign contract, migrate it rather than create a
-   competing ledger; otherwise bootstrap only when no ledger exists.
+   competing ledger. A repository whose default branch has no
+   `.agent-claim/board.toml` adopts aco once, outside the claim protocol: one
+   commit (a pull request on a forge) that adds that file and nothing else
+   lands on the default branch without a claim, the head confirms
+   `git diff --name-only <merge>^1 <merge>` names only that path, then runs
+   `aco bootstrap`. Any other work, including a lane that bundled the
+   configuration, drops it from its branch and claims after adoption.
 4. If there is no actionable item, or the directory is not a Git repository,
    ask what to work on.
 
@@ -123,9 +129,10 @@ No new item without a named caller (operator ruling 04.09.2026).
 
 ## How to coordinate
 
-Coordination authority is this global contract, installed `agent-claim`, and
-live GitHub issues/claim comments. Do not use Atelier's deprecated Auto-Runner
-for coordination.
+Coordination authority is this global contract, the installed `aco` and the
+claim state it keeps in the repository's `refs/aco/state`, and live GitHub
+issues as the board. Do not use Atelier's deprecated Auto-Runner for
+coordination.
 
 One subject, one issue. Before opening any item, the head searches the board
 (`gh issue list --search`, open and recently closed) for an owner or twin and
@@ -143,8 +150,7 @@ branch. The head checks `git worktree list` at session start and prunes.
 
 One exclusive build claim per issue before the first edit; read-only review
 stays free. Do not use a value another lane holds exclusively. GitHub issue
-comments are the durable handoff; `/tmp` is only transport. `agent-claim
-reconcile` only repairs projections; its help and README own operating details.
+comments are the durable handoff; `/tmp` is only transport.
 
 A landing is not finished while the items it freed sit untouched. The moment a
 landing closes an item is the only moment at which everyone knows what that
@@ -155,8 +161,9 @@ is how the highest-scored work on a board stands still for days.
 A blocker may name only an open work item. A claim, a branch, or a pull
 request is never written into a body as a blocker: live state disappears when
 released, while the body persists. Who holds what is answered by
-`agent-claim status`, not by prose. `Blocked by: nichts` is the required
-no-dependency literal; a dependency worth recording is worth an item.
+`aco status`, and who holds a path by `aco status --path PATH`, not by
+prose. `Blocked by: nichts` is the required no-dependency literal; a
+dependency worth recording is worth an item.
 
 Comments preserve evidence; the issue body alone is the current handoff. After
 every landing or plan pivot, update each still-open affected item with a
@@ -175,7 +182,7 @@ A fact stands once in a body (operator ruling 31.08.2026, after independent
 counter-review). A phase or slice table carries order and done-when, never a
 status: a landed phase leaves the table instead of gaining a status cell — its
 proof lives in the PR and in its own item, and whether something landed
-`agent-claim board` derives from PR references anyway. A dispatched phase
+`aco board` derives from PR references anyway. A dispatched phase
 stands as a link to its item; no line means "not yet dispatched". An
 "overtaken on …" insert beside an old sentence is the same double bookkeeping
 as a second status column. Between pull and dispatch a stale body costs
@@ -197,6 +204,21 @@ briefs therefore point at the body, not at `--comments`; a body that cannot
 carry a fresh agent by itself is not done. Questions that arise during
 implementation go to the journal as usual.
 
+The unit of delegation is the lane step — a build, a fix batch, a review, a
+delta re-check — and every step starts a fresh delegated agent. The head
+resumes an agent only for one immediate, mechanical follow-up of the step it
+just finished — a rename, a format fix, a renumbered ID, a one-file edit —
+never for a second correction, a new fix batch or a re-review, and never past a
+reported lifetime context of 200k tokens; an unreported size counts as over —
+except one turn-cap stop: an agent that stops at its turn cap with uncommitted
+work is resumed once, at any context size, with "commit what is green and
+report", and gets a fresh finisher if that resume fails. Resuming for the next
+fix batch is how builder contexts reached 900k (measured 15.09.2026). A step
+ends with its work committed on the lane branch and its evidence in the
+journal, so nothing a later step needs lives only in a transcript; the next
+brief names the body, the lane tip, the files touched, the findings verbatim,
+and the commands that proved the step.
+
 Review and audit findings (operator rulings 24.08. and 25.08.2026): a review
 yields ONE distributor issue holding the numbered findings list with evidence;
 a finding becomes its own issue only when it is dispatched (then it needs a
@@ -216,7 +238,8 @@ holding is for a value that must exist once and whose double use survives a
 merge—a schema version, generated artifact, or the one live store. Name it in
 the dispatch and hold it for the lane so it is allocated rather than guessed.
 When two lanes need the same contract, that is a cut problem: one slice owns
-it.
+it. A lane that must land on its own never merges an unlanded sibling lane
+into its branch; the two merge only when they land together.
 
 A landing closes an item. When it does not, the item was cut too large: the
 slice, not the epic, is the unit of work, so a slice becomes its own item at the
@@ -230,6 +253,16 @@ breakdown workflow first and writes its slices — files, done-when, dependencie
 — into the item body, then dispatches one slice at a time. A hand-written brief
 for a large change is how a lane becomes a forty-file candidate with dozens of
 findings; the planner exists so the cut is argued before the build, not after.
+
+A small card is not a slice: three or four land together as one lane, under the
+lead card's issue number for its claim, worktree and branch, with the other
+cards named in its body — bundling amortizes the claim, worktree, dispatch and
+landing overhead a lane pays regardless of card count (measured 16.09.2026:
+about 1.5 h per bundle including review, against a 1.6 h median for a single
+small card). A card that is urgent or carries material risk lands alone. The
+claim runs under the lead card's issue with `--scope` covering every bundled
+card's paths and `--whole` naming the bundle; each non-lead body says 'lands
+with #<lead>', and the PR closes all of them.
 
 Run as many lanes as the work has disjoint scopes, not a fixed number: each has
 its own issue, exact claim, worktree, branch, and builder. Width is set by
@@ -247,9 +280,15 @@ board hygiene, a live proof, or a lane in another repository.
 For a lane carrying material risk or spanning multiple owners, the head
 sharpens scope and acceptance criteria, then delegates an independent plan
 review, proportionate implementation and tests, and independent code/risk
-review. It delegates fixes and re-review until clean. For UI, delegate
-real-interface checks at relevant mobile and desktop widths. Then delegate
-required CI and evaluate the evidence.
+review. The first review on such a lane drives a scenario matrix the head
+writes from the item's ruled sentences crossed with the axes that matter for
+the change (the explorative-testing skill holds the template), and reports
+every cell held, failed, or not driven, so later gates stay true deltas; a
+matrix one reviewer cannot drive in one session -- past roughly forty cells --
+means the item is cut, not the matrix sampled. It delegates fixes and re-review
+until no blocking finding remains. For UI, delegate real-interface checks at
+relevant mobile and desktop widths. Then delegate required CI and evaluate the
+evidence.
 
 ### Model routing
 
@@ -259,32 +298,64 @@ column from the builder.
 
 | Work | Codex | Claude | Grok | DeepSeek |
 |---|---|---|---|---|
-| Mechanical/search/repetition and mechanical review | Luna, low/medium | Sonnet, low/medium | 4.6, low | V4 Flash |
-| Normal implementation/debugging and ordinary code/test/diff review | Terra, medium/high | Sonnet, high | 4.6, medium/high | V4 Pro |
+| Mechanical/search/repetition and mechanical review | Luna, low/medium | Opus, low/medium | 4.6, low | V4 Flash |
+| Normal implementation/debugging and ordinary code/test/diff review | Terra, medium/high | Opus, high | 4.6, medium/high | V4 Pro |
 | Architecture, security, or product decision; required final gate | Sol, high/xhigh | Opus or Fable, high/xhigh | 4.6, high/xhigh | support only; never final gate |
 
-Grok always means Grok 4.6; change effort, never its model. Where a model
-exposes an effort above the table's highest, use it only for the rare hardest
-proof after lower effort proved insufficient. Use a required final gate once
-on the integrated candidate, not for intermediate patches, test cleanup, or
-mechanical corrections. It is required only where the lane carries material
-risk. A `REVISE` returns to the same reviewer after a coherent fix batch; that
-reviewer may review only the raised delta when the fix is strictly isolated
-and the integrated tree outside it is unchanged. A delta review carries the
-contract core and raised findings and asks whether the repair opened something
-new. What a delta cannot see, integrated checks catch; do not repeat a full
-review to buy what CI already proves. If interaction, scope, or risk changes,
-repeat the required final gate with fresh context. Do not start a fresh final
-gate for each mechanical correction. Required reviews remain independent:
-builders do not review their own work. A required final gate uses fresh
-context and a different provider column from the builder. DeepSeek may build
-or investigate, but is not the sole reviewer for security, data integrity,
-public contracts, or a final verdict.
+Claude always means Opus (Fable where the gate row allows it); with one Claude
+model, its effort follows the work's difficulty. Grok always means Grok 4.6;
+change effort, never its model. Where a model exposes an effort above the
+table's highest, use it only for the rare hardest proof after lower effort
+proved insufficient.
+
+A required final gate is required only where the lane carries material risk.
+Start it once, in parallel with the lane's first independent review, on the
+lane tip — not after CI — so its findings join the first fix batch; CI still
+runs on the merged result. A `REVISE` is a delta re-check after a coherent fix
+batch: the same reviewer when its reported lifetime context is under 200k
+tokens (unknown counts as over), otherwise a fresh reviewer from the same row
+and provider column who receives the original findings verbatim; that reviewer
+may review only the raised delta when the fix is strictly isolated and the
+integrated tree outside it is unchanged. A delta review carries the contract
+core and raised findings and asks whether the repair opened something new. What
+a delta cannot see, integrated checks catch; do not repeat a full review to buy
+what CI already proves.
+
+Every review finding is marked **blocking** or **follow-up**. Blocking is a
+defect the reviewed diff introduces against the ruled sentences, the contract,
+or a repository rule, and always anything touching data safety, security,
+secrets, a public contract, or a failing check. Follow-up is polish with no
+behavioural effect, pre-existing behaviour the lane did not change (the
+reviewer cites the unchanged evidence), or work outside the lane's scope (the
+reviewer names its owning item). A verdict of `architectural` stops the lane;
+it is never a follow-up. Only blocking findings are a `REVISE`: they return to
+the lane's builder step and earn a delta re-check. A follow-up goes to its
+owning item, or to the review's distributor issue when it has none, before the
+lane lands, without another review round and without opening a fresh item —
+except a follow-up inside a file the lane already changed whose fix cannot
+change behaviour outside the reviewed diff (about ten lines is the practical
+cap), which the lane's fixer resolves in the same fix batch, no card; where
+the lane has no fix batch it goes to its owning item unchanged. The head may
+reclassify a finding, never drop it. A lane without material risk gets one
+review, and a delta only if a blocking finding was raised.
+
+Repeat the final gate with fresh context when a later fix changes interaction,
+scope, or risk — an edit to production behaviour, a data path, secrets, or a
+public contract is such a change — or when the trunk pull or the integration
+merge needed conflict resolution in the lane's files; never for intermediate
+patches, test cleanup, or mechanical corrections. Do not land a material-risk
+tip the final gate has not seen, apart from such mechanical or test-only
+deltas.
+
+Required reviews remain independent: builders do not review their own work. A
+required final gate uses fresh context and a different provider column from the
+builder. DeepSeek may build or investigate, but is not the sole reviewer for
+security, data integrity, public contracts, or a final verdict.
 
 The head owns the landing decision for its claimed lane but never executes a
 landing itself. After required gates are green, it may delegate one explicit
 named landing task to push, merge, or deploy that lane. After merge, it
-evaluates the result, consults `agent-claim release --help`, releases the
+evaluates the result, consults `aco release --help`, releases the
 claim, and closes the item. After abandonment, it releases the claim and
 leaves the item open unless its `Done when` is met. Subagents and reviewers
 have no autonomous landing authority. Never land another owner's lane.
@@ -297,12 +368,16 @@ full local suites and uncapped `-n auto` drove this 12-core machine to load
 140.
 
 Local runs are targeted; CI is the gate. A builder or reviewer runs locally
-only the tests that prove its own change — the named test modules, or `-k`
-on the behaviour — plus the static checks its brief names. Never a full
-suite, a coverage run, or a full E2E/Playwright suite on this machine unless
-the operator asked. Those run in CI on the pushed branch; the lane reads CI.
-A repository `CLAUDE.md` may name cheaper local commands for that repo; it
-may not loosen this floor.
+only the tests that prove its own change — the named test modules, or `-k` on
+the behaviour — plus the static checks its brief names. Never a full suite, a
+coverage run, or a full E2E/Playwright suite on this machine unless the
+operator asked. Those run in CI on the pushed branch; the lane reads CI. A
+repository `CLAUDE.md` may name cheaper local commands for that repo; it may
+not loosen this floor. A lane that changes a default value a caller or a test
+can observe greps the old value across the tests before its first review and
+runs the matching modules under the worker cap; where the hits span more than a
+handful of modules, CI on the pushed branch is the proof, and a reviewer treats
+a hit neither run nor named as blocking.
 
 Workers are capped twice: no repository sets `-n auto` as its pytest default
 (CI passes it explicitly), and every local shell keeps
@@ -331,7 +406,7 @@ orchestration loop. Prefer provider-native event, mailbox, or wait primitives
 that wake on agent completion; do not busy-poll or spend model turns polling.
 If unavailable, check status sparingly, about every 30–60 seconds. Consume each
 completion immediately and dispatch needed review, fix, landing, or next work.
-After every landing, plan pivot, or claim release, run `agent-claim next`
+After every landing, plan pivot, or claim release, run `aco next`
 before dispatching the next lane.
 Do not end or report finished while agents are active or executable work
 remains. Stop only when the objective is complete or every useful lane is

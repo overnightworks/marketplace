@@ -29,6 +29,32 @@ rule-level exception moves to the CI scanner first. Read the mode of the
 project at hand from the API above; it is not the same across the
 organisation.
 
+The two modes also give the findings gate (`.github/actions/sonar-findings-gate`,
+below) a different guarantee, because Automatic Analysis runs asynchronously
+after the push while a CI scanner step blocks on its own analysis first —
+measured on claude-revive's own gate build (overnightworks/claude-revive#6, PR
+#7): its pull request analysis landed three seconds into a twenty-five-second
+run, comfortable, but its push of `54b9662` to `main` finished CI at 18:43:05
+against an analysis timestamped 18:43:01 — four seconds of margin on the
+fastest repository in the fleet.
+
+- On a **pull request**, losing that race is loud: the gate proves the
+  component resolves under the scope before believing any count, and a scope
+  with no analysis answers 404, so the job fails with the resolution message
+  and a re-run fixes it. Annoying, never a false clean.
+- On a **push to the default branch**, losing it is quiet: the branch scope
+  resolves against the previous commit's analysis, so the gate can report
+  cleanly about the commit before the one just pushed. The next push corrects
+  it, but for that window the green refers to older code.
+- A repository that runs the scanner in CI has neither problem, because its
+  scan step blocks on its own analysis before the gate reads it.
+
+No retry loop was built for this: the gate is one script pinned and consumed
+byte-identical across the fleet, so a wait is machinery every consumer pays
+for, needing its own tests, against a race this narrow on the fastest
+repository measured — revisit if a stale read ever produces a green that
+mattered.
+
 ## Procedure
 
 1. **Pull the numbers.** Read with the credential that produced the analysis

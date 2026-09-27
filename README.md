@@ -16,6 +16,8 @@ Licensed under the [MIT License](LICENSE).
 - `plugins/atelier/skills/agent-documentation/AGENTS.baseline.md` is the
   generated seed of the root `AGENTS.md`.
 - `plugins/atelier/hooks/hooks.json` is the shared quality-gate hook configuration.
+- `plugins/atelier/workflows/` holds the Claude Code workflows; `lane` drives
+  one claimed aco lane from build to ready-to-land.
 - `plugins/atelier/.codex-plugin/plugin.json` is the Codex plugin manifest.
 - `plugins/atelier/.claude-plugin/plugin.json` is the Claude Code plugin
   manifest.
@@ -134,6 +136,9 @@ Compatibility notes:
   preserved in the `atelier-agent` metadata comment.
 - Claude has a `tools` frontmatter field that Codex TOML does not carry; the
   sync script validates it against `codex_sandbox_mode`.
+- `maxTurns` is Claude-only, like `tools`: `sync_agents.py` keeps it on the
+  Claude side and emits no Codex equivalent (Codex's knob is
+  `model_reasoning_effort`).
 - Generated files under `plugins/atelier/.codex/agents/` should not be edited by
   hand; update the Markdown source instead.
 

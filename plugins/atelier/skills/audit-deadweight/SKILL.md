@@ -45,7 +45,9 @@ alive to every mechanical check.
   this is the first check: did the old surface leave in the same stroke?
 - **Duplicated machinery**: the same encode/decode/store/validate pattern
   copied per feature where one generic owner would serve; near-identical
-  modules differing only in names. Name the surviving owner.
+  modules differing only in names. Name the surviving owner. Near-identical
+  text only; two functions that answer the same question in different words
+  belong to audit-ownership.
 - **Reinvented wheels**: code landed since the last pass that reimplements a
   helper that already existed at the time, instead of calling it.
 - **Hardening without a threat**: protections whose threat cannot occur in

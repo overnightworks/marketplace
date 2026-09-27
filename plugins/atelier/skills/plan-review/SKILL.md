@@ -34,7 +34,9 @@ could execute it without inventing missing decisions.
   mechanics) lives behind the adapter boundary; the concept and contract layer
   stays neutral. Flag any provider baked into the neutral contract layer.
 - Verification: tests, static checks, manual checks, or review gates prove the
-  requested behavior.
+  requested behavior. For a material-risk plan, the first gate needs a scenario
+  matrix built from the plan's ruled sentences (see the explorative-testing
+  skill's scenario matrix template) — flag its absence as a gap.
 - Deletion/simplification: the plan names what can be removed or simplified when
   the work lands.
 

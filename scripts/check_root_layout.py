@@ -23,8 +23,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 # The entry documents and the files a tool must find at the root: git reads
-# .gitignore there, the SonarCloud scanner reads sonar-project.properties, a
-# Python toolchain would read pyproject.toml and uv.lock. Container files are
+# .gitignore there, the SonarCloud scanner reads sonar-project.properties, uv
+# reads pyproject.toml and uv.lock. Container files are
 # not named because this repository builds no image; the day one is needed,
 # adding it is a decision that adds its entry here. `plugins/atelier/` is the
 # whole payload a host installs, so nothing a plugin needs belongs up here.

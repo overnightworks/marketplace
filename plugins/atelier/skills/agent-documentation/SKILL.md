@@ -1,6 +1,6 @@
 ---
 name: agent-documentation
-description: Audit, improve, or seed AI-agent guidance files. Use when changing or reviewing AGENTS.md, CLAUDE.md, agent skills, custom agents, or hooks; when entering a repository whose AGENTS.md/CLAUDE.md is missing, empty, or missing whole policy areas; checking generic versus project-specific ownership; finding duplicated, unclear, contradictory, stale, or token-wasteful guidance; or validating whether every line still earns its keep. For project documentation trees that are merely referenced by guidance, use docs-cleanup instead.
+description: Improve, seed, or audit the writing quality of AI-agent guidance files — clarity, ownership, duplication, staleness, and token economy. Use when changing or reviewing AGENTS.md, CLAUDE.md, agent skills, custom agents, or hooks; when entering a repository whose AGENTS.md/CLAUDE.md is missing or empty; checking generic versus project-specific ownership; finding duplicated, unclear, contradictory, stale, or token-wasteful guidance; or validating whether every line still earns its keep. Whether a required guard is missing from these files is audit-guards' question, not this skill's. For project documentation trees that are merely referenced by guidance, use docs-cleanup instead.
 ---
 
 # Agent Documentation
@@ -65,10 +65,8 @@ kept.
 - Audience and views: guidance and the docs it references name their reader
   and altitude; a document serving another audience is a view deriving from
   one owner, not an independently edited copy.
-- Baseline coverage: check that the repository's `AGENTS.md` covers every
-  policy area of the shipped `AGENTS.baseline.md`; a missing area is a
-  finding, a different wording is not, and deliberate project divergence is
-  recorded and kept.
+- Guard presence: whether a guard is missing is `audit-guards`' question;
+  this skill judges how guidance is written and slimmed.
 - Portability: reusable skills and agent bodies avoid product names, module
   names, daemon assumptions, and provider-specific paths unless that file owns
   provider glue.

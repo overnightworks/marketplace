@@ -95,14 +95,14 @@ mattered.
    time from the distributor. A finding becomes its own issue only when it is
    dispatched.
 5. **Re-measure main after every landing** while the distributor is open — the
-   default quality gate does not (measured agent-claim #143/PR #145,
+   default quality gate does not (measured agent-coordination #143/PR #145,
    06.09.2026: three green-merged landings added 16 findings on main
    unnoticed).
 
 ## The four classes
 
 Illustrated with the first atelier-2 run (04.09.2026, 131 open Sonar issues)
-and the 05.09.2026 measurement PR (PR overnightworks/agent-claim#116).
+and the 05.09.2026 measurement PR (PR overnightworks/agent-coordination#116).
 
 - **(a) Noise an exclusion removes** — mockups, vendored assets, generated
   artefacts, fixtures: trees the rules were never written for. Action: one
@@ -428,7 +428,7 @@ fresh measurement would mean another write.
 
 ### Python rules
 
-Source: SonarCloud PR analysis, overnightworks/agent-claim PR #116,
+Source: SonarCloud PR analysis, overnightworks/agent-coordination PR #116,
 05.09.2026 (head 5884bdd, quality gate OK). `pythonsecurity:S8705` and
 `python:S8786` carry no SonarCloud description text ("external rule, no
 details available"), so this PR analysis is the only oracle for them.
@@ -453,7 +453,7 @@ Negative — tried and refused:
 - The intermediate state `[ \t]*(?P<value>[^\r\n]*)$` with an `.rstrip()` was
   still flagged by `python:S8786`.
 
-Analyzer coverage on test sources (measured agent-claim #143/PR #145,
+Analyzer coverage on test sources (measured agent-coordination #143/PR #145,
 06.09.2026):
 - `python:S1192` (duplicated string literal) does **not** run on test sources —
   a duplicated-literal probe placed in a test stays invisible to the gate.
@@ -498,7 +498,7 @@ standing rulings, which every review of a Sonar finding inherits:
   the rulings, the frozen-code list. A finding reviewed without it is mostly
   rejection ware, and the reviewer will argue with the rule instead of the code.
 - The quality gate checks **ratings, not counts**: a PR can merge green while
-  adding findings — three landings added 16 unnoticed (measured agent-claim
+  adding findings — three landings added 16 unnoticed (measured agent-coordination
   #143/PR #145, 06.09.2026). The control is a CI step in the sonar job, after
   `sonar.qualitygate.wait=true`, that pages
   `api/issues/search?componentKeys=<key>&pullRequest=<n>` with the

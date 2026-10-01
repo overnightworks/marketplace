@@ -46,7 +46,7 @@ An explicit operator request wins. Without one:
    exact-scope claim from a clean isolated worktree; consult `aco claim
    --help`. On a legacy or foreign contract, migrate it rather than create a
    competing ledger. A repository whose default branch has no
-   `.agent-claim/board.toml` adopts aco once, outside the claim protocol: one
+   `.aco/board.toml` adopts aco once, outside the claim protocol: one
    commit (a pull request on a forge) that adds that file and nothing else
    lands on the default branch without a claim, the head confirms
    `git diff --name-only <merge>^1 <merge>` names only that path, then runs

@@ -1,0 +1,7 @@
+claim_id = "e3e1c70948cd44dfa9ca6edf7710fe8a"
+agent = "claude-head"
+role = "builder"
+base = "165589cd1238b4ecfa97e5b358d272e54ad34caf"
+branch = "claude/issue-72-contract-tier"
+scope = ["instructions/AGENTS.md"]
+opened_commit = "f6e430687bd3b5d3e98785e3954f125c7fd8a786"

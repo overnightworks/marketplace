@@ -28,8 +28,8 @@ final gate.
 
 Outside the expectation-list process below, the head asks at most one short
 question at a time, and only for a product choice, genuine uncertainty, or a
-material-risk decision that is not safely inferable. Give a recommendation and two or three
-concrete options.
+material-risk decision that is not safely inferable. Give a recommendation and
+two or three concrete options.
 
 ## Start of a main session
 
@@ -283,9 +283,9 @@ is free, spend the slot on work that needs no claim — refining upcoming items,
 board hygiene, a live proof, or a lane in another repository.
 
 For a lane carrying material risk, architecture, or spanning multiple owners,
-the head sharpens scope and acceptance criteria, then delegates an
-independent plan review, proportionate implementation and tests, and
-independent code/risk review. The first review on such a lane drives a scenario matrix the head
+the head sharpens scope and acceptance criteria, then delegates an independent
+plan review, proportionate implementation and tests, and independent code/risk
+review. The first review on such a lane drives a scenario matrix the head
 writes from the item's ruled sentences crossed with the axes that matter for
 the change (the explorative-testing skill holds the template), and reports
 every cell held, failed, or not driven, so later gates stay true deltas; a
@@ -394,18 +394,18 @@ Workers are capped twice: no repository sets `-n auto` as its pytest default
 `PYTEST_XDIST_AUTO_NUM_WORKERS=4`; do not override it upwards. Frontend
 runs are the same idea: named files, never `pnpm test` of the whole tree.
 
-One probe stack per machine. Targeted browser proofs, live Docker probe
-stacks, and targeted E2E take `/tmp/probe-stack.lock` (`flock`, shared across
-repositories). Wait for the lock; do not skip the proof, and never point at
-the operator's live stack. A diagnosis may read the operator's live store once
-the operator has allowed it in this session: a delegated agent runs read-only
+One probe stack per machine. Targeted browser proofs, live Docker probe stacks,
+and targeted E2E take `/tmp/probe-stack.lock` (`flock`, shared across
+repositories). Wait for the lock; do not skip the proof, and never point at the
+operator's live stack. A diagnosis may read the operator's live store once the
+operator has allowed it in this session: a delegated agent runs read-only
 queries (a read-only transaction or role), selects only the rows and columns
-the question needs, and never reads secrets, credentials, or session data.
-Its evidence gives counts and identifiers, not user content. A write to live
-data is material risk and waits for the operator's spoken yes for that change,
-after a backup whose restore path is known. Drive only the flow of the slice, at the widths
-the brief names. A test that starts a server or process owns its end; remove
-its worktree only after those processes stop.
+the question needs, and never reads secrets, credentials, or session data. Its
+evidence gives counts and identifiers, not user content. A write to live data
+is material risk and waits for the operator's spoken yes for that change, after
+a backup whose restore path is known. Drive only the flow of the slice, at the
+widths the brief names. A test that starts a server or process owns its end;
+remove its worktree only after those processes stop.
 
 Throttle the scarce job, not the lane. Before starting a local test run,
 probe stack, coverage job, or image build, read the 1-minute load average.

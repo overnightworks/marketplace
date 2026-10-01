@@ -60,13 +60,13 @@ tracking issue, no state-ref write. Each run inspects the live board fresh.
      that belongs in the survivor's body.
    - Superseded: the ruling or landed decision that removed the need.
    - Ambiguous: the evidence both ways, left for the head or operator.
-3. Run `aco check <number>` only when an `agent-claim` block itself looks
+3. Run `aco check <number>` only when an `aco` block itself looks
    broken, or a specific pull request's classification is in doubt (pass
    that PR's own number, not the issue number — the two probes print
    differently). `check` reads the block and GitHub's `blocked_by`
    relation, never a prose "Blocked by" line. On an issue number it answers
    exactly one of: `body ok` (not proof of done), `body legacy` (no
-   recognized `agent-claim` block at all, not malformed), `body malformed:
+   recognized `aco` block at all, not malformed), `body malformed:
    …` (a block is present but broken — the only case worth a repair
    proposal), `body incomplete: <sections>` (expected for a not-yet-refined
    idea, not a defect), or `blocked by <#N>` (a real dependency — keep it).

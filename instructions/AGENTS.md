@@ -20,14 +20,16 @@ tasks itself. It writes board contracts and rule proposals, inspects and
 prioritizes, acquires/releases its claim, delegates bounded work, evaluates the
 returned evidence, and reports to the operator.
 
-`Material risk` means a public contract, persistent data, secrets or rights,
-money, security, deletion or anything irreversible, architecture, a new
-source of truth, or genuine uncertainty.
+`Material risk` means a public contract, persistent data or a migration,
+secrets or rights, money, security, deletion or anything irreversible, or a
+new source of truth. Architecture (a new or moved boundary or dependency
+direction) and genuine uncertainty earn the independent plan review, not the
+final gate.
 
 Outside the expectation-list process below, the head asks at most one short
-question at a time, and only for a product choice or a material-risk
-decision that is not safely inferable. Give a recommendation and two or three
-concrete options.
+question at a time, and only for a product choice, genuine uncertainty, or a
+material-risk decision that is not safely inferable. Give a recommendation and
+two or three concrete options.
 
 ## Start of a main session
 
@@ -139,7 +141,8 @@ One subject, one issue. Before opening any item, the head searches the board
 sharpens that item instead; a new item is opened only when no owner exists,
 and it says which items it neighbours. Before every dispatch the head checks
 the body is current against the picture, rulings, and neighbouring items
-(operator ruling 27.08.2026).
+(operator ruling 27.08.2026). A picture blessed in the same sitting is
+confirmed once more before its first slice is dispatched.
 Worktrees and branches carry the work item: directory
 `<repo>-worktrees/issue-<n>-<slug>` and branch `<agent>/issue-<n>-<slug>`.
 `docs/` and `fix/` prefixes are only for work without an issue; that work
@@ -262,7 +265,9 @@ about 1.5 h per bundle including review, against a 1.6 h median for a single
 small card). A card that is urgent or carries material risk lands alone. The
 claim runs under the lead card's issue with `--scope` covering every bundled
 card's paths and `--whole` naming the bundle; each non-lead body says 'lands
-with #<lead>', and the PR closes all of them.
+with #<lead>'; the PR closes only the lead and names each other card with
+`Lands #<card>`, and after the merge the head closes each card with the PR
+link.
 
 Run as many lanes as the work has disjoint scopes, not a fixed number: each has
 its own issue, exact claim, worktree, branch, and builder. Width is set by
@@ -277,9 +282,9 @@ instance. While CI or review waits, dispatch another clear lane; when no scope
 is free, spend the slot on work that needs no claim — refining upcoming items,
 board hygiene, a live proof, or a lane in another repository.
 
-For a lane carrying material risk or spanning multiple owners, the head
-sharpens scope and acceptance criteria, then delegates an independent plan
-review, proportionate implementation and tests, and independent code/risk
+For a lane carrying material risk, architecture, or spanning multiple owners,
+the head sharpens scope and acceptance criteria, then delegates an independent
+plan review, proportionate implementation and tests, and independent code/risk
 review. The first review on such a lane drives a scenario matrix the head
 writes from the item's ruled sentences crossed with the axes that matter for
 the change (the explorative-testing skill holds the template), and reports
@@ -336,8 +341,13 @@ except a follow-up inside a file the lane already changed whose fix cannot
 change behaviour outside the reviewed diff (about ten lines is the practical
 cap), which the lane's fixer resolves in the same fix batch, no card; where
 the lane has no fix batch it goes to its owning item unchanged. The head may
-reclassify a finding, never drop it. A lane without material risk gets one
-review, and a delta only if a blocking finding was raised.
+reclassify a finding, never drop it. The dispatch names the lane's material
+risk or says it has none; a lane without it gets one review, and a delta only
+if a blocking finding was raised. Risk is judged by what the diff can break,
+not by the item's topic: a patch-level dependency bump that closes an
+advisory, a docs-only change, a test-only change, or a refactor its unchanged
+tests prove carries none, needs no drive, and is proven by CI on a clean
+install. The review may raise the lane to material risk.
 
 Repeat the final gate with fresh context when a later fix changes interaction,
 scope, or risk — an edit to production behaviour, a data path, secrets, or a
@@ -384,12 +394,18 @@ Workers are capped twice: no repository sets `-n auto` as its pytest default
 `PYTEST_XDIST_AUTO_NUM_WORKERS=4`; do not override it upwards. Frontend
 runs are the same idea: named files, never `pnpm test` of the whole tree.
 
-One probe stack per machine. Targeted browser proofs, live Docker probe
-stacks, and targeted E2E take `/tmp/probe-stack.lock` (`flock`, shared across
-repositories). Wait for the lock; do not skip the proof, and never point at
-the operator's live stack. Drive only the flow of the slice, at the widths
-the brief names. A test that starts a server or process owns its end; remove
-its worktree only after those processes stop.
+One probe stack per machine. Targeted browser proofs, live Docker probe stacks,
+and targeted E2E take `/tmp/probe-stack.lock` (`flock`, shared across
+repositories). Wait for the lock; do not skip the proof, and never point at the
+operator's live stack. A diagnosis may read the operator's live store once the
+operator has allowed it in this session: a delegated agent runs read-only
+queries (a read-only transaction or role), selects only the rows and columns
+the question needs, and never reads secrets, credentials, or session data. Its
+evidence gives counts and identifiers, not user content. A write to live data
+is material risk and waits for the operator's spoken yes for that change, after
+a backup whose restore path is known. Drive only the flow of the slice, at the
+widths the brief names. A test that starts a server or process owns its end;
+remove its worktree only after those processes stop.
 
 Throttle the scarce job, not the lane. Before starting a local test run,
 probe stack, coverage job, or image build, read the 1-minute load average.

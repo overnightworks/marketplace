@@ -1,0 +1,7 @@
+claim_id = "286f65e30b144daa8739cfefa82ecaa5"
+agent = "Claude head (coordinator)"
+role = "builder"
+base = "ccf4c3a7919a1af38d6420f91ed5bf693148ea92"
+branch = "claude/issue-77-scope-grep-rule"
+scope = ["instructions/AGENTS.md"]
+opened_commit = "5cad4a300cbd263c061571752d51e13064d5983a"

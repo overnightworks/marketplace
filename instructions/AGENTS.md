@@ -256,6 +256,12 @@ breakdown workflow first and writes its slices — files, done-when, dependencie
 — into the item body, then dispatches one slice at a time. A hand-written brief
 for a large change is how a lane becomes a forty-file candidate with dozens of
 findings; the planner exists so the cut is argued before the build, not after.
+Before every claim, the head runs `git grep` across the whole tree for each
+printed literal, key, spec ID, default value, command and public name the item
+changes, and puts every file that pins one into the claim scope or names it in
+the body as deliberately untouched; a reviewer treats a pinning file that the
+diff neither changes nor the body names as blocking, and where the hits span
+more than a handful of test modules, CI on the pushed branch is their proof.
 
 A small card is not a slice: three or four land together as one lane, under the
 lead card's issue number for its claim, worktree and branch, with the other
@@ -383,11 +389,7 @@ the behaviour — plus the static checks its brief names. Never a full suite, a
 coverage run, or a full E2E/Playwright suite on this machine unless the
 operator asked. Those run in CI on the pushed branch; the lane reads CI. A
 repository `CLAUDE.md` may name cheaper local commands for that repo; it may
-not loosen this floor. A lane that changes a default value a caller or a test
-can observe greps the old value across the tests before its first review and
-runs the matching modules under the worker cap; where the hits span more than a
-handful of modules, CI on the pushed branch is the proof, and a reviewer treats
-a hit neither run nor named as blocking.
+not loosen this floor.
 
 Workers are capped twice: no repository sets `-n auto` as its pytest default
 (CI passes it explicitly), and every local shell keeps

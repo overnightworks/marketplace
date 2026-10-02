@@ -1,8 +1,0 @@
-claim_id = "a70bb0df590f441dad771ad4593dd133"
-agent = "Claude head (coordinator)"
-role = "builder"
-base = "85c6c8dc4a5339dc17b1bc33b2ad28c8684d8db2"
-branch = "fix/aco-folder"
-scope = [".aco/board.toml", ".agent-claim/board.toml", "instructions/AGENTS.md", "plugins/atelier/skills/board-hygiene/SKILL.md", "plugins/atelier/skills/sonar-distributor/SKILL.md", "scripts/check_root_layout.py"]
-opened_commit = "5f8718ae84b46398db5171471f012ecb984fc059"
-whole_reason = "protocol rename, #441"

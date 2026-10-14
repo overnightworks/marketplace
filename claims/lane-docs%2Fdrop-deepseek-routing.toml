@@ -1,0 +1,7 @@
+claim_id = "edb3aa992974490e8f4ea03f5ff14ba7"
+agent = "Claude fe12493e-3d52-442e-b01b-4ee4336de2f0"
+role = "builder"
+base = "f2e43dd139f637d6a77c2451d2f7b1f3f3c774dd"
+branch = "docs/drop-deepseek-routing"
+scope = ["instructions/AGENTS.md"]
+opened_commit = "9db45b0994f5986db3d0ba519846f14f33ecf39b"

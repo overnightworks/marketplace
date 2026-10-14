@@ -1,8 +1,0 @@
-claim_id = "e3f6ca6ee2504b0d826c70a0b180ae9c"
-agent = "Claude fe12493e-3d52-442e-b01b-4ee4336de2f0"
-role = "builder"
-base = "6d04daec94ddd6d16976b95fb6dd08a4c8a043bf"
-branch = "claude/issue-81-lane-meta"
-scope = [".github/workflows/ci.yml", "plugins/atelier/workflows"]
-opened_commit = "ae924ffc703619d6ecbb3d91f604c45af8dbfcc4"
-whole_reason = "Every workflow script's meta in that directory gets the same literal fix and the same CI guard."

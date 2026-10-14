@@ -15,10 +15,15 @@ const LITERAL_TOKEN_KINDS = {
   doubleQuotedString: /"(?:[^"\\\n]|\\.)*"/,
   number: /-?\d+(?:\.\d+)?/,
   constant: /true|false|null/,
-  key: /[A-Za-z_$][\w$]*(?=\s*:)/,
+  key: /[A-Za-z_$][\w$]*/,
   punctuation: /[{}[\],:]/,
 }
-const LITERAL_TOKEN = new RegExp(Object.values(LITERAL_TOKEN_KINDS).map(kind => kind.source).join('|'), 'y')
+const LITERAL_TOKEN = new RegExp(
+  Object.entries(LITERAL_TOKEN_KINDS).map(([kind, pattern]) => `(?<${kind}>${pattern.source})`).join('|'),
+  'y',
+)
+// A bare name is a literal only as a key, so a colon must follow it.
+const COLON_AFTER_KEY = /\s*:/y
 const NESTING = { '{': 1, '[': 1, '}': -1, ']': -1 }
 const SAME_LINE_TRIVIA = /(?:[^\S\n]|\/\/[^\n]*)*/y
 const ANY_TRIVIA = /(?:\s|\/\/[^\n]*)*/y
@@ -43,6 +48,7 @@ function endOfLiteralObject(source, openingBrace) {
     const at = token.lastIndex
     const match = token.exec(source)
     if (!match) return { problemAt: at }
+    if (match.groups.key !== undefined && stickyMatchEnd(COLON_AFTER_KEY, source, token.lastIndex) < 0) return { problemAt: at }
     depth += NESTING[match[0]] ?? 0
   } while (depth > 0)
   return { at: token.lastIndex }
@@ -51,18 +57,18 @@ function endOfLiteralObject(source, openingBrace) {
 // After the object only a semicolon, the end of the file, or a line break into
 // a new statement may follow; anything else would extend the initializer.
 function endsDeclaration(source, objectEnd) {
-  const next = skipTrivia(SAME_LINE_TRIVIA, source, objectEnd)
+  const next = stickyMatchEnd(SAME_LINE_TRIVIA, source, objectEnd)
   if (next === source.length || source[next] === ';') return true
   if (source[next] !== '\n') return false
-  const statement = skipTrivia(ANY_TRIVIA, source, next)
+  const statement = stickyMatchEnd(ANY_TRIVIA, source, next)
   return statement === source.length || STATEMENT_START.test(source.slice(statement))
 }
 
-function skipTrivia(trivia, source, from) {
-  const skipper = new RegExp(trivia)
-  skipper.lastIndex = from
-  skipper.exec(source)
-  return skipper.lastIndex
+/** Where the sticky pattern's match starting at `from` ends, or -1 when it does not match there. */
+function stickyMatchEnd(pattern, source, from) {
+  const sticky = new RegExp(pattern)
+  sticky.lastIndex = from
+  return sticky.exec(source) ? sticky.lastIndex : -1
 }
 
 function notPureLiteralNear(source, at) {

@@ -307,11 +307,11 @@ Keep the operator-started head model. Pick the row by difficulty and any
 eligible provider column; a required final gate uses a different provider
 column from the builder.
 
-| Work | Codex | Claude | Grok | DeepSeek |
-|---|---|---|---|---|
-| Mechanical/search/repetition and mechanical review | Luna, low/medium | Opus, low/medium | 4.6, low | V4 Flash |
-| Normal implementation/debugging and ordinary code/test/diff review | Terra, medium/high | Opus, high | 4.6, medium/high | V4 Pro |
-| Architecture, security, or product decision; required final gate | Sol, high/xhigh | Opus or Fable, high/xhigh | 4.6, high/xhigh | support only; never final gate |
+| Work | Codex | Claude | Grok |
+|---|---|---|---|
+| Mechanical/search/repetition and mechanical review | Luna, low/medium | Opus, low/medium | 4.6, low |
+| Normal implementation/debugging and ordinary code/test/diff review | Terra, medium/high | Opus, high | 4.6, medium/high |
+| Architecture, security, or product decision; required final gate | Sol, high/xhigh | Opus or Fable, high/xhigh | 4.6, high/xhigh |
 
 Claude always means Opus (Fable where the gate row allows it); with one Claude
 model, its effort follows the work's difficulty. Grok always means Grok 4.6;
@@ -365,8 +365,7 @@ deltas.
 
 Required reviews remain independent: builders do not review their own work. A
 required final gate uses fresh context and a different provider column from the
-builder. DeepSeek may build or investigate, but is not the sole reviewer for
-security, data integrity, public contracts, or a final verdict.
+builder.
 
 The head owns the landing decision for its claimed lane but never executes a
 landing itself. After required gates are green, it may delegate one explicit

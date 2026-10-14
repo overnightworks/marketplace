@@ -37,6 +37,32 @@ jobs:
         run: python3 scripts/sync_agents_baseline.py --check
       - name: Check the repository layout
         run: python3 scripts/check_root_layout.py
+      # The Workflow tool refuses a script whose `meta` is not a pure literal
+      # (string concatenation, a template literal, a name), so a workflow that
+      # parses fine still cannot start. This walks each meta object token by
+      # token and accepts only strings, numbers, true/false/null, keys and
+      # punctuation; anything else fails the job with its position.
+      - name: Check that workflow meta is a pure literal
+        run: node -e "$GUARD" plugins/*/workflows/*.js
+        env:
+          GUARD: |
+            const fs = require('fs')
+            const token = /\s+|\/\/[^\n]*|'(?:[^'\\\n]|\\.)*'|"(?:[^"\\\n]|\\.)*"|-?\d+(?:\.\d+)?|true|false|null|[A-Za-z_$][\w$]*(?=\s*:)|[{}[\],:]/y
+            let failed = false
+            for (const file of process.argv.slice(1)) {
+              const source = fs.readFileSync(file, 'utf8')
+              const declaration = source.indexOf('export const meta = {')
+              if (declaration < 0) { console.error(`${file}: no export const meta = { ... }`); failed = true; continue }
+              token.lastIndex = source.indexOf('{', declaration)
+              let depth = 0
+              do {
+                const at = token.lastIndex
+                const match = token.exec(source)
+                if (!match) { console.error(`${file}: meta is not a pure literal near: ${source.slice(at, at + 40)}`); failed = true; break }
+                depth += { '{': 1, '[': 1, '}': -1, ']': -1 }[match[0]] || 0
+              } while (depth > 0)
+            }
+            process.exit(failed ? 1 : 0)
       - name: Run workflow tests
         run: node --test tests/*.test.mjs
       # `--locked` fails rather than re-resolving, so the closure this job

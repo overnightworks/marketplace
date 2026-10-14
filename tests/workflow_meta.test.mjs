@@ -1,0 +1,63 @@
+// Pins the CI guard that refuses a workflow whose meta the Workflow tool would reject.
+import { test } from 'node:test'
+import assert from 'node:assert/strict'
+import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
+import { spawnSync } from 'node:child_process'
+import { fileURLToPath } from 'node:url'
+import { metaLiteralProblem } from '../scripts/check_workflow_meta.mjs'
+
+const literalMetas = [
+  ['strings, numbers, booleans and null', `export const meta = { name: 'lane', whenToUse: "one string", turns: 3, ratio: -1.5, ok: true, no: false, none: null }`],
+  ['nested objects, arrays and comments', `export const meta = {\n  // why\n  inputs: [{ key: 'a' }, { key: 'b' }],\n}\nconst later = 'a' + 'b'`],
+  ['an object closed by a semicolon and a comment', `export const meta = { name: 'lane' }; // done\nexport default 1`],
+  ['an object that ends the file', `export const meta = { name: 'lane' }\n`],
+]
+for (const [shape, source] of literalMetas) {
+  test(`accepts a meta made of ${shape}`, () => {
+    assert.equal(metaLiteralProblem(source), null)
+  })
+}
+
+const nonLiteralMetas = [
+  ['string concatenation', `export const meta = { whenToUse: 'a' + 'b' }`],
+  ['a template literal', 'export const meta = { whenToUse: `a` }'],
+  ['a referenced name', `export const meta = { whenToUse: WHEN }`],
+  ['a function call', `export const meta = { whenToUse: describe() }`],
+  ['an expression after the object', `export const meta = { name: 'lane' } + suffix`],
+  ['an expression continued on the next line', `export const meta = { name: 'lane' }\n  // why\n  .name`],
+]
+for (const [expression, source] of nonLiteralMetas) {
+  test(`refuses a meta containing ${expression}`, () => {
+    assert.match(metaLiteralProblem(source), /not a pure literal/)
+  })
+}
+
+test('refuses a script without an exported meta object', () => {
+  assert.match(metaLiteralProblem(`const meta = { name: 'x' }`), /no export const meta/)
+})
+
+test('every shipped workflow carries a pure literal meta', () => {
+  const workflows = new URL('../plugins/atelier/workflows/', import.meta.url)
+  for (const file of fs.readdirSync(workflows).filter(name => name.endsWith('.js'))) {
+    assert.equal(metaLiteralProblem(fs.readFileSync(new URL(file, workflows), 'utf8')), null, file)
+  }
+})
+
+test('the guard names each workflow with a non-literal meta and fails the run', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'workflow-meta-'))
+  try {
+    const literal = path.join(dir, 'literal.js')
+    const computed = path.join(dir, 'computed.js')
+    fs.writeFileSync(literal, `export const meta = { name: 'lane' }\n`)
+    fs.writeFileSync(computed, `export const meta = { name: 'a' + 'b' }\n`)
+    const guard = fileURLToPath(new URL('../scripts/check_workflow_meta.mjs', import.meta.url))
+    const run = spawnSync(process.execPath, [guard, literal, computed], { encoding: 'utf8' })
+    assert.equal(run.status, 1)
+    assert.match(run.stderr, /computed\.js: meta is not a pure literal/)
+    assert.doesNotMatch(run.stderr, /literal\.js/)
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true })
+  }
+})

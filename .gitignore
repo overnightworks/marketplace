@@ -1,5 +1,6 @@
 .venv/
 coverage.xml
+lcov.info
 .coverage
 .pytest_cache/
 __pycache__/

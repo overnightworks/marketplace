@@ -17,7 +17,11 @@ Licensed under the [MIT License](LICENSE).
   generated seed of the root `AGENTS.md`.
 - `plugins/atelier/hooks/hooks.json` is the shared quality-gate hook configuration.
 - `plugins/atelier/workflows/` holds the Claude Code workflows; `lane` drives
-  one claimed aco lane from build to ready-to-land.
+  one claimed aco lane from build to ready-to-land. Claude Code (2.1.299) lists
+  no plugin workflow by name, so start one by path:
+  `Workflow({scriptPath: "<plugin dir>/workflows/lane.js", args: {...}})`.
+  The tool refuses a script whose `meta` is not a pure literal (no `+`
+  concatenation, template literal or name); CI checks this for every workflow.
 - `plugins/atelier/.codex-plugin/plugin.json` is the Codex plugin manifest.
 - `plugins/atelier/.claude-plugin/plugin.json` is the Claude Code plugin
   manifest.

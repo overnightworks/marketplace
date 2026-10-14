@@ -37,8 +37,17 @@ jobs:
         run: python3 scripts/sync_agents_baseline.py --check
       - name: Check the repository layout
         run: python3 scripts/check_root_layout.py
+      # The Workflow tool refuses a script whose `meta` is not a pure literal,
+      # so a workflow that parses fine still cannot start.
+      - name: Check that workflow meta is a pure literal
+        run: node scripts/check_workflow_meta.mjs plugins/*/workflows/*.js
+      # The lcov report carries the JavaScript coverage the `sonar` job reads.
       - name: Run workflow tests
-        run: node --test tests/*.test.mjs
+        run: >-
+          node --test --experimental-test-coverage
+          --test-reporter=spec --test-reporter-destination=stdout
+          --test-reporter=lcov --test-reporter-destination=lcov.info
+          tests/*.test.mjs
       # `--locked` fails rather than re-resolving, so the closure this job
       # installs is the one uv.lock names and a stale lock is red here instead
       # of being silently updated.
@@ -53,7 +62,9 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: coverage-report
-          path: coverage.xml
+          path: |
+            coverage.xml
+            lcov.info
           if-no-files-found: error
 
   secret-scan:

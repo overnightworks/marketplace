@@ -8,6 +8,9 @@ import { pathToFileURL } from 'node:url'
 const META_DECLARATION = 'export const meta = {'
 const LITERAL_TOKEN = /\s+|\/\/[^\n]*|'(?:[^'\\\n]|\\.)*'|"(?:[^"\\\n]|\\.)*"|-?\d+(?:\.\d+)?|true|false|null|[A-Za-z_$][\w$]*(?=\s*:)|[{}[\],:]/y
 const NESTING = { '{': 1, '[': 1, '}': -1, ']': -1 }
+// After the object only a semicolon, the end of the file, or a line break into
+// a new statement may follow; anything else would extend the initializer.
+const DECLARATION_END = /(?:[^\S\n]|\/\/.*$)*(?:;|$(?![^])|\n(?:\s|\/\/.*$)*(?:$(?![^])|(?!(?:in|instanceof)\b)[A-Za-z_$]))/my
 
 /** Returns why the script's meta is not a pure literal, or null when it is. */
 export function metaLiteralProblem(source) {
@@ -22,6 +25,9 @@ export function metaLiteralProblem(source) {
     if (!match) return `meta is not a pure literal near: ${source.slice(at, at + 40)}`
     depth += NESTING[match[0]] || 0
   } while (depth > 0)
+  const end = new RegExp(DECLARATION_END)
+  end.lastIndex = token.lastIndex
+  if (!end.test(source)) return `meta is not a pure literal near: ${source.slice(token.lastIndex, token.lastIndex + 40)}`
   return null
 }
 

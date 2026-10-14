@@ -7,6 +7,8 @@ import { metaLiteralProblem } from '../scripts/check_workflow_meta.mjs'
 const literalMetas = [
   ['strings, numbers, booleans and null', `export const meta = { name: 'lane', whenToUse: "one string", turns: 3, ratio: -1.5, ok: true, no: false, none: null }`],
   ['nested objects, arrays and comments', `export const meta = {\n  // why\n  inputs: [{ key: 'a' }, { key: 'b' }],\n}\nconst later = 'a' + 'b'`],
+  ['an object closed by a semicolon and a comment', `export const meta = { name: 'lane' }; // done\nexport default 1`],
+  ['an object that ends the file', `export const meta = { name: 'lane' }\n`],
 ]
 for (const [shape, source] of literalMetas) {
   test(`accepts a meta made of ${shape}`, () => {
@@ -19,6 +21,8 @@ const nonLiteralMetas = [
   ['a template literal', 'export const meta = { whenToUse: `a` }'],
   ['a referenced name', `export const meta = { whenToUse: WHEN }`],
   ['a function call', `export const meta = { whenToUse: describe() }`],
+  ['an expression after the object', `export const meta = { name: 'lane' } + suffix`],
+  ['an expression continued on the next line', `export const meta = { name: 'lane' }\n  // why\n  .name`],
 ]
 for (const [expression, source] of nonLiteralMetas) {
   test(`refuses a meta containing ${expression}`, () => {

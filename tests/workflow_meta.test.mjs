@@ -2,6 +2,10 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
+import { spawnSync } from 'node:child_process'
+import { fileURLToPath } from 'node:url'
 import { metaLiteralProblem } from '../scripts/check_workflow_meta.mjs'
 
 const literalMetas = [
@@ -38,5 +42,22 @@ test('every shipped workflow carries a pure literal meta', () => {
   const workflows = new URL('../plugins/atelier/workflows/', import.meta.url)
   for (const file of fs.readdirSync(workflows).filter(name => name.endsWith('.js'))) {
     assert.equal(metaLiteralProblem(fs.readFileSync(new URL(file, workflows), 'utf8')), null, file)
+  }
+})
+
+test('the guard names each workflow with a non-literal meta and fails the run', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'workflow-meta-'))
+  try {
+    const literal = path.join(dir, 'literal.js')
+    const computed = path.join(dir, 'computed.js')
+    fs.writeFileSync(literal, `export const meta = { name: 'lane' }\n`)
+    fs.writeFileSync(computed, `export const meta = { name: 'a' + 'b' }\n`)
+    const guard = fileURLToPath(new URL('../scripts/check_workflow_meta.mjs', import.meta.url))
+    const run = spawnSync(process.execPath, [guard, literal, computed], { encoding: 'utf8' })
+    assert.equal(run.status, 1)
+    assert.match(run.stderr, /computed\.js: meta is not a pure literal/)
+    assert.doesNotMatch(run.stderr, /literal\.js/)
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true })
   }
 })

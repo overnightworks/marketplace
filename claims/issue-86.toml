@@ -1,0 +1,8 @@
+claim_id = "b9d36527f8be409799789628913e11f9"
+agent = "Claude fe12493e-3d52-442e-b01b-4ee4336de2f0"
+role = "builder"
+base = "16e2b7e5131f4048c559fd89c6adecb0b32407f9"
+branch = "claude/issue-86-lane-guard-kinds"
+scope = ["plugins/atelier/.codex/agents", "plugins/atelier/agents/code-fixer.md", "plugins/atelier/agents/code-worker.md", "plugins/atelier/agents/explorative-tester.md", "plugins/atelier/workflows/lane.js", "tests/lane_workflow.test.mjs"]
+opened_commit = "c339c6741a105ce1926d3dea1808d90f5d9aa5b8"
+whole_reason = "Three small cards in one workflow and its agent prompts land as one lane."

@@ -66,8 +66,18 @@ const webauthReplay = {
   args: { item: 57, worktree: '/w', branch: 'b', contract: 'c', e2e: 'e', scratch: '/s', build: 'recorded', risk: 'material' },
   testGap: { raisedBy: 'r1-gate', fixedBy: 'fix-2', where: 'tests/test_oidc.py:479', mutation: 'drop quote_plus from the client-ID part of the Basic authorization only' },
   nextReview: 'r2-review',
-  foldedByAcceptedFix: ['src/webauth/oidc.py:130-133 (TokenEndpointAnswer)', 'README.md:433-434 (OpenID Connect login paragraph)'],
-  foldedByStoppedFix: ['src/webauth/jwt_verification.py:365-372 (is_https_url)'],
+  // The fix-in-place follow-ups by the fix that carried them, and how many follow-ups the head still routes when the lane is ready.
+  foldIns: {
+    accepted: {
+      folded: [['src/webauth/oidc.py:130-133 (TokenEndpointAnswer)', webauthTips.firstFix], ['README.md:433-434 (OpenID Connect login paragraph)', webauthTips.firstFix], ['src/webauth/jwt_verification.py:365-372 (is_https_url)', webauthTips.secondFix]],
+      open: [],
+    },
+    stopped: {
+      folded: [['src/webauth/oidc.py:130-133 (TokenEndpointAnswer)', webauthTips.firstFix], ['README.md:433-434 (OpenID Connect login paragraph)', webauthTips.firstFix]],
+      open: ['src/webauth/jwt_verification.py:365-372 (is_https_url)'],
+    },
+  },
+  followupsToRoute: 3,
   answers: {
     build: { pr: 58, tip: webauthTips.built, blocked: false },
     'r0-review': {
@@ -131,8 +141,17 @@ const agentProvidersReplay = {
   args: { item: 25, worktree: '/w', branch: 'b', contract: 'c', e2e: 'e', scratch: '/s', build: 'recorded', risk: 'material' },
   testGap: { raisedBy: 'r0-gate', fixedBy: 'fix-1', where: 'tests/test_sse_codec.py:58', mutation: 'encode_event writes the event line before the id line' },
   nextReview: 'r1-gate',
-  foldedByAcceptedFix: [],
-  foldedByStoppedFix: ['packages/agent-client/src/agent_client/wire.py:92 and :100 (ToolCall.tool_use_id, ToolResult.tool_use_id)', 'docs/decisions/0001-agent-service.md:238-246 (ruling f)'],
+  foldIns: {
+    accepted: {
+      folded: [['packages/agent-client/src/agent_client/wire.py:92 and :100 (ToolCall.tool_use_id, ToolResult.tool_use_id)', agentProvidersTips.fix], ['docs/decisions/0001-agent-service.md:238-246 (ruling f)', agentProvidersTips.fix]],
+      open: [],
+    },
+    stopped: {
+      folded: [],
+      open: ['packages/agent-client/src/agent_client/wire.py:92 and :100 (ToolCall.tool_use_id, ToolResult.tool_use_id)', 'docs/decisions/0001-agent-service.md:238-246 (ruling f)'],
+    },
+  },
+  followupsToRoute: 4,
   answers: {
     build: { pr: 26, tip: agentProvidersTips.built, blocked: false },
     'r0-review': {
@@ -190,3 +209,36 @@ for (const replay of replays) {
     })
   }
 }
+
+const fixOutcomes = [
+  ['accepted', { kind: 'test-gap', mutation: true }],
+  ['stopped', { kind: undefined, mutation: false }],
+]
+for (const replay of replays) {
+  for (const [outcome, labels] of fixOutcomes) {
+    test(`${replay.name} replay: a fold-in counts as folded, with its tip, only once its fix is accepted (${outcome} fix)`, async () => {
+      const { result } = await runLane(replay.args, answersWith(replay, labels))
+      const expected = replay.foldIns[outcome]
+      const openWheres = result.followups.map(f => f.where)
+      assert.deepEqual(result.folded.map(f => [f.where, f.tip]), expected.folded)
+      for (const [where] of expected.folded) assert.ok(!openWheres.includes(where), `${where} is still open`)
+      for (const where of expected.open) assert.ok(openWheres.includes(where), `${where} is not open`)
+    })
+  }
+
+  test(`${replay.name} replay: a ready lane asks the head to route only the follow-ups still open`, async () => {
+    const { result } = await runLane(replay.args, answersWith(replay, { kind: 'test-gap', mutation: true }))
+    assert.equal(result.followups.length, replay.followupsToRoute)
+    assert.ok(result.requiredHeadActions.includes(`route ${replay.followupsToRoute} follow-up(s) to their owning items before landing`))
+  })
+}
+
+test('a stopped fix reports the fold-ins its fixer found already done, and leaves them open', async () => {
+  const replay = agentProvidersReplay
+  const answers = answersWith(replay, { kind: undefined, mutation: false })
+  const resolved = [{ where: replay.foldIns.stopped.open[0], text: 'done by an earlier fixer' }]
+  answers[replay.testGap.fixedBy].resolved = resolved
+  const { result } = await runLane(replay.args, answers)
+  assert.deepEqual(result.resolved, resolved)
+  assert.ok(result.followups.some(f => f.where === resolved[0].where))
+})

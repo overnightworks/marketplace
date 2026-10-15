@@ -126,6 +126,11 @@ const FIX = {
       description: 'findings you did not fix because the evidence contradicts them',
       items: { type: 'object', required: ['where', 'text', 'counterEvidence'], properties: { where: { type: 'string' }, text: { type: 'string' }, counterEvidence: { type: 'string' } } },
     },
+    resolved: {
+      type: 'array',
+      description: 'fold-ins you found already done in the worktree, left there by an earlier fixer whose fix was not accepted',
+      items: { type: 'object', required: ['where', 'text'], properties: { where: { type: 'string' }, text: { type: 'string' } } },
+    },
     regression: {
       type: 'array',
       description: 'for each finding that came with a repro or a test draft: the test that proves the fix',
@@ -252,18 +257,18 @@ let tip = A.tip || null
 const spent = { review: 0, test: 0, ci: 0, total: 0 }
 const seen = new Map()  // finding key -> how often it came back after a fix
 let productionSinceTest = false  // any fix since the last end-to-end test touched production
-const folded = new Set()  // follow-ups already handed to a fixer to fix in place
+const folded = new Map()  // follow-up key -> the follow-up, with the tip of the accepted fix that folded it in
 const REVIEW = { key: 'review', provider: A.reviewer || 'claude', tier: 'terra', role: 'independent reviewer' }
 const GATE = { key: 'gate', provider: 'codex', tier: 'sol', role: 'final gate (architecture, data safety, public contract)' }
 const ALL = MATERIAL ? [REVIEW, GATE] : [REVIEW]
 
-function dedupeFollowups() {
-  const out = new Map()
-  followups.forEach(f => { if (!out.has(findingKey(f))) out.set(findingKey(f), f) })
-  return [...out.values()]
+function openFollowups() {
+  const open = new Map()
+  followups.forEach(f => { if (!folded.has(findingKey(f)) && !open.has(findingKey(f))) open.set(findingKey(f), f) })
+  return [...open.values()]
 }
 const openResult = (status, stage, extra) =>
-  ({ status, stage, pr, tip, spent, history, followups: dedupeFollowups(), disputed, ...extra })
+  ({ status, stage, pr, tip, spent, history, followups: openFollowups(), folded: [...folded.values()], disputed, ...extra })
 
 // ---------------------------------------------------------------- build
 if (A.build) {
@@ -328,12 +333,13 @@ function fixRoundStop(blocking, budgetKey) {
 }
 
 // The contract lets a fixer resolve a small follow-up in a file the lane already changed, when it cannot change behaviour.
-function takeInPlaceFollowups() {
-  const inPlace = followups.filter(f => /fix in place/i.test(`${f.owner} ${f.text}`) && !folded.has(findingKey(f)))
-  inPlace.forEach(f => folded.add(findingKey(f)))
-  if (!inPlace.length) return ''
-  return `\n\nAlso fold in these follow-ups, only because each sits in a file this lane already changed and cannot change behaviour; one commit for all of them:\n` +
-    inPlace.map((f, i) => `${i + 1}. ${f.where} — ${f.text}`).join('\n')
+// A fold-in counts as folded only once the fix that carries it is accepted; until then it stays open.
+const inPlaceFollowups = () => openFollowups().filter(f => /fix in place/i.test(`${f.owner} ${f.text}`))
+function foldInBrief(foldIn) {
+  if (!foldIn.length) return ''
+  return `\n\nAlso fold in these follow-ups, only because each sits in a file this lane already changed and cannot change behaviour; one commit for all of them. ` +
+    `One that an earlier fixer already left done in the worktree you do not redo; list it in resolved:\n` +
+    foldIn.map((f, i) => `${i + 1}. ${f.where} — ${f.text}`).join('\n')
 }
 
 // A disputed finding is a disagreement between two fresh agents about evidence: the head decides it.
@@ -396,12 +402,12 @@ async function fixBatch(blocking, source, budgetKey) {
   const stop = fixRoundStop(blocking, budgetKey)
   if (stop) return { stop }
   spent[budgetKey]++; spent.total++
-  const foldText = takeInPlaceFollowups()
+  const foldIn = inPlaceFollowups()
   phase('Fix')
   const fixed = await safeAgent(
     `${laneFacts}\nYou are a fresh fixer for PR #${pr} (lane tip ${tip}). Return that tip as oldTip. First merge origin/main if it moved (a merge commit; ` +
     `resolve other conflicts only when you can do so without changing behaviour, and set mergeResolvedLaneConflict true when files this lane changed needed resolution). ` +
-    `Return the tip after that merge as mergedBase (oldTip when main had not moved). If the worktree already carries commits or uncommitted changes past that tip from an earlier fixer that ran out of turns, judge them, keep what is right, and continue from there. Commit each finding as soon as it is green; if you run short of turns, commit what is green and return what is left in blockedReason with blocked true. Then answer exactly these blocking findings from ${source}, and nothing else:\n${listFindings(blocking)}${foldText}\n\n` +
+    `Return the tip after that merge as mergedBase (oldTip when main had not moved). If the worktree already carries commits or uncommitted changes past that tip from an earlier fixer that ran out of turns, judge them, keep what is right, and continue from there. Commit each finding as soon as it is green; if you run short of turns, commit what is green and return what is left in blockedReason with blocked true. Then answer exactly these blocking findings from ${source}, and nothing else:\n${listFindings(blocking)}${foldInBrief(foldIn)}\n\n` +
     `Each finding names the rule it breaks and its evidence. Check the evidence yourself first. If it does not hold — the rule is not broken, or the evidence is wrong — ` +
     `do not change code for it: list it in disputed with your counter-evidence. Report every test you add for a finding in regression under that finding's exact where. ` +
     `A defect's test fails before your fix and passes after it; a finding with a test draft needs one. A test-gap finding means the code is already right: its test passes before and after, ` +
@@ -411,11 +417,16 @@ async function fixBatch(blocking, source, budgetKey) {
     { label: `fix-${spent.total}`, phase: 'Fix', schema: FIX, agentType: 'atelier:code-fixer', model: 'opus', effort: EFFORT.fix })
   if (!fixed) return { stop: openResult('failed', 'fix', { reason: `the fixer returned no result; inspect ${A.worktree} for commits past ${tip} and uncommitted work, then resume this run`, lastBlocking: blocking }) }
   if (![fixed.oldTip, fixed.mergedBase, fixed.tip].every(t => SHA.test(t || ''))) return { stop: openResult('failed', 'fix', { reason: 'the fixer returned a tip that is not a sha' }) }
-  if (fixed.blocked) return { stop: openResult('escalated', 'fix', { reason: fixed.blockedReason }) }
-  if ((fixed.disputed || []).length) return { stop: awaitHeadOnDispute(fixed, blocking) }
+  // What the fixer says it found already done is only reported to the head: an unaccepted fix folds nothing in.
+  const unaccepted = (result) => ({ stop: (fixed.resolved || []).length ? { ...result, resolved: fixed.resolved } : result })
+  if (fixed.blocked) return unaccepted(openResult('escalated', 'fix', { reason: fixed.blockedReason }))
+  if ((fixed.disputed || []).length) return unaccepted(awaitHeadOnDispute(fixed, blocking))
   const rejection = fixRejection(fixed, blocking)
-  if (rejection) return { stop: openResult('failed', 'fix', rejection) }
-  return acceptFix(fixed, blocking)
+  if (rejection) return unaccepted(openResult('failed', 'fix', rejection))
+  const accepted = acceptFix(fixed, blocking)
+  if (accepted.stop) return unaccepted(accepted.stop)
+  foldIn.forEach(f => folded.set(findingKey(f), { ...f, tip: fixed.tip }))
+  return accepted
 }
 
 // Review until clean. After every fix the delta goes back to whoever raised a finding, and the gate returns on a
@@ -535,12 +546,12 @@ while (true) {
   needTest = testBlocking.length > 0 || productionSinceTest
 }
 
-const openFollowups = dedupeFollowups()
+const stillOpen = openFollowups()
 return {
-  status: 'ready-to-land', pr, tip, spent, history, followups: openFollowups, disputed,
+  status: 'ready-to-land', pr, tip, spent, history, followups: stillOpen, folded: [...folded.values()], disputed,
   requiredHeadActions: [
     `land with \`aco land ${pr}\` only while the pull request head is still ${tip}`,
-    ...(openFollowups.length ? [`route ${openFollowups.length} follow-up(s) to their owning items before landing`] : []),
+    ...(stillOpen.length ? [`route ${stillOpen.length} follow-up(s) to their owning items before landing`] : []),
     `update the body of item #${A.item}'s parent and name what the landing freed`,
   ],
 }

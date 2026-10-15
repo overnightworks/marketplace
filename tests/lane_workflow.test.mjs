@@ -179,12 +179,22 @@ const agentProvidersReplay = {
 const replays = [webauthReplay, agentProvidersReplay]
 
 // The recorded answers as a reviewer and fixer briefed with finding kinds would give them: the test-gap finding
-// carries the kind its reviewer gives it, and its proof the mutation its fixer reported.
-function answersWith(replay, { kind, mutation }) {
+// carries the kind its reviewer gives it, and its proof the mutation its fixer reported. The other options vary
+// that proof: whether it passes after the fix, whether it names the finding's where exactly, a near match of it,
+// or is left out, and whether the fixer adds a failing proof for a where no blocking finding has (its fold-in's).
+function answersWith(replay, { kind, mutation, testDraft = false, passesAfter = true, proof = 'exact', strayProof = false }) {
   const answers = structuredClone(replay.answers)
   const { raisedBy, fixedBy, where } = replay.testGap
-  if (kind) answers[raisedBy].blocking.find(f => f.where === where).kind = kind
-  if (mutation) answers[fixedBy].regression.find(proof => proof.finding === where).mutation = replay.testGap.mutation
+  const testGap = answers[raisedBy].blocking.find(f => f.where === where)
+  if (kind) testGap.kind = kind
+  if (testDraft) testGap.testDraft = '/s/draft_test.py'
+  const regression = answers[fixedBy].regression
+  const testGapProof = regression.find(recorded => recorded.finding === where)
+  if (mutation) testGapProof.mutation = replay.testGap.mutation
+  testGapProof.passesAfter = passesAfter
+  if (proof === 'near-match') testGapProof.finding = `${where} (test)`
+  if (proof === 'omitted') regression.splice(regression.indexOf(testGapProof), 1)
+  if (strayProof) regression.push({ finding: replay.foldIns.accepted.folded.at(-1)[0], test: 'fold-in test', failedBefore: false, passesAfter: false })
   return answers
 }
 
@@ -192,7 +202,9 @@ const proofsByKind = [
   ['a resumed run whose findings carry no kind stops at the fix as before', { kind: undefined, mutation: true }, false],
   ['a defect whose test did not fail before stops at the fix', { kind: 'defect', mutation: true }, false],
   ['a test-gap without a named mutation stops at the fix', { kind: 'test-gap', mutation: false }, false],
+  ['a test-gap whose test does not pass after the fix stops at the fix', { kind: 'test-gap', mutation: true, passesAfter: false }, false],
   ['a test-gap proven by a named mutation moves past the fix', { kind: 'test-gap', mutation: true }, true],
+  ['a failing proof for a where no blocking finding has is ignored and the run moves past the fix', { kind: 'test-gap', mutation: true, strayProof: true }, true],
   ['a docs finding needs no test and moves past the fix', { kind: 'docs', mutation: false }, true],
 ]
 for (const replay of replays) {

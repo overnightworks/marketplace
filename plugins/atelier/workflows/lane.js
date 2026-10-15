@@ -1,7 +1,7 @@
 export const meta = {
   name: 'lane',
-  description: 'One claimed lane to ready-to-land: build, a fresh Opus review (plus a Codex Sol gate on material risk), fresh fixers with evidence-bearing findings and a delta re-check by whoever raised them, then the explorative end-to-end test and CI in parallel on one tip.',
-  whenToUse: 'In any repository that coordinates with aco, after the head ran `aco start <item>` (worktree, branch and claim exist). Landing stays with the head; the result lists requiredHeadActions. Required args: item (the work item number), worktree (the lane\'s isolated worktree path), branch (the lane branch), contract (the item\'s ruled sentences every reviewer and the tester judge against), e2e (what the explorative tester drives through the real entry point), scratch (a directory for briefs, Codex output and test evidence). Start with build (a builder brief) for a new lane, or with pr and tip (an open pull request and its head sha) to resume one. Optional args and their defaults: risk "normal" (or "material": adds a Codex Sol final gate and raises the review effort to xhigh); size "M" (or "S": builder, fixer and tester run at medium effort; "L" as "M"); reviewer "claude" (a fresh Opus reviewer; "codex" routes the ordinary review to Codex Terra); builderProvider "claude" (the only accepted value, because the gate runs on Codex); repo none (every gh call then targets the worktree\'s own repository; pass owner/name when the head runs elsewhere); productionPaths ["src/", "pyproject.toml", "uv.lock"], a default that fits a src-layout Python repository (path prefixes whose change re-opens the gate on a material lane and re-runs the end-to-end test); ledgers [], a default that fits a repository without append-only ledgers (files whose merge conflicts keep both sides, main\'s lines first); budgets {review: 5, test: 2, ci: 3, total: 8} (fix rounds per phase and in total; partial objects override single keys); deltaFrom none (a sha: review only the commits since it, after the head settled an awaiting-head result); answers none (what those commits answer); fixFirst none (Finding[]: blocking findings a fresh fixer answers before anything else); foldIn none (Followup[]: fix-in-place follow-ups for that fixer).',
+  description: 'One claimed lane to ready-to-land: build, a fresh Sonnet review (plus a Codex gpt-6-astra gate on material risk), fresh fixers with evidence-bearing findings and a delta re-check by whoever raised them, then the explorative end-to-end test and CI in parallel on one tip.',
+  whenToUse: 'In any repository that coordinates with aco, after the head ran `aco start <item>` (worktree, branch and claim exist). Landing stays with the head; the result lists requiredHeadActions. Required args: item (the work item number), worktree (the lane\'s isolated worktree path), branch (the lane branch), contract (the item\'s ruled sentences every reviewer and the tester judge against), e2e (what the explorative tester drives through the real entry point), scratch (a directory for briefs, Codex output and test evidence). Start with build (a builder brief) for a new lane, or with pr and tip (an open pull request and its head sha) to resume one. Optional args and their defaults: risk "normal" (or "material": adds a Codex gpt-6-astra final gate); reviewer "claude" (a fresh Sonnet reviewer; "codex" routes the ordinary review to Codex gpt-6-astra); routing none (per-role overrides {role: {model, effort}} of the table at the top of the script, for build, fix, test, review, gate and mechanical; effort never above high, the gate always on another provider than the builder); builderProvider "claude" (the only accepted value, because the gate runs on Codex); repo none (every gh call then targets the worktree\'s own repository; pass owner/name when the head runs elsewhere); productionPaths ["src/", "pyproject.toml", "uv.lock"], a default that fits a src-layout Python repository (path prefixes whose change re-opens the gate on a material lane and re-runs the end-to-end test); ledgers [], a default that fits a repository without append-only ledgers (files whose merge conflicts keep both sides, main\'s lines first); budgets {review: 5, test: 2, ci: 3, total: 8} (fix rounds per phase and in total; partial objects override single keys); deltaFrom none (a sha: review only the commits since it, after the head settled an awaiting-head result); answers none (what those commits answer); fixFirst none (Finding[]: blocking findings a fresh fixer answers before anything else); foldIn none (Followup[]: fix-in-place follow-ups for that fixer).',
   phases: [
     { title: 'Build' },
     { title: 'Sync' },
@@ -27,7 +27,6 @@ if (A.ledgers !== undefined && !isPathList(A.ledgers)) return { status: 'failed'
 // A misspelled choice must never fall back to its default: a misspelled risk would silently drop the material lane's final gate.
 if (A.risk !== undefined && !['normal', 'material'].includes(A.risk)) return { status: 'failed', stage: 'input', reason: 'risk must be "normal" or "material"' }
 if (A.reviewer !== undefined && !['claude', 'codex'].includes(A.reviewer)) return { status: 'failed', stage: 'input', reason: 'reviewer must be "claude" or "codex"' }
-if (A.size !== undefined && !['S', 'M', 'L'].includes(A.size)) return { status: 'failed', stage: 'input', reason: 'size must be "S", "M" or "L"' }
 const MATERIAL = A.risk === 'material'
 // Every gh call names the repository explicitly: agents start in the head's own checkout, which may be another repository.
 if (A.repo && !/^[\w.-]+\/[\w.-]+$/.test(A.repo)) return { status: 'failed', stage: 'input', reason: 'repo must be owner/name' }
@@ -40,17 +39,52 @@ const PRODUCTION = A.productionPaths || ['src/', 'pyproject.toml', 'uv.lock']
 // Separate budgets per phase plus one total: review usually needs 2-4 rounds, a tester or CI rarely more than 2.
 const B = { review: 5, test: 2, ci: 3, total: 8, ...A.budgets }
 const LEDGERS = A.ledgers || []
-// Every Claude agent runs on Opus (operator ruling 26.09.2026: "opus immer, kein Sonnet mehr"); mechanical steps vary the effort, never the model.
-const MECHANICAL = { agentType: 'general-purpose', model: 'opus', effort: 'low' }
-const WATCHER = MECHANICAL
-// With one model, effort is the switch (operator, 26.09.2026): it follows the item's size and risk, not a fixed "high".
-const SIZE = A.size || 'M'
-const EFFORT = {
-  build: SIZE === 'S' ? 'medium' : 'high',
-  fix: SIZE === 'S' ? 'medium' : 'high',
-  review: MATERIAL ? 'xhigh' : 'high',
-  test: SIZE === 'S' ? 'medium' : 'high',
+// The one table of every role's model and effort (instructions/AGENTS.md, "Model routing"). Effort is medium unless the
+// row says otherwise; high is the ceiling. Nothing else in this script names a model.
+const MODEL_PROVIDER = { haiku: 'claude', sonnet: 'claude', opus: 'claude', fable: 'claude', 'gpt-6-astra': 'codex' }
+const EFFORT_CEILING = ['low', 'medium', 'high']
+const BUILDER_PROVIDER = A.builderProvider || 'claude'
+const REVIEWER_PROVIDER = A.reviewer || 'claude'
+const DEFAULT_ROUTING = {
+  mechanical: { model: 'haiku', effort: 'low' },
+  build: { model: 'sonnet', effort: 'medium' },
+  fix: { model: 'sonnet', effort: 'medium' },
+  test: { model: 'sonnet', effort: 'medium' },
+  review: REVIEWER_PROVIDER === 'codex' ? { model: 'gpt-6-astra', effort: 'medium' } : { model: 'sonnet', effort: 'medium' },
+  gate: { model: 'gpt-6-astra', effort: 'high' },
 }
+// The provider each role must run on: reviews on the chosen reviewer provider, the gate on any provider but the builder's.
+const providerAllowed = {
+  mechanical: (provider) => provider === 'claude',
+  build: (provider) => provider === 'claude',
+  fix: (provider) => provider === 'claude',
+  test: (provider) => provider === 'claude',
+  review: (provider) => provider === REVIEWER_PROVIDER,
+  gate: (provider) => provider !== BUILDER_PROVIDER,
+}
+
+// Why a routing override is refused, or null. An override never bypasses reviewer independence, gate provider
+// separation or the effort ceiling.
+function routingRefusal(overrides) {
+  if (typeof overrides !== 'object' || overrides === null || Array.isArray(overrides)) return 'routing must be an object of roles'
+  for (const [role, choice] of Object.entries(overrides)) {
+    if (!(role in DEFAULT_ROUTING)) return `routing names an unknown role "${role}"`
+    if (typeof choice !== 'object' || choice === null) return `routing for ${role} must be {model, effort}`
+    if (choice.model !== undefined && !(choice.model in MODEL_PROVIDER)) return `routing for ${role} names an unknown model "${choice.model}"`
+    if (choice.effort !== undefined && !EFFORT_CEILING.includes(choice.effort)) return `routing for ${role} sets effort "${choice.effort}"; high is the ceiling`
+    const model = choice.model || DEFAULT_ROUTING[role].model
+    if (!providerAllowed[role](MODEL_PROVIDER[model])) return `routing for ${role} puts it on ${MODEL_PROVIDER[model]}, which breaks ${role === 'gate' ? 'gate provider separation from the builder' : 'the role\'s provider'}`
+  }
+  return null
+}
+if (A.routing !== undefined) {
+  const refusal = routingRefusal(A.routing)
+  if (refusal) return { status: 'failed', stage: 'input', reason: refusal }
+}
+const ROUTING = Object.fromEntries(Object.entries(DEFAULT_ROUTING).map(([role, chosen]) => [role, { ...chosen, ...A.routing?.[role] }]))
+const MECHANICAL = { agentType: 'general-purpose', ...ROUTING.mechanical }
+const WATCHER = MECHANICAL
+const claudeRole = (role) => ({ model: ROUTING[role].model, effort: ROUTING[role].effort })
 
 // agent() with a schema THROWS when a subagent ends without calling StructuredOutput (seen on 26.09.2026: a builder hit
 // its turn limit after 151 tool calls, left its work uncommitted, and the throw ended the whole run). Every call goes
@@ -73,7 +107,7 @@ const FINDING = {
   required: ['where', 'kind', 'text', 'rule', 'evidence'],
   properties: {
     where: { type: 'string', description: 'file:line, or the check or scenario name' },
-    kind: { type: 'string', enum: FINDING_KINDS, description: 'defect: the code breaks a rule or its promise; test-gap: the code is right and only the test pinning it is missing; docs: only text is wrong' },
+    kind: { type: 'string', enum: FINDING_KINDS, description: 'defect: the code breaks a rule or its promise; test-gap: a behaviour without a test, the code is right and only the test pinning it is missing; docs: only text is wrong' },
     text: { type: 'string' },
     rule: { type: 'string', description: 'the contract sentence, spec criterion, repository rule or check it breaks' },
     evidence: { type: 'string', description: 'what was observed: the code, the output, the failing log lines' },
@@ -174,7 +208,12 @@ const BLOCKING_LINE =
   `a finding you cannot back with evidence is not blocking. Every blocking finding names its kind: **defect** when the code breaks a rule or ` +
   `does not do what the contract, its docs or its own text promise — a mismatch between promise and code is defect unless the contract says the code is right, ` +
   `and then it is **docs**, as is any finding where only documentation or a comment is wrong; **test-gap** when the code already does what the contract says ` +
-  `and only the test that pins it is missing.`
+  `and a behaviour has no test that pins it. Hygiene in test code (a needless monkeypatch, a test without a criterion ID) is a **defect** whose proof is the diff, not a mutation.`
+
+// The reviewer stopgap of the fleet roadmap (#80, Q0): the reviewer is the only brake until a ratchet checks these.
+const STOPGAP_LINE =
+  `Refuse (blocking defect) a new file of 800 lines or more; a new test without a criterion ID or \`defect:#n\`; ` +
+  `and a new patch or monkeypatch at an import location or on a private attribute where a fake on PATH or an injected port works.`
 
 const CODEX_SCHEMA = JSON.stringify({
   type: 'object', additionalProperties: false,
@@ -198,11 +237,11 @@ const listFindings = (list) => list.map((f, i) =>
 
 // ------------------------------------------------------------ reviewers
 // The ordinary review may come from the builder's own provider (the contract asks only for a fresh, independent agent);
-// a fresh Opus reviewer is the default, as the operator ruled on 26.09.2026. The final gate on a material lane must come
-// from another provider than the Claude builder, so it always runs on Codex Sol through a courier.
+// a fresh Sonnet reviewer is the default. The final gate on a material lane must come from another provider than the
+// Claude builder, so it runs on Codex through a courier.
 function reviewerBrief(role, range) {
   return `You are the ${role} for work item #${A.item}: a fresh, independent reviewer who did not write this change. ` +
-    `Contract:\n${A.contract}\n\nReview ${range}.\n\n${BLOCKING_LINE}\n\n` +
+    `Contract:\n${A.contract}\n\nReview ${range}.\n\n${BLOCKING_LINE}\n\n${STOPGAP_LINE}\n\n` +
     `verdict is APPROVE with no blocking findings, REVISE with at least one, or architectural when the cut itself is wrong.`
 }
 
@@ -210,10 +249,10 @@ function claudeReview(label, role, range) {
   return safeAgent(
     `Work read-only in ${A.worktree} on branch ${A.branch}: read files and run read-only commands freely; do not run tests and do not edit anything.\n` +
     reviewerBrief(role, range),
-    { label, phase: 'Review', schema: VERDICT, agentType: 'atelier:code-reviewer', model: 'opus', effort: EFFORT.review })
+    { label, phase: 'Review', schema: VERDICT, agentType: 'atelier:code-reviewer', ...claudeRole('review') })
 }
 
-function codexReview(label, tier, role, range) {
+function codexReview(label, routing, role, range) {
   const base = `${A.scratch}/${TAG}-${label}`
   const brief = `Read-only sandbox: read files and run read-only commands freely; do not run tests.\n` + reviewerBrief(role, range) +
     `\nGive every finding its file:line in "where".`
@@ -223,18 +262,18 @@ function codexReview(label, tier, role, range) {
     `2. Write this brief verbatim to ${base}-brief.md:\n-----\n${brief}\n-----\n` +
     `3. Write this JSON schema verbatim to ${base}-schema.json:\n${CODEX_SCHEMA}\n` +
     `4. Start Codex detached, recording its exit status in a marker file:\n` +
-    `   cd ${A.worktree} && setsid nohup bash -c 'codex exec -s read-only -C ${A.worktree} -m gpt-5.6-${tier} -c model_reasoning_effort=high --output-schema ${base}-schema.json -o ${base}-out.json - < ${base}-brief.md; echo $? > ${base}-out.json.exit.tmp && mv ${base}-out.json.exit.tmp ${base}-out.json.exit' > ${base}-run.log 2>&1 &\n` +
+    `   cd ${A.worktree} && setsid nohup bash -c 'codex exec -s read-only -C ${A.worktree} -m ${routing.model} -c model_reasoning_effort=${routing.effort} --output-schema ${base}-schema.json -o ${base}-out.json - < ${base}-brief.md; echo $? > ${base}-out.json.exit.tmp && mv ${base}-out.json.exit.tmp ${base}-out.json.exit' > ${base}-run.log 2>&1 &\n` +
     `5. Wait in the foreground — you cannot be woken later, your task ends when you answer. Run this Bash command (timeout 600000 ms) and repeat it until the marker exists, at most 7 times:\n` +
     `   timeout 540 bash -c 'until [ -f ${base}-out.json.exit ]; do sleep 30; done'; ls ${base}-out.json.exit\n` +
     `   Never answer before the marker exists or the 7 waits are spent. Never return a placeholder or a pending result.\n` +
-    `6. If ${base}-run.log says the model is at capacity, wait 5 minutes and start again from step 1, once, with the same model. Never switch models: a gate stays on its tier.\n` +
+    `6. If ${base}-run.log says the model is at capacity, wait 5 minutes and start again from step 1, once, with the same model. Never switch models: a gate stays on its model.\n` +
     `7. Read ${base}-out.json and return its verdict, blocking and followups UNCHANGED, reportPath ${base}-out.json, and codexExit = the number in ${base}-out.json.exit. ` +
     `If the 7 waits are spent without a marker, or the exit status is not 0, or the file is missing or not valid JSON, return verdict failed, codexExit -1 when there is no marker, with the last 20 lines of ${base}-run.log in note.`,
     { label, phase: 'Review', schema: COURIER_VERDICT, ...MECHANICAL })
     .then(v => (v && v.codexExit !== 0 && v.verdict !== 'failed') ? { ...v, verdict: 'failed', note: `courier returned a verdict without a clean Codex exit (${v.codexExit}): ${v.note || ''}` } : v)
 }
 
-const reviewBy = (r, label, range) => r.provider === 'codex' ? codexReview(label, r.tier, r.role, range) : claudeReview(label, r.role, range)
+const reviewBy = (r, label, range) => r.provider === 'codex' ? codexReview(label, ROUTING[r.key], r.role, range) : claudeReview(label, r.role, range)
 
 // One classifier for every review round: every started review must return, and verdict and findings must agree.
 function classify(results, expected) {
@@ -258,8 +297,8 @@ const spent = { review: 0, test: 0, ci: 0, total: 0 }
 const seen = new Map()  // finding key -> how often it came back after a fix
 let productionSinceTest = false  // any fix since the last end-to-end test touched production
 const folded = new Map()  // follow-up key -> the follow-up, with the tip of the accepted fix that folded it in
-const REVIEW = { key: 'review', provider: A.reviewer || 'claude', tier: 'terra', role: 'independent reviewer' }
-const GATE = { key: 'gate', provider: 'codex', tier: 'sol', role: 'final gate (architecture, data safety, public contract)' }
+const REVIEW = { key: 'review', provider: REVIEWER_PROVIDER, role: 'independent reviewer' }
+const GATE = { key: 'gate', provider: MODEL_PROVIDER[ROUTING.gate.model], role: 'final gate (architecture, data safety, public contract)' }
 const ALL = MATERIAL ? [REVIEW, GATE] : [REVIEW]
 
 function openFollowups() {
@@ -268,7 +307,7 @@ function openFollowups() {
   return [...open.values()]
 }
 const openResult = (status, stage, extra) =>
-  ({ status, stage, pr, tip, spent, history, followups: openFollowups(), folded: [...folded.values()], disputed, ...extra })
+  ({ status, stage, pr, tip, spent, routing: ROUTING, history, followups: openFollowups(), folded: [...folded.values()], disputed, ...extra })
 
 // ---------------------------------------------------------------- build
 if (A.build) {
@@ -276,7 +315,7 @@ if (A.build) {
   const built = await safeAgent(
     `${laneFacts}\nYou are the builder. ${A.build}\nCommit each goal as soon as its targeted tests pass — never hold more than one goal uncommitted, and if you run short of turns, commit what is green and report what is left instead of continuing. Merge origin/main into the lane before pushing (a merge commit). ` +
     `Open the pull request as the build RULES say, run \`aco check <pr>\`, and return pr, tip and summary.`,
-    { label: 'build', phase: 'Build', schema: BUILD, agentType: 'atelier:code-worker', model: 'opus', effort: EFFORT.build })
+    { label: 'build', phase: 'Build', schema: BUILD, agentType: 'atelier:code-worker', ...claudeRole('build') })
   if (!built) return openResult('failed', 'build', { reason: `the builder returned no result; inspect ${A.worktree} for uncommitted work, checkpoint it, and hand it to a fresh finisher` })
   if (built.blocked) return openResult('escalated', 'build', { reason: built.blockedReason })
   if (!SHA.test(built.tip || '')) return openResult('failed', 'build', { reason: `the builder returned a tip that is not a sha: ${String(built.tip).slice(0, 80)}` })
@@ -303,7 +342,7 @@ async function reviewRound(which, range) {
   const results = await parallel(which.map(r => () => reviewBy(r, `r${spent.total}-${r.key}`, range)))
   results.forEach((v, i) => {
     if (!v) return
-    history.push({ after: spent.total, by: which[i].key, verdict: v.verdict, reportPath: v.reportPath || '' })
+    history.push({ after: spent.total, by: which[i].key, verdict: v.verdict, blocking: (v.blocking || []).map(f => f.where), reportPath: v.reportPath || '' })
     followups.push(...(v.followups || []))
   })
   return { which, results, verdict: classify(results, which.length) }
@@ -414,11 +453,11 @@ async function fixBatch(blocking, source, budgetKey) {
     `Return the tip after that merge as mergedBase (oldTip when main had not moved). If the worktree already carries commits or uncommitted changes past that tip from an earlier fixer that ran out of turns, judge them, keep what is right, and continue from there. Commit each finding as soon as it is green; if you run short of turns, commit what is green and return what is left in blockedReason with blocked true. Then answer exactly these blocking findings from ${source}, and nothing else:\n${listFindings(blocking)}${foldInBrief(foldIn)}\n\n` +
     `Each finding names the rule it breaks and its evidence. Check the evidence yourself first. If it does not hold — the rule is not broken, or the evidence is wrong — ` +
     `do not change code for it: list it in disputed with your counter-evidence. Report every test you add for a finding in regression under that finding's exact where. ` +
-    `A defect's test fails before your fix and passes after it; a defect with a test draft needs one. A test-gap finding means the code is already right and always needs a test: it passes before and after, ` +
+    `A defect's test fails before your fix and passes after it; a defect with a test draft needs one. A defect in test code (hygiene) needs no regression test: the diff is its proof. A test-gap finding means a behaviour has no test, the code is already right, and it always needs a test: it passes before and after, ` +
     `so report failedBefore false and name in mutation the production change, made and reverted, under which the test fails. A docs finding needs no test. When the only finding is that the pull request conflicts with main, the merge is the whole fix. ` +
     `Otherwise one commit per finding. Push, patch the PR body only where it became false (REST PATCH with --input, never gh pr edit --body-file), run \`aco check ${pr}\` from the worktree. ` +
     `Return the new tip and files: git diff --name-only from mergedBase (from oldTip when mergeResolvedLaneConflict) to the new tip.`,
-    { label: `fix-${spent.total}`, phase: 'Fix', schema: FIX, agentType: 'atelier:code-fixer', model: 'opus', effort: EFFORT.fix })
+    { label: `fix-${spent.total}`, phase: 'Fix', schema: FIX, agentType: 'atelier:code-fixer', ...claudeRole('fix') })
   if (!fixed) return { stop: openResult('failed', 'fix', { reason: `the fixer returned no result; inspect ${A.worktree} for commits past ${tip} and uncommitted work, then resume this run`, lastBlocking: blocking }) }
   if (![fixed.oldTip, fixed.mergedBase, fixed.tip].every(t => SHA.test(t || ''))) return { stop: openResult('failed', 'fix', { reason: 'the fixer returned a tip that is not a sha' }) }
   // What the fixer says it found already done is only reported to the head: an unaccepted fix folds nothing in.
@@ -489,9 +528,9 @@ function explore(n) {
     `\`flock -o -w 1200 /tmp/probe-stack.lock <command>\`, or close fd 9 (\`9>&-\`) for every child. Run every server under \`timeout <cap>\` on a free port above 8790, ` +
     `write its pid to a file under ${A.scratch}/${TAG}-e2e-${n}/ and kill it before reporting; stop every other process you start (a container, a background browser) before reporting too; lsof in your report is evidence only, never a guard. Never touch another session's server. ` +
     `If the lock stays held by someone else for those 1200 seconds, return verdict failed with lockBusy true instead of guessing. verdict is PASS with no blocking findings and FAIL with at least one. Return evidencePath.`
-  return safeAgent(prompt, { label: `e2e-${n}`, phase: 'Test and CI', schema: E2E, agentType: 'atelier:explorative-tester', model: 'opus', effort: EFFORT.test })
+  return safeAgent(prompt, { label: `e2e-${n}`, phase: 'Test and CI', schema: E2E, agentType: 'atelier:explorative-tester', ...claudeRole('test') })
     .then(r => r || safeAgent(`Load the atelier:explorative-testing skill first.\n${prompt}`,
-      { label: `e2e-${n}-fallback`, phase: 'Test and CI', schema: E2E, agentType: 'general-purpose', model: 'opus', effort: EFFORT.test }))
+      { label: `e2e-${n}-fallback`, phase: 'Test and CI', schema: E2E, agentType: 'general-purpose', ...claudeRole('test') }))
 }
 
 function watchCi(n) {
@@ -534,8 +573,8 @@ while (true) {
   // A blocking finding outranks a PASS label, as in the review classifier.
   if (!sameCommit(ci.head, tip)) return openResult('failed', 'ci', { reason: `the pull request head ${ci.head} is not the lane tip ${tip}` })
   history.push(
-    { after: spent.total, by: `e2e-${n - 1}`, verdict: testVerdict(e2e, testBlocking), reportPath: e2e.evidencePath || '' },
-    { after: spent.total, by: `ci-${n - 1}`, verdict: ci.green ? 'GREEN' : 'RED' },
+    { after: spent.total, by: `e2e-${n - 1}`, verdict: testVerdict(e2e, testBlocking), blocking: testBlocking.map(f => f.where), reportPath: e2e.evidencePath || '' },
+    { after: spent.total, by: `ci-${n - 1}`, verdict: ci.green ? 'GREEN' : 'RED', blocking: (ci.failing || []).map(f => f.where) },
   )
   followups.push(...(e2e.followups || []))
   if (testBlocking.length === 0 && ci.green) break
@@ -555,7 +594,7 @@ while (true) {
 
 const stillOpen = openFollowups()
 return {
-  status: 'ready-to-land', pr, tip, spent, history, followups: stillOpen, folded: [...folded.values()], disputed,
+  status: 'ready-to-land', pr, tip, spent, routing: ROUTING, history, followups: stillOpen, folded: [...folded.values()], disputed,
   requiredHeadActions: [
     `land with \`aco land ${pr}\` only while the pull request head is still ${tip}`,
     ...(stillOpen.length ? [`route ${stillOpen.length} follow-up(s) to their owning items before landing`] : []),

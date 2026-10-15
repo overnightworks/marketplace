@@ -44,6 +44,9 @@ const refusedRoutings = [
   ['a gate on the builder\'s provider', { gate: { model: 'opus' } }],
   ['a Claude review model for a Codex reviewer', { review: { model: 'sonnet' }, __reviewer: 'codex' }],
   ['a Codex builder', { build: { model: 'gpt-6-astra' } }],
+  ['an inherited property name as the gate model', { gate: { model: 'constructor' } }],
+  ['a non-string model', { build: { model: ['sonnet'] } }],
+  ['an inherited property name as the role', { constructor: { effort: 'low' } }],
 ]
 for (const [what, routing] of refusedRoutings) {
   test(`refuses a routing override with ${what} before any agent starts`, async () => {

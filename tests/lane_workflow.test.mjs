@@ -203,6 +203,8 @@ const proofsByKind = [
   ['a defect whose test did not fail before stops at the fix', { kind: 'defect', mutation: true }, false],
   ['a test-gap without a named mutation stops at the fix', { kind: 'test-gap', mutation: false }, false],
   ['a test-gap whose test does not pass after the fix stops at the fix', { kind: 'test-gap', mutation: true, passesAfter: false }, false],
+  ['a test-gap without any proof stops at the fix', { kind: 'test-gap', proof: 'omitted' }, false],
+  ['a test-gap whose proof names only a near match of its where stops at the fix', { kind: 'test-gap', mutation: true, proof: 'near-match' }, false],
   ['a test-gap proven by a named mutation moves past the fix', { kind: 'test-gap', mutation: true }, true],
   ['a failing proof for a where no blocking finding has is ignored and the run moves past the fix', { kind: 'test-gap', mutation: true, strayProof: true }, true],
   ['a docs finding needs no test and moves past the fix', { kind: 'docs', mutation: false }, true],

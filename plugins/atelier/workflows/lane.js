@@ -360,6 +360,9 @@ function proofGap(proof, finding) {
   return proof.failedBefore && proof.passesAfter ? null : 'a regression test did not fail before and pass after its fix'
 }
 
+// Whether a fix must prove the finding with a test: a test-gap is nothing but a missing test, and a test draft asks for one.
+const needsProof = (finding) => kindOf(finding) === 'test-gap' || Boolean(finding.testDraft)
+
 // Why a fixer's answer does not count as a fix, or null when it does. A proof counts only for the blocking finding
 // whose where it names exactly; a proof for anything else (a fold-in, say) is not checked.
 function fixRejection(fixed, blocking) {
@@ -367,8 +370,8 @@ function fixRejection(fixed, blocking) {
   const gaps = proofs.flatMap(proof => blocking.filter(f => f.where === proof.finding).map(finding => ({ proof, finding, gap: proofGap(proof, finding) })))
     .filter(checked => checked.gap)
   if (gaps.length) return { reason: [...new Set(gaps.map(checked => checked.gap))].join('; '), regression: gaps.map(checked => checked.proof), lastBlocking: gaps.map(checked => checked.finding) }
-  const unproven = blocking.filter(f => f.testDraft && !proofs.some(r => r.finding === f.where))
-  if (unproven.length) return { reason: 'a finding with a test draft got no regression test', lastBlocking: unproven }
+  const unproven = blocking.filter(f => needsProof(f) && !proofs.some(r => r.finding === f.where))
+  if (unproven.length) return { reason: 'a test-gap finding or a finding with a test draft got no regression test', lastBlocking: unproven }
   if (sameCommit(fixed.tip, fixed.oldTip)) return { reason: 'the fixer changed nothing', lastBlocking: blocking }
   const mergeWasTheFinding = blocking.length === 1 && blocking[0].where === 'mergeable'
   if (sameCommit(fixed.tip, fixed.mergedBase) && !mergeWasTheFinding) return { reason: 'the fixer only merged main and fixed nothing', lastBlocking: blocking }
@@ -410,7 +413,7 @@ async function fixBatch(blocking, source, budgetKey) {
     `Return the tip after that merge as mergedBase (oldTip when main had not moved). If the worktree already carries commits or uncommitted changes past that tip from an earlier fixer that ran out of turns, judge them, keep what is right, and continue from there. Commit each finding as soon as it is green; if you run short of turns, commit what is green and return what is left in blockedReason with blocked true. Then answer exactly these blocking findings from ${source}, and nothing else:\n${listFindings(blocking)}${foldInBrief(foldIn)}\n\n` +
     `Each finding names the rule it breaks and its evidence. Check the evidence yourself first. If it does not hold — the rule is not broken, or the evidence is wrong — ` +
     `do not change code for it: list it in disputed with your counter-evidence. Report every test you add for a finding in regression under that finding's exact where. ` +
-    `A defect's test fails before your fix and passes after it; a finding with a test draft needs one. A test-gap finding means the code is already right: its test passes before and after, ` +
+    `A defect's test fails before your fix and passes after it; a finding with a test draft needs one. A test-gap finding means the code is already right and always needs a test: it passes before and after, ` +
     `so report failedBefore false and name in mutation the production change, made and reverted, under which the test fails. A docs finding needs no test. When the only finding is that the pull request conflicts with main, the merge is the whole fix. ` +
     `Otherwise one commit per finding. Push, patch the PR body only where it became false (REST PATCH with --input, never gh pr edit --body-file), run \`aco check ${pr}\` from the worktree. ` +
     `Return the new tip and files: git diff --name-only from mergedBase (from oldTip when mergeResolvedLaneConflict) to the new tip.`,

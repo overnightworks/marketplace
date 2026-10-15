@@ -49,7 +49,7 @@ const refusedRoutings = [
   ['an inherited property name as the role', { constructor: { effort: 'low' } }],
 ]
 for (const [what, routing] of refusedRoutings) {
-  test(`refuses a routing override with ${what} before any agent starts`, async () => {
+  test(`#90 AC-routing-refusal: refuses a routing override with ${what} before any agent starts`, async () => {
     const { __reviewer, ...overrides } = routing
     const { result, launchedAgents } = await runLane({ ...resumedLane, risk: 'material', reviewer: __reviewer, routing: overrides })
     assert.deepEqual([result.status, result.stage], ['failed', 'input'])
@@ -61,30 +61,37 @@ const defaultRoutingByRole = [
   ['sync', 'haiku', 'low'], ['r0-review', 'sonnet', 'medium'],
 ]
 for (const [label, model, effort] of defaultRoutingByRole) {
-  test(`${label} runs on ${model} at ${effort} effort by default`, async () => {
+  test(`#90 AC-default-routing: ${label} runs on ${model} at ${effort} effort by default`, async () => {
     const { agentCalls } = await runLane({ ...resumedLane, risk: 'material' })
     assert.deepEqual([agentCalls[label].options.model, agentCalls[label].options.effort], [model, effort])
   })
 }
 
-test('a Claude builder gets the Codex gpt-6-astra gate at high effort', async () => {
+test('#90 AC-default-routing: the build, fix and test agents run on sonnet at medium effort by default', async () => {
+  const { agentCalls } = await runLane({ ...webauthReplay.args, build: 'b' }, answersWith(webauthReplay, { kind: 'test-gap', mutation: true }))
+  for (const label of ['build', 'fix-1', 'e2e-0']) {
+    assert.deepEqual([agentCalls[label].options.model, agentCalls[label].options.effort], ['sonnet', 'medium'], label)
+  }
+})
+
+test('#90 AC-gate-separation: a Claude builder gets the Codex gpt-6-astra gate at high effort', async () => {
   const { agentCalls } = await runLane({ ...resumedLane, risk: 'material' })
   const gatePrompt = agentCalls['r0-gate'].prompt
   assert.match(gatePrompt, /-m gpt-6-astra -c model_reasoning_effort=high/)
   assert.doesNotMatch(gatePrompt, /terra|sol/i)
 })
 
-test('a Codex reviewer runs gpt-6-astra at medium effort', async () => {
+test('#90 AC-codex-reviewer: a Codex reviewer runs gpt-6-astra at medium effort', async () => {
   const { agentCalls } = await runLane({ ...resumedLane, reviewer: 'codex' })
   assert.match(agentCalls['r0-review'].prompt, /-m gpt-6-astra -c model_reasoning_effort=medium/)
 })
 
-test('a routing override sets a role\'s model and effort within the ceiling', async () => {
+test('#90 AC-override: a routing override sets a role\'s model and effort within the ceiling', async () => {
   const { agentCalls } = await runLane({ ...resumedLane, routing: { review: { model: 'opus', effort: 'high' } } })
   assert.deepEqual([agentCalls['r0-review'].options.model, agentCalls['r0-review'].options.effort], ['opus', 'high'])
 })
 
-test('every lane result records each role\'s model and effort and which stage found each blocking finding', async () => {
+test('#90 AC-remeasure: every lane result records each role\'s model and effort and which stage found each blocking finding', async () => {
   const replay = webauthReplay
   const { result } = await runLane(replay.args, answersWith(replay, { kind: 'test-gap', mutation: true }))
   assert.deepEqual(result.routing.gate, { model: 'gpt-6-astra', effort: 'high' })
@@ -92,7 +99,7 @@ test('every lane result records each role\'s model and effort and which stage fo
   assert.deepEqual(result.history.find(entry => entry.by === 'gate').blocking, ['src/webauth/oidc.py:315'])
 })
 
-test('a reviewer brief carries the stopgap refusals and narrows test-gap to a behaviour without a test', async () => {
+test('#90 AC-reviewer-stopgap: a reviewer brief carries the stopgap refusals and narrows test-gap to a behaviour without a test', async () => {
   const { agentCalls } = await runLane(resumedLane)
   const brief = agentCalls['r0-review'].prompt
   assert.match(brief, /800 lines or more/)
@@ -272,7 +279,7 @@ const proofsByKind = [
   ['a test-gap whose proof names only a near match of its where stops at the fix', { kind: 'test-gap', mutation: true, proof: 'near-match' }, false],
   ['a test-gap proven by a named mutation moves past the fix', { kind: 'test-gap', mutation: true }, true],
   ['a failing proof for a where no blocking finding has is ignored and the run moves past the fix', { kind: 'test-gap', mutation: true, strayProof: true }, true],
-  ['a hygiene defect proven by the diff needs no mutation and moves past the fix', { kind: 'defect', mutation: false, proof: 'omitted' }, true],
+  ['#90 AC-hygiene-defect: a hygiene defect proven by the diff needs no mutation and moves past the fix', { kind: 'defect', mutation: false, proof: 'omitted' }, true],
   ['a docs finding needs no test and moves past the fix', { kind: 'docs', mutation: false }, true],
   ['a docs finding with a test draft needs no test either and moves past the fix', { kind: 'docs', testDraft: true, proof: 'omitted' }, true],
 ]

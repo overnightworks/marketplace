@@ -51,7 +51,8 @@ for (const [risk, reviewers] of firstReviewRoundByRisk) {
 }
 
 // Two recorded lane runs that stopped at a fix (journals wf_ef1e8c59-bcb and wf_a3d28910-a89), keyed by agent label.
-// Tips, files, wheres, verdicts and proofs are copied as recorded; the prose of findings and follow-ups is shortened.
+// Tips, files, finding wheres, verdicts and proofs are copied as recorded; the prose of findings and follow-ups, and
+// some follow-up wheres, are shortened.
 // Each fixer proved an honest test-gap finding with a mutation it reported only in prose, so the guard stopped the run.
 const APPROVE = { verdict: 'APPROVE', blocking: [], followups: [] }
 const PASS = { verdict: 'PASS', blocking: [], followups: [] }

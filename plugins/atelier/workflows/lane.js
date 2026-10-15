@@ -133,7 +133,7 @@ const FIX = {
     },
     regression: {
       type: 'array',
-      description: 'for each finding that came with a repro or a test draft: the test that proves the fix',
+      description: "every test you add for a finding, under that finding's exact where",
       items: { type: 'object', required: ['finding', 'test', 'failedBefore', 'passesAfter'], properties: { finding: { type: 'string', description: 'the where of the finding it proves' }, test: { type: 'string' }, failedBefore: { type: 'boolean' }, passesAfter: { type: 'boolean' }, mutation: { type: 'string', description: 'for a test-gap finding: the production change, made and reverted, under which the test fails' } } },
     },
     summary: { type: 'string' }, blocked: { type: 'boolean' }, blockedReason: { type: 'string' },
@@ -487,7 +487,7 @@ function explore(n) {
     `under your scratch path in testDraft (a live or UI case stays a manual proof; leave testDraft empty then). ` +
     `Write only under ${A.scratch}/${TAG}-e2e-${n}/. Take /tmp/probe-stack.lock for any server or browser run so that no process you start inherits it: ` +
     `\`flock -o -w 1200 /tmp/probe-stack.lock <command>\`, or close fd 9 (\`9>&-\`) for every child. Run every server under \`timeout <cap>\` on a free port above 8790, ` +
-    `write its pid to a file under ${A.scratch}/${TAG}-e2e-${n}/ and kill it before reporting; lsof in your report is evidence only, never a guard. Never touch another session's server. ` +
+    `write its pid to a file under ${A.scratch}/${TAG}-e2e-${n}/ and kill it before reporting; stop every other process you start (a container, a background browser) before reporting too; lsof in your report is evidence only, never a guard. Never touch another session's server. ` +
     `If the lock stays held by someone else for those 1200 seconds, return verdict failed with lockBusy true instead of guessing. verdict is PASS with no blocking findings and FAIL with at least one. Return evidencePath.`
   return safeAgent(prompt, { label: `e2e-${n}`, phase: 'Test and CI', schema: E2E, agentType: 'atelier:explorative-tester', model: 'opus', effort: EFFORT.test })
     .then(r => r || safeAgent(`Load the atelier:explorative-testing skill first.\n${prompt}`,

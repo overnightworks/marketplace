@@ -303,12 +303,9 @@ evidence.
 
 ### Model routing
 
-Keep the operator-started head model. Pick the model by the work, at medium
-effort unless the row says otherwise. Save budget without weakening required
-verification: every implementation lane keeps its independent review, builders
-never review their own work, and a required final gate comes from a provider
-other than the builder's. If no eligible provider is available, the gate waits.
-The routing is provisional and is re-measured (below).
+Keep the operator-started head model. Pick the row by difficulty and any
+eligible provider column; a required final gate uses a different provider
+column from the builder.
 
 | Work | Claude | Codex | Grok | Effort |
 |---|---|---|---|---|
@@ -316,6 +313,13 @@ The routing is provisional and is re-measured (below).
 | Fact finding, normal build, fix, test, ordinary code/test/diff review | Sonnet 5.5 | gpt-6-astra | 4.6 | medium |
 | Required final gate (material risk only) | Opus 5.5 or Fable (when the builder is not Claude) | gpt-6-astra (when the builder is not Codex) | 4.6 | high |
 | Architecture, security or product decision; the hardest proof | Opus 5.5 or Fable | gpt-6-astra | 4.6 | high |
+
+Pick the model by the work, at medium effort unless the row says otherwise.
+Save budget without weakening required verification: every implementation lane
+keeps its independent review, builders never review their own work, and a
+required final gate comes from a provider other than the builder's. If no
+eligible provider is available, the gate waits. The routing is provisional and
+is re-measured (below).
 
 gpt-5.6-terra is not used for reviews. **High is the one effort ceiling** for
 routine work, overrides and the escalation ladder. The only exception is the

@@ -65,12 +65,15 @@ async function safeAgent(prompt, opts) {
 }
 
 // --------------------------------------------------------------- schemas
-// A finding carries the rule it breaks and the evidence for it, so a fixer never acts on a bare assertion.
+// A finding carries the rule it breaks and the evidence for it, so a fixer never acts on a bare assertion. Its kind
+// decides what proves the fix: a defect's test fails before it, a test-gap's test fails under a named mutation.
+const FINDING_KINDS = ['defect', 'test-gap', 'docs']
 const FINDING = {
   type: 'object',
-  required: ['where', 'text', 'rule', 'evidence'],
+  required: ['where', 'kind', 'text', 'rule', 'evidence'],
   properties: {
     where: { type: 'string', description: 'file:line, or the check or scenario name' },
+    kind: { type: 'string', enum: FINDING_KINDS, description: 'defect: the code breaks a rule or its promise; test-gap: the code is right and only the test pinning it is missing; docs: only text is wrong' },
     text: { type: 'string' },
     rule: { type: 'string', description: 'the contract sentence, spec criterion, repository rule or check it breaks' },
     evidence: { type: 'string', description: 'what was observed: the code, the output, the failing log lines' },
@@ -126,7 +129,7 @@ const FIX = {
     regression: {
       type: 'array',
       description: 'for each finding that came with a repro or a test draft: the test that proves the fix',
-      items: { type: 'object', required: ['finding', 'test', 'failedBefore', 'passesAfter'], properties: { finding: { type: 'string', description: 'the where of the finding it proves' }, test: { type: 'string' }, failedBefore: { type: 'boolean' }, passesAfter: { type: 'boolean' } } },
+      items: { type: 'object', required: ['finding', 'test', 'failedBefore', 'passesAfter'], properties: { finding: { type: 'string', description: 'the where of the finding it proves' }, test: { type: 'string' }, failedBefore: { type: 'boolean' }, passesAfter: { type: 'boolean' }, mutation: { type: 'string', description: 'for a test-gap finding: the production change, made and reverted, under which the test fails' } } },
     },
     summary: { type: 'string' }, blocked: { type: 'boolean' }, blockedReason: { type: 'string' },
   },
@@ -163,15 +166,18 @@ const BLOCKING_LINE =
   `a repository rule, data safety, security, secrets, a public contract, or a failing check. Everything else is a **follow-up**: polish, ` +
   `behaviour that already exists on origin/main unchanged (reproduce it there before calling it pre-existing), or work outside the lane's scope — ` +
   `each follow-up names its owning item (#n) or "distributor". Every blocking finding names the rule it breaks and the evidence you observed; ` +
-  `a finding you cannot back with evidence is not blocking.`
+  `a finding you cannot back with evidence is not blocking. Every blocking finding names its kind: **defect** when the code breaks a rule or ` +
+  `does not do what the contract, its docs or its own text promise — a mismatch between promise and code is defect unless the contract says the code is right, ` +
+  `and then it is **docs**, as is any finding where only documentation or a comment is wrong; **test-gap** when the code already does what the contract says ` +
+  `and only the test that pins it is missing.`
 
 const CODEX_SCHEMA = JSON.stringify({
   type: 'object', additionalProperties: false,
   required: ['verdict', 'blocking', 'followups', 'checked_correct'],
   properties: {
     verdict: { type: 'string', enum: ['APPROVE', 'REVISE', 'architectural'] },
-    blocking: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['where', 'text', 'rule', 'evidence'],
-      properties: { where: { type: 'string' }, text: { type: 'string' }, rule: { type: 'string' }, evidence: { type: 'string' } } } },
+    blocking: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['where', 'kind', 'text', 'rule', 'evidence'],
+      properties: { where: { type: 'string' }, kind: { type: 'string', enum: FINDING_KINDS }, text: { type: 'string' }, rule: { type: 'string' }, evidence: { type: 'string' } } } },
     followups: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['where', 'text', 'owner'],
       properties: { where: { type: 'string' }, text: { type: 'string' }, owner: { type: 'string' } } } },
     checked_correct: { type: 'string' },
@@ -179,8 +185,10 @@ const CODEX_SCHEMA = JSON.stringify({
 })
 
 const findingKey = (f) => `${f.where}::${f.text}`
+// A finding from a run that predates kinds (a resumed run) keeps the rule it was raised under.
+const kindOf = (f) => f.kind || 'defect'
 const listFindings = (list) => list.map((f, i) =>
-  `${i + 1}. ${f.where} — ${f.text}\n   rule: ${f.rule}\n   evidence: ${f.evidence}` +
+  `${i + 1}. ${f.where} — ${f.text}\n   kind: ${kindOf(f)}\n   rule: ${f.rule}\n   evidence: ${f.evidence}` +
   (f.repro ? `\n   repro: ${f.repro}` : '') + (f.testDraft ? `\n   test draft: ${f.testDraft}` : '')).join('\n')
 
 // ------------------------------------------------------------ reviewers
@@ -337,10 +345,22 @@ function awaitHeadOnDispute(fixed, blocking) {
   return openResult('awaiting-head', 'fix', { reason: committed ? 'the fixer disputes findings with counter-evidence; the returned tip carries fix commits no reviewer has seen' : 'the fixer disputes every finding with counter-evidence and committed nothing', lastBlocking: blocking })
 }
 
-// Why a fixer's answer does not count as a fix, or null when it does.
+// What a proof still has to show for the finding it names, or null when it shows it. A test-gap's code was already
+// right, so its test cannot fail before the fix; a mutation it catches proves that it pins the behaviour.
+function proofGap(proof, finding) {
+  const kind = kindOf(finding)
+  if (kind === 'docs') return null
+  if (kind === 'test-gap') return (proof.mutation || '').trim() && proof.passesAfter ? null : 'a test-gap test named no mutation under which it fails, or did not pass'
+  return proof.failedBefore && proof.passesAfter ? null : 'a regression test did not fail before and pass after its fix'
+}
+
+// Why a fixer's answer does not count as a fix, or null when it does. A proof counts only for the blocking finding
+// whose where it names exactly; a proof for anything else (a fold-in, say) is not checked.
 function fixRejection(fixed, blocking) {
   const proofs = fixed.regression || []
-  if (proofs.some(r => !r.failedBefore || !r.passesAfter)) return { reason: 'a regression test did not fail before and pass after its fix', regression: proofs }
+  const gaps = proofs.flatMap(proof => blocking.filter(f => f.where === proof.finding).map(finding => ({ proof, finding, gap: proofGap(proof, finding) })))
+    .filter(checked => checked.gap)
+  if (gaps.length) return { reason: [...new Set(gaps.map(checked => checked.gap))].join('; '), regression: gaps.map(checked => checked.proof), lastBlocking: gaps.map(checked => checked.finding) }
   const unproven = blocking.filter(f => f.testDraft && !proofs.some(r => r.finding === f.where))
   if (unproven.length) return { reason: 'a finding with a test draft got no regression test', lastBlocking: unproven }
   if (sameCommit(fixed.tip, fixed.oldTip)) return { reason: 'the fixer changed nothing', lastBlocking: blocking }
@@ -383,8 +403,9 @@ async function fixBatch(blocking, source, budgetKey) {
     `resolve other conflicts only when you can do so without changing behaviour, and set mergeResolvedLaneConflict true when files this lane changed needed resolution). ` +
     `Return the tip after that merge as mergedBase (oldTip when main had not moved). If the worktree already carries commits or uncommitted changes past that tip from an earlier fixer that ran out of turns, judge them, keep what is right, and continue from there. Commit each finding as soon as it is green; if you run short of turns, commit what is green and return what is left in blockedReason with blocked true. Then answer exactly these blocking findings from ${source}, and nothing else:\n${listFindings(blocking)}${foldText}\n\n` +
     `Each finding names the rule it breaks and its evidence. Check the evidence yourself first. If it does not hold — the rule is not broken, or the evidence is wrong — ` +
-    `do not change code for it: list it in disputed with your counter-evidence. For a finding with a test draft, turn it into a behaviour test that fails ` +
-    `before your fix and passes after it, and report it in regression with that finding's where. When the only finding is that the pull request conflicts with main, the merge is the whole fix. ` +
+    `do not change code for it: list it in disputed with your counter-evidence. Report every test you add for a finding in regression under that finding's exact where. ` +
+    `A defect's test fails before your fix and passes after it; a finding with a test draft needs one. A test-gap finding means the code is already right: its test passes before and after, ` +
+    `so report failedBefore false and name in mutation the production change, made and reverted, under which the test fails. A docs finding needs no test. When the only finding is that the pull request conflicts with main, the merge is the whole fix. ` +
     `Otherwise one commit per finding. Push, patch the PR body only where it became false (REST PATCH with --input, never gh pr edit --body-file), run \`aco check ${pr}\` from the worktree. ` +
     `Return the new tip and files: git diff --name-only from mergedBase (from oldTip when mergeResolvedLaneConflict) to the new tip.`,
     { label: `fix-${spent.total}`, phase: 'Fix', schema: FIX, agentType: 'atelier:code-fixer', model: 'opus', effort: EFFORT.fix })
@@ -458,10 +479,10 @@ function explore(n) {
 function watchCi(n) {
   return safeAgent(
     `Report CI for pull request #${pr}${IN_REPO}; change nothing in the repository. Return the PR head sha as head (\`gh pr view ${pr}${R} --json headRefOid --jq .headRefOid\`). ` +
-    `If \`gh pr view ${pr}${R} --json mergeable --jq .mergeable\` says CONFLICTING, return green false with one failing entry: where "mergeable", text "the pull request conflicts with main", ` +
+    `If \`gh pr view ${pr}${R} --json mergeable --jq .mergeable\` says CONFLICTING, return green false with one failing entry: where "mergeable", kind "defect", text "the pull request conflicts with main", ` +
     `rule "GitHub runs no CI on a conflicting pull request", evidence the mergeable value. Otherwise wait in the foreground — you cannot be woken later: run \`timeout 540 gh pr checks ${pr}${R} --watch --interval 90\` (Bash timeout 600000 ms) and repeat it until it exits on its own rather than by the timeout, at most 7 times. If a check fails, ` +
     `rerun the failed jobs once (\`gh run rerun <run-id>${R} --failed\`) and watch again, so a flaky check does not count. green is true only when at least one check ran on head ` +
-    `and every check on head succeeded; no checks at all is one failing entry: where "checks", text "no CI checks ran on the head commit", rule "CI must run on head", evidence the gh pr checks output. For each check that still failed: where = its name, text = what failed, ` +
+    `and every check on head succeeded; no checks at all is one failing entry: where "checks", kind "defect", text "no CI checks ran on the head commit", rule "CI must run on head", evidence the gh pr checks output. For each check that still failed: where = its name, kind = "defect", text = what failed, ` +
     `rule = "CI check <name>", evidence = the last 30 lines of \`gh run view <run-id>${R} --log-failed\`.`,
     { label: `ci-${n}`, phase: 'Test and CI', schema: CI, ...WATCHER })
 }

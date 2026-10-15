@@ -42,7 +42,7 @@ const LEDGERS = A.ledgers || []
 // The one table of every role's model and effort (instructions/AGENTS.md, "Model routing"). Effort is medium unless the
 // row says otherwise; high is the ceiling. Nothing else in this script names a model.
 const MODEL_PROVIDER = { haiku: 'claude', sonnet: 'claude', opus: 'claude', fable: 'claude', 'gpt-6-astra': 'codex' }
-const EFFORT_CEILING = ['low', 'medium', 'high']
+const EFFORT_CEILING = new Set(['low', 'medium', 'high'])
 const BUILDER_PROVIDER = A.builderProvider || 'claude'
 const REVIEWER_PROVIDER = A.reviewer || 'claude'
 const DEFAULT_ROUTING = {
@@ -63,17 +63,25 @@ const providerAllowed = {
   gate: (provider) => provider !== BUILDER_PROVIDER,
 }
 
+// Why one role's override is refused, or null.
+function roleChoiceRefusal(role, choice) {
+  if (!Object.hasOwn(DEFAULT_ROUTING, role)) return `routing names an unknown role "${role}"`
+  if (typeof choice !== 'object' || choice === null) return `routing for ${role} must be {model, effort}`
+  const knownModel = typeof choice.model === 'string' && Object.hasOwn(MODEL_PROVIDER, choice.model)
+  if (choice.model !== undefined && !knownModel) return `routing for ${role} names an unknown model "${choice.model}"`
+  if (choice.effort !== undefined && !EFFORT_CEILING.has(choice.effort)) return `routing for ${role} sets effort "${choice.effort}"; high is the ceiling`
+  const model = choice.model || DEFAULT_ROUTING[role].model
+  if (providerAllowed[role](MODEL_PROVIDER[model])) return null
+  return `routing for ${role} puts it on ${MODEL_PROVIDER[model]}, which breaks ${role === 'gate' ? 'gate provider separation from the builder' : 'the role\'s provider'}`
+}
+
 // Why a routing override is refused, or null. An override never bypasses reviewer independence, gate provider
 // separation or the effort ceiling.
 function routingRefusal(overrides) {
   if (typeof overrides !== 'object' || overrides === null || Array.isArray(overrides)) return 'routing must be an object of roles'
   for (const [role, choice] of Object.entries(overrides)) {
-    if (!Object.hasOwn(DEFAULT_ROUTING, role)) return `routing names an unknown role "${role}"`
-    if (typeof choice !== 'object' || choice === null) return `routing for ${role} must be {model, effort}`
-    if (choice.model !== undefined && !(typeof choice.model === 'string' && Object.hasOwn(MODEL_PROVIDER, choice.model))) return `routing for ${role} names an unknown model "${choice.model}"`
-    if (choice.effort !== undefined && !EFFORT_CEILING.includes(choice.effort)) return `routing for ${role} sets effort "${choice.effort}"; high is the ceiling`
-    const model = choice.model || DEFAULT_ROUTING[role].model
-    if (!providerAllowed[role](MODEL_PROVIDER[model])) return `routing for ${role} puts it on ${MODEL_PROVIDER[model]}, which breaks ${role === 'gate' ? 'gate provider separation from the builder' : 'the role\'s provider'}`
+    const refusal = roleChoiceRefusal(role, choice)
+    if (refusal) return refusal
   }
   return null
 }

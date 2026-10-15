@@ -208,6 +208,7 @@ const proofsByKind = [
   ['a test-gap proven by a named mutation moves past the fix', { kind: 'test-gap', mutation: true }, true],
   ['a failing proof for a where no blocking finding has is ignored and the run moves past the fix', { kind: 'test-gap', mutation: true, strayProof: true }, true],
   ['a docs finding needs no test and moves past the fix', { kind: 'docs', mutation: false }, true],
+  ['a docs finding with a test draft needs no test either and moves past the fix', { kind: 'docs', testDraft: true, proof: 'omitted' }, true],
 ]
 for (const replay of replays) {
   for (const [behaviour, labels, movesOn] of proofsByKind) {

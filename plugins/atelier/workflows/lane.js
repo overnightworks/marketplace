@@ -360,8 +360,9 @@ function proofGap(proof, finding) {
   return proof.failedBefore && proof.passesAfter ? null : 'a regression test did not fail before and pass after its fix'
 }
 
-// Whether a fix must prove the finding with a test: a test-gap is nothing but a missing test, and a test draft asks for one.
-const needsProof = (finding) => kindOf(finding) === 'test-gap' || Boolean(finding.testDraft)
+// Whether a fix must prove the finding with a test: a test-gap is nothing but a missing test, a defect's test draft
+// asks for one, and a docs finding needs none even when a draft came with it.
+const needsProof = (finding) => kindOf(finding) === 'test-gap' || (kindOf(finding) === 'defect' && Boolean(finding.testDraft))
 
 // Why a fixer's answer does not count as a fix, or null when it does. A proof counts only for the blocking finding
 // whose where it names exactly; a proof for anything else (a fold-in, say) is not checked.
@@ -371,7 +372,7 @@ function fixRejection(fixed, blocking) {
     .filter(checked => checked.gap)
   if (gaps.length) return { reason: [...new Set(gaps.map(checked => checked.gap))].join('; '), regression: gaps.map(checked => checked.proof), lastBlocking: gaps.map(checked => checked.finding) }
   const unproven = blocking.filter(f => needsProof(f) && !proofs.some(r => r.finding === f.where))
-  if (unproven.length) return { reason: 'a test-gap finding or a finding with a test draft got no regression test', lastBlocking: unproven }
+  if (unproven.length) return { reason: 'a test-gap finding or a defect with a test draft got no regression test', lastBlocking: unproven }
   if (sameCommit(fixed.tip, fixed.oldTip)) return { reason: 'the fixer changed nothing', lastBlocking: blocking }
   const mergeWasTheFinding = blocking.length === 1 && blocking[0].where === 'mergeable'
   if (sameCommit(fixed.tip, fixed.mergedBase) && !mergeWasTheFinding) return { reason: 'the fixer only merged main and fixed nothing', lastBlocking: blocking }

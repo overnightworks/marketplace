@@ -1,7 +1,0 @@
-claim_id = "1b843318c16048b59b0abd2b6f6797cd"
-agent = "Claude 7264bd79-9315-49ac-a71e-b61805eae392"
-role = "builder"
-base = "16e2b7e5131f4048c559fd89c6adecb0b32407f9"
-branch = "claude/issue-85-skill-deeper"
-scope = ["plugins/atelier/skills/deeper/SKILL.md"]
-opened_commit = "958a7b2afefdbff7d71adb433c04d7ab062113c1"

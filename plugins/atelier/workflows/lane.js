@@ -480,8 +480,10 @@ function explore(n) {
     `Run the lane's code, not the installed tool (from ${A.worktree}). What to drive:\n${A.e2e}\n\nContract:\n${A.contract}\n\n${BLOCKING_LINE}\n` +
     `For every blocking finding give a scenario name in where, unique within your report, the command that shows it in repro, and — when it can be automated stably — a failing test draft ` +
     `under your scratch path in testDraft (a live or UI case stays a manual proof; leave testDraft empty then). ` +
-    `Write only under ${A.scratch}/${TAG}-e2e-${n}/. Take /tmp/probe-stack.lock with flock for any server or browser run, use a free port above 8790, ` +
-    `stop every process you start, and never touch another session's server. Wait for the lock with \`flock -w 1200\`; if it stays held by someone else, return verdict failed with lockBusy true instead of guessing. verdict is PASS with no blocking findings and FAIL with at least one. Return evidencePath.`
+    `Write only under ${A.scratch}/${TAG}-e2e-${n}/. Take /tmp/probe-stack.lock for any server or browser run so that no process you start inherits it: ` +
+    `\`flock -o -w 1200 /tmp/probe-stack.lock <command>\`, or close fd 9 (\`9>&-\`) for every child. Run every server under \`timeout <cap>\` on a free port above 8790, ` +
+    `write its pid to a file under ${A.scratch}/${TAG}-e2e-${n}/ and kill it before reporting; lsof in your report is evidence only, never a guard. Never touch another session's server. ` +
+    `If the lock stays held by someone else for those 1200 seconds, return verdict failed with lockBusy true instead of guessing. verdict is PASS with no blocking findings and FAIL with at least one. Return evidencePath.`
   return safeAgent(prompt, { label: `e2e-${n}`, phase: 'Test and CI', schema: E2E, agentType: 'atelier:explorative-tester', model: 'opus', effort: EFFORT.test })
     .then(r => r || safeAgent(`Load the atelier:explorative-testing skill first.\n${prompt}`,
       { label: `e2e-${n}-fallback`, phase: 'Test and CI', schema: E2E, agentType: 'general-purpose', model: 'opus', effort: EFFORT.test }))

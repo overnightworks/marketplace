@@ -1,0 +1,7 @@
+claim_id = "8e6a8e6578e44b1bbbae6d5382cbd68d"
+agent = "Claude fe12493e-3d52-442e-b01b-4ee4336de2f0"
+role = "builder"
+base = "1ae99e7990cfc0bd4432b1812042a24821c258a0"
+branch = "claude/issue-90-model-routing-by-work-sonnet-haiku-codex"
+scope = ["instructions/AGENTS.md", "plugins/atelier/workflows/lane.js", "tests/lane_workflow.test.mjs"]
+opened_commit = "9f0fe3959e33e083867f9c03036fc41e9b95bff6"

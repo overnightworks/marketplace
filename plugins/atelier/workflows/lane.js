@@ -65,12 +65,15 @@ async function safeAgent(prompt, opts) {
 }
 
 // --------------------------------------------------------------- schemas
-// A finding carries the rule it breaks and the evidence for it, so a fixer never acts on a bare assertion.
+// A finding carries the rule it breaks and the evidence for it, so a fixer never acts on a bare assertion. Its kind
+// decides what proves the fix: a defect's test fails before it, a test-gap's test fails under a named mutation.
+const FINDING_KINDS = ['defect', 'test-gap', 'docs']
 const FINDING = {
   type: 'object',
-  required: ['where', 'text', 'rule', 'evidence'],
+  required: ['where', 'kind', 'text', 'rule', 'evidence'],
   properties: {
     where: { type: 'string', description: 'file:line, or the check or scenario name' },
+    kind: { type: 'string', enum: FINDING_KINDS, description: 'defect: the code breaks a rule or its promise; test-gap: the code is right and only the test pinning it is missing; docs: only text is wrong' },
     text: { type: 'string' },
     rule: { type: 'string', description: 'the contract sentence, spec criterion, repository rule or check it breaks' },
     evidence: { type: 'string', description: 'what was observed: the code, the output, the failing log lines' },
@@ -123,10 +126,15 @@ const FIX = {
       description: 'findings you did not fix because the evidence contradicts them',
       items: { type: 'object', required: ['where', 'text', 'counterEvidence'], properties: { where: { type: 'string' }, text: { type: 'string' }, counterEvidence: { type: 'string' } } },
     },
+    resolved: {
+      type: 'array',
+      description: 'fold-ins you found already done in the worktree, left there by an earlier fixer whose fix was not accepted',
+      items: { type: 'object', required: ['where', 'text'], properties: { where: { type: 'string' }, text: { type: 'string' } } },
+    },
     regression: {
       type: 'array',
-      description: 'for each finding that came with a repro or a test draft: the test that proves the fix',
-      items: { type: 'object', required: ['finding', 'test', 'failedBefore', 'passesAfter'], properties: { finding: { type: 'string', description: 'the where of the finding it proves' }, test: { type: 'string' }, failedBefore: { type: 'boolean' }, passesAfter: { type: 'boolean' } } },
+      description: "every test you add for a finding, under that finding's exact where",
+      items: { type: 'object', required: ['finding', 'test', 'failedBefore', 'passesAfter'], properties: { finding: { type: 'string', description: 'the where of the finding it proves' }, test: { type: 'string' }, failedBefore: { type: 'boolean' }, passesAfter: { type: 'boolean' }, mutation: { type: 'string', description: 'for a test-gap finding: the production change, made and reverted, under which the test fails' } } },
     },
     summary: { type: 'string' }, blocked: { type: 'boolean' }, blockedReason: { type: 'string' },
   },
@@ -163,15 +171,18 @@ const BLOCKING_LINE =
   `a repository rule, data safety, security, secrets, a public contract, or a failing check. Everything else is a **follow-up**: polish, ` +
   `behaviour that already exists on origin/main unchanged (reproduce it there before calling it pre-existing), or work outside the lane's scope — ` +
   `each follow-up names its owning item (#n) or "distributor". Every blocking finding names the rule it breaks and the evidence you observed; ` +
-  `a finding you cannot back with evidence is not blocking.`
+  `a finding you cannot back with evidence is not blocking. Every blocking finding names its kind: **defect** when the code breaks a rule or ` +
+  `does not do what the contract, its docs or its own text promise — a mismatch between promise and code is defect unless the contract says the code is right, ` +
+  `and then it is **docs**, as is any finding where only documentation or a comment is wrong; **test-gap** when the code already does what the contract says ` +
+  `and only the test that pins it is missing.`
 
 const CODEX_SCHEMA = JSON.stringify({
   type: 'object', additionalProperties: false,
   required: ['verdict', 'blocking', 'followups', 'checked_correct'],
   properties: {
     verdict: { type: 'string', enum: ['APPROVE', 'REVISE', 'architectural'] },
-    blocking: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['where', 'text', 'rule', 'evidence'],
-      properties: { where: { type: 'string' }, text: { type: 'string' }, rule: { type: 'string' }, evidence: { type: 'string' } } } },
+    blocking: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['where', 'kind', 'text', 'rule', 'evidence'],
+      properties: { where: { type: 'string' }, kind: { type: 'string', enum: FINDING_KINDS }, text: { type: 'string' }, rule: { type: 'string' }, evidence: { type: 'string' } } } },
     followups: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['where', 'text', 'owner'],
       properties: { where: { type: 'string' }, text: { type: 'string' }, owner: { type: 'string' } } } },
     checked_correct: { type: 'string' },
@@ -179,8 +190,10 @@ const CODEX_SCHEMA = JSON.stringify({
 })
 
 const findingKey = (f) => `${f.where}::${f.text}`
+// A finding from a run that predates kinds (a resumed run) keeps the rule it was raised under.
+const kindOf = (f) => f.kind || 'defect'
 const listFindings = (list) => list.map((f, i) =>
-  `${i + 1}. ${f.where} — ${f.text}\n   rule: ${f.rule}\n   evidence: ${f.evidence}` +
+  `${i + 1}. ${f.where} — ${f.text}\n   kind: ${kindOf(f)}\n   rule: ${f.rule}\n   evidence: ${f.evidence}` +
   (f.repro ? `\n   repro: ${f.repro}` : '') + (f.testDraft ? `\n   test draft: ${f.testDraft}` : '')).join('\n')
 
 // ------------------------------------------------------------ reviewers
@@ -244,18 +257,18 @@ let tip = A.tip || null
 const spent = { review: 0, test: 0, ci: 0, total: 0 }
 const seen = new Map()  // finding key -> how often it came back after a fix
 let productionSinceTest = false  // any fix since the last end-to-end test touched production
-const folded = new Set()  // follow-ups already handed to a fixer to fix in place
+const folded = new Map()  // follow-up key -> the follow-up, with the tip of the accepted fix that folded it in
 const REVIEW = { key: 'review', provider: A.reviewer || 'claude', tier: 'terra', role: 'independent reviewer' }
 const GATE = { key: 'gate', provider: 'codex', tier: 'sol', role: 'final gate (architecture, data safety, public contract)' }
 const ALL = MATERIAL ? [REVIEW, GATE] : [REVIEW]
 
-function dedupeFollowups() {
-  const out = new Map()
-  followups.forEach(f => { if (!out.has(findingKey(f))) out.set(findingKey(f), f) })
-  return [...out.values()]
+function openFollowups() {
+  const open = new Map()
+  followups.forEach(f => { if (!folded.has(findingKey(f)) && !open.has(findingKey(f))) open.set(findingKey(f), f) })
+  return [...open.values()]
 }
 const openResult = (status, stage, extra) =>
-  ({ status, stage, pr, tip, spent, history, followups: dedupeFollowups(), disputed, ...extra })
+  ({ status, stage, pr, tip, spent, history, followups: openFollowups(), folded: [...folded.values()], disputed, ...extra })
 
 // ---------------------------------------------------------------- build
 if (A.build) {
@@ -320,12 +333,13 @@ function fixRoundStop(blocking, budgetKey) {
 }
 
 // The contract lets a fixer resolve a small follow-up in a file the lane already changed, when it cannot change behaviour.
-function takeInPlaceFollowups() {
-  const inPlace = followups.filter(f => /fix in place/i.test(`${f.owner} ${f.text}`) && !folded.has(findingKey(f)))
-  inPlace.forEach(f => folded.add(findingKey(f)))
-  if (!inPlace.length) return ''
-  return `\n\nAlso fold in these follow-ups, only because each sits in a file this lane already changed and cannot change behaviour; one commit for all of them:\n` +
-    inPlace.map((f, i) => `${i + 1}. ${f.where} — ${f.text}`).join('\n')
+// A fold-in counts as folded only once the fix that carries it is accepted; until then it stays open.
+const inPlaceFollowups = () => openFollowups().filter(f => /fix in place/i.test(`${f.owner} ${f.text}`))
+function foldInBrief(foldIn) {
+  if (!foldIn.length) return ''
+  return `\n\nAlso fold in these follow-ups, only because each sits in a file this lane already changed and cannot change behaviour; one commit for all of them. ` +
+    `One that an earlier fixer already left done in the worktree you do not redo; list it in resolved:\n` +
+    foldIn.map((f, i) => `${i + 1}. ${f.where} — ${f.text}`).join('\n')
 }
 
 // A disputed finding is a disagreement between two fresh agents about evidence: the head decides it.
@@ -337,12 +351,28 @@ function awaitHeadOnDispute(fixed, blocking) {
   return openResult('awaiting-head', 'fix', { reason: committed ? 'the fixer disputes findings with counter-evidence; the returned tip carries fix commits no reviewer has seen' : 'the fixer disputes every finding with counter-evidence and committed nothing', lastBlocking: blocking })
 }
 
-// Why a fixer's answer does not count as a fix, or null when it does.
+// What a proof still has to show for the finding it names, or null when it shows it. A test-gap's code was already
+// right, so its test cannot fail before the fix; a mutation it catches proves that it pins the behaviour.
+function proofGap(proof, finding) {
+  const kind = kindOf(finding)
+  if (kind === 'docs') return null
+  if (kind === 'test-gap') return (proof.mutation || '').trim() && proof.passesAfter ? null : 'a test-gap test named no mutation under which it fails, or did not pass'
+  return proof.failedBefore && proof.passesAfter ? null : 'a regression test did not fail before and pass after its fix'
+}
+
+// Whether a fix must prove the finding with a test: a test-gap is nothing but a missing test, a defect's test draft
+// asks for one, and a docs finding needs none even when a draft came with it.
+const needsProof = (finding) => kindOf(finding) === 'test-gap' || (kindOf(finding) === 'defect' && Boolean(finding.testDraft))
+
+// Why a fixer's answer does not count as a fix, or null when it does. A proof counts only for the blocking finding
+// whose where it names exactly; a proof for anything else (a fold-in, say) is not checked.
 function fixRejection(fixed, blocking) {
   const proofs = fixed.regression || []
-  if (proofs.some(r => !r.failedBefore || !r.passesAfter)) return { reason: 'a regression test did not fail before and pass after its fix', regression: proofs }
-  const unproven = blocking.filter(f => f.testDraft && !proofs.some(r => r.finding === f.where))
-  if (unproven.length) return { reason: 'a finding with a test draft got no regression test', lastBlocking: unproven }
+  const gaps = proofs.flatMap(proof => blocking.filter(f => f.where === proof.finding).map(finding => ({ proof, finding, gap: proofGap(proof, finding) })))
+    .filter(checked => checked.gap)
+  if (gaps.length) return { reason: [...new Set(gaps.map(checked => checked.gap))].join('; '), regression: gaps.map(checked => checked.proof), lastBlocking: gaps.map(checked => checked.finding) }
+  const unproven = blocking.filter(f => needsProof(f) && !proofs.some(r => r.finding === f.where))
+  if (unproven.length) return { reason: 'a test-gap finding or a defect with a test draft got no regression test', lastBlocking: unproven }
   if (sameCommit(fixed.tip, fixed.oldTip)) return { reason: 'the fixer changed nothing', lastBlocking: blocking }
   const mergeWasTheFinding = blocking.length === 1 && blocking[0].where === 'mergeable'
   if (sameCommit(fixed.tip, fixed.mergedBase) && !mergeWasTheFinding) return { reason: 'the fixer only merged main and fixed nothing', lastBlocking: blocking }
@@ -376,25 +406,32 @@ async function fixBatch(blocking, source, budgetKey) {
   const stop = fixRoundStop(blocking, budgetKey)
   if (stop) return { stop }
   spent[budgetKey]++; spent.total++
-  const foldText = takeInPlaceFollowups()
+  const foldIn = inPlaceFollowups()
   phase('Fix')
   const fixed = await safeAgent(
     `${laneFacts}\nYou are a fresh fixer for PR #${pr} (lane tip ${tip}). Return that tip as oldTip. First merge origin/main if it moved (a merge commit; ` +
     `resolve other conflicts only when you can do so without changing behaviour, and set mergeResolvedLaneConflict true when files this lane changed needed resolution). ` +
-    `Return the tip after that merge as mergedBase (oldTip when main had not moved). If the worktree already carries commits or uncommitted changes past that tip from an earlier fixer that ran out of turns, judge them, keep what is right, and continue from there. Commit each finding as soon as it is green; if you run short of turns, commit what is green and return what is left in blockedReason with blocked true. Then answer exactly these blocking findings from ${source}, and nothing else:\n${listFindings(blocking)}${foldText}\n\n` +
+    `Return the tip after that merge as mergedBase (oldTip when main had not moved). If the worktree already carries commits or uncommitted changes past that tip from an earlier fixer that ran out of turns, judge them, keep what is right, and continue from there. Commit each finding as soon as it is green; if you run short of turns, commit what is green and return what is left in blockedReason with blocked true. Then answer exactly these blocking findings from ${source}, and nothing else:\n${listFindings(blocking)}${foldInBrief(foldIn)}\n\n` +
     `Each finding names the rule it breaks and its evidence. Check the evidence yourself first. If it does not hold — the rule is not broken, or the evidence is wrong — ` +
-    `do not change code for it: list it in disputed with your counter-evidence. For a finding with a test draft, turn it into a behaviour test that fails ` +
-    `before your fix and passes after it, and report it in regression with that finding's where. When the only finding is that the pull request conflicts with main, the merge is the whole fix. ` +
+    `do not change code for it: list it in disputed with your counter-evidence. Report every test you add for a finding in regression under that finding's exact where. ` +
+    `A defect's test fails before your fix and passes after it; a defect with a test draft needs one. A test-gap finding means the code is already right and always needs a test: it passes before and after, ` +
+    `so report failedBefore false and name in mutation the production change, made and reverted, under which the test fails. A docs finding needs no test. When the only finding is that the pull request conflicts with main, the merge is the whole fix. ` +
     `Otherwise one commit per finding. Push, patch the PR body only where it became false (REST PATCH with --input, never gh pr edit --body-file), run \`aco check ${pr}\` from the worktree. ` +
     `Return the new tip and files: git diff --name-only from mergedBase (from oldTip when mergeResolvedLaneConflict) to the new tip.`,
     { label: `fix-${spent.total}`, phase: 'Fix', schema: FIX, agentType: 'atelier:code-fixer', model: 'opus', effort: EFFORT.fix })
   if (!fixed) return { stop: openResult('failed', 'fix', { reason: `the fixer returned no result; inspect ${A.worktree} for commits past ${tip} and uncommitted work, then resume this run`, lastBlocking: blocking }) }
   if (![fixed.oldTip, fixed.mergedBase, fixed.tip].every(t => SHA.test(t || ''))) return { stop: openResult('failed', 'fix', { reason: 'the fixer returned a tip that is not a sha' }) }
-  if (fixed.blocked) return { stop: openResult('escalated', 'fix', { reason: fixed.blockedReason }) }
-  if ((fixed.disputed || []).length) return { stop: awaitHeadOnDispute(fixed, blocking) }
+  // What the fixer says it found already done is only reported to the head: an unaccepted fix folds nothing in.
+  const unaccepted = (result) => ({ stop: (fixed.resolved || []).length ? { ...result, resolved: fixed.resolved } : result })
+  if (fixed.blocked) return unaccepted(openResult('escalated', 'fix', { reason: fixed.blockedReason }))
+  if ((fixed.disputed || []).length) return unaccepted(awaitHeadOnDispute(fixed, blocking))
   const rejection = fixRejection(fixed, blocking)
-  if (rejection) return { stop: openResult('failed', 'fix', rejection) }
-  return acceptFix(fixed, blocking)
+  if (rejection) return unaccepted(openResult('failed', 'fix', rejection))
+  const accepted = acceptFix(fixed, blocking)
+  if (accepted.stop) return unaccepted(accepted.stop)
+  // A clean merge of main alone carries no lane change, so it cannot carry a fold-in either.
+  if (accepted.range) foldIn.forEach(f => folded.set(findingKey(f), { ...f, tip: fixed.tip }))
+  return accepted
 }
 
 // Review until clean. After every fix the delta goes back to whoever raised a finding, and the gate returns on a
@@ -448,8 +485,10 @@ function explore(n) {
     `Run the lane's code, not the installed tool (from ${A.worktree}). What to drive:\n${A.e2e}\n\nContract:\n${A.contract}\n\n${BLOCKING_LINE}\n` +
     `For every blocking finding give a scenario name in where, unique within your report, the command that shows it in repro, and — when it can be automated stably — a failing test draft ` +
     `under your scratch path in testDraft (a live or UI case stays a manual proof; leave testDraft empty then). ` +
-    `Write only under ${A.scratch}/${TAG}-e2e-${n}/. Take /tmp/probe-stack.lock with flock for any server or browser run, use a free port above 8790, ` +
-    `stop every process you start, and never touch another session's server. Wait for the lock with \`flock -w 1200\`; if it stays held by someone else, return verdict failed with lockBusy true instead of guessing. verdict is PASS with no blocking findings and FAIL with at least one. Return evidencePath.`
+    `Write only under ${A.scratch}/${TAG}-e2e-${n}/. Take /tmp/probe-stack.lock for any server or browser run so that no process you start inherits it: ` +
+    `\`flock -o -w 1200 /tmp/probe-stack.lock <command>\`, or close fd 9 (\`9>&-\`) for every child. Run every server under \`timeout <cap>\` on a free port above 8790, ` +
+    `write its pid to a file under ${A.scratch}/${TAG}-e2e-${n}/ and kill it before reporting; stop every other process you start (a container, a background browser) before reporting too; lsof in your report is evidence only, never a guard. Never touch another session's server. ` +
+    `If the lock stays held by someone else for those 1200 seconds, return verdict failed with lockBusy true instead of guessing. verdict is PASS with no blocking findings and FAIL with at least one. Return evidencePath.`
   return safeAgent(prompt, { label: `e2e-${n}`, phase: 'Test and CI', schema: E2E, agentType: 'atelier:explorative-tester', model: 'opus', effort: EFFORT.test })
     .then(r => r || safeAgent(`Load the atelier:explorative-testing skill first.\n${prompt}`,
       { label: `e2e-${n}-fallback`, phase: 'Test and CI', schema: E2E, agentType: 'general-purpose', model: 'opus', effort: EFFORT.test }))
@@ -458,10 +497,10 @@ function explore(n) {
 function watchCi(n) {
   return safeAgent(
     `Report CI for pull request #${pr}${IN_REPO}; change nothing in the repository. Return the PR head sha as head (\`gh pr view ${pr}${R} --json headRefOid --jq .headRefOid\`). ` +
-    `If \`gh pr view ${pr}${R} --json mergeable --jq .mergeable\` says CONFLICTING, return green false with one failing entry: where "mergeable", text "the pull request conflicts with main", ` +
+    `If \`gh pr view ${pr}${R} --json mergeable --jq .mergeable\` says CONFLICTING, return green false with one failing entry: where "mergeable", kind "defect", text "the pull request conflicts with main", ` +
     `rule "GitHub runs no CI on a conflicting pull request", evidence the mergeable value. Otherwise wait in the foreground — you cannot be woken later: run \`timeout 540 gh pr checks ${pr}${R} --watch --interval 90\` (Bash timeout 600000 ms) and repeat it until it exits on its own rather than by the timeout, at most 7 times. If a check fails, ` +
     `rerun the failed jobs once (\`gh run rerun <run-id>${R} --failed\`) and watch again, so a flaky check does not count. green is true only when at least one check ran on head ` +
-    `and every check on head succeeded; no checks at all is one failing entry: where "checks", text "no CI checks ran on the head commit", rule "CI must run on head", evidence the gh pr checks output. For each check that still failed: where = its name, text = what failed, ` +
+    `and every check on head succeeded; no checks at all is one failing entry: where "checks", kind "defect", text "no CI checks ran on the head commit", rule "CI must run on head", evidence the gh pr checks output. For each check that still failed: where = its name, kind = "defect", text = what failed, ` +
     `rule = "CI check <name>", evidence = the last 30 lines of \`gh run view <run-id>${R} --log-failed\`.`,
     { label: `ci-${n}`, phase: 'Test and CI', schema: CI, ...WATCHER })
 }
@@ -514,12 +553,12 @@ while (true) {
   needTest = testBlocking.length > 0 || productionSinceTest
 }
 
-const openFollowups = dedupeFollowups()
+const stillOpen = openFollowups()
 return {
-  status: 'ready-to-land', pr, tip, spent, history, followups: openFollowups, disputed,
+  status: 'ready-to-land', pr, tip, spent, history, followups: stillOpen, folded: [...folded.values()], disputed,
   requiredHeadActions: [
     `land with \`aco land ${pr}\` only while the pull request head is still ${tip}`,
-    ...(openFollowups.length ? [`route ${openFollowups.length} follow-up(s) to their owning items before landing`] : []),
+    ...(stillOpen.length ? [`route ${stillOpen.length} follow-up(s) to their owning items before landing`] : []),
     `update the body of item #${A.item}'s parent and name what the landing freed`,
   ],
 }

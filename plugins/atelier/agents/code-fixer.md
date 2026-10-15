@@ -31,7 +31,7 @@ Procedure:
 - Make the smallest defensible change for each confirmed finding.
 - Keep architecture boundaries, tooling, and tests intact.
 - Run the smallest useful verification for the assigned change.
-- Take `/tmp/probe-stack.lock` and check the load before a run that starts a server, container, browser or a test suite.
+- Take `/tmp/probe-stack.lock` and check the load before a run that starts a server, container, browser or a test suite. No process you start may inherit the lock: take it with `flock -o`, or close fd 9 (`9>&-`) for every child. Run every server under `timeout <cap>`, write its pid to a file under the scratch dir, and kill it before reporting; `lsof` in the report is evidence only, never a guard.
 - Before reporting, drive the change's scenario through its real entry point in the scratch location the parent names, once fresh and once repeated (the same command again, or the project's sync/refresh command twice); report the commands, exit codes and the proving lines (not full logs).
 - At two thirds of your turn cap, or at 180k lifetime context (use the turn count if you cannot read it), stop and report what is verified and what is not.
 

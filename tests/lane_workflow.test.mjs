@@ -233,6 +233,26 @@ for (const replay of replays) {
   })
 }
 
+test('a fix that only merged main folds nothing in, so the head still routes the fold-in it was handed', async () => {
+  const built = 'b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0'
+  const merged = 'a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1'
+  const foldIn = followup('x.py:1', 'tidy', 'follow-up (fix in place)')
+  const conflicting = { where: 'mergeable', kind: 'defect', text: 'the pull request conflicts with main', rule: 'r', evidence: 'CONFLICTING' }
+  const { result } = await runLane({ ...webauthReplay.args, build: 'b' }, {
+    build: { pr: 2, tip: built, blocked: false },
+    'r0-review': { ...APPROVE, followups: [foldIn] },
+    'r0-gate': { ...APPROVE, codexExit: 0 },
+    'e2e-0': PASS,
+    'ci-0': { head: built, green: false, failing: [conflicting] },
+    'fix-1': { oldTip: built, mergedBase: merged, tip: merged, mergeResolvedLaneConflict: false, files: [], disputed: [], blocked: false },
+    'ci-1': greenCi(merged),
+  })
+  assert.equal(result.status, 'ready-to-land')
+  assert.deepEqual(result.folded, [])
+  assert.deepEqual(result.followups, [foldIn])
+  assert.ok(result.requiredHeadActions.includes('route 1 follow-up(s) to their owning items before landing'))
+})
+
 test('a stopped fix reports the fold-ins its fixer found already done, and leaves them open', async () => {
   const replay = agentProvidersReplay
   const answers = answersWith(replay, { kind: undefined, mutation: false })

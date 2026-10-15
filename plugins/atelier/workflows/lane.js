@@ -425,7 +425,8 @@ async function fixBatch(blocking, source, budgetKey) {
   if (rejection) return unaccepted(openResult('failed', 'fix', rejection))
   const accepted = acceptFix(fixed, blocking)
   if (accepted.stop) return unaccepted(accepted.stop)
-  foldIn.forEach(f => folded.set(findingKey(f), { ...f, tip: fixed.tip }))
+  // A clean merge of main alone carries no lane change, so it cannot carry a fold-in either.
+  if (accepted.range) foldIn.forEach(f => folded.set(findingKey(f), { ...f, tip: fixed.tip }))
   return accepted
 }
 

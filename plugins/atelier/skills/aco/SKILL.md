@@ -20,7 +20,7 @@ landed; this says *how*.
    an item with unruled expectations is refined first, not dispatched
    (`specs/next.spec.md`).
 3. `aco board --json` reads the whole board, read-only (bare `aco board` refuses);
-   `--html` and `--serve` are not for routine reading.
+   the browser view for deciding expectation lines is `aco-board serve`.
 
 ## Start a lane
 

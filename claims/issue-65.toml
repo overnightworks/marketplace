@@ -1,8 +1,0 @@
-claim_id = "86d34fe120834dffac51c9f5550dff24"
-agent = "Claude 3e666570-2fb5-4abd-955d-af106f942216"
-role = "builder"
-base = "514019c65c1e915bfbf452d111efc57165cd4030"
-branch = "claude/issue-65-aco-skill"
-scope = ["instructions/AGENTS.md", "plugins/atelier/skills/aco"]
-opened_commit = "323450d247b6418344dec0458e84d3fa48491e62"
-whole_reason = "One new skill directory plus the one contract sentence that loads it."

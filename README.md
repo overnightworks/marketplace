@@ -91,12 +91,22 @@ Use the local checkout commands while developing the marketplace itself.
 
 ## Update Existing Installs
 
-Codex:
+Codex, marketplace added from a Git repository:
 
 ```bash
 codex plugin marketplace upgrade atelier
 codex plugin add atelier@atelier
 ```
+
+Codex, marketplace added from a local checkout (`marketplace upgrade` only
+applies to Git marketplaces; `add` reads the checkout as it stands):
+
+```bash
+codex plugin add atelier@atelier
+```
+
+`codex plugin add` replaces the installed version directory, so update when no
+Codex job is running.
 
 Claude Code:
 

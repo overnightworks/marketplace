@@ -141,8 +141,11 @@ const SYNC = {
 // The agent copies aco's outside_claim as JSON text; the script parses it, so no field is derived by the model.
 const OUTSIDE_CLAIM = {
   type: 'object',
-  required: ['outside_claim'],
-  properties: { outside_claim: { type: 'string', description: 'the printed line of the given command, unchanged' } },
+  required: ['outside_claim', 'remote_tip'],
+  properties: {
+    remote_tip: { type: 'string', description: 'the last printed line of the first command line, unchanged; its error output when it fails' },
+    outside_claim: { type: 'string', description: 'the printed line of the second command line, unchanged; empty when the first failed' },
+  },
 }
 const CLAIM_SCOPE_RULE = 'a lane edits only inside its claim scope'
 // Language models copy a 40-character hash unreliably (a sync step once dropped one character). A commit is
@@ -522,14 +525,20 @@ async function fixBatch(blocking, source, budgetKey) {
   }
 }
 
+// The script, not the builder or fixer, makes sure the remote branch carries the lane tip, before the claim-scope check
+// and every review. Never a force push: a rejected push stops the lane.
 // aco decides what the claim covers; the lane only asks.
 async function bounceOutsideClaim(label, budgetKey) {
   phase('Scope')
-  const commandLine = `cd '${A.worktree}' && aco brief ${A.item} --json | python3 -c 'import json,sys; print(json.dumps(json.load(sys.stdin)["outside_claim"]))'`
+  const pushLine = `cd '${A.worktree}' && git push origin '${A.branch}' && git rev-parse 'origin/${A.branch}'`
+  const scopeLine = `cd '${A.worktree}' && aco brief ${A.item} --json | python3 -c 'import json,sys; print(json.dumps(json.load(sys.stdin)["outside_claim"]))'`
   const checked = await safeAgent(
-    `${laneFacts}\nChange nothing. Run this command line exactly as written, without changing it or its directory, and return the one line it prints unchanged. When it prints nothing or fails, return its error output instead:\n${commandLine}`,
+    `${laneFacts}\nChange nothing in the files. Run these two command lines in this order, each exactly as written, without changing it or its directory. ` +
+    `The first pushes the lane branch: return its last printed line unchanged as remote_tip, or its error output when it fails, and then skip the second command line and return an empty outside_claim. ` +
+    `Otherwise return the one line the second prints unchanged as outside_claim; when it prints nothing or fails, return its error output instead:\n${pushLine}\n${scopeLine}`,
     { label, phase: 'Scope', schema: OUTSIDE_CLAIM, ...MECHANICAL })
   if (!checked) return { stop: openResult('failed', 'scope', { reason: 'the claim-scope check returned no result' }) }
+  if (!sameCommit(checked.remote_tip, tip)) return { stop: openResult('failed', 'push', { reason: `the remote branch ${A.branch} does not carry the lane tip ${tip}; the push printed: ${checked.remote_tip}` }) }
   let paths
   try { paths = JSON.parse(checked.outside_claim) } catch { paths = undefined }
   if (paths === null) return { stop: openResult('failed', 'scope', { reason: 'the lane holds no live claim (outside_claim is null); a lane without a claim does not reach review' }) }

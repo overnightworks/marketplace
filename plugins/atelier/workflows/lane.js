@@ -342,11 +342,12 @@ if (A.build) {
   log(`built PR #${pr} at ${tip}`)
 } else {
   phase('Sync')
+  const git = `git -C '${A.worktree}'`
   const synced = await safeAgent(
-    `${laneFacts}\nBring the lane up to date with main and change nothing else. In ${A.worktree}: git fetch origin; if origin/main is already an ancestor of HEAD, change nothing. ` +
-    `Otherwise git merge origin/main. ` +
-    (LEDGERS.length ? `Conflicts only in the append-only ledgers: resolve them as the lane facts say, commit the merge, push. Any other conflict: ` : `Any conflict: `) +
-    `run git merge --abort, confirm \`git status --porcelain\` is empty, push nothing, and return stoppedOnConflict true with the conflicting paths in note. Return merged true only when you made and pushed a merge commit, and tip as the output of \`git rev-parse HEAD\` — a sha, no words.`,
+    `${laneFacts}\nBring the lane up to date with main and change nothing else. Run each command exactly as written, with its -C option. ${git} fetch origin; if ${git} merge-base --is-ancestor origin/main HEAD succeeds, change nothing. ` +
+    `Otherwise ${git} merge origin/main; when it merges cleanly, ${git} push. ` +
+    (LEDGERS.length ? `Conflicts only in the append-only ledgers: resolve them as the lane facts say, commit the merge, ${git} push. Any other conflict: ` : `Any conflict: `) +
+    `run ${git} merge --abort, confirm \`${git} status --porcelain\` is empty, push nothing, and return stoppedOnConflict true with the conflicting paths in note. Return merged true only when you made and pushed a merge commit, and tip as the output of \`${git} rev-parse HEAD\` — a sha, no words.`,
     { label: 'sync', phase: 'Sync', schema: SYNC, ...MECHANICAL })
   if (!synced) return openResult('failed', 'sync')
   if (synced.stoppedOnConflict) return openResult('escalated', 'sync', { reason: synced.note || 'merge conflict in lane files; the worktree was left clean' })
@@ -526,7 +527,7 @@ async function bounceOutsideClaim(label, budgetKey) {
   phase('Scope')
   const commandLine = `cd '${A.worktree}' && aco brief ${A.item} --json | python3 -c 'import json,sys; print(json.dumps(json.load(sys.stdin)["outside_claim"]))'`
   const checked = await safeAgent(
-    `${laneFacts}\nChange nothing. Run this command line exactly as written, without changing it or its directory, and return the one line it prints unchanged:\n${commandLine}`,
+    `${laneFacts}\nChange nothing. Run this command line exactly as written, without changing it or its directory, and return the one line it prints unchanged. When it prints nothing or fails, return its error output instead:\n${commandLine}`,
     { label, phase: 'Scope', schema: OUTSIDE_CLAIM, ...MECHANICAL })
   if (!checked) return { stop: openResult('failed', 'scope', { reason: 'the claim-scope check returned no result' }) }
   let paths
@@ -610,13 +611,14 @@ function explore(n) {
 }
 
 function watchCi(n) {
+  const inWorktree = A.repo ? '' : `cd '${A.worktree}' && `
   return safeAgent(
-    `Report CI for pull request #${pr}${IN_REPO}; change nothing in the repository. Return the PR head sha as head (\`gh pr view ${pr}${R} --json headRefOid --jq .headRefOid\`). ` +
-    `If \`gh pr view ${pr}${R} --json mergeable --jq .mergeable\` says CONFLICTING, return green false with one failing entry: where "mergeable", kind "defect", text "the pull request conflicts with main", ` +
-    `rule "GitHub runs no CI on a conflicting pull request", evidence the mergeable value. Otherwise wait in the foreground — you cannot be woken later: run \`timeout 540 gh pr checks ${pr}${R} --watch --interval 90\` (Bash timeout 600000 ms) and repeat it until it exits on its own rather than by the timeout, at most 7 times. If a check fails, ` +
-    `rerun the failed jobs once (\`gh run rerun <run-id>${R} --failed\`) and watch again, so a flaky check does not count. green is true only when at least one check ran on head ` +
+    `Report CI for pull request #${pr}${IN_REPO}; change nothing in the repository. Return the PR head sha as head (\`${inWorktree}gh pr view ${pr}${R} --json headRefOid --jq .headRefOid\`). ` +
+    `If \`${inWorktree}gh pr view ${pr}${R} --json mergeable --jq .mergeable\` says CONFLICTING, return green false with one failing entry: where "mergeable", kind "defect", text "the pull request conflicts with main", ` +
+    `rule "GitHub runs no CI on a conflicting pull request", evidence the mergeable value. Otherwise wait in the foreground — you cannot be woken later: run \`${inWorktree}timeout 540 gh pr checks ${pr}${R} --watch --interval 90\` (Bash timeout 600000 ms) and repeat it until it exits on its own rather than by the timeout, at most 7 times. If a check fails, ` +
+    `rerun the failed jobs once (\`${inWorktree}gh run rerun <run-id>${R} --failed\`) and watch again, so a flaky check does not count. green is true only when at least one check ran on head ` +
     `and every check on head succeeded; no checks at all is one failing entry: where "checks", kind "defect", text "no CI checks ran on the head commit", rule "CI must run on head", evidence the gh pr checks output. For each check that still failed: where = its name, kind = "defect", text = what failed, ` +
-    `rule = "CI check <name>", evidence = the last 30 lines of \`gh run view <run-id>${R} --log-failed\`.`,
+    `rule = "CI check <name>", evidence = the last 30 lines of \`${inWorktree}gh run view <run-id>${R} --log-failed\`.`,
     { label: `ci-${n}`, phase: 'Test and CI', schema: CI, ...WATCHER })
 }
 

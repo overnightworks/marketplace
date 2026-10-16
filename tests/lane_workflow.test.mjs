@@ -370,6 +370,18 @@ for (const [handedOver, args, expectedAgents] of resumesByHandedOver) {
   })
 }
 
+test('a resume gives the fixer every foldIn the head names, whatever its owner or wording', async () => {
+  const named = followup('x.py:1', 'tidy the import order', '#57')
+  const { agentCalls } = await runLane({ ...resumeArgs, foldIn: [named] }, { 'fix-1': resumeFix })
+  assert.match(agentCalls['fix-1'].prompt, /tidy the import order/)
+})
+
+test('a fixer given only fold-ins is told there are no blocking findings', async () => {
+  const { agentCalls } = await runLane({ ...resumeArgs, foldIn: [tidy] }, { 'fix-1': resumeFix })
+  assert.match(agentCalls['fix-1'].prompt, /There are no blocking findings; your whole task is the follow-ups below/)
+  assert.doesNotMatch(agentCalls['fix-1'].prompt, /and nothing else/)
+})
+
 const reviewReviseAnswers = (followups) => ({
   'r0-review': { verdict: 'REVISE', blocking: [{ ...finding('y.py:2', 'a defect'), kind: 'docs' }], followups },
   'fix-1': { ...resumeFix, regression: [] },

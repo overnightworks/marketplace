@@ -574,13 +574,22 @@ test('#108 AC-watcher-in-repo: the CI watcher enters the worktree when repo is u
   const reachCi = { 'r0-review': APPROVE, 'e2e-0': PASS, 'ci-0': greenCi(resumeTip) }
   const unset = await runLane(resumeArgs, reachCi)
   const watcherPrompt = unset.agentCalls['ci-0'].prompt
-  assert.ok(watcherPrompt.includes("cd '/w' && gh pr view"), watcherPrompt)
+  for (const command of ['gh pr view', "timeout 540 gh pr checks", 'gh run rerun', 'gh run view']) {
+    assert.ok(watcherPrompt.includes(`cd '/w' && ${command}`), `${command}: ${watcherPrompt}`)
+  }
+  assert.match(watcherPrompt, /cd '\/w' && timeout 540 gh pr checks \d+ --watch --interval 90/)
   const set = await runLane({ ...resumeArgs, repo: 'owner/name' }, reachCi)
   assert.match(set.agentCalls['ci-0'].prompt, /gh pr view \d+ -R owner\/name/)
+  assert.match(set.agentCalls['ci-0'].prompt, /timeout 540 gh pr checks \d+ -R owner\/name --watch/)
   assert.doesNotMatch(set.agentCalls['ci-0'].prompt, /cd '\/w'/)
 })
 
-const textsThatAreNotAcoAnswers =['"claimed"', '{"a":1}', '[1]', 'true', 'not json', 'ERROR: no claim store']
+test('#108 AC-sync-in-worktree: the sync prompt separates the no-op sentence from the merge sentence', async () => {
+  const { agentCalls } = await runLane(resumeArgs)
+  assert.ok(agentCalls.sync.prompt.includes('change nothing. Otherwise'), agentCalls.sync.prompt)
+})
+
+const textsThatAreNotAcoAnswers = ['"claimed"', '{"a":1}', '[1]', 'true', 'not json', 'ERROR: no claim store']
 for (const text of textsThatAreNotAcoAnswers) {
   test(`#71 AC-answer-not-aco: the text ${text} stops the lane at scope naming it, before any review`, async () => {
     const { result, launchedAgents } = await runLane(builtLane, { build: built, 'scope-0': { outside_claim: text } })

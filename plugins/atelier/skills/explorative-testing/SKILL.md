@@ -23,9 +23,9 @@ real user experiences.
    directory or database; never explore against live user state unless
    explicitly told to. A throwaway HOME still reaches the operator's
    desktop, because the session bus, the user's systemd and the display are
-   found through the environment: drive with `env -u
-   DBUS_SESSION_BUS_ADDRESS -u DISPLAY -u WAYLAND_DISPLAY
-   XDG_RUNTIME_DIR=<scratch>/run` (an empty 0700 directory). Where the
+   found through the environment: drive with
+   `env -u DBUS_SESSION_BUS_ADDRESS -u DISPLAY -u WAYLAND_DISPLAY XDG_RUNTIME_DIR=<scratch>/run`
+   (create it as an empty 0700 directory). Where the
    outward effect is itself under test, also put a stub first on PATH that
    records its argv under the scratch directory (for example `notify-send`,
    `xdg-open`).

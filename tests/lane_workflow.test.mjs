@@ -555,7 +555,16 @@ test('#71 AC-answer-not-aco: the scope agent gets one complete command line that
   assert.ok(agentCalls['scope-0'].prompt.includes(commandLine), agentCalls['scope-0'].prompt)
 })
 
-const textsThatAreNotAcoAnswers = ['"claimed"', '{"a":1}', '[1]', 'true', 'not json']
+test('#108 AC-sync-in-worktree: every git command the sync agent is handed carries the worktree', async () => {
+  const { agentCalls } = await runLane(resumeArgs)
+  const prompt = agentCalls.sync.prompt.slice(agentCalls.sync.prompt.indexOf('Bring the lane up to date'))
+  for (const command of ['git fetch origin', 'git merge origin/main', 'git push', 'git merge --abort', 'git status --porcelain', 'git rev-parse HEAD']) {
+    assert.ok(prompt.includes(command.replace('git ', "git -C '/w' ")), `${command}: ${prompt}`)
+  }
+  assert.doesNotMatch(prompt, /\bgit (?!-C '\/w' )/)
+})
+
+const textsThatAreNotAcoAnswers = ['"claimed"', '{"a":1}', '[1]', 'true', 'not json', 'ERROR: no claim store']
 for (const text of textsThatAreNotAcoAnswers) {
   test(`#71 AC-answer-not-aco: the text ${text} stops the lane at scope naming it, before any review`, async () => {
     const { result, launchedAgents } = await runLane(builtLane, { build: built, 'scope-0': { outside_claim: text } })
@@ -571,6 +580,11 @@ test('#103 AC-scratch-and-load: the builder and fixer know the scratch path and 
   const { agentCalls } = await runLane(args, answersWith(replay, { kind: 'test-gap', mutation: true }))
   for (const label of ['build', 'fix-1']) assert.match(agentCalls[label].prompt, /pidfiles and evidence under \/drive-scratch/)
   assert.match(agentCalls['e2e-0'].prompt, /Right after you acquire the lock, read the 1-minute load average again.*above 1\.5 × cores, release the lock and wait/)
+})
+
+test('#108 AC-scope-error-named: the scope agent is told to return the error output when the command prints nothing or fails', async () => {
+  const { agentCalls } = await runLane(builtLane, { build: built })
+  assert.match(agentCalls['scope-0'].prompt, /prints nothing or fails, return its error output/)
 })
 
 test('#103 AC-scratch-and-load: the sync prompt does not carry the drive facts', async () => {

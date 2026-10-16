@@ -342,11 +342,12 @@ if (A.build) {
   log(`built PR #${pr} at ${tip}`)
 } else {
   phase('Sync')
+  const git = `git -C '${A.worktree}'`
   const synced = await safeAgent(
-    `${laneFacts}\nBring the lane up to date with main and change nothing else. In ${A.worktree}: git fetch origin; if origin/main is already an ancestor of HEAD, change nothing. ` +
-    `Otherwise git merge origin/main. ` +
-    (LEDGERS.length ? `Conflicts only in the append-only ledgers: resolve them as the lane facts say, commit the merge, push. Any other conflict: ` : `Any conflict: `) +
-    `run git merge --abort, confirm \`git status --porcelain\` is empty, push nothing, and return stoppedOnConflict true with the conflicting paths in note. Return merged true only when you made and pushed a merge commit, and tip as the output of \`git rev-parse HEAD\` — a sha, no words.`,
+    `${laneFacts}\nBring the lane up to date with main and change nothing else. Run each command exactly as written, with its -C option. ${git} fetch origin; if origin/main is already an ancestor of HEAD, change nothing. ` +
+    `Otherwise ${git} merge origin/main; when it merges cleanly, ${git} push. ` +
+    (LEDGERS.length ? `Conflicts only in the append-only ledgers: resolve them as the lane facts say, commit the merge, ${git} push. Any other conflict: ` : `Any conflict: `) +
+    `run ${git} merge --abort, confirm \`${git} status --porcelain\` is empty, push nothing, and return stoppedOnConflict true with the conflicting paths in note. Return merged true only when you made and pushed a merge commit, and tip as the output of \`${git} rev-parse HEAD\` — a sha, no words.`,
     { label: 'sync', phase: 'Sync', schema: SYNC, ...MECHANICAL })
   if (!synced) return openResult('failed', 'sync')
   if (synced.stoppedOnConflict) return openResult('escalated', 'sync', { reason: synced.note || 'merge conflict in lane files; the worktree was left clean' })
@@ -526,7 +527,7 @@ async function bounceOutsideClaim(label, budgetKey) {
   phase('Scope')
   const commandLine = `cd '${A.worktree}' && aco brief ${A.item} --json | python3 -c 'import json,sys; print(json.dumps(json.load(sys.stdin)["outside_claim"]))'`
   const checked = await safeAgent(
-    `${laneFacts}\nChange nothing. Run this command line exactly as written, without changing it or its directory, and return the one line it prints unchanged:\n${commandLine}`,
+    `${laneFacts}\nChange nothing. Run this command line exactly as written, without changing it or its directory, and return the one line it prints unchanged. When it prints nothing or fails, return its error output instead:\n${commandLine}`,
     { label, phase: 'Scope', schema: OUTSIDE_CLAIM, ...MECHANICAL })
   if (!checked) return { stop: openResult('failed', 'scope', { reason: 'the claim-scope check returned no result' }) }
   let paths

@@ -15,8 +15,9 @@ verify them like any other documented fact.
    schemas, event contracts, route tables — never from memory or prose docs.
    Verify every node and edge against its source before drawing.
 3. Pick the form by the question, not by habit:
-   - structure and ownership → component/container diagram (C4-style altitude:
-     context for outsiders, container for operators, component for engineers);
+   - structure and ownership → component/container diagram (C4 altitude,
+     <https://c4model.com/>: context for outsiders, container for operators,
+     component for engineers);
    - dependency direction → a graph generated from the boundary config;
    - behavior over time between parties → sequence diagram (UML semantics);
    - lifecycle of one thing → state diagram (UML semantics);
@@ -26,6 +27,10 @@ verify them like any other documented fact.
    it (GitHub/GitLab do), so diffs review like code and agents can maintain
    them. Reserve heavier UML tooling for when Mermaid's notation genuinely
    cannot express the precision needed.
+   Worked Mermaid examples (C4 context → container, login sequence) are in
+   [references/worked-examples.md](references/worked-examples.md). Diagrams
+   serve the architecture overview and other types defined in
+   [write-docs' type model](../write-docs/references/document-types.md).
 5. Keep the node count at the audience's altitude: collapse everything the
    reader makes no decision about. Names in the diagram match names in the
    code exactly.

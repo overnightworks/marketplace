@@ -1,8 +1,0 @@
-claim_id = "bd883df965524e05b2945c4360aca646"
-agent = "Claude 3e666570-2fb5-4abd-955d-af106f942216"
-role = "builder"
-base = "1f0c6ac98f15a21520745a5dc5c8d2773b95ec46"
-branch = "claude/issue-70-uv-lock-update-path"
-scope = [".github/dependabot.yml", ".github/workflows/ci.yml", "AGENTS.md", "README.md", "plugins/atelier/skills/agent-documentation/AGENTS.baseline.md"]
-opened_commit = "76b4d01281ce80a40751dd1da3197506529ce0a2"
-whole_reason = "Four small cards bundled into one lane under the lead card, each touching one or two files."

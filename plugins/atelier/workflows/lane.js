@@ -648,6 +648,7 @@ function watchCi(n) {
     `rerun the failed jobs once (\`${inWorktree}gh run rerun <run-id>${R} --failed\`) and watch again, so a flaky check does not count. green is true only when at least one check ran on head ` +
     `and every check on head succeeded; no checks at all is one failing entry: where "checks", kind "defect", text "no CI checks ran on the head commit", rule "CI must run on head", evidence the gh pr checks output. For each check that still failed: where = its name, kind = "defect", text = what failed, ` +
     `rule = "CI check <name>". Take run-id and job-id from the check's link (\`${inWorktree}gh pr checks ${pr}${R} --json name,state,link\`; the link ends …/actions/runs/<run-id>/job/<job-id>). ` +
+    `A check whose link is not an Actions job link has no job log: skip the log command and make one entry under its check name with its gh pr checks line and link as evidence. ` +
     `The evidence is the output that made the check red: run \`${inWorktree}gh run view <run-id>${R} --job <job-id> --log | sed -n '1,/##\\[error\\]/p' | tail -n 40\` and quote what it prints. ` +
     `It reads that job's own log up to its first ##[error] line, because for a job of a called workflow \`--log-failed\` prints the whole log with every line unlabelled, so its tail is only cleanup. ` +
     `When those lines list findings as path:line plus a rule id (such as \`sonar tests/x.py:498 - python:S5778: text\`), return one failing entry per listed finding instead: where = path:line, kind = "defect", ` +

@@ -793,6 +793,11 @@ for (const { repo, command } of jobLogCommandByRepo) {
   })
 }
 
+test('the CI agent is told what to do with a check whose link is not an Actions job', async () => {
+  const { agentCalls } = await runLane({ ...resumeArgs, foldIn: [tidy] }, reachesToCi)
+  assert.match(agentCalls['ci-0'].prompt, /not an Actions job link[^]*skip the log command/)
+})
+
 test('the CI agent is told to split listed findings into one failing entry each and keep a plain red check as one entry', async () => {
   const { agentCalls } = await runLane({ ...resumeArgs, foldIn: [tidy] }, reachesToCi)
   const brief = agentCalls['ci-0'].prompt

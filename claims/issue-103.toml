@@ -1,7 +1,0 @@
-claim_id = "18d41ea9980846fca06a24ab0791def4"
-agent = "Claude 3e666570-2fb5-4abd-955d-af106f942216"
-role = "builder"
-base = "773522578d49b657f9ddf77ffb44b9a7aef162a5"
-branch = "claude/issue-103-lane-js-proofs-match-their-finding-s-kin"
-scope = ["plugins/atelier/workflows/lane.js", "tests/lane_workflow.test.mjs"]
-opened_commit = "24bd8f8fb9259c5a4af8a22538aa2490b89a9613"

@@ -458,6 +458,12 @@ for (const [what, args, resolved] of stopsDespiteResolved) {
   })
 }
 
+test('#119 AC-satisfied-counts-as-folded: with deltaFrom, the review after satisfied fold-ins still sees everything since deltaFrom', async () => {
+  const answers = { 'fix-1': { ...unchangedFix, resolved: [satisfied(tidy)] }, ...reachesTheEnd }
+  const { agentCalls } = await runLane({ ...resumeArgs, foldIn: [tidy], deltaFrom: resumeTip }, answers)
+  assert.ok(agentCalls['r1-review'].prompt.includes(`git diff ${resumeTip}..HEAD`), agentCalls['r1-review'].prompt)
+})
+
 test('#119 AC-mixed-batch-folds-all: a batch with one fold-in committed and one already satisfied folds both, the satisfied one with its evidence', async () => {
   const resolved = [satisfied(alsoTidy)]
   const { result } = await runLane({ ...resumeArgs, foldIn: [tidy, alsoTidy] }, { 'fix-1': { ...resumeFix, resolved }, 'r1-review': APPROVE, 'e2e-0': PASS, 'ci-0': greenCi(resumeFixedTip) })
@@ -663,6 +669,14 @@ test('#108 AC-sync-in-worktree: the sync prompt separates the no-op sentence fro
 })
 
 const textsThatAreNotAcoAnswers = ['"claimed"', '{"a":1}', '[1]', 'true', 'not json', 'ERROR: no claim store']
+test('#118 AC-answer-not-aco: a push that succeeded but an answer without outside_claim stops at scope naming the omission', async () => {
+  const { result, launchedAgents } = await runLane(builtLane, { build: built, 'scope-0': { remote_tip: built.tip } })
+  assert.deepEqual([result.status, result.stage], ['failed', 'scope'])
+  assert.match(result.reason, /no outside_claim/)
+  assert.doesNotMatch(result.reason, /undefined/)
+  assert.deepEqual(launchedAgents, ['build', 'scope-0'])
+})
+
 for (const text of textsThatAreNotAcoAnswers) {
   test(`#71 AC-answer-not-aco: the text ${text} stops the lane at scope naming it, before any review`, async () => {
     const { result, launchedAgents } = await runLane(builtLane, { build: built, 'scope-0': { outside_claim: text } })
@@ -686,7 +700,8 @@ test('#108 AC-scope-error-named: the scope agent is told to return the error out
 })
 
 const scopeSchemaOf = async () => (await runLane(builtLane, { build: built })).agentCalls['scope-0'].options.schema
-const acoPrints = ['null', '[]', '["a.py"]', '["a.py", "dir/b c.py"]']
+// json.dumps prints non-ASCII as \uXXXX and escapes a quote with a backslash
+const acoPrints = ['null', '[]', '["a.py"]', '["a.py", "dir/b c.py"]', '["caf\\u00e9/\\u3042.py"]', '["a\\"b.py"]']
 const slipsAndForeignText = ['', '"claimed"', '{"a":1}', '[1]', '["a.py", 2]', 'true', 'not json', 'ERROR: no claim store', 'null null', '[] []']
 for (const [printed, admitted] of [...acoPrints.map(text => [text, true]), ...slipsAndForeignText.map(text => [text, false])]) {
   test(`#118 AC-schema-admits-aco-only: the scope agent's schema ${admitted ? 'admits' : 'refuses'} ${JSON.stringify(printed)} as outside_claim`, async () => {
@@ -704,7 +719,8 @@ test('#118 AC-failed-command-own-field: the schema lets a failed command be answ
 
 const failedCommands = [
   ['push', builtLane, { build: built }, 'scope-0', { command_error: "fatal: unable to access 'https://example.invalid/r.git'" }, 'push'],
-  ['aco brief', builtLane, { build: built }, 'scope-0', { remote_tip: resumeTip, command_error: 'aco: no claim store here' }, 'scope'],
+  ['aco brief', builtLane, { build: built }, 'scope-0', { remote_tip: built.tip, command_error: 'aco: no claim store here' }, 'scope'],
+  ['aco brief that also printed a valid answer', builtLane, { build: built }, 'scope-0', { remote_tip: built.tip, outside_claim: '[]', command_error: 'aco: warning, store locked' }, 'scope'],
 ]
 for (const [command, args, answers, scopeLabel, answer, stage] of failedCommands) {
   test(`#118 AC-failed-command-own-field: a failed ${command} stops the lane at ${stage} naming its error output, before any review`, async () => {
@@ -740,13 +756,14 @@ for (const [step, args, answers, scopeLabel, stepTip] of stepsThatMustPush) {
   }
 
   const remoteTextsThatCannotCarryTheTip = [
-    ['a rejected push', '! [rejected] b -> b (non-fast-forward)', '[]'],
-    ['another commit', 'ffffffffffffffffffffffffffffffffffffffff', '[]'],
-    ['nothing at all', '', '[]'],
+    ['a rejected push', '! [rejected] b -> b (non-fast-forward)', { remote_tip: '! [rejected] b -> b (non-fast-forward)' }],
+    ['another commit', 'ffffffffffffffffffffffffffffffffffffffff', { remote_tip: 'ffffffffffffffffffffffffffffffffffffffff' }],
+    ['nothing at all', '', { remote_tip: '' }],
+    ['a push that failed with only its error output', "fatal: unable to access 'https://example.invalid/r.git'", { command_error: "fatal: unable to access 'https://example.invalid/r.git'" }],
   ]
-  for (const [outcome, printed, outsideClaim] of remoteTextsThatCannotCarryTheTip) {
+  for (const [outcome, printed, answer] of remoteTextsThatCannotCarryTheTip) {
     test(`#115 AC-push-stops-loud: ${outcome} after ${step} stops the lane at push naming the tip and what came back, before any review`, async () => {
-      const { result, launchedAgents } = await runLane(args, { ...answers, [scopeLabel]: { outside_claim: outsideClaim, remote_tip: printed } })
+      const { result, launchedAgents } = await runLane(args, { ...answers, [scopeLabel]: answer })
       assert.deepEqual([result.status, result.stage], ['failed', 'push'])
       assert.ok(result.reason.includes(stepTip), result.reason)
       assert.ok(result.reason.includes(printed), result.reason)

@@ -558,6 +558,7 @@ async function pushAndCheckScope(label, budgetKey) {
     return { stop: openResult('failed', 'push', { reason: `the remote branch ${A.branch} does not carry the lane tip ${tip}; the push printed: ${printed}` }) }
   }
   if (checked.command_error) return { stop: openResult('failed', 'scope', { reason: `aco brief ${A.item} --json failed or printed nothing: ${checked.command_error}` }) }
+  if (checked.outside_claim === undefined) return { stop: openResult('failed', 'scope', { reason: `the push succeeded but the scope agent returned no outside_claim and no command_error for aco brief ${A.item} --json` }) }
   let paths
   try { paths = JSON.parse(checked.outside_claim) } catch { paths = undefined }
   if (paths === null) return { stop: openResult('failed', 'scope', { reason: 'the lane holds no live claim (outside_claim is null); a lane without a claim does not reach review' }) }

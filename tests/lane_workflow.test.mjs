@@ -558,13 +558,29 @@ test('#71 AC-answer-not-aco: the scope agent gets one complete command line that
 test('#108 AC-sync-in-worktree: every git command the sync agent is handed carries the worktree', async () => {
   const { agentCalls } = await runLane(resumeArgs)
   const prompt = agentCalls.sync.prompt.slice(agentCalls.sync.prompt.indexOf('Bring the lane up to date'))
-  for (const command of ['git fetch origin', 'git merge origin/main', 'git push', 'git merge --abort', 'git status --porcelain', 'git rev-parse HEAD']) {
+  for (const command of ['git fetch origin', 'git merge-base --is-ancestor origin/main HEAD', 'git merge origin/main', 'git push', 'git merge --abort', 'git status --porcelain', 'git rev-parse HEAD']) {
     assert.ok(prompt.includes(command.replace('git ', "git -C '/w' ")), `${command}: ${prompt}`)
   }
   assert.doesNotMatch(prompt, /\bgit (?!-C '\/w' )/)
 })
 
-const textsThatAreNotAcoAnswers = ['"claimed"', '{"a":1}', '[1]', 'true', 'not json', 'ERROR: no claim store']
+test('#108 AC-sync-in-worktree: the ledger conflict path pushes from the worktree too', async () => {
+  const { agentCalls } = await runLane({ ...resumeArgs, ledgers: ['LEDGER.md'] })
+  const ledgerSentence = agentCalls.sync.prompt.match(/Conflicts only in the append-only ledgers:[^.]*\./)[0]
+  assert.ok(ledgerSentence.includes("git -C '/w' push"), ledgerSentence)
+})
+
+test('#108 AC-watcher-in-repo: the CI watcher enters the worktree when repo is unset and names the repo when it is set', async () => {
+  const reachCi = { 'r0-review': APPROVE, 'e2e-0': PASS, 'ci-0': greenCi(resumeTip) }
+  const unset = await runLane(resumeArgs, reachCi)
+  const watcherPrompt = unset.agentCalls['ci-0'].prompt
+  assert.ok(watcherPrompt.includes("cd '/w' && gh pr view"), watcherPrompt)
+  const set = await runLane({ ...resumeArgs, repo: 'owner/name' }, reachCi)
+  assert.match(set.agentCalls['ci-0'].prompt, /gh pr view \d+ -R owner\/name/)
+  assert.doesNotMatch(set.agentCalls['ci-0'].prompt, /cd '\/w'/)
+})
+
+const textsThatAreNotAcoAnswers =['"claimed"', '{"a":1}', '[1]', 'true', 'not json', 'ERROR: no claim store']
 for (const text of textsThatAreNotAcoAnswers) {
   test(`#71 AC-answer-not-aco: the text ${text} stops the lane at scope naming it, before any review`, async () => {
     const { result, launchedAgents } = await runLane(builtLane, { build: built, 'scope-0': { outside_claim: text } })

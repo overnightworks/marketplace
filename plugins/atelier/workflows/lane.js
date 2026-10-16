@@ -485,8 +485,12 @@ async function fixBatch(blocking, source, budgetKey) {
 // material lane when the fix touched production or resolved lane conflicts. REVISE is handled one way everywhere.
 async function reviewUntilClean(which, range) {
   phase('Review')
-  let rr = await reviewRound(which, range)
-  while (rr.verdict.state === 'revise') {
+  return settleReview(await reviewRound(which, range))
+}
+
+// Each round judges the previous fix, so rounds run one after another; the fix budgets bound the recursion.
+async function settleReview(rr) {
+  if (rr.verdict.state === 'revise') {
     const blocking = rr.results.filter(Boolean).flatMap(v => v.blocking || [])
     const raised = rr.which.filter((r, i) => rr.results[i] && (rr.results[i].blocking || []).length > 0)
     const f = await fixBatch(blocking, 'the review', 'review')
@@ -494,7 +498,7 @@ async function reviewUntilClean(which, range) {
     if (!f.range) return openResult('failed', 'review', { reason: 'a review finding was answered by a merge alone', lastBlocking: blocking })
     const next = f.gateAgain && !raised.includes(GATE) ? raised.concat([GATE]) : raised
     phase('Review')
-    rr = await reviewRound(next, f.range)
+    return settleReview(await reviewRound(next, f.range))
   }
   if (rr.verdict.state === 'failed') return openResult('failed', 'review', { reason: rr.verdict.reason })
   if (rr.verdict.state === 'architectural') return openResult('escalated', 'review', { reason: 'architectural verdict' })

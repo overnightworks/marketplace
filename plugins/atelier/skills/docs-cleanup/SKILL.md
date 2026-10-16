@@ -11,7 +11,9 @@ configured contracts are the source of truth for implemented behavior.
 
 1. Read the repository documentation guidance.
 2. Classify each scoped document as reference, plan/spec, record, generated
-   artifact, or unknown.
+   artifact, or unknown, and read its declared document type against the model
+   in [write-docs' document types](../write-docs/references/document-types.md);
+   infer the type when none is declared.
 3. Verify concrete claims against code, configuration, tests, or canonical docs.
 4. Apply safe reversible fixes when explicitly asked to edit. Otherwise report
    proposed changes.
@@ -20,6 +22,9 @@ configured contracts are the source of truth for implemented behavior.
 
 ## Checklist
 
+- The document stays within its type: a how-to that drifts into explanation,
+  or a reference that carries tutorial steps, is split into one document per
+  type, linked, with each fact kept in one place.
 - Plans are not presented as current architecture.
 - Current architecture docs do not describe unimplemented targets as facts.
 - Concrete paths, commands, module names, options, and config keys exist.
@@ -35,7 +40,7 @@ configured contracts are the source of truth for implemented behavior.
 Use this format:
 
 ```text
-MOVED <old> -> <new> (reason)
+MOVED <old> -> <new> (reason; includes splits by type)
 FIXED <file:line> (what changed; verified against <source>)
 PROPOSE <action> <file> (why it needs confirmation)
 KEPT <file> (why it looked stale but remains intentional)

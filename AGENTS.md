@@ -46,8 +46,8 @@ repository carries one, `HEART.md`. Everything else lives in the directory of
 its owner: a ratchet baseline next to the check that reads it, a fixture next to
 its test, a helper under `scripts/`. No catch-all directory (`tooling/`,
 `misc/`) and no deeper hierarchy than the owner needs. A CI check keeps the root
-entries to its allowlist and refuses tracked symlinks; where an entry below the
-root belongs stays a judgement (operator ruling 06.09.2026).
+entries to an allowlist; where an entry below the root belongs stays a
+judgement (operator ruling 06.09.2026).
 
 ## Code
 

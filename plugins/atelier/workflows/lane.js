@@ -138,12 +138,13 @@ const SYNC = {
   required: ['merged', 'tip', 'stoppedOnConflict'],
   properties: { merged: { type: 'boolean' }, tip: { type: 'string', pattern: '^[0-9a-f]{7,40}$', description: 'a commit sha from git rev-parse, nothing else' }, stoppedOnConflict: { type: 'boolean' }, note: { type: 'string' } },
 }
-// outside_claim is null when the lane holds no live claim.
+// aco brief --json gives outside_claim null when the lane holds no live claim; the schema keeps to plain types.
 const OUTSIDE_CLAIM = {
   type: 'object',
-  required: ['outside_claim'],
-  properties: { outside_claim: { type: ['array', 'null'], items: { type: 'string' }, description: 'the key of that name from aco brief --json, unchanged' } },
+  required: ['claimed', 'outside_claim'],
+  properties: { claimed: { type: 'boolean' }, outside_claim: { type: 'array', items: { type: 'string' } } },
 }
+const CLAIM_SCOPE_RULE = 'a lane edits only inside its claim scope'
 // Language models copy a 40-character hash unreliably (a sync step once dropped one character). A commit is
 // accepted as 7 to 40 hex characters — git resolves an unambiguous prefix, and fixers often answer with the short form.
 const SHA = /^[0-9a-f]{7,40}$/
@@ -385,7 +386,11 @@ function fixRoundStop(blocking, budgetKey) {
     return openResult(budgetKey === 'ci' ? 'ci-red' : 'unresolved', budgetKey, { reason: `${which} budget spent`, lastBlocking: blocking })
   }
   const repeated = noProgress(blocking)
-  if (repeated.length) return openResult('unresolved', budgetKey, { reason: 'a finding came back unchanged after its fix', lastBlocking: repeated })
+  if (repeated.length) {
+    const leftScope = repeated.filter(f => f.rule === CLAIM_SCOPE_RULE)
+    const reason = leftScope.length ? `a fixer left the claim scope again at ${leftScope.map(f => f.where).join(', ')}` : 'a finding came back unchanged after its fix'
+    return openResult('unresolved', budgetKey, { reason, lastBlocking: repeated })
+  }
   return null
 }
 
@@ -520,13 +525,13 @@ async function fixBatch(blocking, source, budgetKey) {
 async function bounceOutsideClaim(label, budgetKey) {
   phase('Scope')
   const checked = await safeAgent(
-    `${laneFacts}\nChange nothing. In ${A.worktree}, run \`aco brief ${A.item} --json\` and return its outside_claim key exactly as it stands: the list of paths, [] or null.`,
+    `${laneFacts}\nChange nothing. In ${A.worktree}, run \`aco brief ${A.item} --json\` and return its outside_claim key unchanged: when it is null return claimed false with an empty list, otherwise claimed true with the list of paths as it stands.`,
     { label, phase: 'Scope', schema: OUTSIDE_CLAIM, ...MECHANICAL })
   if (!checked) return { stop: openResult('failed', 'scope', { reason: 'the claim-scope check returned no result' }) }
+  if (!checked.claimed) return { stop: openResult('failed', 'scope', { reason: 'the lane holds no live claim (outside_claim is null); a lane without a claim does not reach review' }) }
   const paths = checked.outside_claim
-  if (paths === null) return { stop: openResult('failed', 'scope', { reason: 'the lane holds no live claim (outside_claim is null); a lane without a claim does not reach review' }) }
   if (!paths.length) return null
-  const outside = { where: paths.join(', '), kind: 'defect', text: 'These paths are outside the claim scope; move the change back inside the claim scope or revert it.', rule: 'a lane edits only inside its claim scope', evidence: `aco brief ${A.item} --json lists them in outside_claim` }
+  const outside = { where: paths.join(', '), kind: 'defect', text: 'These paths are outside the claim scope; move the change back inside the claim scope or revert it.', rule: CLAIM_SCOPE_RULE, evidence: `aco brief ${A.item} --json lists them in outside_claim` }
   return fixBatch([outside], 'the claim-scope check', budgetKey)
 }
 
@@ -554,11 +559,10 @@ async function settleReview(rr) {
   return null
 }
 
-// A builder's work is checked against the claim before its first review, like every fixer's.
-if (A.build) {
-  const bounced = await bounceOutsideClaim(`scope-${spent.total}`, 'review')
-  if (bounced?.stop) return bounced.stop
-}
+// A builder's work, and the commits a resumed run inherits, are checked against the claim before the first review, like every fixer's.
+const inheritedFromEarlierRun = !A.build
+const firstScopeCheck = await bounceOutsideClaim(inheritedFromEarlierRun ? 'scope-resume' : `scope-${spent.total}`, 'review')
+if (firstScopeCheck?.stop) return firstScopeCheck.stop
 
 // Re-entry after the head settled an awaiting-head result: review only the fix commits no reviewer has seen yet.
 if (A.deltaFrom && !SHA.test(A.deltaFrom)) return openResult('failed', 'input', { reason: 'deltaFrom is not a sha' })

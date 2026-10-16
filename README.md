@@ -105,8 +105,8 @@ applies to Git marketplaces; `add` reads the checkout as it stands):
 codex plugin add atelier@atelier
 ```
 
-`codex plugin add` replaces the installed version directory, so update when no
-Codex job is running.
+`codex plugin add` removes the previously installed version directory, so
+update between Codex jobs.
 
 Claude Code:
 

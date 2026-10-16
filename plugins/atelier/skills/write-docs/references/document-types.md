@@ -27,8 +27,8 @@ arc42 <https://arc42.org/>; Keep a Changelog
 
 The first four are Diátaxis's types: tutorial (learning-oriented), how-to
 guide (goal-oriented), reference (information-oriented), explanation
-(understanding-oriented). The other five are operational types that mix the
-Diátaxis modes in a fixed, conventional shape.
+(understanding-oriented). In this skill's model, the other five are operational
+types that mix the Diátaxis modes in a fixed, conventional shape.
 
 ## Tutorial
 
@@ -140,8 +140,9 @@ duplicating facts that live in docs/.
 ## ADR
 
 Use for: one significant architectural decision, kept as history. Immutable
-once accepted; a change is a new ADR that supersedes the old. Shape follows
-Nygard: title, status, context, decision, consequences.
+once accepted; a change is a new ADR that supersedes the old. Shape uses
+Nygard's sections; the skeleton moves status up to the header, where Nygard
+placed it after decision.
 
 Skeleton:
 
@@ -194,13 +195,13 @@ Skeleton:
 
 ```markdown
 # <System> architecture
-1. Context and scope        <- who and what is outside; context diagram
-2. Building blocks          <- containers/components and their jobs
-3. Runtime view             <- two or three key scenarios as sequences
-4. Deployment view          <- where the blocks run
-5. Crosscutting concepts    <- auth, errors, persistence, one paragraph each
-6. Decisions                <- links to ADRs
-7. Risks and debt           <- known weak points
+1. Context and Scope        <- who and what is outside; context diagram
+2. Building Block View      <- containers/components and their jobs
+3. Runtime View             <- two or three key scenarios as sequences
+4. Deployment View          <- where the blocks run
+5. Crosscutting Concepts    <- auth, errors, persistence, one paragraph each
+6. Architectural Decisions  <- links to ADRs
+7. Risks and Technical Debt <- known weak points
 ```
 
 Example for section 1: "Acme Notes serves editors in a browser and syncs

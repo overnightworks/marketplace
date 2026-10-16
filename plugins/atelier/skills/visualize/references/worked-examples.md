@@ -18,8 +18,8 @@ flowchart LR
   idp["Identity provider (external)"]
   mail["Mail service (external)"]
   editor -->|"edits notes in browser"| notes
-  notes -->|"authenticates users via OIDC"| idp
-  notes -->|"sends invitations via SMTP"| mail
+  notes -->|"authenticates users"| idp
+  notes -->|"sends invitations"| mail
 ```
 
 ## C4 level 2: container

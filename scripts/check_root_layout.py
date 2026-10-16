@@ -46,7 +46,8 @@ ROOT_FILES = frozenset(
 # `.aco/` the board configuration aco reads, `.github/` the workflows
 # and the published action: every one of them is a path its tool fixes.
 # `instructions/` owns the operator's coordination contract, `plugins/` the
-# payload both catalogs name as their source.
+# payload both catalogs name as their source, `quality/` the gate configuration
+# the quality workflow reads.
 ROOT_DIRECTORIES = frozenset(
     {
         ".aco",
@@ -57,6 +58,7 @@ ROOT_DIRECTORIES = frozenset(
         ".github",
         "instructions",
         "plugins",
+        "quality",
         "scripts",
         "tests",
     }

@@ -138,11 +138,11 @@ const SYNC = {
   required: ['merged', 'tip', 'stoppedOnConflict'],
   properties: { merged: { type: 'boolean' }, tip: { type: 'string', pattern: '^[0-9a-f]{7,40}$', description: 'a commit sha from git rev-parse, nothing else' }, stoppedOnConflict: { type: 'boolean' }, note: { type: 'string' } },
 }
-// aco brief --json gives outside_claim null when the lane holds no live claim; the schema keeps to plain types.
+// The agent copies aco's outside_claim as JSON text; the script parses it, so no field is derived by the model.
 const OUTSIDE_CLAIM = {
   type: 'object',
-  required: ['claimed', 'outside_claim'],
-  properties: { claimed: { type: 'boolean' }, outside_claim: { type: 'array', items: { type: 'string' } } },
+  required: ['outside_claim'],
+  properties: { outside_claim: { type: 'string', description: 'the printed line of the given command, unchanged' } },
 }
 const CLAIM_SCOPE_RULE = 'a lane edits only inside its claim scope'
 // Language models copy a 40-character hash unreliably (a sync step once dropped one character). A commit is
@@ -524,12 +524,15 @@ async function fixBatch(blocking, source, budgetKey) {
 // aco decides what the claim covers; the lane only asks.
 async function bounceOutsideClaim(label, budgetKey) {
   phase('Scope')
+  const commandLine = `cd '${A.worktree}' && aco brief ${A.item} --json | python3 -c 'import json,sys; print(json.dumps(json.load(sys.stdin)["outside_claim"]))'`
   const checked = await safeAgent(
-    `${laneFacts}\nChange nothing. In ${A.worktree}, run \`aco brief ${A.item} --json\` and return its outside_claim key unchanged: when it is null return claimed false with an empty list, otherwise claimed true with the list of paths as it stands.`,
+    `${laneFacts}\nChange nothing. Run this command line exactly as written, without changing it or its directory, and return the one line it prints unchanged:\n${commandLine}`,
     { label, phase: 'Scope', schema: OUTSIDE_CLAIM, ...MECHANICAL })
   if (!checked) return { stop: openResult('failed', 'scope', { reason: 'the claim-scope check returned no result' }) }
-  if (!checked.claimed) return { stop: openResult('failed', 'scope', { reason: 'the lane holds no live claim (outside_claim is null); a lane without a claim does not reach review' }) }
-  const paths = checked.outside_claim
+  let paths
+  try { paths = JSON.parse(checked.outside_claim) } catch { paths = undefined }
+  if (paths === null) return { stop: openResult('failed', 'scope', { reason: 'the lane holds no live claim (outside_claim is null); a lane without a claim does not reach review' }) }
+  if (!Array.isArray(paths) || !paths.every(path => typeof path === 'string')) return { stop: openResult('failed', 'scope', { reason: `the claim-scope check returned text that is not aco's outside_claim (null or a list of paths): ${checked.outside_claim}` }) }
   if (!paths.length) return null
   const outside = { where: paths.join(', '), kind: 'defect', text: 'These paths are outside the claim scope; move the change back inside the claim scope or revert it.', rule: CLAIM_SCOPE_RULE, evidence: `aco brief ${A.item} --json lists them in outside_claim` }
   return fixBatch([outside], 'the claim-scope check', budgetKey)

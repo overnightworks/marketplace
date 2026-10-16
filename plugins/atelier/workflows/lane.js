@@ -185,8 +185,8 @@ const FIX = {
     },
     resolved: {
       type: 'array',
-      description: 'fold-ins you found already done in the worktree, left there by an earlier fixer whose fix was not accepted',
-      items: { type: 'object', required: ['where', 'text'], properties: { where: { type: 'string' }, text: { type: 'string' } } },
+      description: 'fold-ins you found already done: left in the worktree by an earlier fixer whose fix was not accepted, or already satisfied by the lane tip',
+      items: { type: 'object', required: ['where', 'text', 'evidence'], properties: { where: { type: 'string' }, text: { type: 'string' }, evidence: { type: 'string', description: 'the test, probe cell or line that already satisfies it' } } },
     },
     regression: {
       type: 'array',
@@ -412,7 +412,8 @@ const listFoldIns = (foldIn) => foldIn.map((f, i) => `${i + 1}. ${f.where} — $
 function foldInBrief(foldIn) {
   if (!foldIn.length) return ''
   return `\n\nAlso fold in these follow-ups, only because each sits in a file this lane already changed and cannot change behaviour; one commit for all of them. ` +
-    `One that an earlier fixer already left done in the worktree you do not redo; list it in resolved:\n` +
+    `One that is already done — left in the worktree by an earlier fixer, or already satisfied by the lane tip — you do not redo; list it in resolved with its evidence (the test, probe cell or line that satisfies it). ` +
+    `When that leaves you nothing to change, change nothing:\n` +
     listFoldIns(foldIn)
 }
 // The reviewer sees which follow-ups the fixer was given, so it can tell a skipped one from a done one.
@@ -448,14 +449,18 @@ const needsProof = (finding) => kindOf(finding) === 'test-gap' || (kindOf(findin
 // Why a fixer's answer does not count as a fix, or null when it does. A proof counts only for the blocking finding
 // whose where and kind it names exactly; a proof for anything else (a fold-in, say) is not checked.
 const proves = (proof, finding) => proof.finding === finding.where && proof.kind === kindOf(finding)
-function fixRejection(fixed, blocking) {
+// The evidence the fixer gave for a fold-in it found already done, or undefined without any.
+const satisfiedEvidence = (fixed, foldIn) => (fixed.resolved || []).find(r => r.where === foldIn.where && (r.evidence || '').trim())?.evidence
+// An unchanged tip is a fix only when there are no blocking findings and every fold-in is proven already satisfied.
+const everyFoldInSatisfied = (fixed, blocking, foldIn) => !blocking.length && foldIn.length > 0 && foldIn.every(f => satisfiedEvidence(fixed, f))
+function fixRejection(fixed, blocking, foldIn) {
   const proofs = fixed.regression || []
   const gaps = proofs.flatMap(proof => blocking.filter(f => proves(proof, f)).map(finding => ({ proof, finding, gap: proofGap(proof, finding) })))
     .filter(checked => checked.gap)
   if (gaps.length) return { reason: [...new Set(gaps.map(checked => checked.gap))].join('; '), regression: gaps.map(checked => checked.proof), lastBlocking: gaps.map(checked => checked.finding) }
   const unproven = blocking.filter(f => needsProof(f) && !proofs.some(r => proves(r, f)))
   if (unproven.length) return { reason: 'a test-gap finding or a defect with a test draft got no regression test', lastBlocking: unproven }
-  if (sameCommit(fixed.tip, fixed.oldTip)) return { reason: 'the fixer changed nothing', lastBlocking: blocking }
+  if (sameCommit(fixed.tip, fixed.oldTip)) return everyFoldInSatisfied(fixed, blocking, foldIn) ? null : { reason: 'the fixer changed nothing', lastBlocking: blocking }
   const mergeWasTheFinding = blocking.length === 1 && blocking[0].where === 'mergeable'
   if (sameCommit(fixed.tip, fixed.mergedBase) && !mergeWasTheFinding) return { reason: 'the fixer only merged main and fixed nothing', lastBlocking: blocking }
   return null
@@ -515,12 +520,15 @@ async function fixBatch(blocking, source, budgetKey) {
   const unaccepted = (result) => ({ stop: (fixed.resolved || []).length ? { ...result, resolved: fixed.resolved } : result })
   if (fixed.blocked) return unaccepted(openResult('escalated', 'fix', { reason: fixed.blockedReason }))
   if ((fixed.disputed || []).length) return unaccepted(awaitHeadOnDispute(fixed, blocking))
-  const rejection = fixRejection(fixed, blocking)
+  const rejection = fixRejection(fixed, blocking, foldIn)
   if (rejection) return unaccepted(openResult('failed', 'fix', rejection))
   const accepted = acceptFix(fixed, blocking, foldIn)
   if (accepted.stop) return unaccepted(accepted.stop)
-  // A clean merge of main alone carries no lane change, so it cannot carry a fold-in either.
-  if (accepted.range) foldIn.forEach(f => folded.set(findingKey(f), { ...f, tip: fixed.tip }))
+  // A clean merge of main alone carries no lane change, so it cannot carry a fold-in either; an unchanged tip carries
+  // them only when the fixer proved each already satisfied.
+  if (accepted.range || everyFoldInSatisfied(fixed, blocking, foldIn)) {
+    foldIn.forEach(f => folded.set(findingKey(f), { ...f, tip: fixed.tip, ...(satisfiedEvidence(fixed, f) && { evidence: satisfiedEvidence(fixed, f) }) }))
+  }
   const bounced = await pushAndCheckScope(`scope-${spent.total}`, budgetKey)
   if (bounced?.stop) return unaccepted(bounced.stop)
   if (!bounced?.range) return { ...accepted, foldIn }

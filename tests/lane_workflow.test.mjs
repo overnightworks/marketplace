@@ -378,6 +378,7 @@ test('a stopped fix reports the fold-ins its fixer found already done, and leave
 const resumeTip = 'c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0'
 const resumeFixedTip = 'd1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1'
 const tidy = followup('x.py:1', 'tidy the import order', 'follow-up (fix in place)')
+const defectWithoutDraft = { ...finding('t.py:1', 'the code breaks the rule'), kind: 'defect' }
 const resumeFix = { oldTip: resumeTip, mergedBase: resumeTip, tip: resumeFixedTip, mergeResolvedLaneConflict: false, files: ['x.py'], disputed: [], blocked: false }
 const resumeArgs = { ...resumedLane, tip: resumeTip }
 
@@ -404,6 +405,56 @@ test('a fixer given only fold-ins is told there are no blocking findings', async
   const { agentCalls } = await runLane({ ...resumeArgs, foldIn: [tidy] }, { 'fix-1': resumeFix })
   assert.match(agentCalls['fix-1'].prompt, /There are no blocking findings; your whole task is the follow-ups below/)
   assert.doesNotMatch(agentCalls['fix-1'].prompt, /and nothing else/)
+})
+
+const alsoTidy = followup('y.py:2', 'rename the helper', 'follow-up (fix in place)')
+const unchangedFix = { ...resumeFix, tip: resumeTip, files: [], regression: [] }
+const satisfied = (item, evidence = 'tests/x_test.py already pins it') => ({ where: item.where, text: item.text, evidence })
+const reachesTheEnd = { 'e2e-0': PASS, 'ci-0': greenCi(resumeTip) }
+
+const satisfiedFoldIns = [
+  ['one fold-in', [tidy], [satisfied(tidy)]],
+  ['two fold-ins', [tidy, alsoTidy], [satisfied(tidy), satisfied(alsoTidy, 'probe cell 4 proves it')]],
+]
+for (const [what, foldIn, resolved] of satisfiedFoldIns) {
+  test(`#119 AC-satisfied-counts-as-folded: ${what} the fixer proves already satisfied at an unchanged tip are folded with its evidence and the lane goes on`, async () => {
+    const { result, launchedAgents } = await runLane({ ...resumeArgs, foldIn }, { 'fix-1': { ...unchangedFix, resolved }, ...reachesTheEnd })
+    assert.equal(result.status, 'ready-to-land', result.reason)
+    assert.deepEqual(result.folded, foldIn.map((f, i) => ({ ...f, tip: resumeTip, evidence: resolved[i].evidence })))
+    assert.deepEqual(result.followups, [])
+    assert.ok(launchedAgents.includes('e2e-0'))
+  })
+}
+
+const stopsDespiteResolved = [
+  ['a fold-in the fixer leaves out of resolved', { foldIn: [tidy, alsoTidy] }, [satisfied(tidy)]],
+  ['nothing listed in resolved', { foldIn: [tidy] }, []],
+  ['a fold-in listed without evidence', { foldIn: [tidy] }, [satisfied(tidy, '')]],
+  ['a fold-in listed with blank evidence', { foldIn: [tidy] }, [satisfied(tidy, '  ')]],
+  ['blocking findings, however much the fixer lists', { foldIn: [tidy], fixFirst: [defectWithoutDraft] }, [satisfied(tidy)]],
+]
+for (const [what, args, resolved] of stopsDespiteResolved) {
+  test(`#119 AC-evidence-or-stop: a fixer that changes nothing with ${what} still stops at fix`, async () => {
+    const { result } = await runLane({ ...resumeArgs, ...args }, { 'fix-1': { ...unchangedFix, resolved } })
+    assert.deepEqual([result.status, result.stage], ['failed', 'fix'])
+    assert.match(result.reason, /the fixer changed nothing/)
+    assert.deepEqual(result.folded, [])
+    assert.ok(result.followups.some(f => f.where === tidy.where))
+  })
+}
+
+test('#119 AC-mixed-batch-folds-all: a batch with one fold-in committed and one already satisfied folds both, the satisfied one with its evidence', async () => {
+  const resolved = [satisfied(alsoTidy)]
+  const { result } = await runLane({ ...resumeArgs, foldIn: [tidy, alsoTidy] }, { 'fix-1': { ...resumeFix, resolved }, 'r1-review': APPROVE, 'e2e-0': PASS, 'ci-0': greenCi(resumeFixedTip) })
+  assert.equal(result.status, 'ready-to-land')
+  assert.deepEqual(result.folded, [{ ...tidy, tip: resumeFixedTip }, { ...alsoTidy, tip: resumeFixedTip, evidence: resolved[0].evidence }])
+})
+
+test('#119 AC-resolved-carries-evidence: the fixer is told to list every fold-in already done with its evidence, and the schema requires it', async () => {
+  const { agentCalls } = await runLane({ ...resumeArgs, foldIn: [tidy] }, { 'fix-1': resumeFix })
+  const { prompt, options } = agentCalls['fix-1']
+  assert.match(prompt, /already satisfied[^]*resolved[^]*evidence/)
+  assert.ok(options.schema.properties.resolved.items.required.includes('evidence'))
 })
 
 const reviewReviseAnswers = (followups) => ({
@@ -444,7 +495,6 @@ test('a follow-up carries the tip it was raised at, and the result lists those r
 
 // A resumed run whose fixer answers findings handed over by the head: what each proof must show for its own finding.
 const defectWithDraft = { ...finding('t.py:1', 'the code breaks the rule'), kind: 'defect', testDraft: '/s/draft_test.py' }
-const defectWithoutDraft = { ...finding('t.py:1', 'the code breaks the rule'), kind: 'defect' }
 const testGap = { ...finding('t.py:1', 'a behaviour has no test'), kind: 'test-gap' }
 const proofOf = (kind, overrides) => ({ finding: 't.py:1', kind, test: 't.py [case]', failedBefore: false, passesAfter: true, ...overrides })
 const removalDiff = '-    def test_case_that_asserts_nothing(): pass'

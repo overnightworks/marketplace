@@ -1,0 +1,7 @@
+claim_id = "2a9c5ff408174df5ad8d028338362b85"
+agent = "Claude 3e666570-2fb5-4abd-955d-af106f942216"
+role = "builder"
+base = "80556cd8779203c816f4a87d53ff49d95d00395a"
+branch = "claude/issue-71-scope-answer-parsed-by-script"
+scope = ["plugins/atelier/workflows/lane.js", "tests/lane_workflow.test.mjs"]
+opened_commit = "375251f7d942ebcb6f4216f9757ebee71715d5dd"

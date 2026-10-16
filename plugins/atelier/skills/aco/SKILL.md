@@ -60,10 +60,8 @@ repository tracks `.aco/brief.toml`; without `--step` you get the four sections.
 
 - Forge issues are edited on the forge. `aco item` is only for state-ref items;
   `aco item edit` on a forge issue refuses.
-- Old `gh` releases (2.45.0 here) fail plain `gh issue view` and `gh pr edit` on
-  GitHub's Projects-classic sunset. Read with `--json body --jq .body`; write with
-  `gh api -X PATCH repos/<owner>/<repo>/issues/<n> -F body=@file` (a PR uses
-  `.../pulls/<n>`). Upgrading `gh` removes the need.
+- Read a body with `gh issue view <n> --json body --jq .body` and write it with
+  `gh issue edit <n> --body-file <file>` (a PR uses `gh pr view` and `gh pr edit`).
 - Keep the contract's `Blocked by:` line, and record each blocker as a GitHub issue
   dependency too: `aco next` and `aco board` read only those, never the body prose
   (`specs/body-block.spec.md`). `gh api -X POST
@@ -87,9 +85,8 @@ missing, doubled or fenced line (`specs/landing-grammar.spec.md`); a pass proves
 classification, the closing reference, a claim on the head branch and the default-branch
 target, not that the work is reviewed or the checks are green.
 
-Push the branch, then open the pull request with `gh api -X POST
-repos/<owner>/<repo>/pulls` (title, head, base, body); `gh pr create` fails on gh
-2.45.0 like `gh pr edit`.
+Push the branch, then open the pull request with `gh pr create` (title, head, base,
+body).
 
 A pull request lands exactly one item (LAND-18/19). A partial slice of a larger item
 becomes its own item first (`aco cut`); bundled cards use `Lands #<m>`.

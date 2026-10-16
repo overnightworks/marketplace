@@ -24,10 +24,16 @@ landed; this says *how*.
 
 ## Start a lane
 
-- Issue item: from the main checkout, `aco start <n>` creates the worktree
+- Issue item: from the main checkout, run the `aco start <n> ...` line that
+  `aco next` prints; it creates the worktree
   `<repo>-worktrees/issue-<n>-<slug>` and branch, then claims. Scope comes from
   the item body's aco block; `--scope PATH` (repeatable) must match it.
-  `specs/start.spec.md`.
+  `--json` belongs to the reading commands (`next`, `status`, `board`, `brief`),
+  not to `start`. `specs/start.spec.md`.
+- A `malformed ... blocked-by list` refusal right after a dependency was added or
+  removed is GitHub's listing lagging its dependencies endpoint: retry after a
+  minute, and never answer it with `--out-of-order`. One that persists is a defect
+  (see Friction).
 - `--whole REASON` is required for a wide scope (any directory, more than three
   paths); one sentence why it does not split. Prefer a body `whole` field.
 - `--out-of-order REASON` is required when a higher-ranked item is free or a
@@ -46,6 +52,8 @@ After `aco start`, hand the lane to the `atelier:lane` workflow.
 `aco brief <n> --step build|review|fix|land [--json]` prints the body, live claim,
 lane tip and touched files plus that step's own rules. Dispatch briefs point at the
 body, so build them from this output rather than from memory (`specs/brief.spec.md`).
+`--step` refuses (`no .aco/brief.toml in the repository`, exit 2) unless the
+repository tracks `.aco/brief.toml`; without `--step` you get the four sections.
 
 ## Item bodies
 

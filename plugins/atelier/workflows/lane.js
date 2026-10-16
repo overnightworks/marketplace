@@ -139,7 +139,7 @@ const SYNC = {
   properties: { merged: { type: 'boolean' }, tip: { type: 'string', pattern: '^[0-9a-f]{7,40}$', description: 'a commit sha from git rev-parse, nothing else' }, stoppedOnConflict: { type: 'boolean' }, note: { type: 'string' } },
 }
 // The agent copies aco's outside_claim as JSON text; the script parses it, so no field is derived by the model.
-const OUTSIDE_CLAIM = {
+const PUSH_AND_SCOPE_CHECK = {
   type: 'object',
   required: ['outside_claim', 'remote_tip'],
   properties: {
@@ -516,11 +516,11 @@ async function fixBatch(blocking, source, budgetKey) {
   if (accepted.stop) return unaccepted(accepted.stop)
   // A clean merge of main alone carries no lane change, so it cannot carry a fold-in either.
   if (accepted.range) foldIn.forEach(f => folded.set(findingKey(f), { ...f, tip: fixed.tip }))
-  const bounced = accepted.range ? await bounceOutsideClaim(`scope-${spent.total}`, budgetKey) : null
+  const bounced = await pushAndCheckScope(`scope-${spent.total}`, budgetKey)
   if (bounced?.stop) return unaccepted(bounced.stop)
   if (!bounced?.range) return { ...accepted, foldIn }
   return {
-    range: `${accepted.range}\nA second fixer then answered the claim-scope check; this delta follows:\n${bounced.range}`,
+    range: accepted.range ? `${accepted.range}\nA second fixer then answered the claim-scope check; this delta follows:\n${bounced.range}` : bounced.range,
     gateAgain: accepted.gateAgain || bounced.gateAgain, touchesProduction: accepted.touchesProduction || bounced.touchesProduction, foldIn,
   }
 }
@@ -528,7 +528,7 @@ async function fixBatch(blocking, source, budgetKey) {
 // The script, not the builder or fixer, makes sure the remote branch carries the lane tip, before the claim-scope check
 // and every review. Never a force push: a rejected push stops the lane.
 // aco decides what the claim covers; the lane only asks.
-async function bounceOutsideClaim(label, budgetKey) {
+async function pushAndCheckScope(label, budgetKey) {
   phase('Scope')
   const pushLine = `cd '${A.worktree}' && git push origin '${A.branch}' && git rev-parse 'origin/${A.branch}'`
   const scopeLine = `cd '${A.worktree}' && aco brief ${A.item} --json | python3 -c 'import json,sys; print(json.dumps(json.load(sys.stdin)["outside_claim"]))'`
@@ -536,9 +536,9 @@ async function bounceOutsideClaim(label, budgetKey) {
     `${laneFacts}\nChange nothing in the files. Run these two command lines in this order, each exactly as written, without changing it or its directory. ` +
     `The first pushes the lane branch: return its last printed line unchanged as remote_tip, or its error output when it fails, and then skip the second command line and return an empty outside_claim. ` +
     `Otherwise return the one line the second prints unchanged as outside_claim; when it prints nothing or fails, return its error output instead:\n${pushLine}\n${scopeLine}`,
-    { label, phase: 'Scope', schema: OUTSIDE_CLAIM, ...MECHANICAL })
-  if (!checked) return { stop: openResult('failed', 'scope', { reason: 'the claim-scope check returned no result' }) }
-  if (!sameCommit(checked.remote_tip, tip)) return { stop: openResult('failed', 'push', { reason: `the remote branch ${A.branch} does not carry the lane tip ${tip}; the push printed: ${checked.remote_tip}` }) }
+    { label, phase: 'Scope', schema: PUSH_AND_SCOPE_CHECK, ...MECHANICAL })
+  if (!checked) return { stop: openResult('failed', 'scope', { reason: 'the push and claim-scope check returned no result' }) }
+  if (!sameCommit(checked.remote_tip.trim(), tip)) return { stop: openResult('failed', 'push', { reason: `the remote branch ${A.branch} does not carry the lane tip ${tip}; the push printed: ${checked.remote_tip}` }) }
   let paths
   try { paths = JSON.parse(checked.outside_claim) } catch { paths = undefined }
   if (paths === null) return { stop: openResult('failed', 'scope', { reason: 'the lane holds no live claim (outside_claim is null); a lane without a claim does not reach review' }) }
@@ -574,7 +574,7 @@ async function settleReview(rr) {
 
 // A builder's work, and the commits a resumed run inherits, are checked against the claim before the first review, like every fixer's.
 const inheritedFromEarlierRun = !A.build
-const firstScopeCheck = await bounceOutsideClaim(inheritedFromEarlierRun ? 'scope-resume' : `scope-${spent.total}`, 'review')
+const firstScopeCheck = await pushAndCheckScope(inheritedFromEarlierRun ? 'scope-resume' : `scope-${spent.total}`, 'review')
 if (firstScopeCheck?.stop) return firstScopeCheck.stop
 
 // Re-entry after the head settled an awaiting-head result: review only the fix commits no reviewer has seen yet.

@@ -19,7 +19,7 @@ async function runLane(args, answers = {}) {
   let newestTip = args.tip
   const answerFor = (label) => {
     const answer = label in answers ? structuredClone(answers[label]) : defaultAnswerFor(label)
-    if (answer?.tip && /^(build|fix-)/.test(label)) newestTip = answer.tip
+    if (answer?.tip && /^(build|fix-|sync)/.test(label)) newestTip = answer.tip
     return label.startsWith('scope-') && answer ? { remote_tip: newestTip, ...answer } : answer
   }
   const agent = async (prompt, options = {}) => { launchedAgents.push(options.label); agentCalls[options.label] = { prompt, options }; return answerFor(options.label) }
@@ -618,9 +618,13 @@ test('#108 AC-scope-error-named: the scope agent is told to return the error out
   assert.match(agentCalls['scope-0'].prompt, /prints nothing or fails, return its error output/)
 })
 
+const mergedOnlyTip = 'e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2'
+const conflictsWithMain = { where: 'mergeable', kind: 'defect', text: 'the pull request conflicts with main', rule: 'r', evidence: 'CONFLICTING' }
+const mergeOnlyFix = { ...resumeFix, mergedBase: mergedOnlyTip, tip: mergedOnlyTip, files: [], regression: [] }
 const stepsThatMustPush = [
   ['the builder', builtLane, { build: built }, 'scope-0', resumeTip],
   ['an accepted fix batch', { ...resumeArgs, fixFirst: [defectWithoutDraft] }, { 'fix-1': { ...resumeFix, regression: [] } }, 'scope-1', resumeFixedTip],
+  ['a fix batch that only merged main', { ...resumeArgs, fixFirst: [conflictsWithMain] }, { 'fix-1': mergeOnlyFix }, 'scope-1', mergedOnlyTip],
 ]
 const pushLine = (branch) => `git push origin '${branch}' && git rev-parse 'origin/${branch}'`
 for (const [step, args, answers, scopeLabel, stepTip] of stepsThatMustPush) {
@@ -630,22 +634,23 @@ for (const [step, args, answers, scopeLabel, stepTip] of stepsThatMustPush) {
     assert.doesNotMatch(agentCalls[scopeLabel].prompt, /--force| -f\b|\bgit push origin '?\+/)
   })
 
-  for (const [spelling, remote] of [['the full tip', stepTip], ['an abbreviation of the tip', stepTip.slice(0, 7)]]) {
-    test(`#115 AC-remote-carries-tip: a remote that prints ${spelling} after ${step} goes on to review unchanged`, async () => {
+  for (const [spelling, remote] of [['the full tip', stepTip], ['an abbreviation of the tip', stepTip.slice(0, 7)], ['the tip with a trailing newline', `${stepTip}\n`]]) {
+    test(`#115 AC-remote-carries-tip: a remote that prints ${spelling} after ${step} goes on past the push unchanged`, async () => {
       const { result, launchedAgents } = await runLane(args, { ...answers, [scopeLabel]: { outside_claim: '[]', remote_tip: remote } })
       assert.notEqual(result.stage, 'push')
-      assert.ok(launchedAgents.some(label => label.endsWith('-review')), launchedAgents.join())
+      assert.ok(launchedAgents.indexOf(scopeLabel) < launchedAgents.length - 1, launchedAgents.join())
     })
   }
 
   const remoteTextsThatCannotCarryTheTip = [
-    ['a rejected push', '! [rejected] b -> b (non-fast-forward)'],
-    ['another commit', 'ffffffffffffffffffffffffffffffffffffffff'],
-    ['nothing at all', ''],
+    ['a rejected push', '! [rejected] b -> b (non-fast-forward)', '[]'],
+    ['a rejected push with the empty outside_claim the agent returns for it', '! [rejected] b -> b (non-fast-forward)', ''],
+    ['another commit', 'ffffffffffffffffffffffffffffffffffffffff', '[]'],
+    ['nothing at all', '', '[]'],
   ]
-  for (const [outcome, printed] of remoteTextsThatCannotCarryTheTip) {
+  for (const [outcome, printed, outsideClaim] of remoteTextsThatCannotCarryTheTip) {
     test(`#115 AC-push-stops-loud: ${outcome} after ${step} stops the lane at push naming the tip and what came back, before any review`, async () => {
-      const { result, launchedAgents } = await runLane(args, { ...answers, [scopeLabel]: { outside_claim: '[]', remote_tip: printed } })
+      const { result, launchedAgents } = await runLane(args, { ...answers, [scopeLabel]: { outside_claim: outsideClaim, remote_tip: printed } })
       assert.deepEqual([result.status, result.stage], ['failed', 'push'])
       assert.ok(result.reason.includes(stepTip), result.reason)
       assert.ok(result.reason.includes(printed), result.reason)

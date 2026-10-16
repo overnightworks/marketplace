@@ -13,7 +13,9 @@ async function runLane(args, answers = {}) {
   const launchedAgents = []
   const agentCalls = {}
   const cleanSync = { merged: false, tip: args.tip, stoppedOnConflict: false }
-  const answerFor = (label) => label in answers ? structuredClone(answers[label]) : (label === 'sync' ? cleanSync : null)
+  const coveredByClaim = { claimed: true, outside_claim: [] }
+  const defaultAnswerFor = (label) => label === 'sync' ? cleanSync : label.startsWith('scope-') ? coveredByClaim : null
+  const answerFor = (label) => label in answers ? structuredClone(answers[label]) : defaultAnswerFor(label)
   const agent = async (prompt, options = {}) => { launchedAgents.push(options.label); agentCalls[options.label] = { prompt, options }; return answerFor(options.label) }
   const parallel = async thunks => Promise.all(thunks.map(thunk => thunk()))
   const ignore = () => {}
@@ -127,7 +129,7 @@ for (const [risk, reviewers] of firstReviewRoundByRisk) {
   test(`risk ${JSON.stringify(risk)} passes input and starts the reviews ${reviewers.join(' and ')}`, async () => {
     const { result, launchedAgents } = await runLane({ ...resumedLane, risk })
     assert.notEqual(result.stage, 'input')
-    assert.deepEqual(launchedAgents, ['sync', ...reviewers])
+    assert.deepEqual(launchedAgents, ['sync', 'scope-resume', ...reviewers])
   })
 }
 
@@ -372,9 +374,9 @@ const resumeFix = { oldTip: resumeTip, mergedBase: resumeTip, tip: resumeFixedTi
 const resumeArgs = { ...resumedLane, tip: resumeTip }
 
 const resumesByHandedOver = [
-  ['foldIn alone', { foldIn: [tidy] }, ['sync', 'fix-1', 'r1-review']],
-  ['foldIn alone with deltaFrom', { foldIn: [tidy], deltaFrom: resumeTip }, ['sync', 'fix-1', 'r1-review']],
-  ['neither foldIn nor fixFirst', {}, ['sync', 'r0-review']],
+  ['foldIn alone', { foldIn: [tidy] }, ['sync', 'scope-resume', 'fix-1', 'scope-1', 'r1-review']],
+  ['foldIn alone with deltaFrom', { foldIn: [tidy], deltaFrom: resumeTip }, ['sync', 'scope-resume', 'fix-1', 'scope-1', 'r1-review']],
+  ['neither foldIn nor fixFirst', {}, ['sync', 'scope-resume', 'r0-review']],
 ]
 for (const [handedOver, args, expectedAgents] of resumesByHandedOver) {
   test(`a resume with ${handedOver} runs ${expectedAgents.slice(1).join(' then ')}`, async () => {
@@ -461,12 +463,91 @@ for (const [behaviour, fixFirst, regression, rejectedFor] of proofsAtOneWhere) {
   })
 }
 
-test('#103 AC-removed-vacuous: the review after a removal asks the reviewer to judge the removed test', async () => {
-  const regression = [proofOf('test-gap', { resolution: 'removed-vacuous', diff: removalDiff })]
-  const { agentCalls } = await runLane({ ...resumeArgs, fixFirst: [testGap] }, { 'fix-1': { ...resumeFix, regression } })
-  assert.match(agentCalls['r1-review'].prompt, /removing a vacuous test.*judge whether the removed test pinned no behaviour/)
-  assert.ok(agentCalls['r1-review'].prompt.includes(removalDiff))
+const removalsByFindingKind = [
+  ['#103 AC-removed-vacuous: the review after a removal answering a test-gap asks the reviewer to judge the removed test', testGap, true],
+  ['#71 AC-removal-answers-test-gap: a defect proof marked removed-vacuous is judged by the defect bar and shows no removal', defectWithoutDraft, false],
+]
+for (const [behaviour, answered, shownAsRemoval] of removalsByFindingKind) {
+  test(behaviour, async () => {
+    const regression = [proofOf(answered.kind, { resolution: 'removed-vacuous', diff: removalDiff, failedBefore: true })]
+    const { agentCalls } = await runLane({ ...resumeArgs, fixFirst: [answered] }, { 'fix-1': { ...resumeFix, regression } })
+    const prompt = agentCalls['r1-review'].prompt
+    assert.equal(/removing a vacuous test.*judge whether the removed test pinned no behaviour/.test(prompt), shownAsRemoval)
+    assert.equal(prompt.includes(removalDiff), shownAsRemoval)
+  })
+}
+
+const bouncedTip = 'e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2'
+const bounceFix = { ...resumeFix, oldTip: resumeFixedTip, mergedBase: resumeFixedTip, tip: bouncedTip, files: ['x.py'], regression: [] }
+const builtLane = { ...resumedLane, pr: undefined, tip: undefined, build: 'b' }
+const built = { pr: 2, tip: resumeTip, blocked: false }
+
+const claimScopeAnswers = (outsideClaim) => ({ 'fix-1': { ...resumeFix, regression: [] }, 'scope-1': { claimed: true, outside_claim: outsideClaim }, 'fix-2': bounceFix })
+const bouncesAfterAFixer = [
+  ['#71 AC-bounce-outside-claim: a fixer that changed board.py outside the claim is bounced to a fresh fixer naming it, before review', ['board.py'], ['fix-1', 'scope-1', 'fix-2', 'scope-2', 'r2-review']],
+  ['#71 AC-bounce-outside-claim: outside_claim [] goes to review unchanged', [], ['fix-1', 'scope-1', 'r1-review']],
+]
+for (const [behaviour, outsideClaim, expectedAgents] of bouncesAfterAFixer) {
+  test(behaviour, async () => {
+    const { launchedAgents, agentCalls } = await runLane({ ...resumeArgs, fixFirst: [defectWithoutDraft] }, claimScopeAnswers(outsideClaim))
+    assert.deepEqual(launchedAgents.slice(2, 2 + expectedAgents.length), expectedAgents)
+    if (outsideClaim.length) {
+      assert.match(agentCalls['fix-2'].prompt, /board\.py/)
+      assert.match(agentCalls['fix-2'].prompt, /move the change back inside the claim scope or revert it/)
+      const reviewPrompt = agentCalls['r2-review'].prompt
+      assert.ok(reviewPrompt.includes(`git diff ${resumeTip}..${resumeFixedTip}`), 'the review still sees the first fix')
+      assert.ok(reviewPrompt.includes(`git diff ${resumeFixedTip}..${bouncedTip}`), 'the review sees the bounce')
+    }
+  })
+}
+
+const stopsWhileFixersStayOutside = [
+  ['the second fixer leaves the same paths again', { budgets: { test: 3 } }, ['fix-1', 'scope-1', 'fix-2', 'scope-2'], /left the claim scope again at board\.py/],
+  ['the fix budget is spent', { budgets: { test: 1 } }, ['fix-1', 'scope-1'], /test budget spent/],
+]
+for (const [behaviour, extraArgs, expectedAgents, reason] of stopsWhileFixersStayOutside) {
+  test(`#71 AC-bounce-outside-claim: a lane stops when ${behaviour}, before any review`, async () => {
+    const answers = { ...claimScopeAnswers(['board.py']), 'scope-2': { claimed: true, outside_claim: ['board.py'] } }
+    const { result, launchedAgents } = await runLane({ ...resumeArgs, ...extraArgs, fixFirst: [defectWithoutDraft] }, answers)
+    assert.equal(result.status, 'unresolved')
+    assert.match(result.reason, reason)
+    assert.deepEqual(launchedAgents.slice(2), expectedAgents)
+  })
+}
+
+const resumesOutsideTheClaim = [
+  ['deltaFrom alone', { deltaFrom: resumeTip }],
+  ['pr and tip alone', {}],
+]
+for (const [handedOver, args] of resumesOutsideTheClaim) {
+  test(`#71 AC-bounce-outside-claim: a resume with ${handedOver} whose range left the claim scope is bounced before its first review`, async () => {
+    const { launchedAgents, agentCalls } = await runLane({ ...resumeArgs, ...args }, { 'scope-resume': { claimed: true, outside_claim: ['board.py'] }, 'fix-1': { ...resumeFix, regression: [] } })
+    assert.deepEqual(launchedAgents.slice(0, 4), ['sync', 'scope-resume', 'fix-1', 'scope-1'])
+    assert.match(agentCalls['fix-1'].prompt, /board\.py/)
+    assert.ok(launchedAgents.findIndex(label => label.endsWith('-review')) > launchedAgents.indexOf('scope-1'))
+  })
+}
+
+test('#71 AC-bounce-outside-claim: a builder that left the claim scope is bounced before the first review', async () => {
+  const { launchedAgents, agentCalls } = await runLane(builtLane, { build: built, 'scope-0': { claimed: true, outside_claim: ['board.py'] }, 'fix-1': { ...resumeFix, regression: [] } })
+  assert.deepEqual(launchedAgents.slice(0, 4), ['build', 'scope-0', 'fix-1', 'scope-1'])
+  assert.match(agentCalls['fix-1'].prompt, /board\.py/)
+  assert.ok(launchedAgents.findIndex(label => label.endsWith('-review')) > launchedAgents.indexOf('scope-1'))
 })
+
+const stopsWithoutClaim = [
+  ['the builder', builtLane, { build: built, 'scope-0': { claimed: false, outside_claim: [] } }, 'scope-0'],
+  ['a fixer', { ...resumeArgs, fixFirst: [defectWithoutDraft] }, { 'fix-1': { ...resumeFix, regression: [] }, 'scope-1': { claimed: false, outside_claim: [] } }, 'scope-1'],
+]
+for (const [step, args, answers, scopeLabel] of stopsWithoutClaim) {
+  test(`#71 AC-no-claim-no-pass: outside_claim null after ${step} stops the lane with a reason before any review`, async () => {
+    const { result, launchedAgents } = await runLane(args, answers)
+    assert.deepEqual([result.status, result.stage], ['failed', 'scope'])
+    assert.match(result.reason, /no live claim/)
+    assert.equal(launchedAgents.at(-1), scopeLabel)
+    assert.ok(!launchedAgents.some(label => label.includes('review')))
+  })
+}
 
 test('#103 AC-scratch-and-load: the builder and fixer know the scratch path and the tester re-reads the load after the lock', async () => {
   const replay = webauthReplay

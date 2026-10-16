@@ -1,15 +1,15 @@
 ---
 name: aco
-description: Operate aco (agent claims, the work board, landing) as a head session in any repository that coordinates with it. Use before the first aco write — starting or resuming a lane, claiming a `fix/`/`docs/` branch, writing item or pull request bodies, briefing agents, landing or releasing, reading the board, or installing the protect hook — and whenever aco refuses something.
+description: Operate aco (agent claims, the work board, landing) in any repository that coordinates with it. Use before `aco start`, `aco claim`, `aco land`, writing a pull request body, or editing an item body; when briefing agents, releasing a claim, or installing the protect hook; and whenever aco refuses something.
 ---
 
 # Operating aco as a head
 
 This skill says the order and the traps of one lane. aco owns the facts: flags,
-outputs, and refusal sentences are in `aco <command> --help`, in
-`/home/felix-hummert/git/agent-claim/README.md` and in its `specs/<command>.spec.md`
-(published as github.com/overnightworks/agent-coordination). Read the spec of a
-command before using it the first time; this file copies none of it. The global
+outputs, and refusal sentences are in the installed `aco <command> --help` (the
+local owner) and in `README.md` and `specs/<command>.spec.md` of
+github.com/overnightworks/agent-coordination. Read the spec of a command before
+using it the first time; this file copies none of it. The global
 contract's section "How to coordinate" says *that* a lane is claimed, reviewed and
 landed; this says *how*.
 
@@ -19,26 +19,25 @@ landed; this says *how*.
 2. `aco next` (`--json`) — the item to pull. `needs-operator` items are never named;
    an item with unruled expectations is refined first, not dispatched
    (`specs/next.spec.md`).
-3. `aco board` (`--json`) reads the whole board, read-only. `--serve` and `--html`
-   are not for routine reading.
+3. `aco board --json` reads the whole board, read-only (bare `aco board` refuses);
+   `--html` and `--serve` are not for routine reading.
 
 ## Start a lane
 
-- Issue item: from the primary checkout, `aco start <n>` creates the worktree
+- Issue item: from the main checkout, `aco start <n>` creates the worktree
   `<repo>-worktrees/issue-<n>-<slug>` and branch, then claims. Scope comes from
   the item body's aco block; `--scope PATH` (repeatable) must match it.
   `specs/start.spec.md`.
 - `--whole REASON` is required for a wide scope (any directory, more than three
   paths); one sentence why it does not split. Prefer a body `whole` field.
 - `--out-of-order REASON` is required when a higher-ranked item is free or a
-  blocker is open. Use it only for an operator-named item.
+  blocker is open (contract: "Start of a main session").
 - Issue-less work: create the `fix/<slug>` or `docs/<slug>` worktree yourself, then
   `aco claim --scope PATH` in lane mode from inside it (`specs/claim.spec.md`).
   Release with `aco release --merged <pr>` or `--abandoned REASON`
   (`specs/release.spec.md`). Set `ACO_AGENT` so claim and hook agree on identity.
-- Bundled small cards run under the lead card: claim the lead with `--scope`
-  covering every card's paths and `--whole` naming the bundle. Bodies and the PR
-  wording follow "Pull request body" below.
+- Bundled cards (contract: "How to coordinate"): claim the lead with `--scope`
+  covering every card's paths and `--whole` naming the bundle.
 
 After `aco start`, hand the lane to the `atelier:lane` workflow.
 
@@ -52,10 +51,16 @@ body, so build them from this output rather than from memory (`specs/brief.spec.
 
 - Forge issues are edited on the forge. `aco item` is only for state-ref items;
   `aco item edit` on a forge issue refuses.
-- `gh issue view` and `gh pr edit` currently fail on GitHub's Projects-classic
-  GraphQL deprecation. Read with `gh issue view <n> --json body --jq .body`; write with
-  `gh api -X PATCH repos/<owner>/<repo>/issues/<n> -F body=@file` (for a PR use
-  `.../pulls/<n>`).
+- Old `gh` releases (2.45.0 here) fail plain `gh issue view` and `gh pr edit` on
+  GitHub's Projects-classic sunset. Read with `--json body --jq .body`; write with
+  `gh api -X PATCH repos/<owner>/<repo>/issues/<n> -F body=@file` (a PR uses
+  `.../pulls/<n>`). Upgrading `gh` removes the need.
+- Keep the contract's `Blocked by:` line, and record each blocker as a GitHub issue
+  dependency too: `aco next` and `aco board` read only those, never the body prose
+  (`specs/body-block.spec.md`). `gh api -X POST
+  repos/<owner>/<repo>/issues/<n>/dependencies/blocked_by -F issue_id=<id>`, where
+  `<id>` is `gh api repos/<owner>/<repo>/issues/<m> --jq .id` of the blocker; a
+  blocker in another repository works the same way.
 - Pipe the new body through `aco body --check` before writing it; it reports defects
   in the fenced `aco` block (`specs/body.spec.md`, `specs/body-block.spec.md`).
 - `aco check <issue>` judges a written issue body's contract.
@@ -71,6 +76,9 @@ a lane claim. Bundled cards: `Lands #<m>` per card (it does not close; the head
 closes them after the merge). Run `aco check <pr>` before landing; it refuses a
 missing, doubled or fenced line (`specs/landing-grammar.spec.md`).
 
+A pull request lands exactly one item (LAND-18/19). A partial slice of a larger item
+becomes its own item first (`aco cut`); bundled cards use `Lands #<m>`.
+
 ## Land
 
 Gates are green and you hold the tip the reviewers saw. Landing is delegated as a
@@ -81,8 +89,8 @@ named task, but the precondition is aco's:
 2. `aco land <pr> --head <sha>` merges only if the PR head is that sha, then runs the
    release: claim released, clean merged worktree and branch removed
    (`--keep-worktree` keeps them). `specs/land.spec.md`.
-3. Read the `freed:` and `next:` lines it prints; each freed item is dispatched or
-   deferred with a reason (contract: "A landing is not finished …"). Then `aco next`.
+3. Read the `freed:` and `next:` lines it prints and act on them as the contract's
+   "How to coordinate" says. Then `aco next`.
 4. Close bundled non-lead cards with the PR link.
 
 If the merge worked but a step failed, `aco release <n> --merged <pr>` finishes it

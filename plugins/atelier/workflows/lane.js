@@ -139,12 +139,17 @@ const SYNC = {
   properties: { merged: { type: 'boolean' }, tip: { type: 'string', pattern: '^[0-9a-f]{7,40}$', description: 'a commit sha from git rev-parse, nothing else' }, stoppedOnConflict: { type: 'boolean' }, note: { type: 'string' } },
 }
 // The agent copies aco's outside_claim as JSON text; the script parses it, so no field is derived by the model.
+// The pattern admits exactly aco's two printed forms (null, or a list of strings), so a copying slip fails the schema
+// and the agent answers again; a failed command is reported in command_error, never in a scope answer.
+const JSON_STRING = String.raw`"([^"\\]|\\.)*"`
+const OUTSIDE_CLAIM_PATTERN = String.raw`^\s*(null|\[\s*(${JSON_STRING}(\s*,\s*${JSON_STRING})*)?\s*\])\s*$`
 const PUSH_AND_SCOPE_CHECK = {
   type: 'object',
-  required: ['outside_claim', 'remote_tip'],
+  required: [],
   properties: {
-    remote_tip: { type: 'string', description: 'the last printed line of the first command line, unchanged; its error output when it fails' },
-    outside_claim: { type: 'string', description: 'the printed line of the second command line, unchanged; empty when the first failed' },
+    remote_tip: { type: 'string', description: 'the last printed line of the first command line, unchanged; leave it out when that command failed' },
+    outside_claim: { type: 'string', pattern: OUTSIDE_CLAIM_PATTERN, description: 'the printed line of the second command line, unchanged; leave it out when either command failed' },
+    command_error: { type: 'string', description: 'the error output of the command line that failed or printed nothing; leave it out when both succeeded' },
   },
 }
 const CLAIM_SCOPE_RULE = 'a lane edits only inside its claim scope'
@@ -180,8 +185,8 @@ const FIX = {
     },
     resolved: {
       type: 'array',
-      description: 'fold-ins you found already done in the worktree, left there by an earlier fixer whose fix was not accepted',
-      items: { type: 'object', required: ['where', 'text'], properties: { where: { type: 'string' }, text: { type: 'string' } } },
+      description: 'fold-ins you found already done: left in the worktree by an earlier fixer whose fix was not accepted, or already satisfied by the lane tip',
+      items: { type: 'object', required: ['where', 'text', 'evidence'], properties: { where: { type: 'string' }, text: { type: 'string' }, evidence: { type: 'string', description: 'the test, probe cell or line that already satisfies it' } } },
     },
     regression: {
       type: 'array',
@@ -407,7 +412,8 @@ const listFoldIns = (foldIn) => foldIn.map((f, i) => `${i + 1}. ${f.where} — $
 function foldInBrief(foldIn) {
   if (!foldIn.length) return ''
   return `\n\nAlso fold in these follow-ups, only because each sits in a file this lane already changed and cannot change behaviour; one commit for all of them. ` +
-    `One that an earlier fixer already left done in the worktree you do not redo; list it in resolved:\n` +
+    `One that is already done — left in the worktree by an earlier fixer, or already satisfied by the lane tip — you do not redo; list it in resolved with its evidence (the test, probe cell or line that satisfies it). ` +
+    `When that leaves you nothing to change, change nothing:\n` +
     listFoldIns(foldIn)
 }
 // The reviewer sees which follow-ups the fixer was given, so it can tell a skipped one from a done one.
@@ -443,16 +449,22 @@ const needsProof = (finding) => kindOf(finding) === 'test-gap' || (kindOf(findin
 // Why a fixer's answer does not count as a fix, or null when it does. A proof counts only for the blocking finding
 // whose where and kind it names exactly; a proof for anything else (a fold-in, say) is not checked.
 const proves = (proof, finding) => proof.finding === finding.where && proof.kind === kindOf(finding)
-function fixRejection(fixed, blocking) {
+// The evidence the fixer gave for a fold-in it found already done, or undefined without any.
+const satisfiedEvidence = (fixed, foldIn) => (fixed.resolved || []).find(r => r.where === foldIn.where && (r.evidence || '').trim())?.evidence
+// An unchanged tip is a fix only when there are no blocking findings and every fold-in is proven already satisfied.
+const everyFoldInSatisfied = (fixed, blocking, foldIn) => !blocking.length && foldIn.length > 0 && foldIn.every(f => satisfiedEvidence(fixed, f))
+function fixRejection(fixed, blocking, foldIn) {
   const proofs = fixed.regression || []
   const gaps = proofs.flatMap(proof => blocking.filter(f => proves(proof, f)).map(finding => ({ proof, finding, gap: proofGap(proof, finding) })))
     .filter(checked => checked.gap)
   if (gaps.length) return { reason: [...new Set(gaps.map(checked => checked.gap))].join('; '), regression: gaps.map(checked => checked.proof), lastBlocking: gaps.map(checked => checked.finding) }
   const unproven = blocking.filter(f => needsProof(f) && !proofs.some(r => proves(r, f)))
   if (unproven.length) return { reason: 'a test-gap finding or a defect with a test draft got no regression test', lastBlocking: unproven }
-  if (sameCommit(fixed.tip, fixed.oldTip)) return { reason: 'the fixer changed nothing', lastBlocking: blocking }
+  // Whether main moved or not, satisfied fold-ins leave the lane exactly at the merge: anything past it is unasked work.
+  const nothingPastTheMerge = everyFoldInSatisfied(fixed, blocking, foldIn) && sameCommit(fixed.tip, fixed.mergedBase)
+  if (sameCommit(fixed.tip, fixed.oldTip)) return nothingPastTheMerge ? null : { reason: 'the fixer changed nothing', lastBlocking: blocking }
   const mergeWasTheFinding = blocking.length === 1 && blocking[0].where === 'mergeable'
-  if (sameCommit(fixed.tip, fixed.mergedBase) && !mergeWasTheFinding) return { reason: 'the fixer only merged main and fixed nothing', lastBlocking: blocking }
+  if (sameCommit(fixed.tip, fixed.mergedBase) && !mergeWasTheFinding && !nothingPastTheMerge) return { reason: 'the fixer only merged main and fixed nothing', lastBlocking: blocking }
   return null
 }
 
@@ -510,12 +522,15 @@ async function fixBatch(blocking, source, budgetKey) {
   const unaccepted = (result) => ({ stop: (fixed.resolved || []).length ? { ...result, resolved: fixed.resolved } : result })
   if (fixed.blocked) return unaccepted(openResult('escalated', 'fix', { reason: fixed.blockedReason }))
   if ((fixed.disputed || []).length) return unaccepted(awaitHeadOnDispute(fixed, blocking))
-  const rejection = fixRejection(fixed, blocking)
+  const rejection = fixRejection(fixed, blocking, foldIn)
   if (rejection) return unaccepted(openResult('failed', 'fix', rejection))
   const accepted = acceptFix(fixed, blocking, foldIn)
   if (accepted.stop) return unaccepted(accepted.stop)
-  // A clean merge of main alone carries no lane change, so it cannot carry a fold-in either.
-  if (accepted.range) foldIn.forEach(f => folded.set(findingKey(f), { ...f, tip: fixed.tip }))
+  // A clean merge of main alone carries no lane change, so it cannot carry a fold-in either; an unchanged tip carries
+  // them only when the fixer proved each already satisfied.
+  if (accepted.range || everyFoldInSatisfied(fixed, blocking, foldIn)) {
+    foldIn.forEach(f => folded.set(findingKey(f), { ...f, tip: fixed.tip, ...(satisfiedEvidence(fixed, f) && { evidence: satisfiedEvidence(fixed, f) }) }))
+  }
   const bounced = await pushAndCheckScope(`scope-${spent.total}`, budgetKey)
   if (bounced?.stop) return unaccepted(bounced.stop)
   if (!bounced?.range) return { ...accepted, foldIn }
@@ -534,11 +549,16 @@ async function pushAndCheckScope(label, budgetKey) {
   const scopeLine = `cd '${A.worktree}' && aco brief ${A.item} --json | python3 -c 'import json,sys; print(json.dumps(json.load(sys.stdin)["outside_claim"]))'`
   const checked = await safeAgent(
     `${laneFacts}\nChange nothing in the files. Run these two command lines in this order, each exactly as written, without changing it or its directory. ` +
-    `The first pushes the lane branch: return its last printed line unchanged as remote_tip, or its error output when it fails, and then skip the second command line and return an empty outside_claim. ` +
-    `Otherwise return the one line the second prints unchanged as outside_claim; when it prints nothing or fails, return its error output instead:\n${pushLine}\n${scopeLine}`,
+    `The first pushes the lane branch: return its last printed line unchanged as remote_tip; when it fails, return its error output as command_error, leave remote_tip and outside_claim out, and skip the second command line. ` +
+    `Otherwise return the one line the second prints unchanged as outside_claim; when it prints nothing or fails, return its error output as command_error and leave outside_claim out:\n${pushLine}\n${scopeLine}`,
     { label, phase: 'Scope', schema: PUSH_AND_SCOPE_CHECK, ...MECHANICAL })
   if (!checked) return { stop: openResult('failed', 'scope', { reason: 'the push and claim-scope check returned no result' }) }
-  if (!sameCommit(checked.remote_tip.trim(), tip)) return { stop: openResult('failed', 'push', { reason: `the remote branch ${A.branch} does not carry the lane tip ${tip}; the push printed: ${checked.remote_tip}` }) }
+  if (!sameCommit((checked.remote_tip || '').trim(), tip)) {
+    const printed = [checked.remote_tip, checked.command_error].filter(Boolean).join(' ')
+    return { stop: openResult('failed', 'push', { reason: `the remote branch ${A.branch} does not carry the lane tip ${tip}; the push printed: ${printed}` }) }
+  }
+  if (checked.command_error) return { stop: openResult('failed', 'scope', { reason: `aco brief ${A.item} --json failed or printed nothing: ${checked.command_error}` }) }
+  if (checked.outside_claim === undefined) return { stop: openResult('failed', 'scope', { reason: `the push succeeded but the scope agent returned no outside_claim and no command_error for aco brief ${A.item} --json` }) }
   let paths
   try { paths = JSON.parse(checked.outside_claim) } catch { paths = undefined }
   if (paths === null) return { stop: openResult('failed', 'scope', { reason: 'the lane holds no live claim (outside_claim is null); a lane without a claim does not reach review' }) }

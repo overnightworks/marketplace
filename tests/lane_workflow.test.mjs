@@ -15,12 +15,14 @@ async function runLane(args, answers = {}) {
   const cleanSync = { merged: false, tip: args.tip, stoppedOnConflict: false }
   const coveredByClaim = { outside_claim: '[]' }
   const defaultAnswerFor = (label) => label === 'sync' ? cleanSync : label.startsWith('scope-') ? coveredByClaim : null
-  // The remote branch carries the newest tip a builder or fixer returned, unless a test says what the push printed.
+  // The remote branch carries the newest tip a builder or fixer returned, unless a test says what the push printed
+  // or the answer carries the error of a failed push.
   let newestTip = args.tip
+  const pushPrintedSomething = (answer) => !answer.command_error || 'remote_tip' in answer
   const answerFor = (label) => {
     const answer = label in answers ? structuredClone(answers[label]) : defaultAnswerFor(label)
     if (answer?.tip && /^(build|fix-|sync)/.test(label)) newestTip = answer.tip
-    return label.startsWith('scope-') && answer ? { remote_tip: newestTip, ...answer } : answer
+    return label.startsWith('scope-') && answer && pushPrintedSomething(answer) ? { remote_tip: newestTip, ...answer } : answer
   }
   const agent = async (prompt, options = {}) => { launchedAgents.push(options.label); agentCalls[options.label] = { prompt, options }; return answerFor(options.label) }
   const parallel = async thunks => Promise.all(thunks.map(thunk => thunk()))
@@ -376,6 +378,7 @@ test('a stopped fix reports the fold-ins its fixer found already done, and leave
 const resumeTip = 'c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0'
 const resumeFixedTip = 'd1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1'
 const tidy = followup('x.py:1', 'tidy the import order', 'follow-up (fix in place)')
+const defectWithoutDraft = { ...finding('t.py:1', 'the code breaks the rule'), kind: 'defect' }
 const resumeFix = { oldTip: resumeTip, mergedBase: resumeTip, tip: resumeFixedTip, mergeResolvedLaneConflict: false, files: ['x.py'], disputed: [], blocked: false }
 const resumeArgs = { ...resumedLane, tip: resumeTip }
 
@@ -402,6 +405,77 @@ test('a fixer given only fold-ins is told there are no blocking findings', async
   const { agentCalls } = await runLane({ ...resumeArgs, foldIn: [tidy] }, { 'fix-1': resumeFix })
   assert.match(agentCalls['fix-1'].prompt, /There are no blocking findings; your whole task is the follow-ups below/)
   assert.doesNotMatch(agentCalls['fix-1'].prompt, /and nothing else/)
+})
+
+const alsoTidy = followup('y.py:2', 'rename the helper', 'follow-up (fix in place)')
+const unchangedFix = { ...resumeFix, tip: resumeTip, files: [], regression: [] }
+const satisfied = (item, evidence = 'tests/x_test.py already pins it') => ({ where: item.where, text: item.text, evidence })
+const reachesTheEnd = { 'e2e-0': PASS, 'ci-0': greenCi(resumeTip) }
+
+const satisfiedFoldIns = [
+  ['one fold-in', [tidy], [satisfied(tidy)]],
+  ['two fold-ins', [tidy, alsoTidy], [satisfied(tidy), satisfied(alsoTidy, 'probe cell 4 proves it')]],
+]
+for (const [what, foldIn, resolved] of satisfiedFoldIns) {
+  test(`#119 AC-satisfied-counts-as-folded: ${what} the fixer proves already satisfied at an unchanged tip are folded with its evidence and the lane goes on`, async () => {
+    const { result, launchedAgents } = await runLane({ ...resumeArgs, foldIn }, { 'fix-1': { ...unchangedFix, resolved }, ...reachesTheEnd })
+    assert.equal(result.status, 'ready-to-land', result.reason)
+    assert.deepEqual(result.folded, foldIn.map((f, i) => ({ ...f, tip: resumeTip, evidence: resolved[i].evidence })))
+    assert.deepEqual(result.followups, [])
+    assert.ok(launchedAgents.includes('e2e-0'))
+  })
+}
+
+const mainMovedTip = 'f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3'
+const satisfiedAcrossMovedMain = [
+  ['main moved and the lane has no change of its own past the merge', { mergedBase: mainMovedTip, tip: mainMovedTip }, true],
+  ['main moved but the returned tip is not the merge', { mergedBase: mainMovedTip, tip: resumeTip }, false],
+]
+for (const [what, shape, goesOn] of satisfiedAcrossMovedMain) {
+  test(`#119 AC-satisfied-counts-as-folded: every fold-in satisfied with ${what} ${goesOn ? 'goes on with the merge as the tip' : 'stops at fix'}`, async () => {
+    const answers = { 'fix-1': { ...unchangedFix, ...shape, resolved: [satisfied(tidy)] }, 'e2e-0': PASS, 'ci-0': greenCi(mainMovedTip) }
+    const { result, launchedAgents } = await runLane({ ...resumeArgs, foldIn: [tidy] }, answers)
+    assert.deepEqual([result.status, result.stage], goesOn ? ['ready-to-land', undefined] : ['failed', 'fix'])
+    assert.equal(launchedAgents.some(label => label.includes('review')), false)
+    if (goesOn) assert.deepEqual(result.folded.map(f => f.tip), [mainMovedTip])
+  })
+}
+
+const stopsDespiteResolved = [
+  ['a fold-in the fixer leaves out of resolved', { foldIn: [tidy, alsoTidy] }, [satisfied(tidy)]],
+  ['nothing listed in resolved', { foldIn: [tidy] }, []],
+  ['a fold-in listed without evidence', { foldIn: [tidy] }, [satisfied(tidy, '')]],
+  ['a fold-in listed with blank evidence', { foldIn: [tidy] }, [satisfied(tidy, '  ')]],
+  ['blocking findings, however much the fixer lists', { foldIn: [tidy], fixFirst: [defectWithoutDraft] }, [satisfied(tidy)]],
+]
+for (const [what, args, resolved] of stopsDespiteResolved) {
+  test(`#119 AC-evidence-or-stop: a fixer that changes nothing with ${what} still stops at fix`, async () => {
+    const { result } = await runLane({ ...resumeArgs, ...args }, { 'fix-1': { ...unchangedFix, resolved } })
+    assert.deepEqual([result.status, result.stage], ['failed', 'fix'])
+    assert.match(result.reason, /the fixer changed nothing/)
+    assert.deepEqual(result.folded, [])
+    assert.ok(result.followups.some(f => f.where === tidy.where))
+  })
+}
+
+test('#119 AC-satisfied-counts-as-folded: with deltaFrom, the review after satisfied fold-ins still sees everything since deltaFrom', async () => {
+  const answers = { 'fix-1': { ...unchangedFix, resolved: [satisfied(tidy)] }, ...reachesTheEnd }
+  const { agentCalls } = await runLane({ ...resumeArgs, foldIn: [tidy], deltaFrom: resumeTip }, answers)
+  assert.ok(agentCalls['r1-review'].prompt.includes(`git diff ${resumeTip}..HEAD`), agentCalls['r1-review'].prompt)
+})
+
+test('#119 AC-mixed-batch-folds-all: a batch with one fold-in committed and one already satisfied folds both, the satisfied one with its evidence', async () => {
+  const resolved = [satisfied(alsoTidy)]
+  const { result } = await runLane({ ...resumeArgs, foldIn: [tidy, alsoTidy] }, { 'fix-1': { ...resumeFix, resolved }, 'r1-review': APPROVE, 'e2e-0': PASS, 'ci-0': greenCi(resumeFixedTip) })
+  assert.equal(result.status, 'ready-to-land')
+  assert.deepEqual(result.folded, [{ ...tidy, tip: resumeFixedTip }, { ...alsoTidy, tip: resumeFixedTip, evidence: resolved[0].evidence }])
+})
+
+test('#119 AC-resolved-carries-evidence: the fixer is told to list every fold-in already done with its evidence, and the schema requires it', async () => {
+  const { agentCalls } = await runLane({ ...resumeArgs, foldIn: [tidy] }, { 'fix-1': resumeFix })
+  const { prompt, options } = agentCalls['fix-1']
+  assert.match(prompt, /already satisfied[^]*resolved[^]*evidence/)
+  assert.ok(options.schema.properties.resolved.items.required.includes('evidence'))
 })
 
 const reviewReviseAnswers = (followups) => ({
@@ -442,7 +516,6 @@ test('a follow-up carries the tip it was raised at, and the result lists those r
 
 // A resumed run whose fixer answers findings handed over by the head: what each proof must show for its own finding.
 const defectWithDraft = { ...finding('t.py:1', 'the code breaks the rule'), kind: 'defect', testDraft: '/s/draft_test.py' }
-const defectWithoutDraft = { ...finding('t.py:1', 'the code breaks the rule'), kind: 'defect' }
 const testGap = { ...finding('t.py:1', 'a behaviour has no test'), kind: 'test-gap' }
 const proofOf = (kind, overrides) => ({ finding: 't.py:1', kind, test: 't.py [case]', failedBefore: false, passesAfter: true, ...overrides })
 const removalDiff = '-    def test_case_that_asserts_nothing(): pass'
@@ -596,6 +669,14 @@ test('#108 AC-sync-in-worktree: the sync prompt separates the no-op sentence fro
 })
 
 const textsThatAreNotAcoAnswers = ['"claimed"', '{"a":1}', '[1]', 'true', 'not json', 'ERROR: no claim store']
+test('#118 AC-answer-not-aco: a push that succeeded but an answer without outside_claim stops at scope naming the omission', async () => {
+  const { result, launchedAgents } = await runLane(builtLane, { build: built, 'scope-0': { remote_tip: built.tip } })
+  assert.deepEqual([result.status, result.stage], ['failed', 'scope'])
+  assert.match(result.reason, /no outside_claim/)
+  assert.doesNotMatch(result.reason, /undefined/)
+  assert.deepEqual(launchedAgents, ['build', 'scope-0'])
+})
+
 for (const text of textsThatAreNotAcoAnswers) {
   test(`#71 AC-answer-not-aco: the text ${text} stops the lane at scope naming it, before any review`, async () => {
     const { result, launchedAgents } = await runLane(builtLane, { build: built, 'scope-0': { outside_claim: text } })
@@ -617,6 +698,38 @@ test('#108 AC-scope-error-named: the scope agent is told to return the error out
   const { agentCalls } = await runLane(builtLane, { build: built })
   assert.match(agentCalls['scope-0'].prompt, /prints nothing or fails, return its error output/)
 })
+
+const scopeSchemaOf = async () => (await runLane(builtLane, { build: built })).agentCalls['scope-0'].options.schema
+// json.dumps prints non-ASCII as \uXXXX and escapes a quote with a backslash
+const acoPrints = ['null', '[]', '["a.py"]', '["a.py", "dir/b c.py"]', '["caf\\u00e9/\\u3042.py"]', '["a\\"b.py"]']
+const slipsAndForeignText = ['', '"claimed"', '{"a":1}', '[1]', '["a.py", 2]', 'true', 'not json', 'ERROR: no claim store', 'null null', '[] []']
+for (const [printed, admitted] of [...acoPrints.map(text => [text, true]), ...slipsAndForeignText.map(text => [text, false])]) {
+  test(`#118 AC-schema-admits-aco-only: the scope agent's schema ${admitted ? 'admits' : 'refuses'} ${JSON.stringify(printed)} as outside_claim`, async () => {
+    const { properties } = await scopeSchemaOf()
+    assert.equal(properties.outside_claim.type, 'string')
+    assert.equal(new RegExp(properties.outside_claim.pattern).test(printed), admitted)
+  })
+}
+
+test('#118 AC-failed-command-own-field: the schema lets a failed command be answered by its error output alone', async () => {
+  const schema = await scopeSchemaOf()
+  assert.equal(schema.properties.command_error.type, 'string')
+  assert.deepEqual(schema.required.filter(field => field === 'outside_claim' || field === 'remote_tip'), [])
+})
+
+const failedCommands = [
+  ['push', builtLane, { build: built }, 'scope-0', { command_error: "fatal: unable to access 'https://example.invalid/r.git'" }, 'push'],
+  ['aco brief', builtLane, { build: built }, 'scope-0', { remote_tip: built.tip, command_error: 'aco: no claim store here' }, 'scope'],
+  ['aco brief that also printed a valid answer', builtLane, { build: built }, 'scope-0', { remote_tip: built.tip, outside_claim: '[]', command_error: 'aco: warning, store locked' }, 'scope'],
+]
+for (const [command, args, answers, scopeLabel, answer, stage] of failedCommands) {
+  test(`#118 AC-failed-command-own-field: a failed ${command} stops the lane at ${stage} naming its error output, before any review`, async () => {
+    const { result, launchedAgents } = await runLane(args, { ...answers, [scopeLabel]: answer })
+    assert.deepEqual([result.status, result.stage], ['failed', stage])
+    assert.ok(result.reason.includes(answer.command_error), result.reason)
+    assert.ok(!launchedAgents.some(label => label.includes('review')))
+  })
+}
 
 const mergedOnlyTip = 'e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2'
 const conflictsWithMain = { where: 'mergeable', kind: 'defect', text: 'the pull request conflicts with main', rule: 'r', evidence: 'CONFLICTING' }
@@ -643,14 +756,14 @@ for (const [step, args, answers, scopeLabel, stepTip] of stepsThatMustPush) {
   }
 
   const remoteTextsThatCannotCarryTheTip = [
-    ['a rejected push', '! [rejected] b -> b (non-fast-forward)', '[]'],
-    ['a rejected push with the empty outside_claim the agent returns for it', '! [rejected] b -> b (non-fast-forward)', ''],
-    ['another commit', 'ffffffffffffffffffffffffffffffffffffffff', '[]'],
-    ['nothing at all', '', '[]'],
+    ['a rejected push', '! [rejected] b -> b (non-fast-forward)', { remote_tip: '! [rejected] b -> b (non-fast-forward)' }],
+    ['another commit', 'ffffffffffffffffffffffffffffffffffffffff', { remote_tip: 'ffffffffffffffffffffffffffffffffffffffff' }],
+    ['nothing at all', '', { remote_tip: '' }],
+    ['a push that failed with only its error output', "fatal: unable to access 'https://example.invalid/r.git'", { command_error: "fatal: unable to access 'https://example.invalid/r.git'" }],
   ]
-  for (const [outcome, printed, outsideClaim] of remoteTextsThatCannotCarryTheTip) {
+  for (const [outcome, printed, answer] of remoteTextsThatCannotCarryTheTip) {
     test(`#115 AC-push-stops-loud: ${outcome} after ${step} stops the lane at push naming the tip and what came back, before any review`, async () => {
-      const { result, launchedAgents } = await runLane(args, { ...answers, [scopeLabel]: { outside_claim: outsideClaim, remote_tip: printed } })
+      const { result, launchedAgents } = await runLane(args, { ...answers, [scopeLabel]: answer })
       assert.deepEqual([result.status, result.stage], ['failed', 'push'])
       assert.ok(result.reason.includes(stepTip), result.reason)
       assert.ok(result.reason.includes(printed), result.reason)

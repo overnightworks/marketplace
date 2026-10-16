@@ -1,0 +1,7 @@
+claim_id = "4077a5cc986348d8bc31b24d15b67d4f"
+agent = "Claude 3e666570-2fb5-4abd-955d-af106f942216"
+role = "builder"
+base = "39d3bdab71c5a69b1d1b7a1f24cd6692868e0e7e"
+branch = "claude/issue-71-lane-bounce-outside-claim"
+scope = ["plugins/atelier/workflows/lane.js", "tests/lane_workflow.test.mjs"]
+opened_commit = "114846568b588ba592a73b8396bab5b69e561bdf"

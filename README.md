@@ -184,6 +184,12 @@ python3 scripts/check_root_layout.py
 
 CI runs both checks next to the agent sync check.
 
+## Quality Gate
+
+CI calls the `overnightworks/quality` gate (`quality/config.toml` names its
+mandatory jobs): hygiene, the SonarCloud scan with coverage, and the verdict.
+`quality / verdict` is the required check for merging into `main`.
+
 ## Hook Behavior
 
 The marketplace plugin is the source owner for this portable hook. Its

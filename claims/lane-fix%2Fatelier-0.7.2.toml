@@ -1,8 +1,0 @@
-claim_id = "2f14b376fcd24e6b888e016fc4707383"
-agent = "Claude 3e666570-2fb5-4abd-955d-af106f942216"
-role = "builder"
-base = "1fa14e4610dc5825aa11ddfc1da2d3c0e804dc65"
-branch = "fix/atelier-0.7.2"
-scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/skills/aco/SKILL.md"]
-opened_commit = "5285b417b77d94f34f289004be33fca456585ef6"
-whole_reason = "one release: the aco skill's board line follows aco and the three manifest versions ship it together with #115"

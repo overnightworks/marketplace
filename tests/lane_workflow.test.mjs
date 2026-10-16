@@ -15,12 +15,14 @@ async function runLane(args, answers = {}) {
   const cleanSync = { merged: false, tip: args.tip, stoppedOnConflict: false }
   const coveredByClaim = { outside_claim: '[]' }
   const defaultAnswerFor = (label) => label === 'sync' ? cleanSync : label.startsWith('scope-') ? coveredByClaim : null
-  // The remote branch carries the newest tip a builder or fixer returned, unless a test says what the push printed.
+  // The remote branch carries the newest tip a builder or fixer returned, unless a test says what the push printed
+  // or the answer carries the error of a failed push.
   let newestTip = args.tip
+  const pushPrintedSomething = (answer) => !answer.command_error || 'remote_tip' in answer
   const answerFor = (label) => {
     const answer = label in answers ? structuredClone(answers[label]) : defaultAnswerFor(label)
     if (answer?.tip && /^(build|fix-|sync)/.test(label)) newestTip = answer.tip
-    return label.startsWith('scope-') && answer ? { remote_tip: newestTip, ...answer } : answer
+    return label.startsWith('scope-') && answer && pushPrintedSomething(answer) ? { remote_tip: newestTip, ...answer } : answer
   }
   const agent = async (prompt, options = {}) => { launchedAgents.push(options.label); agentCalls[options.label] = { prompt, options }; return answerFor(options.label) }
   const parallel = async thunks => Promise.all(thunks.map(thunk => thunk()))
@@ -618,6 +620,36 @@ test('#108 AC-scope-error-named: the scope agent is told to return the error out
   assert.match(agentCalls['scope-0'].prompt, /prints nothing or fails, return its error output/)
 })
 
+const scopeSchemaOf = async () => (await runLane(builtLane, { build: built })).agentCalls['scope-0'].options.schema
+const acoPrints = ['null', '[]', '["a.py"]', '["a.py", "dir/b c.py"]']
+const slipsAndForeignText = ['', '"claimed"', '{"a":1}', '[1]', '["a.py", 2]', 'true', 'not json', 'ERROR: no claim store', 'null null', '[] []']
+for (const [printed, admitted] of [...acoPrints.map(text => [text, true]), ...slipsAndForeignText.map(text => [text, false])]) {
+  test(`#118 AC-schema-admits-aco-only: the scope agent's schema ${admitted ? 'admits' : 'refuses'} ${JSON.stringify(printed)} as outside_claim`, async () => {
+    const { properties } = await scopeSchemaOf()
+    assert.equal(properties.outside_claim.type, 'string')
+    assert.equal(new RegExp(properties.outside_claim.pattern).test(printed), admitted)
+  })
+}
+
+test('#118 AC-failed-command-own-field: the schema lets a failed command be answered by its error output alone', async () => {
+  const schema = await scopeSchemaOf()
+  assert.equal(schema.properties.command_error.type, 'string')
+  assert.deepEqual(schema.required.filter(field => field === 'outside_claim' || field === 'remote_tip'), [])
+})
+
+const failedCommands = [
+  ['push', builtLane, { build: built }, 'scope-0', { command_error: "fatal: unable to access 'https://example.invalid/r.git'" }, 'push'],
+  ['aco brief', builtLane, { build: built }, 'scope-0', { remote_tip: resumeTip, command_error: 'aco: no claim store here' }, 'scope'],
+]
+for (const [command, args, answers, scopeLabel, answer, stage] of failedCommands) {
+  test(`#118 AC-failed-command-own-field: a failed ${command} stops the lane at ${stage} naming its error output, before any review`, async () => {
+    const { result, launchedAgents } = await runLane(args, { ...answers, [scopeLabel]: answer })
+    assert.deepEqual([result.status, result.stage], ['failed', stage])
+    assert.ok(result.reason.includes(answer.command_error), result.reason)
+    assert.ok(!launchedAgents.some(label => label.includes('review')))
+  })
+}
+
 const mergedOnlyTip = 'e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2'
 const conflictsWithMain = { where: 'mergeable', kind: 'defect', text: 'the pull request conflicts with main', rule: 'r', evidence: 'CONFLICTING' }
 const mergeOnlyFix = { ...resumeFix, mergedBase: mergedOnlyTip, tip: mergedOnlyTip, files: [], regression: [] }
@@ -644,7 +676,6 @@ for (const [step, args, answers, scopeLabel, stepTip] of stepsThatMustPush) {
 
   const remoteTextsThatCannotCarryTheTip = [
     ['a rejected push', '! [rejected] b -> b (non-fast-forward)', '[]'],
-    ['a rejected push with the empty outside_claim the agent returns for it', '! [rejected] b -> b (non-fast-forward)', ''],
     ['another commit', 'ffffffffffffffffffffffffffffffffffffffff', '[]'],
     ['nothing at all', '', '[]'],
   ]

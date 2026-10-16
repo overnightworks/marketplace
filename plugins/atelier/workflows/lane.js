@@ -139,12 +139,17 @@ const SYNC = {
   properties: { merged: { type: 'boolean' }, tip: { type: 'string', pattern: '^[0-9a-f]{7,40}$', description: 'a commit sha from git rev-parse, nothing else' }, stoppedOnConflict: { type: 'boolean' }, note: { type: 'string' } },
 }
 // The agent copies aco's outside_claim as JSON text; the script parses it, so no field is derived by the model.
+// The pattern admits exactly aco's two printed forms (null, or a list of strings), so a copying slip fails the schema
+// and the agent answers again; a failed command is reported in command_error, never in a scope answer.
+const JSON_STRING = String.raw`"([^"\\]|\\.)*"`
+const OUTSIDE_CLAIM_PATTERN = String.raw`^\s*(null|\[\s*(${JSON_STRING}(\s*,\s*${JSON_STRING})*)?\s*\])\s*$`
 const PUSH_AND_SCOPE_CHECK = {
   type: 'object',
-  required: ['outside_claim', 'remote_tip'],
+  required: [],
   properties: {
-    remote_tip: { type: 'string', description: 'the last printed line of the first command line, unchanged; its error output when it fails' },
-    outside_claim: { type: 'string', description: 'the printed line of the second command line, unchanged; empty when the first failed' },
+    remote_tip: { type: 'string', description: 'the last printed line of the first command line, unchanged; leave it out when that command failed' },
+    outside_claim: { type: 'string', pattern: OUTSIDE_CLAIM_PATTERN, description: 'the printed line of the second command line, unchanged; leave it out when either command failed' },
+    command_error: { type: 'string', description: 'the error output of the command line that failed or printed nothing; leave it out when both succeeded' },
   },
 }
 const CLAIM_SCOPE_RULE = 'a lane edits only inside its claim scope'
@@ -534,11 +539,15 @@ async function pushAndCheckScope(label, budgetKey) {
   const scopeLine = `cd '${A.worktree}' && aco brief ${A.item} --json | python3 -c 'import json,sys; print(json.dumps(json.load(sys.stdin)["outside_claim"]))'`
   const checked = await safeAgent(
     `${laneFacts}\nChange nothing in the files. Run these two command lines in this order, each exactly as written, without changing it or its directory. ` +
-    `The first pushes the lane branch: return its last printed line unchanged as remote_tip, or its error output when it fails, and then skip the second command line and return an empty outside_claim. ` +
-    `Otherwise return the one line the second prints unchanged as outside_claim; when it prints nothing or fails, return its error output instead:\n${pushLine}\n${scopeLine}`,
+    `The first pushes the lane branch: return its last printed line unchanged as remote_tip; when it fails, return its error output as command_error, leave remote_tip and outside_claim out, and skip the second command line. ` +
+    `Otherwise return the one line the second prints unchanged as outside_claim; when it prints nothing or fails, return its error output as command_error and leave outside_claim out:\n${pushLine}\n${scopeLine}`,
     { label, phase: 'Scope', schema: PUSH_AND_SCOPE_CHECK, ...MECHANICAL })
   if (!checked) return { stop: openResult('failed', 'scope', { reason: 'the push and claim-scope check returned no result' }) }
-  if (!sameCommit(checked.remote_tip.trim(), tip)) return { stop: openResult('failed', 'push', { reason: `the remote branch ${A.branch} does not carry the lane tip ${tip}; the push printed: ${checked.remote_tip}` }) }
+  if (!sameCommit((checked.remote_tip || '').trim(), tip)) {
+    const printed = [checked.remote_tip, checked.command_error].filter(Boolean).join(' ')
+    return { stop: openResult('failed', 'push', { reason: `the remote branch ${A.branch} does not carry the lane tip ${tip}; the push printed: ${printed}` }) }
+  }
+  if (checked.command_error) return { stop: openResult('failed', 'scope', { reason: `aco brief ${A.item} --json failed or printed nothing: ${checked.command_error}` }) }
   let paths
   try { paths = JSON.parse(checked.outside_claim) } catch { paths = undefined }
   if (paths === null) return { stop: openResult('failed', 'scope', { reason: 'the lane holds no live claim (outside_claim is null); a lane without a claim does not reach review' }) }

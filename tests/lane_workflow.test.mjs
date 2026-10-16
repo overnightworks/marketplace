@@ -15,7 +15,13 @@ async function runLane(args, answers = {}) {
   const cleanSync = { merged: false, tip: args.tip, stoppedOnConflict: false }
   const coveredByClaim = { outside_claim: '[]' }
   const defaultAnswerFor = (label) => label === 'sync' ? cleanSync : label.startsWith('scope-') ? coveredByClaim : null
-  const answerFor = (label) => label in answers ? structuredClone(answers[label]) : defaultAnswerFor(label)
+  // The remote branch carries the newest tip a builder or fixer returned, unless a test says what the push printed.
+  let newestTip = args.tip
+  const answerFor = (label) => {
+    const answer = label in answers ? structuredClone(answers[label]) : defaultAnswerFor(label)
+    if (answer?.tip && /^(build|fix-|sync)/.test(label)) newestTip = answer.tip
+    return label.startsWith('scope-') && answer ? { remote_tip: newestTip, ...answer } : answer
+  }
   const agent = async (prompt, options = {}) => { launchedAgents.push(options.label); agentCalls[options.label] = { prompt, options }; return answerFor(options.label) }
   const parallel = async thunks => Promise.all(thunks.map(thunk => thunk()))
   const ignore = () => {}
@@ -611,6 +617,47 @@ test('#108 AC-scope-error-named: the scope agent is told to return the error out
   const { agentCalls } = await runLane(builtLane, { build: built })
   assert.match(agentCalls['scope-0'].prompt, /prints nothing or fails, return its error output/)
 })
+
+const mergedOnlyTip = 'e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2'
+const conflictsWithMain = { where: 'mergeable', kind: 'defect', text: 'the pull request conflicts with main', rule: 'r', evidence: 'CONFLICTING' }
+const mergeOnlyFix = { ...resumeFix, mergedBase: mergedOnlyTip, tip: mergedOnlyTip, files: [], regression: [] }
+const stepsThatMustPush = [
+  ['the builder', builtLane, { build: built }, 'scope-0', resumeTip],
+  ['an accepted fix batch', { ...resumeArgs, fixFirst: [defectWithoutDraft] }, { 'fix-1': { ...resumeFix, regression: [] } }, 'scope-1', resumeFixedTip],
+  ['a fix batch that only merged main', { ...resumeArgs, fixFirst: [conflictsWithMain] }, { 'fix-1': mergeOnlyFix }, 'scope-1', mergedOnlyTip],
+]
+const pushLine = (branch) => `git push origin '${branch}' && git rev-parse 'origin/${branch}'`
+for (const [step, args, answers, scopeLabel, stepTip] of stepsThatMustPush) {
+  test(`#115 AC-remote-carries-tip: after ${step} the scope agent is handed one command line that pushes the lane branch by name and prints the remote sha`, async () => {
+    const { agentCalls } = await runLane(args, answers)
+    assert.ok(agentCalls[scopeLabel].prompt.includes(`cd '/w' && ${pushLine('b')}`), agentCalls[scopeLabel].prompt)
+    assert.doesNotMatch(agentCalls[scopeLabel].prompt, /--force| -f\b|\bgit push origin '?\+/)
+  })
+
+  for (const [spelling, remote] of [['the full tip', stepTip], ['an abbreviation of the tip', stepTip.slice(0, 7)], ['the tip with a trailing newline', `${stepTip}\n`]]) {
+    test(`#115 AC-remote-carries-tip: a remote that prints ${spelling} after ${step} goes on past the push unchanged`, async () => {
+      const { result, launchedAgents } = await runLane(args, { ...answers, [scopeLabel]: { outside_claim: '[]', remote_tip: remote } })
+      assert.notEqual(result.stage, 'push')
+      assert.ok(launchedAgents.indexOf(scopeLabel) < launchedAgents.length - 1, launchedAgents.join())
+    })
+  }
+
+  const remoteTextsThatCannotCarryTheTip = [
+    ['a rejected push', '! [rejected] b -> b (non-fast-forward)', '[]'],
+    ['a rejected push with the empty outside_claim the agent returns for it', '! [rejected] b -> b (non-fast-forward)', ''],
+    ['another commit', 'ffffffffffffffffffffffffffffffffffffffff', '[]'],
+    ['nothing at all', '', '[]'],
+  ]
+  for (const [outcome, printed, outsideClaim] of remoteTextsThatCannotCarryTheTip) {
+    test(`#115 AC-push-stops-loud: ${outcome} after ${step} stops the lane at push naming the tip and what came back, before any review`, async () => {
+      const { result, launchedAgents } = await runLane(args, { ...answers, [scopeLabel]: { outside_claim: outsideClaim, remote_tip: printed } })
+      assert.deepEqual([result.status, result.stage], ['failed', 'push'])
+      assert.ok(result.reason.includes(stepTip), result.reason)
+      assert.ok(result.reason.includes(printed), result.reason)
+      assert.ok(!launchedAgents.some(label => label.includes('review')))
+    })
+  }
+}
 
 test('#103 AC-scratch-and-load: the sync prompt does not carry the drive facts', async () => {
   const { agentCalls } = await runLane({ ...resumeArgs, scratch: '/drive-scratch' })

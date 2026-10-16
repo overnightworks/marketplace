@@ -19,7 +19,10 @@ Licensed under the [MIT License](LICENSE).
 - `plugins/atelier/workflows/` holds the Claude Code workflows; `lane` drives
   one claimed aco lane from build to ready-to-land. Claude Code (2.1.299) lists
   no plugin workflow by name, so start one by path:
-  `Workflow({scriptPath: "<plugin dir>/workflows/lane.js", args: {...}})`.
+  `Workflow({scriptPath: "<plugin dir>/workflows/lane.js", args: {...}})`, where
+  `<plugin dir>` is the installed copy at
+  `~/.claude/plugins/cache/atelier/atelier/<version>/` or `plugins/atelier/` in a
+  checkout of this repository.
   The tool refuses a script whose `meta` is not a pure literal (no `+`
   concatenation, template literal or name); CI checks this for every workflow.
 - `plugins/atelier/.codex-plugin/plugin.json` is the Codex plugin manifest.

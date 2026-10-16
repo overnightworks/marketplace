@@ -1,0 +1,7 @@
+claim_id = "1dad1c2903bc443c9247d952f6750308"
+agent = "Claude 3e666570-2fb5-4abd-955d-af106f942216"
+role = "builder"
+base = "453837ed25a70b2ff6039f7904ddc53645cc4fd9"
+branch = "claude/issue-115-push-guard"
+scope = ["plugins/atelier/workflows/lane.js", "tests/lane_workflow.test.mjs"]
+opened_commit = "e160375d4d1f845100d953109306e3b63b5991f6"

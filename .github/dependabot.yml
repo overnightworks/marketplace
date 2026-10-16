@@ -12,3 +12,9 @@ updates:
       # is not gated by this interval once Dependabot security updates are
       # enabled for the repository (tracked separately, see PR description).
       interval: "monthly"
+  # uv.lock pins the test dependencies; pyproject.toml and uv.lock sit at the
+  # repository root, and directories are relative to it.
+  - package-ecosystem: "uv"
+    directory: "/"
+    schedule:
+      interval: "monthly"

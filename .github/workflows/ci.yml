@@ -15,15 +15,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out the repository
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       # The action is pinned by commit and the tool it installs by version: an
       # unversioned `setup-uv` fetches whatever uv is newest, a run-time
       # resolution in a job that holds the GitHub token and produces the
       # coverage report the credentialed `sonar` job consumes. The pinned uv
-      # must be a version the pinned action carries a checksum for: setup-uv
-      # skips verification silently for a version it does not know.
+      # must be a version the pinned action commit carries a checksum for:
+      # setup-uv skips verification silently for a version it does not know.
+      # Whoever merges a setup-uv bump checks this version against it.
       # The Python minor is pinned for the same reason, and it is the version
       # sonar-project.properties analyses this code as.
       - name: Install uv
@@ -72,7 +73,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out the repository and history
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
           fetch-depth: 0
@@ -92,7 +93,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out the repository and history
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
           fetch-depth: 0

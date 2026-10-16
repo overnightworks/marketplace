@@ -1,8 +1,0 @@
-claim_id = "21f126481c214c57b878d220a6b36cf6"
-agent = "Claude 3e666570-2fb5-4abd-955d-af106f942216"
-role = "builder"
-base = "1f0c6ac98f15a21520745a5dc5c8d2773b95ec46"
-branch = "claude/issue-84-doc-skills"
-scope = ["plugins/atelier/skills/docs-cleanup", "plugins/atelier/skills/visualize", "plugins/atelier/skills/write-docs"]
-opened_commit = "090e414af3f8a2acd4d7437d5c7dcb09a6496f09"
-whole_reason = "Three documentation skills share one type model and must stay consistent."

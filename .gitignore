@@ -1,4 +1,5 @@
 .venv/
+.env
 coverage.xml
 lcov.info
 .coverage

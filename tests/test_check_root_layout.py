@@ -175,6 +175,7 @@ def test_every_entry_the_layout_rule_admits_at_the_root_is_accepted() -> None:
         ".github/workflows/ci.yml",
         "instructions/AGENTS.md",
         "plugins/atelier/skills/agent-documentation/SKILL.md",
+        "quality/config.toml",
         "scripts/check_root_layout.py",
         "tests/test_check_root_layout.py",
     ]

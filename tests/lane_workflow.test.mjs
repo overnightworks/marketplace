@@ -337,7 +337,7 @@ test('a fix that only merged main folds nothing in, so the head still routes the
   })
   assert.equal(result.status, 'ready-to-land')
   assert.deepEqual(result.folded, [])
-  assert.deepEqual(result.followups, [foldIn])
+  assert.deepEqual(result.followups, [{ ...foldIn, tip: built }])
   assert.ok(result.requiredHeadActions.includes('route 1 follow-up(s) to their owning items before landing'))
 })
 
@@ -349,4 +349,59 @@ test('a stopped fix reports the fold-ins its fixer found already done, and leave
   const { result } = await runLane(replay.args, answers)
   assert.deepEqual(result.resolved, resolved)
   assert.ok(result.followups.some(f => f.where === resolved[0].where))
+})
+
+const resumeTip = 'c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0'
+const resumeFixedTip = 'd1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1'
+const tidy = followup('x.py:1', 'tidy the import order', 'follow-up (fix in place)')
+const resumeFix = { oldTip: resumeTip, mergedBase: resumeTip, tip: resumeFixedTip, mergeResolvedLaneConflict: false, files: ['x.py'], disputed: [], blocked: false }
+const resumeArgs = { ...resumedLane, tip: resumeTip }
+
+const resumesByHandedOver = [
+  ['foldIn alone', { foldIn: [tidy] }, ['sync', 'fix-1', 'r1-review']],
+  ['foldIn alone with deltaFrom', { foldIn: [tidy], deltaFrom: resumeTip }, ['sync', 'fix-1', 'r1-review']],
+  ['neither foldIn nor fixFirst', {}, ['sync', 'r0-review']],
+]
+for (const [handedOver, args, expectedAgents] of resumesByHandedOver) {
+  test(`a resume with ${handedOver} runs ${expectedAgents.slice(1).join(' then ')}`, async () => {
+    const { launchedAgents, agentCalls } = await runLane({ ...resumeArgs, ...args }, { 'fix-1': resumeFix })
+    assert.deepEqual(launchedAgents.slice(0, expectedAgents.length), expectedAgents)
+    if (args.foldIn) assert.match(agentCalls['fix-1'].prompt, /tidy the import order/)
+  })
+}
+
+const reviewReviseAnswers = (followups) => ({
+  'r0-review': { verdict: 'REVISE', blocking: [{ ...finding('y.py:2', 'a defect'), kind: 'docs' }], followups },
+  'fix-1': { ...resumeFix, regression: [] },
+  'r1-review': APPROVE,
+})
+
+const deltaRangesByFoldIns = [
+  ['names the fold-in the fixer was given', [tidy], true],
+  ['has no fold-in section when the fixer was given none', [], false],
+]
+for (const [behaviour, followups, namesFoldIn] of deltaRangesByFoldIns) {
+  test(`the re-checking reviewer's delta range ${behaviour}`, async () => {
+    const { agentCalls } = await runLane(resumeArgs, reviewReviseAnswers(followups))
+    const recheckPrompt = agentCalls['r1-review'].prompt
+    assert.match(recheckPrompt, /only this delta: git diff/)
+    assert.equal(/tidy the import order/.test(recheckPrompt), namesFoldIn)
+    assert.equal(/these follow-ups to fold in/.test(recheckPrompt), namesFoldIn)
+  })
+}
+
+test('a follow-up carries the tip it was raised at, and the result lists those raised before the returned tip separately', async () => {
+  const replay = webauthReplay
+  const raisedAtReturnedTip = followup('late.py:1', 'raised by the review of the returned tip', '#57')
+  const answers = answersWith(replay, { kind: 'test-gap', mutation: true })
+  answers['r2-review'] = { ...APPROVE, followups: [raisedAtReturnedTip] }
+  const { result } = await runLane(replay.args, answers)
+  assert.equal(result.tip, webauthTips.secondFix)
+  const raisedAt = Object.fromEntries(result.followups.map(f => [f.where, f.tip]))
+  assert.equal(raisedAt[raisedAtReturnedTip.where], webauthTips.secondFix)
+  assert.equal(raisedAt['AGENTS.md:35-38 / .importlinter'], webauthTips.built)
+  assert.equal(result.followups.length, replay.followupsToRoute + 1)
+  const earlier = result.raisedBeforeTip.map(f => f.where)
+  assert.ok(earlier.includes('AGENTS.md:35-38 / .importlinter'))
+  assert.ok(!earlier.includes(raisedAtReturnedTip.where))
 })

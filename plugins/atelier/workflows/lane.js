@@ -1,7 +1,7 @@
 export const meta = {
   name: 'lane',
   description: 'One claimed lane to ready-to-land: build, a fresh Sonnet review (plus a Codex gpt-6-astra gate on material risk), fresh fixers with evidence-bearing findings and a delta re-check by whoever raised them, then the explorative end-to-end test and CI in parallel on one tip.',
-  whenToUse: 'In any repository that coordinates with aco, after the head ran `aco start <item>` (worktree, branch and claim exist). Landing stays with the head; the result lists requiredHeadActions. Required args: item (the work item number), worktree (the lane\'s isolated worktree path), branch (the lane branch), contract (the item\'s ruled sentences every reviewer and the tester judge against), e2e (what the explorative tester drives through the real entry point), scratch (a directory for briefs, Codex output and test evidence). Start with build (a builder brief) for a new lane, or with pr and tip (an open pull request and its head sha) to resume one. Optional args and their defaults: risk "normal" (or "material": adds a Codex gpt-6-astra final gate); reviewer "claude" (a fresh Sonnet reviewer; "codex" routes the ordinary review to Codex gpt-6-astra); routing none (per-role overrides {role: {model, effort}} of the table at the top of the script, for build, fix, test, review, gate and mechanical; effort never above high, the gate always on another provider than the builder); builderProvider "claude" (the only accepted value, because the gate runs on Codex); repo none (every gh call then targets the worktree\'s own repository; pass owner/name when the head runs elsewhere); productionPaths ["src/", "pyproject.toml", "uv.lock"], a default that fits a src-layout Python repository (path prefixes whose change re-opens the gate on a material lane and re-runs the end-to-end test); ledgers [], a default that fits a repository without append-only ledgers (files whose merge conflicts keep both sides, main\'s lines first); budgets {review: 5, test: 2, ci: 3, total: 8} (fix rounds per phase and in total; partial objects override single keys); deltaFrom none (a sha: review only the commits since it, after the head settled an awaiting-head result); answers none (what those commits answer); fixFirst none (Finding[]: blocking findings a fresh fixer answers before anything else); foldIn none (Followup[]: fix-in-place follow-ups for that fixer).',
+  whenToUse: 'In any repository that coordinates with aco, after the head ran `aco start <item>` (worktree, branch and claim exist). Landing stays with the head; the result lists requiredHeadActions. Required args: item (the work item number), worktree (the lane\'s isolated worktree path), branch (the lane branch), contract (the item\'s ruled sentences every reviewer and the tester judge against), e2e (what the explorative tester drives through the real entry point), scratch (a directory for briefs, Codex output and test evidence). Start with build (a builder brief) for a new lane, or with pr and tip (an open pull request and its head sha) to resume one. Optional args and their defaults: risk "normal" (or "material": adds a Codex gpt-6-astra final gate); reviewer "claude" (a fresh Sonnet reviewer; "codex" routes the ordinary review to Codex gpt-6-astra); routing none (per-role overrides {role: {model, effort}} of the table at the top of the script, for build, fix, test, review, gate and mechanical; effort never above high, the gate always on another provider than the builder); builderProvider "claude" (the only accepted value, because the gate runs on Codex); repo none (every gh call then targets the worktree\'s own repository; pass owner/name when the head runs elsewhere); productionPaths ["src/", "pyproject.toml", "uv.lock"], a default that fits a src-layout Python repository (path prefixes whose change re-opens the gate on a material lane and re-runs the end-to-end test); ledgers [], a default that fits a repository without append-only ledgers (files whose merge conflicts keep both sides, main\'s lines first); budgets {review: 5, test: 2, ci: 3, total: 8} (fix rounds per phase and in total; partial objects override single keys); deltaFrom none (a sha: review only the commits since it, after the head settled an awaiting-head result); answers none (what those commits answer); fixFirst none (Finding[]: blocking findings a fresh fixer answers before anything else); foldIn none (Followup[]: fix-in-place follow-ups for that fixer; given alone it still starts the fixer).',
   phases: [
     { title: 'Build' },
     { title: 'Sync' },
@@ -314,8 +314,9 @@ function openFollowups() {
   followups.forEach(f => { if (!folded.has(findingKey(f)) && !open.has(findingKey(f))) open.set(findingKey(f), f) })
   return [...open.values()]
 }
+const raisedBeforeTip = (open) => open.filter(f => f.tip && !sameCommit(f.tip, tip))
 const openResult = (status, stage, extra) =>
-  ({ status, stage, pr, tip, spent, routing: ROUTING, history, followups: openFollowups(), folded: [...folded.values()], disputed, ...extra })
+  ({ status, stage, pr, tip, spent, routing: ROUTING, history, followups: openFollowups(), raisedBeforeTip: raisedBeforeTip(openFollowups()), folded: [...folded.values()], disputed, ...extra })
 
 // ---------------------------------------------------------------- build
 if (A.build) {
@@ -351,7 +352,7 @@ async function reviewRound(which, range) {
   results.forEach((v, i) => {
     if (!v) return
     history.push({ after: spent.total, by: which[i].key, verdict: v.verdict, blocking: (v.blocking || []).map(f => f.where), reportPath: v.reportPath || '' })
-    followups.push(...(v.followups || []))
+    followups.push(...(v.followups || []).map(f => ({ ...f, tip })))
   })
   return { which, results, verdict: classify(results, which.length) }
 }
@@ -382,12 +383,15 @@ function fixRoundStop(blocking, budgetKey) {
 // The contract lets a fixer resolve a small follow-up in a file the lane already changed, when it cannot change behaviour.
 // A fold-in counts as folded only once the fix that carries it is accepted; until then it stays open.
 const inPlaceFollowups = () => openFollowups().filter(f => /fix in place/i.test(`${f.owner} ${f.text}`))
+const listFoldIns = (foldIn) => foldIn.map((f, i) => `${i + 1}. ${f.where} — ${f.text}`).join('\n')
 function foldInBrief(foldIn) {
   if (!foldIn.length) return ''
   return `\n\nAlso fold in these follow-ups, only because each sits in a file this lane already changed and cannot change behaviour; one commit for all of them. ` +
     `One that an earlier fixer already left done in the worktree you do not redo; list it in resolved:\n` +
-    foldIn.map((f, i) => `${i + 1}. ${f.where} — ${f.text}`).join('\n')
+    listFoldIns(foldIn)
 }
+// The reviewer sees which follow-ups the fixer was given, so it can tell a skipped one from a done one.
+const foldInsInRange = (foldIn) => foldIn.length ? `\nThe fixer was also given these follow-ups to fold in; check each is done:\n${listFoldIns(foldIn)}` : ''
 
 // A disputed finding is a disagreement between two fresh agents about evidence: the head decides it.
 function awaitHeadOnDispute(fixed, blocking) {
@@ -430,7 +434,7 @@ function fixRejection(fixed, blocking) {
 const worktreeRelative = (files) => files.map(f => f.startsWith(`${A.worktree}/`) ? f.slice(A.worktree.length + 1) : f.replace(/^\.\//, ''))
 
 // Takes the fixer's tip and names the delta the reviewers see next, or none when a clean merge of main was the whole fix.
-function acceptFix(fixed, blocking) {
+function acceptFix(fixed, blocking, foldIn) {
   const from = fixed.mergeResolvedLaneConflict ? fixed.oldTip : fixed.mergedBase
   const relative = worktreeRelative(fixed.files || [])
   const outside = relative.filter(f => f.startsWith('/'))
@@ -444,7 +448,7 @@ function acceptFix(fixed, blocking) {
   }
   const range = `only this delta: git diff ${from}..${fixed.tip}` +
     (fixed.mergeResolvedLaneConflict ? ' (it includes a merge of main whose conflicts in this lane\'s files were resolved by hand)' : ' (the merge of main before it is not this lane\'s work)') +
-    `. It answers these findings:\n${listFindings(blocking)}`
+    `. It answers these findings:\n${listFindings(blocking)}${foldInsInRange(foldIn)}`
   log(`fix ${spent.total}: ${from.slice(0, 7)}..${tip.slice(0, 7)}`)
   return { range, gateAgain: MATERIAL && touchesProduction, touchesProduction }
 }
@@ -474,11 +478,11 @@ async function fixBatch(blocking, source, budgetKey) {
   if ((fixed.disputed || []).length) return unaccepted(awaitHeadOnDispute(fixed, blocking))
   const rejection = fixRejection(fixed, blocking)
   if (rejection) return unaccepted(openResult('failed', 'fix', rejection))
-  const accepted = acceptFix(fixed, blocking)
+  const accepted = acceptFix(fixed, blocking, foldIn)
   if (accepted.stop) return unaccepted(accepted.stop)
   // A clean merge of main alone carries no lane change, so it cannot carry a fold-in either.
   if (accepted.range) foldIn.forEach(f => folded.set(findingKey(f), { ...f, tip: fixed.tip }))
-  return accepted
+  return { ...accepted, foldIn }
 }
 
 // Review until clean. After every fix the delta goes back to whoever raised a finding, and the gate returns on a
@@ -512,13 +516,14 @@ const firstRange = A.deltaFrom
   : 'the whole lane: git diff origin/main...HEAD'
 // Re-entry at the fix: the head hands over blocking findings from an earlier run (for example the tester's), and
 // in-place follow-ups to fold in. The delta the fixer makes is reviewed before the test and CI run again.
-if (A.fixFirst?.length) {
+const carriedOver = A.fixFirst || []
+if (carriedOver.length || A.foldIn?.length) {
   followups.push(...(A.foldIn || []))
-  const f = await fixBatch(A.fixFirst, 'the head (carried over from the previous run)', 'test')
+  const f = await fixBatch(carriedOver, 'the head (carried over from the previous run)', 'test')
   if (f.stop) return f.stop
   // With deltaFrom, the head says a reviewer has not yet seen the commits since that sha: review all of them.
   const range = A.deltaFrom
-    ? `only this delta: git diff ${A.deltaFrom}..HEAD — fixes no reviewer has seen yet. They answer:\n${A.answers || ''}\n${listFindings(A.fixFirst)}`
+    ? `only this delta: git diff ${A.deltaFrom}..HEAD — fixes no reviewer has seen yet. They answer:\n${A.answers || ''}\n${listFindings(carriedOver)}${foldInsInRange(f.foldIn)}`
     : f.range
   if (range) {
     const stop = await reviewUntilClean(A.deltaFrom || f.gateAgain ? ALL : [REVIEW], range)
@@ -588,7 +593,7 @@ while (true) {
     { after: spent.total, by: `e2e-${n - 1}`, verdict: testVerdict(e2e, testBlocking), blocking: testBlocking.map(f => f.where), reportPath: e2e.evidencePath || '' },
     { after: spent.total, by: `ci-${n - 1}`, verdict: ci.green ? 'GREEN' : 'RED', blocking: (ci.failing || []).map(f => f.where) },
   )
-  followups.push(...(e2e.followups || []))
+  followups.push(...(e2e.followups || []).map(f => ({ ...f, tip })))
   if (testBlocking.length === 0 && ci.green) break
 
   const ciBlocking = ci.green ? [] : (ci.failing || [])
@@ -606,9 +611,10 @@ while (true) {
 
 const stillOpen = openFollowups()
 return {
-  status: 'ready-to-land', pr, tip, spent, routing: ROUTING, history, followups: stillOpen, folded: [...folded.values()], disputed,
+  status: 'ready-to-land', pr, tip, spent, routing: ROUTING, history, followups: stillOpen, raisedBeforeTip: raisedBeforeTip(stillOpen), folded: [...folded.values()], disputed,
   requiredHeadActions: [
     `land with \`aco land ${pr}\` only while the pull request head is still ${tip}`,
+    ...(raisedBeforeTip(stillOpen).length ? ['re-check the follow-ups in raisedBeforeTip against the returned tip before routing them'] : []),
     ...(stillOpen.length ? [`route ${stillOpen.length} follow-up(s) to their owning items before landing`] : []),
     `update the body of item #${A.item}'s parent and name what the landing freed`,
   ],

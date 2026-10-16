@@ -13,7 +13,7 @@ async function runLane(args, answers = {}) {
   const launchedAgents = []
   const agentCalls = {}
   const cleanSync = { merged: false, tip: args.tip, stoppedOnConflict: false }
-  const coveredByClaim = { claimed: true, outside_claim: [] }
+  const coveredByClaim = { outside_claim: '[]' }
   const defaultAnswerFor = (label) => label === 'sync' ? cleanSync : label.startsWith('scope-') ? coveredByClaim : null
   const answerFor = (label) => label in answers ? structuredClone(answers[label]) : defaultAnswerFor(label)
   const agent = async (prompt, options = {}) => { launchedAgents.push(options.label); agentCalls[options.label] = { prompt, options }; return answerFor(options.label) }
@@ -482,7 +482,7 @@ const bounceFix = { ...resumeFix, oldTip: resumeFixedTip, mergedBase: resumeFixe
 const builtLane = { ...resumedLane, pr: undefined, tip: undefined, build: 'b' }
 const built = { pr: 2, tip: resumeTip, blocked: false }
 
-const claimScopeAnswers = (outsideClaim) => ({ 'fix-1': { ...resumeFix, regression: [] }, 'scope-1': { claimed: true, outside_claim: outsideClaim }, 'fix-2': bounceFix })
+const claimScopeAnswers = (outsideClaim) => ({ 'fix-1': { ...resumeFix, regression: [] }, 'scope-1': { outside_claim: JSON.stringify(outsideClaim) }, 'fix-2': bounceFix })
 const bouncesAfterAFixer = [
   ['#71 AC-bounce-outside-claim: a fixer that changed board.py outside the claim is bounced to a fresh fixer naming it, before review', ['board.py'], ['fix-1', 'scope-1', 'fix-2', 'scope-2', 'r2-review']],
   ['#71 AC-bounce-outside-claim: outside_claim [] goes to review unchanged', [], ['fix-1', 'scope-1', 'r1-review']],
@@ -507,7 +507,7 @@ const stopsWhileFixersStayOutside = [
 ]
 for (const [behaviour, extraArgs, expectedAgents, reason] of stopsWhileFixersStayOutside) {
   test(`#71 AC-bounce-outside-claim: a lane stops when ${behaviour}, before any review`, async () => {
-    const answers = { ...claimScopeAnswers(['board.py']), 'scope-2': { claimed: true, outside_claim: ['board.py'] } }
+    const answers = { ...claimScopeAnswers(['board.py']), 'scope-2': { outside_claim: '["board.py"]' } }
     const { result, launchedAgents } = await runLane({ ...resumeArgs, ...extraArgs, fixFirst: [defectWithoutDraft] }, answers)
     assert.equal(result.status, 'unresolved')
     assert.match(result.reason, reason)
@@ -521,7 +521,7 @@ const resumesOutsideTheClaim = [
 ]
 for (const [handedOver, args] of resumesOutsideTheClaim) {
   test(`#71 AC-bounce-outside-claim: a resume with ${handedOver} whose range left the claim scope is bounced before its first review`, async () => {
-    const { launchedAgents, agentCalls } = await runLane({ ...resumeArgs, ...args }, { 'scope-resume': { claimed: true, outside_claim: ['board.py'] }, 'fix-1': { ...resumeFix, regression: [] } })
+    const { launchedAgents, agentCalls } = await runLane({ ...resumeArgs, ...args }, { 'scope-resume': { outside_claim: '["board.py"]' }, 'fix-1': { ...resumeFix, regression: [] } })
     assert.deepEqual(launchedAgents.slice(0, 4), ['sync', 'scope-resume', 'fix-1', 'scope-1'])
     assert.match(agentCalls['fix-1'].prompt, /board\.py/)
     assert.ok(launchedAgents.findIndex(label => label.endsWith('-review')) > launchedAgents.indexOf('scope-1'))
@@ -529,15 +529,15 @@ for (const [handedOver, args] of resumesOutsideTheClaim) {
 }
 
 test('#71 AC-bounce-outside-claim: a builder that left the claim scope is bounced before the first review', async () => {
-  const { launchedAgents, agentCalls } = await runLane(builtLane, { build: built, 'scope-0': { claimed: true, outside_claim: ['board.py'] }, 'fix-1': { ...resumeFix, regression: [] } })
+  const { launchedAgents, agentCalls } = await runLane(builtLane, { build: built, 'scope-0': { outside_claim: '["board.py"]' }, 'fix-1': { ...resumeFix, regression: [] } })
   assert.deepEqual(launchedAgents.slice(0, 4), ['build', 'scope-0', 'fix-1', 'scope-1'])
   assert.match(agentCalls['fix-1'].prompt, /board\.py/)
   assert.ok(launchedAgents.findIndex(label => label.endsWith('-review')) > launchedAgents.indexOf('scope-1'))
 })
 
 const stopsWithoutClaim = [
-  ['the builder', builtLane, { build: built, 'scope-0': { claimed: false, outside_claim: [] } }, 'scope-0'],
-  ['a fixer', { ...resumeArgs, fixFirst: [defectWithoutDraft] }, { 'fix-1': { ...resumeFix, regression: [] }, 'scope-1': { claimed: false, outside_claim: [] } }, 'scope-1'],
+  ['the builder', builtLane, { build: built, 'scope-0': { outside_claim: 'null' } }, 'scope-0'],
+  ['a fixer', { ...resumeArgs, fixFirst: [defectWithoutDraft] }, { 'fix-1': { ...resumeFix, regression: [] }, 'scope-1': { outside_claim: 'null' } }, 'scope-1'],
 ]
 for (const [step, args, answers, scopeLabel] of stopsWithoutClaim) {
   test(`#71 AC-no-claim-no-pass: outside_claim null after ${step} stops the lane with a reason before any review`, async () => {
@@ -546,6 +546,22 @@ for (const [step, args, answers, scopeLabel] of stopsWithoutClaim) {
     assert.match(result.reason, /no live claim/)
     assert.equal(launchedAgents.at(-1), scopeLabel)
     assert.ok(!launchedAgents.some(label => label.includes('review')))
+  })
+}
+
+test('#71 AC-answer-not-aco: the scope agent gets one complete command line that enters the lane worktree first', async () => {
+  const { agentCalls } = await runLane(builtLane, { build: built })
+  const commandLine = `cd '/w' && aco brief 1 --json | python3 -c 'import json,sys; print(json.dumps(json.load(sys.stdin)["outside_claim"]))'`
+  assert.ok(agentCalls['scope-0'].prompt.includes(commandLine), agentCalls['scope-0'].prompt)
+})
+
+const textsThatAreNotAcoAnswers = ['"claimed"', '{"a":1}', '[1]', 'true', 'not json']
+for (const text of textsThatAreNotAcoAnswers) {
+  test(`#71 AC-answer-not-aco: the text ${text} stops the lane at scope naming it, before any review`, async () => {
+    const { result, launchedAgents } = await runLane(builtLane, { build: built, 'scope-0': { outside_claim: text } })
+    assert.deepEqual([result.status, result.stage], ['failed', 'scope'])
+    assert.ok(result.reason.includes(text), result.reason)
+    assert.deepEqual(launchedAgents, ['build', 'scope-0'])
   })
 }
 

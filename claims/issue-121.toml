@@ -1,0 +1,8 @@
+claim_id = "6d84ff48f6f04e38931b567bdb2b7cff"
+agent = "Claude 3e666570-2fb5-4abd-955d-af106f942216"
+role = "builder"
+base = "074814fcc569b7b3b06fd080fc9eae037684ff84"
+branch = "claude/issue-121-lane-ci-evidence"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/workflows/lane.js", "tests/lane_workflow.test.mjs"]
+opened_commit = "aa0ad924762ac3f60084278dcf039332719a8acf"
+whole_reason = "lane.js watchCi and its test, plus the three release manifests that ship it as atelier 0.7.4."

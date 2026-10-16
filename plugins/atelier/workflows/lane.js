@@ -460,9 +460,11 @@ function fixRejection(fixed, blocking, foldIn) {
   if (gaps.length) return { reason: [...new Set(gaps.map(checked => checked.gap))].join('; '), regression: gaps.map(checked => checked.proof), lastBlocking: gaps.map(checked => checked.finding) }
   const unproven = blocking.filter(f => needsProof(f) && !proofs.some(r => proves(r, f)))
   if (unproven.length) return { reason: 'a test-gap finding or a defect with a test draft got no regression test', lastBlocking: unproven }
-  if (sameCommit(fixed.tip, fixed.oldTip)) return everyFoldInSatisfied(fixed, blocking, foldIn) ? null : { reason: 'the fixer changed nothing', lastBlocking: blocking }
+  // Whether main moved or not, satisfied fold-ins leave the lane exactly at the merge: anything past it is unasked work.
+  const nothingPastTheMerge = everyFoldInSatisfied(fixed, blocking, foldIn) && sameCommit(fixed.tip, fixed.mergedBase)
+  if (sameCommit(fixed.tip, fixed.oldTip)) return nothingPastTheMerge ? null : { reason: 'the fixer changed nothing', lastBlocking: blocking }
   const mergeWasTheFinding = blocking.length === 1 && blocking[0].where === 'mergeable'
-  if (sameCommit(fixed.tip, fixed.mergedBase) && !mergeWasTheFinding) return { reason: 'the fixer only merged main and fixed nothing', lastBlocking: blocking }
+  if (sameCommit(fixed.tip, fixed.mergedBase) && !mergeWasTheFinding && !nothingPastTheMerge) return { reason: 'the fixer only merged main and fixed nothing', lastBlocking: blocking }
   return null
 }
 

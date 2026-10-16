@@ -426,6 +426,21 @@ for (const [what, foldIn, resolved] of satisfiedFoldIns) {
   })
 }
 
+const mainMovedTip = 'f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3'
+const satisfiedAcrossMovedMain = [
+  ['main moved and the lane has no change of its own past the merge', { mergedBase: mainMovedTip, tip: mainMovedTip }, true],
+  ['main moved but the returned tip is not the merge', { mergedBase: mainMovedTip, tip: resumeTip }, false],
+]
+for (const [what, shape, goesOn] of satisfiedAcrossMovedMain) {
+  test(`#119 AC-satisfied-counts-as-folded: every fold-in satisfied with ${what} ${goesOn ? 'goes on with the merge as the tip' : 'stops at fix'}`, async () => {
+    const answers = { 'fix-1': { ...unchangedFix, ...shape, resolved: [satisfied(tidy)] }, 'e2e-0': PASS, 'ci-0': greenCi(mainMovedTip) }
+    const { result, launchedAgents } = await runLane({ ...resumeArgs, foldIn: [tidy] }, answers)
+    assert.deepEqual([result.status, result.stage], goesOn ? ['ready-to-land', undefined] : ['failed', 'fix'])
+    assert.equal(launchedAgents.some(label => label.includes('review')), false)
+    if (goesOn) assert.deepEqual(result.folded.map(f => f.tip), [mainMovedTip])
+  })
+}
+
 const stopsDespiteResolved = [
   ['a fold-in the fixer leaves out of resolved', { foldIn: [tidy, alsoTidy] }, [satisfied(tidy)]],
   ['nothing listed in resolved', { foldIn: [tidy] }, []],

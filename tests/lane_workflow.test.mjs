@@ -776,3 +776,45 @@ test('#103 AC-scratch-and-load: the sync prompt does not carry the drive facts',
   const { agentCalls } = await runLane({ ...resumeArgs, scratch: '/drive-scratch' })
   assert.doesNotMatch(agentCalls.sync.prompt, /drive-scratch/)
 })
+
+const reachesToCi = { 'fix-1': { ...unchangedFix, resolved: [satisfied(tidy)] }, ...reachesTheEnd }
+const jobLogCommandByRepo = [
+  { repo: undefined, command: "cd '/w' && gh run view <run-id> --job <job-id> --log | sed -n '1,/##\\[error\\]/p' | tail -n 200" },
+  { repo: 'o/r', command: "gh run view <run-id> -R o/r --job <job-id> --log | sed -n '1,/##\\[error\\]/p' | tail -n 200" },
+]
+for (const { repo, command } of jobLogCommandByRepo) {
+  test(`the CI agent reads each red job's own log up to its first error line (${repo ?? 'worktree repository'})`, async () => {
+    const { agentCalls } = await runLane({ ...resumeArgs, repo, foldIn: [tidy] }, reachesToCi)
+    const brief = agentCalls['ci-0'].prompt
+    assert.ok(brief.includes(command), brief)
+    assert.match(brief, /--json name,state,link/)
+  })
+}
+
+const ciBriefClauses = [
+  { duty: 'a check whose link is not an Actions job has no log command', clause: /not an Actions job link/ },
+  { duty: 'listed findings become one entry each', clause: /one failing entry per listed finding/ },
+  { duty: 'a plain red check stays one entry', clause: /without such a list stays one entry/ },
+  { duty: 'the log line prefix stays out of the evidence', clause: /UNKNOWN STEP/ },
+  { duty: 'a Fix line is not a finding', clause: /`Fix:` line belongs to the finding above/ },
+  { duty: 'a log without an error line is reported as such', clause: /log held no error line/ },
+  { duty: 'a derived red check is left out', clause: /derived: leave it out/ },
+]
+for (const { duty, clause } of ciBriefClauses) {
+  test(`the CI brief covers it: ${duty}`, async () => {
+    const { agentCalls } = await runLane({ ...resumeArgs, foldIn: [tidy] }, reachesToCi)
+    assert.match(agentCalls['ci-0'].prompt, clause)
+  })
+}
+
+test('two Sonar findings listed by the CI agent reach the fixer as two findings, each with its where and rule', async () => {
+  const sonar = (where, rule) => ({ where, kind: 'defect', text: 'Refactor this exception test', rule, evidence: `sonar ${where} - ${rule}: Refactor this exception test` })
+  const failing = [sonar('tests/test_edge_apply.py:498', 'python:S5778'), sonar('tests/test_step_ca_init.py:685', 'python:S5779')]
+  const answers = { ...reachesToCi, 'ci-0': { head: resumeTip, green: false, failing }, 'fix-2': resumeFix }
+  const { agentCalls } = await runLane({ ...resumeArgs, foldIn: [tidy] }, answers)
+  const fixerBrief = agentCalls['fix-2'].prompt
+  for (const { where, rule } of failing) {
+    assert.ok(fixerBrief.includes(where), fixerBrief)
+    assert.ok(fixerBrief.includes(rule), fixerBrief)
+  }
+})

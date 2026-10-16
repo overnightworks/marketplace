@@ -1,0 +1,7 @@
+claim_id = "7e349250c1ae4ea583553395b4ebdff6"
+agent = "Claude 3e666570-2fb5-4abd-955d-af106f942216"
+role = "builder"
+base = "8fe49df694cac3c720ba7fac6ee05ccfda5dc572"
+branch = "fix/atelier-0.7.1"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json"]
+opened_commit = "5ca3953e7bc2c9757d2280c18b963a486e70e799"

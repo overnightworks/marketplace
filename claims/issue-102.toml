@@ -1,0 +1,8 @@
+claim_id = "324e37a3d0d14596808fafbfbceaa70c"
+agent = "Claude 3e666570-2fb5-4abd-955d-af106f942216"
+role = "builder"
+base = "7b50ce5a6e2039f2cf2f7b401aed1895d53b2db7"
+branch = "claude/issue-102-quality-gate-adoption"
+scope = [".github/workflows/ci.yml", ".gitignore", "README.md", "quality/config.toml", "scripts/check_root_layout.py", "sonar-project.properties", "tests/test_check_root_layout.py"]
+opened_commit = "bbc8814eb8b4761daa3da5ab7f14e8459604c59a"
+whole_reason = "One adoption: the gate job, its config and the properties it reads, the root-layout allowance for quality/, and the README line naming the required check land together or the verdict cannot go green."

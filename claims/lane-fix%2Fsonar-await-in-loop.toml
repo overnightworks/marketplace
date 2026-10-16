@@ -1,0 +1,7 @@
+claim_id = "3ee377faa99d4ba49d2eb2c7d6b527b5"
+agent = "Claude 3e666570-2fb5-4abd-955d-af106f942216"
+role = "builder"
+base = "1f0c6ac98f15a21520745a5dc5c8d2773b95ec46"
+branch = "fix/sonar-await-in-loop"
+scope = ["plugins/atelier/workflows/lane.js", "tests/lane_workflow.test.mjs"]
+opened_commit = "de652ac2aa70ae35457900248e7b505d6b09deb8"

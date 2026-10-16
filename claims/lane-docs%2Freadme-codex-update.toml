@@ -1,7 +1,0 @@
-claim_id = "a9461eee625844068b69cb9b3f1a2cee"
-agent = "Claude 3e666570-2fb5-4abd-955d-af106f942216"
-role = "builder"
-base = "e01c18b30f39f0bf9d3032a48ea646fbc5438b88"
-branch = "docs/readme-codex-update"
-scope = ["README.md"]
-opened_commit = "95911923db880ffd7af49ef647cb333331eb67d4"

@@ -1,0 +1,7 @@
+claim_id = "e473fb735798414f8b2d8144dd7f0e2c"
+agent = "Claude 3e666570-2fb5-4abd-955d-af106f942216"
+role = "builder"
+base = "b6c3c95871a4bfa88e6971e163fbc1bd675e34ff"
+branch = "claude/issue-94-lane-followup-bookkeeping"
+scope = ["plugins/atelier/workflows/lane.js", "tests/lane_workflow.test.mjs"]
+opened_commit = "79b55f5b6faae8e66f32bac9d6c4ea9d7d8c20da"

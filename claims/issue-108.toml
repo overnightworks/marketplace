@@ -1,7 +1,0 @@
-claim_id = "4b05307fd96844b2b2f62b708a153744"
-agent = "Claude 3e666570-2fb5-4abd-955d-af106f942216"
-role = "builder"
-base = "7b50ce5a6e2039f2cf2f7b401aed1895d53b2db7"
-branch = "claude/issue-108-sync-runs-git-inside-worktree"
-scope = ["plugins/atelier/workflows/lane.js", "tests/lane_workflow.test.mjs"]
-opened_commit = "5b18017d7f83f8ea2ab7a66ef4b9cd820d55e094"

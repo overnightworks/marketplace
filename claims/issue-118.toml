@@ -1,0 +1,8 @@
+claim_id = "daf4c4f4fe834a028283682f6ab5a78d"
+agent = "Claude 3e666570-2fb5-4abd-955d-af106f942216"
+role = "builder"
+base = "97f57c90405d8f3d49fd17e99215a5dcce84cf5f"
+branch = "claude/issue-118-lane-scope-foldin"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/workflows/lane.js", "tests/lane_workflow.test.mjs"]
+opened_commit = "1ee14262a32ac668d716796442609cdc323bf5bd"
+whole_reason = "Bundle of #118 and #119 in lane.js and its test, plus the three release manifests that ship them as atelier 0.7.3."

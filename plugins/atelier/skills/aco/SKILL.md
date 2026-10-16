@@ -29,8 +29,8 @@ landed; this says *how*.
   `--whole`); it creates the worktree
   `<repo>-worktrees/issue-<n>-<slug>` and branch, then claims. Scope comes from
   the item body's aco block; `--scope PATH` (repeatable) must match it.
-  `start` has no `--json`. `specs/start.spec.md`. The branch tracks `origin/main`, so
-  push it by name (`git push origin <branch>`); a bare `git push` aims at main.
+  `start` has no `--json`. `specs/start.spec.md`. Push the branch by name
+  (`git push origin <branch>`), not with a bare `git push`: its upstream can be `origin/main`.
 - A `malformed ... blocked-by list` refusal has so far been GitHub's issue listing
   still showing the blocker count from before a dependency was added or removed; it
   clears on a retry a minute later. Never answer it with `--out-of-order`. One that

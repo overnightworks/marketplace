@@ -307,17 +307,53 @@ Keep the operator-started head model. Pick the row by difficulty and any
 eligible provider column; a required final gate uses a different provider
 column from the builder.
 
-| Work | Codex | Claude | Grok |
-|---|---|---|---|
-| Mechanical/search/repetition and mechanical review | Luna, low/medium | Opus, low/medium | 4.6, low |
-| Normal implementation/debugging and ordinary code/test/diff review | Terra, medium/high | Opus, high | 4.6, medium/high |
-| Architecture, security, or product decision; required final gate | Sol, high/xhigh | Opus or Fable, high/xhigh | 4.6, high/xhigh |
+| Work | Claude | Codex | Grok | Effort |
+|---|---|---|---|---|
+| Mechanical: landing, body edits, search, repetition | Haiku 5.5 | — | 4.6 | low or medium |
+| Fact finding, normal build, fix, test, ordinary code/test/diff review | Sonnet 5.5 | gpt-6-astra | 4.6 | medium |
+| Required final gate (material risk only) | Opus 5.5 or Fable (when the builder is not Claude) | gpt-6-astra (when the builder is not Codex) | 4.6 | high |
+| Architecture, security or product decision; the hardest proof | Opus 5.5 or Fable | gpt-6-astra | 4.6 | high |
 
-Claude always means Opus (Fable where the gate row allows it); with one Claude
-model, its effort follows the work's difficulty. Grok always means Grok 4.6;
-change effort, never its model. Where a model exposes an effort above the
-table's highest, use it only for the rare hardest proof after lower effort
-proved insufficient.
+Pick the model by the work, at medium effort unless the row says otherwise.
+Save budget without weakening required verification: every implementation lane
+keeps its independent review, builders never review their own work, and a
+required final gate comes from a provider other than the builder's. If no
+eligible provider is available, the gate waits. The routing is provisional and
+is re-measured (below).
+
+gpt-5.6-terra is not used for reviews. **High is the one effort ceiling** for
+routine work, overrides and the escalation ladder. The only exception is the
+hardest proof after high proved insufficient: then the head may choose xhigh or
+above for that single step, and records why in the journal.
+
+**Escalation when a check fails.** Trigger: a later stage (gate, e2e, CI, or the
+operator) finds a blocking defect or test gap in a range an earlier review
+approved. Then, for the rest of the session, that review role moves one step up
+its own ladder:
+
+- Claude: Sonnet medium, Sonnet high, Opus high;
+- Codex: Astra medium, Astra high;
+- Grok: 4.6 medium, 4.6 high;
+- the ladder ends at high.
+
+A further miss at the top of a ladder adds a second independent reviewer from
+another eligible provider to that role for the rest of the session, and the head
+names this in the next report to the operator.
+
+The head writes one line into the item's journal (the missed finding, the old
+and the new routing). Escalation overrides the same-reviewer selection of the
+delta rule: the next review is a fresh reviewer at the new routing, given the
+original findings verbatim. The delta scope rule is unchanged. Provider
+separation for gates never changes through escalation.
+
+**Overrides.** A head may set a lane's models through the lane workflow's
+arguments. An override never bypasses reviewer independence, gate provider
+separation, or the effort ceiling.
+
+**Re-measurement.** For every landed, blocked or abandoned lane, the lane result
+records each role's model and effort, and which stage found each blocking
+finding. After five lanes, the head compares misses per routing and proposes any
+change through the rule-change gate.
 
 A required final gate is required only where the lane carries material risk.
 Start it once, in parallel with the lane's first independent review, on the

@@ -460,11 +460,14 @@ async function fixBatch(blocking, source, budgetKey) {
   if (stop) return { stop }
   spent[budgetKey]++; spent.total++
   const foldIn = inPlaceFollowups()
+  const fixerTask = blocking.length
+    ? `Then answer exactly these blocking findings from ${source}, and nothing else:\n${listFindings(blocking)}`
+    : 'There are no blocking findings; your whole task is the follow-ups below:'
   phase('Fix')
   const fixed = await safeAgent(
     `${laneFacts}\nYou are a fresh fixer for PR #${pr} (lane tip ${tip}). Return that tip as oldTip. First merge origin/main if it moved (a merge commit; ` +
     `resolve other conflicts only when you can do so without changing behaviour, and set mergeResolvedLaneConflict true when files this lane changed needed resolution). ` +
-    `Return the tip after that merge as mergedBase (oldTip when main had not moved). If the worktree already carries commits or uncommitted changes past that tip from an earlier fixer that ran out of turns, judge them, keep what is right, and continue from there. Commit each finding as soon as it is green; if you run short of turns, commit what is green and return what is left in blockedReason with blocked true. ${blocking.length ? `Then answer exactly these blocking findings from ${source}, and nothing else:\n${listFindings(blocking)}` : 'There are no blocking findings; your whole task is the follow-ups below:'}${foldInBrief(foldIn)}\n\n` +
+    `Return the tip after that merge as mergedBase (oldTip when main had not moved). If the worktree already carries commits or uncommitted changes past that tip from an earlier fixer that ran out of turns, judge them, keep what is right, and continue from there. Commit each finding as soon as it is green; if you run short of turns, commit what is green and return what is left in blockedReason with blocked true. ${fixerTask}${foldInBrief(foldIn)}\n\n` +
     `Each finding names the rule it breaks and its evidence. Check the evidence yourself first. If it does not hold — the rule is not broken, or the evidence is wrong — ` +
     `do not change code for it: list it in disputed with your counter-evidence. Report every test you add for a finding in regression under that finding's exact where. ` +
     `A defect's test fails before your fix and passes after it; a defect with a test draft needs one. A defect in test code (hygiene) needs no regression test: the diff is its proof. A test-gap finding means a behaviour has no test, the code is already right, and it always needs a test: it passes before and after, ` +

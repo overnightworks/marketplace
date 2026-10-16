@@ -1,7 +1,0 @@
-claim_id = "b839f93013194ec48d464e79859b2569"
-agent = "Claude 3e666570-2fb5-4abd-955d-af106f942216"
-role = "builder"
-base = "7b50ce5a6e2039f2cf2f7b401aed1895d53b2db7"
-branch = "claude/issue-110-tester-detached-from-desktop"
-scope = ["plugins/atelier/skills/explorative-testing/SKILL.md"]
-opened_commit = "f3625aa0b7499cfa3abb44721e1a13a186f25938"

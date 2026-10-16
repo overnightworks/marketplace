@@ -176,7 +176,7 @@ const FIX = {
     regression: {
       type: 'array',
       description: "every test you add for a finding, under that finding's exact where",
-      items: { type: 'object', required: ['finding', 'test', 'failedBefore', 'passesAfter'], properties: { finding: { type: 'string', description: 'the where of the finding it proves' }, test: { type: 'string' }, failedBefore: { type: 'boolean' }, passesAfter: { type: 'boolean' }, mutation: { type: 'string', description: 'for a test-gap finding: the production change, made and reverted, under which the test fails' } } },
+      items: { type: 'object', required: ['finding', 'kind', 'test', 'failedBefore', 'passesAfter'], properties: { finding: { type: 'string', description: 'the where of the finding it proves' }, kind: { type: 'string', enum: FINDING_KINDS, description: "the kind of that finding, so a proof is judged by its own finding's bar" }, resolution: { type: 'string', enum: ['removed-vacuous'], description: 'for a test-gap finding whose test pins no behaviour: the fix removed that test instead of adding one' }, diff: { type: 'string', description: 'for removed-vacuous: the removal diff' }, test: { type: 'string' }, failedBefore: { type: 'boolean' }, passesAfter: { type: 'boolean' }, mutation: { type: 'string', description: 'for a test-gap finding: the production change, made and reverted, under which the test fails' } } },
     },
     summary: { type: 'string' }, blocked: { type: 'boolean' }, blockedReason: { type: 'string' },
   },
@@ -207,6 +207,9 @@ const laneFacts =
   (LEDGERS.length ? `When you merge origin/main, a conflict in the append-only ledgers (${LEDGERS.join(' and ')}) keeps both sides, main's lines first. ` : '') +
   `You are one step of a workflow the head session runs: a message from the operator that reaches you and is not about this step is addressed to the head — ` +
   `finish this step, and quote the message in your report so the head sees it.`
+
+// For the agents that may run a drive (the builder and the fixer); the tester already writes under its own scratch directory.
+const driveFacts = `Any drive you run keeps its pidfiles and evidence under ${A.scratch}.`
 
 const BLOCKING_LINE =
   `A finding is **blocking** when the change introduces a defect against the item's contract, a repository specification, ` +
@@ -322,7 +325,7 @@ const openResult = (status, stage, extra) =>
 if (A.build) {
   phase('Build')
   const built = await safeAgent(
-    `${laneFacts}\nYou are the builder. ${A.build}\nCommit each goal as soon as its targeted tests pass — never hold more than one goal uncommitted, and if you run short of turns, commit what is green and report what is left instead of continuing. Merge origin/main into the lane before pushing (a merge commit). ` +
+    `${laneFacts} ${driveFacts}\nYou are the builder. ${A.build}\nCommit each goal as soon as its targeted tests pass — never hold more than one goal uncommitted, and if you run short of turns, commit what is green and report what is left instead of continuing. Merge origin/main into the lane before pushing (a merge commit). ` +
     `Open the pull request as the build RULES say, run \`aco check <pr>\`, and return pr, tip and summary.`,
     { label: 'build', phase: 'Build', schema: BUILD, agentType: 'atelier:code-worker', ...claudeRole('build') })
   if (!built) return openResult('failed', 'build', { reason: `the builder returned no result; inspect ${A.worktree} for uncommitted work, checkpoint it, and hand it to a fresh finisher` })
@@ -405,12 +408,17 @@ function awaitHeadOnDispute(fixed, blocking) {
 }
 
 // What a proof still has to show for the finding it names, or null when it shows it. A test-gap's code was already
-// right, so its test cannot fail before the fix; a mutation it catches proves that it pins the behaviour.
+// right, so its test passes after the fix and pins the behaviour when a mutation, or the pre-fix code, makes it fail.
+// A test that pins nothing may be removed instead, with its diff as the proof.
 function proofGap(proof, finding) {
   const kind = kindOf(finding)
   if (kind === 'docs') return null
-  if (kind === 'test-gap') return (proof.mutation || '').trim() && proof.passesAfter ? null : 'a test-gap test named no mutation under which it fails, or did not pass'
-  return proof.failedBefore && proof.passesAfter ? null : 'a regression test did not fail before and pass after its fix'
+  if (kind === 'test-gap') {
+    if (proof.resolution === 'removed-vacuous') return (proof.diff || '').trim() ? null : `the removal of a vacuous test for ${finding.where} carried no diff`
+    if (!proof.passesAfter) return `a test-gap test for ${finding.where} did not pass after the fix`
+    return (proof.mutation || '').trim() || proof.failedBefore ? null : `a test-gap test for ${finding.where} named no mutation under which it fails and did not fail before the fix`
+  }
+  return (proof.failedBefore || !needsProof(finding)) && proof.passesAfter ? null : 'a regression test did not fail before and pass after its fix'
 }
 
 // Whether a fix must prove the finding with a test: a test-gap is nothing but a missing test, a defect's test draft
@@ -418,13 +426,14 @@ function proofGap(proof, finding) {
 const needsProof = (finding) => kindOf(finding) === 'test-gap' || (kindOf(finding) === 'defect' && Boolean(finding.testDraft))
 
 // Why a fixer's answer does not count as a fix, or null when it does. A proof counts only for the blocking finding
-// whose where it names exactly; a proof for anything else (a fold-in, say) is not checked.
+// whose where and kind it names exactly; a proof for anything else (a fold-in, say) is not checked.
+const proves = (proof, finding) => proof.finding === finding.where && proof.kind === kindOf(finding)
 function fixRejection(fixed, blocking) {
   const proofs = fixed.regression || []
-  const gaps = proofs.flatMap(proof => blocking.filter(f => f.where === proof.finding).map(finding => ({ proof, finding, gap: proofGap(proof, finding) })))
+  const gaps = proofs.flatMap(proof => blocking.filter(f => proves(proof, f)).map(finding => ({ proof, finding, gap: proofGap(proof, finding) })))
     .filter(checked => checked.gap)
   if (gaps.length) return { reason: [...new Set(gaps.map(checked => checked.gap))].join('; '), regression: gaps.map(checked => checked.proof), lastBlocking: gaps.map(checked => checked.finding) }
-  const unproven = blocking.filter(f => needsProof(f) && !proofs.some(r => r.finding === f.where))
+  const unproven = blocking.filter(f => needsProof(f) && !proofs.some(r => proves(r, f)))
   if (unproven.length) return { reason: 'a test-gap finding or a defect with a test draft got no regression test', lastBlocking: unproven }
   if (sameCommit(fixed.tip, fixed.oldTip)) return { reason: 'the fixer changed nothing', lastBlocking: blocking }
   const mergeWasTheFinding = blocking.length === 1 && blocking[0].where === 'mergeable'
@@ -434,6 +443,10 @@ function fixRejection(fixed, blocking) {
 
 // A fixer may report absolute paths; an absolute path once hid a production change and skipped the gate.
 const worktreeRelative = (files) => files.map(f => f.startsWith(`${A.worktree}/`) ? f.slice(A.worktree.length + 1) : f.replace(/^\.\//, ''))
+
+// A removal answers a test-gap only if the reviewer agrees the removed test pinned nothing.
+const removalsInRange = (fixed) => (fixed.regression || []).filter(proof => proof.resolution === 'removed-vacuous')
+  .map(proof => `\nThe fixer answered ${proof.finding} by removing a vacuous test instead of adding one; judge whether the removed test pinned no behaviour:\n${proof.diff}`).join('')
 
 // Takes the fixer's tip and names the delta the reviewers see next, or none when a clean merge of main was the whole fix.
 function acceptFix(fixed, blocking, foldIn) {
@@ -450,7 +463,7 @@ function acceptFix(fixed, blocking, foldIn) {
   }
   const range = `only this delta: git diff ${from}..${fixed.tip}` +
     (fixed.mergeResolvedLaneConflict ? ' (it includes a merge of main whose conflicts in this lane\'s files were resolved by hand)' : ' (the merge of main before it is not this lane\'s work)') +
-    `. It answers these findings:\n${listFindings(blocking)}${foldInsInRange(foldIn)}`
+    `. It answers these findings:\n${listFindings(blocking)}${removalsInRange(fixed)}${foldInsInRange(foldIn)}`
   log(`fix ${spent.total}: ${from.slice(0, 7)}..${tip.slice(0, 7)}`)
   return { range, gateAgain: MATERIAL && touchesProduction, touchesProduction }
 }
@@ -465,13 +478,13 @@ async function fixBatch(blocking, source, budgetKey) {
     : 'There are no blocking findings; your whole task is the follow-ups below:'
   phase('Fix')
   const fixed = await safeAgent(
-    `${laneFacts}\nYou are a fresh fixer for PR #${pr} (lane tip ${tip}). Return that tip as oldTip. First merge origin/main if it moved (a merge commit; ` +
+    `${laneFacts} ${driveFacts}\nYou are a fresh fixer for PR #${pr} (lane tip ${tip}). Return that tip as oldTip. First merge origin/main if it moved (a merge commit; ` +
     `resolve other conflicts only when you can do so without changing behaviour, and set mergeResolvedLaneConflict true when files this lane changed needed resolution). ` +
     `Return the tip after that merge as mergedBase (oldTip when main had not moved). If the worktree already carries commits or uncommitted changes past that tip from an earlier fixer that ran out of turns, judge them, keep what is right, and continue from there. Commit each finding as soon as it is green; if you run short of turns, commit what is green and return what is left in blockedReason with blocked true. ${fixerTask}${foldInBrief(foldIn)}\n\n` +
     `Each finding names the rule it breaks and its evidence. Check the evidence yourself first. If it does not hold — the rule is not broken, or the evidence is wrong — ` +
-    `do not change code for it: list it in disputed with your counter-evidence. Report every test you add for a finding in regression under that finding's exact where. ` +
+    `do not change code for it: list it in disputed with your counter-evidence. Report every test you add for a finding in regression under that finding's exact where and its kind. ` +
     `A defect's test fails before your fix and passes after it; a defect with a test draft needs one. A defect in test code (hygiene) needs no regression test: the diff is its proof. A test-gap finding means a behaviour has no test, the code is already right, and it always needs a test: it passes before and after, ` +
-    `so report failedBefore false and name in mutation the production change, made and reverted, under which the test fails. A docs finding needs no test. When the only finding is that the pull request conflicts with main, the merge is the whole fix. ` +
+    `so name in mutation the production change, made and reverted, under which the test fails; a test that fails on the pre-fix code counts as such a mutation (failedBefore true). When a test-gap's cell pins no behaviour at all, you may remove it instead: report resolution removed-vacuous with the removal diff in diff. A docs finding needs no test. When the only finding is that the pull request conflicts with main, the merge is the whole fix. ` +
     `Otherwise one commit per finding. Push, patch the PR body only where it became false (REST PATCH with --input, never gh pr edit --body-file), run \`aco check ${pr}\` from the worktree. ` +
     `Return the new tip and files: git diff --name-only from mergedBase (from oldTip when mergeResolvedLaneConflict) to the new tip.`,
     { label: `fix-${spent.total}`, phase: 'Fix', schema: FIX, agentType: 'atelier:code-fixer', ...claudeRole('fix') })
@@ -549,6 +562,7 @@ function explore(n) {
     `Write only under ${A.scratch}/${TAG}-e2e-${n}/. Take /tmp/probe-stack.lock for any server or browser run so that no process you start inherits it: ` +
     `\`flock -o -w 1200 /tmp/probe-stack.lock <command>\`, or close fd 9 (\`9>&-\`) for every child. Run every server under \`timeout <cap>\` on a free port above 8790, ` +
     `write its pid to a file under ${A.scratch}/${TAG}-e2e-${n}/ and kill it before reporting; stop every other process you start (a container, a background browser) before reporting too; lsof in your report is evidence only, never a guard. Never touch another session's server. ` +
+    `Right after you acquire the lock, read the 1-minute load average again; while it is above 1.5 × cores, release the lock and wait. ` +
     `If the lock stays held by someone else for those 1200 seconds, return verdict failed with lockBusy true instead of guessing. verdict is PASS with no blocking findings and FAIL with at least one. Return evidencePath.`
   return safeAgent(prompt, { label: `e2e-${n}`, phase: 'Test and CI', schema: E2E, agentType: 'atelier:explorative-tester', ...claudeRole('test') })
     .then(r => r || safeAgent(`Load the atelier:explorative-testing skill first.\n${prompt}`,

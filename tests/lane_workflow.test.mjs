@@ -99,6 +99,16 @@ test('#90 AC-remeasure: every lane result records each role\'s model and effort 
   assert.deepEqual(result.history.find(entry => entry.by === 'gate').blocking, ['src/webauth/oidc.py:315'])
 })
 
+test('#103 AC-remeasure-test-and-ci: the e2e and CI history entries carry their blocking locations', async () => {
+  const replay = webauthReplay
+  const answers = answersWith(replay, { kind: 'test-gap', mutation: true })
+  answers['e2e-0'] = { verdict: 'FAIL', blocking: [finding('probe: login redirect', 'the redirect loses the state')], followups: [] }
+  answers['ci-0'] = { head: webauthTips.secondFix, green: false, failing: [finding('ci: lint', 'ruff fails')] }
+  const { result } = await runLane(replay.args, answers)
+  assert.deepEqual(result.history.find(entry => entry.by === 'e2e-0').blocking, ['probe: login redirect'])
+  assert.deepEqual(result.history.find(entry => entry.by === 'ci-0').blocking, ['ci: lint'])
+})
+
 test('#90 AC-reviewer-stopgap: a reviewer brief carries the stopgap refusals and narrows test-gap to a behaviour without a test', async () => {
   const { agentCalls } = await runLane(resumedLane)
   const brief = agentCalls['r0-review'].prompt
@@ -170,9 +180,9 @@ const webauthReplay = {
       oldTip: webauthTips.built, mergedBase: '1a0864b704b6717b660951357191f1562af7802e', tip: webauthTips.firstFix, mergeResolvedLaneConflict: true, disputed: [], blocked: false,
       files: ['README.md', 'pyproject.toml', 'src/webauth/__init__.py', 'src/webauth/config.py', 'src/webauth/jwt_verification.py', 'src/webauth/liveness.py', 'src/webauth/oidc.py', 'tests/test_jwt_verification.py', 'tests/test_liveness.py', 'tests/test_oidc.py', 'tests/test_web_auth_config.py', 'uv.lock'],
       regression: [
-        { finding: 'src/webauth/oidc.py:340-356 (_is_same_secret, _callback_parameters) via OidcRelyingParty.complete_login', test: 'tests/test_oidc.py [lone-surrogate-not-percent-encoded]', failedBefore: true, passesAfter: true },
-        { finding: 'tests/test_oidc.py:70-72, 463-476 (token request test) and 230-291 (_CALLBACK_REFUSALS)', test: 'tests/test_oidc.py [secret-form-encoded-before-basic-encoding]', failedBefore: true, passesAfter: true },
-        { finding: 'src/webauth/oidc.py:315', test: 'tests/test_oidc.py [redirect-uri-with-a-carriage-return-in-its-path]', failedBefore: true, passesAfter: true },
+        { finding: 'src/webauth/oidc.py:340-356 (_is_same_secret, _callback_parameters) via OidcRelyingParty.complete_login', kind: 'defect', test: 'tests/test_oidc.py [lone-surrogate-not-percent-encoded]', failedBefore: true, passesAfter: true },
+        { finding: 'tests/test_oidc.py:70-72, 463-476 (token request test) and 230-291 (_CALLBACK_REFUSALS)', kind: 'test-gap', test: 'tests/test_oidc.py [secret-form-encoded-before-basic-encoding]', failedBefore: true, passesAfter: true },
+        { finding: 'src/webauth/oidc.py:315', kind: 'defect', test: 'tests/test_oidc.py [redirect-uri-with-a-carriage-return-in-its-path]', failedBefore: true, passesAfter: true },
       ],
     },
     'r1-review': {
@@ -194,10 +204,10 @@ const webauthReplay = {
       oldTip: webauthTips.firstFix, mergedBase: webauthTips.firstFix, tip: webauthTips.secondFix, mergeResolvedLaneConflict: false, disputed: [], blocked: false,
       files: ['src/webauth/jwt_verification.py', 'src/webauth/oidc.py', 'tests/test_jwt_verification.py', 'tests/test_oidc.py'],
       regression: [
-        { finding: webauthC1Finding, test: 'tests/test_oidc.py [redirect-uri-with-a-c1-control-character]', failedBefore: true, passesAfter: true },
-        { finding: 'src/webauth/jwt_verification.py:65', test: 'tests/test_oidc.py [redirect-uri-with-a-c1-control-character]', failedBefore: true, passesAfter: true },
-        { finding: 'tests/test_oidc.py:479', test: 'tests/test_oidc.py [client-id-form-encoded-before-basic-encoding]', failedBefore: false, passesAfter: true },
-        { finding: 'src/webauth/jwt_verification.py:365-372 (is_https_url) follow-up', test: 'tests/test_jwt_verification.py [key-set-url-not-a-string]', failedBefore: true, passesAfter: true },
+        { finding: webauthC1Finding, kind: 'defect', test: 'tests/test_oidc.py [redirect-uri-with-a-c1-control-character]', failedBefore: true, passesAfter: true },
+        { finding: 'src/webauth/jwt_verification.py:65', kind: 'defect', test: 'tests/test_oidc.py [redirect-uri-with-a-c1-control-character]', failedBefore: true, passesAfter: true },
+        { finding: 'tests/test_oidc.py:479', kind: 'test-gap', test: 'tests/test_oidc.py [client-id-form-encoded-before-basic-encoding]', failedBefore: false, passesAfter: true },
+        { finding: 'src/webauth/jwt_verification.py:365-372 (is_https_url) follow-up', kind: 'defect', test: 'tests/test_jwt_verification.py [key-set-url-not-a-string]', failedBefore: true, passesAfter: true },
       ],
     },
     'r2-review': APPROVE,
@@ -241,7 +251,7 @@ const agentProvidersReplay = {
     'fix-1': {
       oldTip: agentProvidersTips.built, mergedBase: agentProvidersTips.built, tip: agentProvidersTips.fix, mergeResolvedLaneConflict: false, disputed: [], blocked: false,
       files: ['docs/decisions/0001-agent-service.md', 'packages/agent-client/src/agent_client/wire.py', 'tests/test_sse_codec.py'],
-      regression: [{ finding: 'tests/test_sse_codec.py:58', test: 'tests/test_sse_codec.py::test_an_event_travels_as_one_frame_of_compact_utf8_json', failedBefore: false, passesAfter: true }],
+      regression: [{ finding: 'tests/test_sse_codec.py:58', kind: 'test-gap', test: 'tests/test_sse_codec.py::test_an_event_travels_as_one_frame_of_compact_utf8_json', failedBefore: false, passesAfter: true }],
     },
     'r1-gate': { ...APPROVE, codexExit: 0 },
     'e2e-0': PASS,
@@ -254,7 +264,7 @@ const replays = [webauthReplay, agentProvidersReplay]
 // carries the kind its reviewer gives it, and its proof the mutation its fixer reported. The other options vary
 // that proof: whether it passes after the fix, whether it names the finding's where exactly, a near match of it,
 // or is left out, and whether the fixer adds a failing proof for a where no blocking finding has (its fold-in's).
-function answersWith(replay, { kind, mutation, testDraft = false, passesAfter = true, proof = 'exact', strayProof = false }) {
+function answersWith(replay, { kind, mutation, testDraft = false, passesAfter = true, proof = 'exact', strayProof = false, proofKind, failedBefore }) {
   const answers = structuredClone(replay.answers)
   const { raisedBy, fixedBy, where } = replay.testGap
   const testGap = answers[raisedBy].blocking.find(f => f.where === where)
@@ -262,8 +272,10 @@ function answersWith(replay, { kind, mutation, testDraft = false, passesAfter = 
   if (testDraft) testGap.testDraft = '/s/draft_test.py'
   const regression = answers[fixedBy].regression
   const testGapProof = regression.find(recorded => recorded.finding === where)
+  testGapProof.kind = proofKind || testGap.kind || 'defect'
   if (mutation) testGapProof.mutation = replay.testGap.mutation
   testGapProof.passesAfter = passesAfter
+  if (failedBefore !== undefined) testGapProof.failedBefore = failedBefore
   if (proof === 'near-match') testGapProof.finding = `${where} (test)`
   if (proof === 'omitted') regression.splice(regression.indexOf(testGapProof), 1)
   if (strayProof) regression.push({ finding: replay.foldIns.accepted.folded.at(-1)[0], test: 'fold-in test', failedBefore: false, passesAfter: false })
@@ -271,8 +283,10 @@ function answersWith(replay, { kind, mutation, testDraft = false, passesAfter = 
 }
 
 const proofsByKind = [
-  ['a resumed run whose findings carry no kind stops at the fix as before', { kind: undefined, mutation: true }, false],
-  ['a defect whose test did not fail before stops at the fix', { kind: 'defect', mutation: true }, false],
+  ['a resumed run whose findings carry no kind stops at the fix as before', { kind: undefined, testDraft: true, mutation: true }, false],
+  ['#103 AC-proof-matches-its-finding: a defect with a test draft whose test did not fail before stops at the fix', { kind: 'defect', testDraft: true, mutation: true }, false],
+  ['#103 AC-proof-matches-its-finding: a test-gap whose only proof names another kind stops at the fix', { kind: 'test-gap', mutation: true, proofKind: 'defect' }, false],
+  ['#103 AC-pre-fix-mutation: a test-gap whose test failed on the pre-fix code needs no named mutation and moves past the fix', { kind: 'test-gap', mutation: false, failedBefore: true }, true],
   ['a test-gap without a named mutation stops at the fix', { kind: 'test-gap', mutation: false }, false],
   ['a test-gap whose test does not pass after the fix stops at the fix', { kind: 'test-gap', mutation: true, passesAfter: false }, false],
   ['a test-gap without any proof stops at the fix', { kind: 'test-gap', proof: 'omitted' }, false],
@@ -300,7 +314,7 @@ for (const replay of replays) {
 
 const fixOutcomes = [
   ['accepted', { kind: 'test-gap', mutation: true }],
-  ['stopped', { kind: undefined, mutation: false }],
+  ['stopped', { kind: undefined, testDraft: true, mutation: false }],
 ]
 for (const replay of replays) {
   for (const [outcome, labels] of fixOutcomes) {
@@ -343,7 +357,7 @@ test('a fix that only merged main folds nothing in, so the head still routes the
 
 test('a stopped fix reports the fold-ins its fixer found already done, and leaves them open', async () => {
   const replay = agentProvidersReplay
-  const answers = answersWith(replay, { kind: undefined, mutation: false })
+  const answers = answersWith(replay, { kind: undefined, testDraft: true, mutation: false })
   const resolved = [{ where: replay.foldIns.stopped.open[0], text: 'done by an earlier fixer' }]
   answers[replay.testGap.fixedBy].resolved = resolved
   const { result } = await runLane(replay.args, answers)
@@ -416,4 +430,53 @@ test('a follow-up carries the tip it was raised at, and the result lists those r
   const earlier = result.raisedBeforeTip.map(f => f.where)
   assert.ok(earlier.includes('AGENTS.md:35-38 / .importlinter'))
   assert.ok(!earlier.includes(raisedAtReturnedTip.where))
+})
+
+// A resumed run whose fixer answers findings handed over by the head: what each proof must show for its own finding.
+const defectWithDraft = { ...finding('t.py:1', 'the code breaks the rule'), kind: 'defect', testDraft: '/s/draft_test.py' }
+const defectWithoutDraft = { ...finding('t.py:1', 'the code breaks the rule'), kind: 'defect' }
+const testGap = { ...finding('t.py:1', 'a behaviour has no test'), kind: 'test-gap' }
+const proofOf = (kind, overrides) => ({ finding: 't.py:1', kind, test: 't.py [case]', failedBefore: false, passesAfter: true, ...overrides })
+const removalDiff = '-    def test_case_that_asserts_nothing(): pass'
+const proofsAtOneWhere = [
+  ['a defect and a test-gap at one where, each with its own proof, are each accepted', [defectWithDraft, testGap], [proofOf('defect', { failedBefore: true }), proofOf('test-gap', { mutation: 'drop the guard' })], null],
+  ['one proof for the defect does not satisfy the test-gap at the same where', [defectWithDraft, testGap], [proofOf('defect', { failedBefore: true })], /test-gap finding or a defect with a test draft got no regression test/],
+  ['a test-gap test that failed before the fix needs no mutation', [testGap], [proofOf('test-gap', { failedBefore: true })], null],
+  ['a test-gap test without a mutation that did not fail before is rejected naming its where and the mutation', [testGap], [proofOf('test-gap')], /t\.py:1.*no mutation/],
+  ['a test-gap test with a mutation that does not pass after is rejected as not passing', [testGap], [proofOf('test-gap', { mutation: 'drop the guard', passesAfter: false })], /t\.py:1.*did not pass/],
+  ['a defect without a test draft needs no failing-before test', [defectWithoutDraft], [proofOf('defect')], null],
+  ['a defect with a test draft still needs its test to fail before', [defectWithDraft], [proofOf('defect')], /did not fail before/],
+  ['a removed vacuous test with its diff answers a test-gap', [testGap], [proofOf('test-gap', { resolution: 'removed-vacuous', diff: removalDiff })], null],
+  ['a removed vacuous test without a diff is rejected', [testGap], [proofOf('test-gap', { resolution: 'removed-vacuous' })], /t\.py:1.*no diff/],
+]
+for (const [behaviour, fixFirst, regression, rejectedFor] of proofsAtOneWhere) {
+  test(`#103 proof guard: ${behaviour}`, async () => {
+    const { result, launchedAgents } = await runLane({ ...resumeArgs, fixFirst }, { 'fix-1': { ...resumeFix, regression } })
+    if (rejectedFor) {
+      assert.deepEqual([result.status, result.stage], ['failed', 'fix'])
+      assert.match(result.reason, rejectedFor)
+    } else {
+      assert.ok(launchedAgents.includes('r1-review'))
+    }
+  })
+}
+
+test('#103 AC-removed-vacuous: the review after a removal asks the reviewer to judge the removed test', async () => {
+  const regression = [proofOf('test-gap', { resolution: 'removed-vacuous', diff: removalDiff })]
+  const { agentCalls } = await runLane({ ...resumeArgs, fixFirst: [testGap] }, { 'fix-1': { ...resumeFix, regression } })
+  assert.match(agentCalls['r1-review'].prompt, /removing a vacuous test.*judge whether the removed test pinned no behaviour/)
+  assert.ok(agentCalls['r1-review'].prompt.includes(removalDiff))
+})
+
+test('#103 AC-scratch-and-load: the builder and fixer know the scratch path and the tester re-reads the load after the lock', async () => {
+  const replay = webauthReplay
+  const args = { ...replay.args, scratch: '/drive-scratch' }
+  const { agentCalls } = await runLane(args, answersWith(replay, { kind: 'test-gap', mutation: true }))
+  for (const label of ['build', 'fix-1']) assert.match(agentCalls[label].prompt, /pidfiles and evidence under \/drive-scratch/)
+  assert.match(agentCalls['e2e-0'].prompt, /Right after you acquire the lock, read the 1-minute load average again.*above 1\.5 × cores, release the lock and wait/)
+})
+
+test('#103 AC-scratch-and-load: the sync prompt does not carry the drive facts', async () => {
+  const { agentCalls } = await runLane({ ...resumeArgs, scratch: '/drive-scratch' })
+  assert.doesNotMatch(agentCalls.sync.prompt, /drive-scratch/)
 })

@@ -297,8 +297,10 @@ for (const [what, gateAnswer, rereadAnswer, outcome, reachesFixer, rereads] of c
 
 test('#128 AC-courier-final-action: the courier and its re-read name StructuredOutput as their only final action', async () => {
   const { agentCalls } = await runLane(agentProvidersReplay.args, { ...agentProvidersReplay.answers, 'r0-gate': contradictoryCourier, 'r0-gate-reread': { ...gateRevise, codexExit: 0 } })
-  for (const label of ['r0-gate', 'r0-gate-reread']) {
-    assert.match(agentCalls[label].prompt, /verbatim.*only final action is the StructuredOutput call; never write a text answer first/s, label)
+  const copySentenceByLabel = { 'r0-gate': /verbatim from the out\.json into the StructuredOutput call/, 'r0-gate-reread': /verbatim into the StructuredOutput call/ }
+  for (const [label, copySentence] of Object.entries(copySentenceByLabel)) {
+    assert.match(agentCalls[label].prompt, copySentence, label)
+    assert.match(agentCalls[label].prompt, /only final action is the StructuredOutput call; never write a text answer first/, label)
   }
 })
 

@@ -24,6 +24,7 @@ landed; this says *how*.
 
 ## Start a lane
 
+- Before the claim, trace callers and owners into the scope (contract: "How to coordinate", the trace-before-claim rule). A lane that returns `awaiting-head` with a `rescope` list needs `aco rescope`, then a resume.
 - Issue item: from the main checkout, run the `aco start <n> ...` line that
   `aco next` prints and fill any `<reason>` placeholder it prints (for example after
   `--whole`); it creates the worktree

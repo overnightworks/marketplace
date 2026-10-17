@@ -128,10 +128,15 @@ const FOLLOWUP = {
   required: ['where', 'text', 'owner'],
   properties: { where: { type: 'string' }, text: { type: 'string' }, owner: { type: 'string', description: 'owning item #n, or "distributor"' } },
 }
+const RESCOPE = {
+  type: 'array',
+  description: 'paths outside the claim scope that the work needs changed; you edited none of them',
+  items: { type: 'object', required: ['path', 'change', 'reason'], properties: { path: { type: 'string' }, change: { type: 'string', description: 'the change the path needs' }, reason: { type: 'string', description: 'why the work cannot be done without it' } } },
+}
 const BUILD = {
   type: 'object',
   required: ['pr', 'tip', 'blocked'],
-  properties: { pr: { type: 'number' }, tip: { type: 'string', pattern: '^[0-9a-f]{7,40}$', description: 'a commit sha from git rev-parse, nothing else' }, summary: { type: 'string' }, blocked: { type: 'boolean' }, blockedReason: { type: 'string' } },
+  properties: { pr: { type: 'number' }, tip: { type: 'string', pattern: '^[0-9a-f]{7,40}$', description: 'a commit sha from git rev-parse, nothing else' }, summary: { type: 'string' }, blocked: { type: 'boolean' }, blockedReason: { type: 'string' }, rescope: RESCOPE },
 }
 const SYNC = {
   type: 'object',
@@ -193,7 +198,7 @@ const FIX = {
       description: "every test you add for a finding, under that finding's exact where",
       items: { type: 'object', required: ['finding', 'kind', 'test', 'failedBefore', 'passesAfter'], properties: { finding: { type: 'string', description: 'the where of the finding it proves' }, kind: { type: 'string', enum: FINDING_KINDS, description: "the kind of that finding, so a proof is judged by its own finding's bar" }, resolution: { type: 'string', enum: ['removed-vacuous'], description: 'for a test-gap finding whose test pins no behaviour: the fix removed that test instead of adding one' }, diff: { type: 'string', description: 'for removed-vacuous: the removal diff' }, test: { type: 'string' }, failedBefore: { type: 'boolean' }, passesAfter: { type: 'boolean' }, mutation: { type: 'string', description: 'for a test-gap finding: the production change, made and reverted, under which the test fails' } } },
     },
-    summary: { type: 'string' }, blocked: { type: 'boolean' }, blockedReason: { type: 'string' },
+    summary: { type: 'string' }, blocked: { type: 'boolean' }, blockedReason: { type: 'string' }, rescope: RESCOPE,
   },
 }
 const E2E = {
@@ -224,6 +229,9 @@ const laneFacts =
   `finish this step, and quote the message in your report so the head sees it.`
 
 // For the agents that may run a drive (the builder and the fixer); the tester already writes under its own scratch directory.
+const rescopeFacts =
+  `When the work needs a path outside the claim scope, edit nothing there: finish what lies inside, and list the path, the change it needs and the reason in rescope. The head then runs aco rescope and resumes.`
+
 const driveFacts = `Any drive you run keeps its pidfiles and evidence under ${A.scratch}.`
 
 const BLOCKING_LINE =
@@ -333,6 +341,9 @@ function openFollowups() {
   return [...open.values()]
 }
 const raisedBeforeTip = (open) => open.filter(f => f.tip && !sameCommit(f.tip, tip))
+// A builder or fixer that needs a path outside the claim hands the head a rescope request; the scope stage stays the backstop.
+const awaitRescope = (stage, rescope, reason = '', extra = {}) =>
+  openResult('awaiting-head', stage, { reason: `the work needs paths outside the claim scope; run aco rescope for them and resume with fixFirst carrying the rescope entries as findings (path to where, change to text, reason to evidence, kind defect), so a fixer makes the change.${reason}`, rescope, ...extra })
 const openResult = (status, stage, extra) =>
   ({ status, stage, pr, tip, spent, routing: ROUTING, history, followups: openFollowups(), raisedBeforeTip: raisedBeforeTip(openFollowups()), folded: [...folded.values()], disputed, ...extra })
 
@@ -340,13 +351,14 @@ const openResult = (status, stage, extra) =>
 if (A.build) {
   phase('Build')
   const built = await safeAgent(
-    `${laneFacts} ${driveFacts}\nYou are the builder. ${A.build}\nCommit each goal as soon as its targeted tests pass — never hold more than one goal uncommitted, and if you run short of turns, commit what is green and report what is left instead of continuing. Merge origin/main into the lane before pushing (a merge commit). ` +
+    `${laneFacts} ${driveFacts} ${rescopeFacts}\nYou are the builder. ${A.build}\nCommit each goal as soon as its targeted tests pass — never hold more than one goal uncommitted, and if you run short of turns, commit what is green and report what is left instead of continuing. Merge origin/main into the lane before pushing (a merge commit). ` +
     `Open the pull request as the build RULES say, run \`aco check <pr>\`, and return pr, tip and summary.`,
     { label: 'build', phase: 'Build', schema: BUILD, agentType: 'atelier:code-worker', ...claudeRole('build') })
   if (!built) return openResult('failed', 'build', { reason: `the builder returned no result; inspect ${A.worktree} for uncommitted work, checkpoint it, and hand it to a fresh finisher` })
-  if (built.blocked) return openResult('escalated', 'build', { reason: built.blockedReason })
+  if (!(built.rescope || []).length && built.blocked) return openResult('escalated', 'build', { reason: built.blockedReason })
   if (!SHA.test(built.tip || '')) return openResult('failed', 'build', { reason: `the builder returned a tip that is not a sha: ${String(built.tip).slice(0, 80)}` })
   pr = built.pr; tip = built.tip
+  if ((built.rescope || []).length) return awaitRescope('build', built.rescope)
   log(`built PR #${pr} at ${tip}`)
 } else {
   phase('Sync')
@@ -419,12 +431,18 @@ function foldInBrief(foldIn) {
 // The reviewer sees which follow-ups the fixer was given, so it can tell a skipped one from a done one.
 const foldInsInRange = (foldIn) => foldIn.length ? `\nThe fixer was also given these follow-ups to fold in; check each is done:\n${listFoldIns(foldIn)}` : ''
 
-// A disputed finding is a disagreement between two fresh agents about evidence: the head decides it.
-function awaitHeadOnDispute(fixed, blocking) {
-  disputed.push(...fixed.disputed)
+// The fixer's returned tip becomes the lane tip; it is unreviewed when the fixer committed anything. Returns whether it did.
+function adoptFixerTip(fixed) {
   tip = fixed.tip
   const committed = !sameCommit(fixed.tip, fixed.oldTip)
   history.push({ after: spent.total, by: 'fix', tip: fixed.tip, reviewed: !committed })
+  return committed
+}
+
+// A disputed finding is a disagreement between two fresh agents about evidence: the head decides it.
+function awaitHeadOnDispute(fixed, blocking) {
+  disputed.push(...fixed.disputed)
+  const committed = adoptFixerTip(fixed)
   return openResult('awaiting-head', 'fix', { reason: committed ? 'the fixer disputes findings with counter-evidence; the returned tip carries fix commits no reviewer has seen' : 'the fixer disputes every finding with counter-evidence and committed nothing', lastBlocking: blocking })
 }
 
@@ -506,7 +524,7 @@ async function fixBatch(blocking, source, budgetKey) {
     : 'There are no blocking findings; your whole task is the follow-ups below:'
   phase('Fix')
   const fixed = await safeAgent(
-    `${laneFacts} ${driveFacts}\nYou are a fresh fixer for PR #${pr} (lane tip ${tip}). Return that tip as oldTip. First merge origin/main if it moved (a merge commit; ` +
+    `${laneFacts} ${driveFacts} ${rescopeFacts}\nYou are a fresh fixer for PR #${pr} (lane tip ${tip}). Return that tip as oldTip. First merge origin/main if it moved (a merge commit; ` +
     `resolve other conflicts only when you can do so without changing behaviour, and set mergeResolvedLaneConflict true when files this lane changed needed resolution). ` +
     `Return the tip after that merge as mergedBase (oldTip when main had not moved). If the worktree already carries commits or uncommitted changes past that tip from an earlier fixer that ran out of turns, judge them, keep what is right, and continue from there. Commit each finding as soon as it is green; if you run short of turns, commit what is green and return what is left in blockedReason with blocked true. ${fixerTask}${foldInBrief(foldIn)}\n\n` +
     `Each finding names the rule it breaks and its evidence. Check the evidence yourself first. If it does not hold — the rule is not broken, or the evidence is wrong — ` +
@@ -520,6 +538,10 @@ async function fixBatch(blocking, source, budgetKey) {
   if (![fixed.oldTip, fixed.mergedBase, fixed.tip].every(t => SHA.test(t || ''))) return { stop: openResult('failed', 'fix', { reason: 'the fixer returned a tip that is not a sha' }) }
   // What the fixer says it found already done is only reported to the head: an unaccepted fix folds nothing in.
   const unaccepted = (result) => ({ stop: (fixed.resolved || []).length ? { ...result, resolved: fixed.resolved } : result })
+  if ((fixed.rescope || []).length) {
+    const committed = adoptFixerTip(fixed)
+    return unaccepted(awaitRescope('fix', fixed.rescope, committed ? ' The returned tip carries fix commits no reviewer has seen; resume with deltaFrom.' : '', { lastBlocking: blocking }))
+  }
   if (fixed.blocked) return unaccepted(openResult('escalated', 'fix', { reason: fixed.blockedReason }))
   if ((fixed.disputed || []).length) return unaccepted(awaitHeadOnDispute(fixed, blocking))
   const rejection = fixRejection(fixed, blocking, foldIn)

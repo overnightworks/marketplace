@@ -282,6 +282,7 @@ const courierAnswersByExit = [
   ['a REVISE without a clean Codex exit stops the lane', { ...gateRevise, codexExit: 1 }, undefined, ['failed', 'review'], false, 0],
   ['a failed courier without a marker stops the lane', { verdict: 'failed', blocking: [], followups: [], codexExit: -1, note: 'no marker' }, undefined, ['failed', 'review'], false, 0],
   ['a failed courier with a clean exit is re-read once and the re-read REVISE goes to a fixer', contradictoryCourier, { ...gateRevise, codexExit: 0 }, ['ready-to-land', undefined], true, 1],
+  ['a failed courier whose re-read returns a verdict without a clean exit stops the lane', contradictoryCourier, { ...gateRevise, codexExit: 1 }, ['failed', 'review'], false, 1],
   ['a failed courier with a clean exit whose re-read fails again stops the lane', contradictoryCourier, contradictoryCourier, ['failed', 'review'], false, 1],
 ]
 for (const [what, gateAnswer, rereadAnswer, outcome, reachesFixer, rereads] of courierAnswersByExit) {
@@ -297,7 +298,7 @@ for (const [what, gateAnswer, rereadAnswer, outcome, reachesFixer, rereads] of c
 test('#128 AC-courier-final-action: the courier and its re-read name StructuredOutput as their only final action', async () => {
   const { agentCalls } = await runLane(agentProvidersReplay.args, { ...agentProvidersReplay.answers, 'r0-gate': contradictoryCourier, 'r0-gate-reread': { ...gateRevise, codexExit: 0 } })
   for (const label of ['r0-gate', 'r0-gate-reread']) {
-    assert.match(agentCalls[label].prompt, /only final action is the StructuredOutput call.*verbatim.*never write a text answer first/s, label)
+    assert.match(agentCalls[label].prompt, /verbatim.*only final action is the StructuredOutput call; never write a text answer first/s, label)
   }
 })
 

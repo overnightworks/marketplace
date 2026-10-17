@@ -342,8 +342,8 @@ function openFollowups() {
 }
 const raisedBeforeTip = (open) => open.filter(f => f.tip && !sameCommit(f.tip, tip))
 // A builder or fixer that needs a path outside the claim hands the head a rescope request; the scope stage stays the backstop.
-const awaitRescope = (stage, rescope) =>
-  openResult('awaiting-head', stage, { reason: 'the work needs paths outside the claim scope; run aco rescope for them and resume', rescope })
+const awaitRescope = (stage, rescope, reason = '') =>
+  openResult('awaiting-head', stage, { reason: `the work needs paths outside the claim scope; run aco rescope for them and resume with fixFirst carrying the rescope entries, so a fixer makes the change.${reason}`, rescope })
 const openResult = (status, stage, extra) =>
   ({ status, stage, pr, tip, spent, routing: ROUTING, history, followups: openFollowups(), raisedBeforeTip: raisedBeforeTip(openFollowups()), folded: [...folded.values()], disputed, ...extra })
 
@@ -355,10 +355,10 @@ if (A.build) {
     `Open the pull request as the build RULES say, run \`aco check <pr>\`, and return pr, tip and summary.`,
     { label: 'build', phase: 'Build', schema: BUILD, agentType: 'atelier:code-worker', ...claudeRole('build') })
   if (!built) return openResult('failed', 'build', { reason: `the builder returned no result; inspect ${A.worktree} for uncommitted work, checkpoint it, and hand it to a fresh finisher` })
-  if ((built.rescope || []).length) return awaitRescope('build', built.rescope)
-  if (built.blocked) return openResult('escalated', 'build', { reason: built.blockedReason })
+  if (!(built.rescope || []).length && built.blocked) return openResult('escalated', 'build', { reason: built.blockedReason })
   if (!SHA.test(built.tip || '')) return openResult('failed', 'build', { reason: `the builder returned a tip that is not a sha: ${String(built.tip).slice(0, 80)}` })
   pr = built.pr; tip = built.tip
+  if ((built.rescope || []).length) return awaitRescope('build', built.rescope)
   log(`built PR #${pr} at ${tip}`)
 } else {
   phase('Sync')
@@ -532,7 +532,12 @@ async function fixBatch(blocking, source, budgetKey) {
   if (![fixed.oldTip, fixed.mergedBase, fixed.tip].every(t => SHA.test(t || ''))) return { stop: openResult('failed', 'fix', { reason: 'the fixer returned a tip that is not a sha' }) }
   // What the fixer says it found already done is only reported to the head: an unaccepted fix folds nothing in.
   const unaccepted = (result) => ({ stop: (fixed.resolved || []).length ? { ...result, resolved: fixed.resolved } : result })
-  if ((fixed.rescope || []).length) return unaccepted(awaitRescope('fix', fixed.rescope))
+  if ((fixed.rescope || []).length) {
+    tip = fixed.tip
+    const committed = !sameCommit(fixed.tip, fixed.oldTip)
+    history.push({ after: spent.total, by: 'fix', tip: fixed.tip, reviewed: !committed })
+    return unaccepted(awaitRescope('fix', fixed.rescope, committed ? ' The returned tip carries fix commits no reviewer has seen; resume with deltaFrom.' : ''))
+  }
   if (fixed.blocked) return unaccepted(openResult('escalated', 'fix', { reason: fixed.blockedReason }))
   if ((fixed.disputed || []).length) return unaccepted(awaitHeadOnDispute(fixed, blocking))
   const rejection = fixRejection(fixed, blocking, foldIn)

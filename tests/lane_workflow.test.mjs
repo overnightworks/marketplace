@@ -91,6 +91,11 @@ test('#90 AC-gate-separation: a Claude builder gets the Codex gpt-6-astra gate a
   assert.doesNotMatch(gatePrompt, /terra|sol/i)
 })
 
+test('#128 AC-gate-revise-kept: the courier brief returns a REVISE from a clean Codex exit unchanged and never as failed', async () => {
+  const { agentCalls } = await runLane({ ...resumedLane, risk: 'material' })
+  assert.match(agentCalls['r0-gate'].prompt, /holds 0 and .* is valid JSON, return its verdict, blocking and followups UNCHANGED.*a REVISE with blocking findings is never failed/s)
+})
+
 test('#90 AC-codex-reviewer: a Codex reviewer runs gpt-6-astra at medium effort', async () => {
   const { agentCalls } = await runLane({ ...resumedLane, reviewer: 'codex' })
   assert.match(agentCalls['r0-review'].prompt, /-m gpt-6-astra -c model_reasoning_effort=medium/)
@@ -269,6 +274,19 @@ const agentProvidersReplay = {
   },
 }
 const replays = [webauthReplay, agentProvidersReplay]
+
+const courierAnswersByExit = [
+  ['a REVISE with a clean Codex exit goes to a fixer', { ...agentProvidersReplay.answers['r0-gate'], codexExit: 0 }, ['ready-to-land', undefined], true],
+  ['a REVISE without a clean Codex exit stops the lane', { ...agentProvidersReplay.answers['r0-gate'], codexExit: 1 }, ['failed', 'review'], false],
+  ['a failed courier without a marker stops the lane', { verdict: 'failed', blocking: [], followups: [], codexExit: -1, note: 'no marker' }, ['failed', 'review'], false],
+]
+for (const [what, gateAnswer, outcome, reachesFixer] of courierAnswersByExit) {
+  test(`#128 AC-gate-revise-reaches-fixer: ${what}`, async () => {
+    const { result, launchedAgents } = await runLane(agentProvidersReplay.args, { ...agentProvidersReplay.answers, 'r0-gate': gateAnswer })
+    assert.deepEqual([result.status, result.stage], outcome)
+    assert.equal(launchedAgents.includes('fix-1'), reachesFixer)
+  })
+}
 
 // The recorded answers as a reviewer and fixer briefed with finding kinds would give them: the test-gap finding
 // carries the kind its reviewer gives it, and its proof the mutation its fixer reported. The other options vary

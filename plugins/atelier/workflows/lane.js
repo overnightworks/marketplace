@@ -301,8 +301,10 @@ function codexReview(label, routing, role, range) {
     `   timeout 540 bash -c 'until [ -f ${base}-out.json.exit ]; do sleep 30; done'; ls ${base}-out.json.exit\n` +
     `   Never answer before the marker exists or the 7 waits are spent. Never return a placeholder or a pending result.\n` +
     `6. If ${base}-run.log says the model is at capacity, wait 5 minutes and start again from step 1, once, with the same model. Never switch models: a gate stays on its model.\n` +
-    `7. Read ${base}-out.json and return its verdict, blocking and followups UNCHANGED, reportPath ${base}-out.json, and codexExit = the number in ${base}-out.json.exit. ` +
-    `If the 7 waits are spent without a marker, or the exit status is not 0, or the file is missing or not valid JSON, return verdict failed, codexExit -1 when there is no marker, with the last 20 lines of ${base}-run.log in note.`,
+    `7. Decide by the exit status first. If ${base}-out.json.exit holds 0 and ${base}-out.json is valid JSON, return its verdict, blocking and followups UNCHANGED, ` +
+    `reportPath ${base}-out.json and codexExit 0: APPROVE, REVISE and architectural are all valid review results, and a REVISE with blocking findings is never failed — the lane sends those findings to a fixer.\n` +
+    `   Return verdict failed only when the 7 waits are spent without a marker (codexExit -1), the exit status is not 0 (codexExit = that number), or the file is missing or not valid JSON. ` +
+    `Then give the last 20 lines of ${base}-run.log in note.`,
     { label, phase: 'Review', schema: COURIER_VERDICT, ...MECHANICAL })
     .then(v => (v && v.codexExit !== 0 && v.verdict !== 'failed') ? { ...v, verdict: 'failed', note: `courier returned a verdict without a clean Codex exit (${v.codexExit}): ${v.note || ''}` } : v)
 }

@@ -18,9 +18,13 @@ Proven with codex-cli 0.163.0 and grok 1.0.60; read the installed versions with
 check before relying on a command; do not guess. Create the scratch repo with
 its linked worktree outside `/tmp` and the profile's default-writable paths, for
 example under `~/.cache`; under `/tmp` a write to `<commondir>/hooks` succeeds
-and the check misleads. A writer setup must commit, fetch and merge, and must
-fail to write `<commondir>/config` and `<commondir>/hooks`. A reviewer setup is
-proven when a write to a tracked file fails.
+and the check misleads. A writer setup must commit and merge an already-fetched
+`origin/<trunk>`, must fail to write `<commondir>/config` and
+`<commondir>/hooks`, and must fail `git ls-remote <network remote> HEAD`. Test a
+write (`: >> <commondir>/config`), not a `touch` of the existing file: under
+Grok `touch` exits 0 on a sound writer. A local bare origin proves only gitdir
+and refs writes, not network. A reviewer setup is proven when a write to a
+tracked file fails.
 
 ## Codex reviewer (read-only)
 
@@ -48,9 +52,13 @@ The tail, as `codexReview` has it: no `-s`, then `-m <model>`,
 
 - The filesystem table must be one inline-TOML value: a dotted `-c` key splits on
   the dots inside `.git` paths and fails with "must be absolute".
-- Commit, `git fetch origin main` and `git merge` work. Writes to
-  `<commondir>/config`, `<commondir>/hooks` and new files in the common-dir root
-  fail.
+- The writer sandbox has no network: `git ls-remote https://...` fails with
+  "Could not resolve host", so `git fetch` and `git push` against a network
+  remote fail. The head fetches outside the sandbox before starting the writer
+  and pushes after it; the writer merges the already-present `origin/<trunk>`
+  (a plain `git merge origin/<trunk>`).
+- Commit and merge work. Writes to `<commondir>/config`, `<commondir>/hooks` and
+  new files in the common-dir root fail.
 - `git branch -D` and `git pack-refs` fail (they need
   `<commondir>/packed-refs.lock`); branch cleanup stays with the head.
 
@@ -77,6 +85,7 @@ The built-in `--sandbox workspace` cannot commit: it denies `index.lock` in
 ```toml
 [profiles.worktree-writer]
 extends = "workspace"
+restrict_network = true
 read_write = ["<commondir>/objects", "<commondir>/refs", "<commondir>/logs", "<commondir>/worktrees/<name>"]
 ```
 
@@ -84,7 +93,10 @@ read_write = ["<commondir>/objects", "<commondir>/refs", "<commondir>/logs", "<c
 
 Run with `--sandbox worktree-writer`, the reviewer's other flags and a higher
 `--max-turns`. Append, `git add` and `git commit` work; writing
-`<commondir>/hooks` fails.
+`<commondir>/hooks` fails. Like the Codex writer, the Grok writer has no network
+(`restrict_network = true`): `git ls-remote https://...` fails with "Could not
+resolve host". The head fetches before starting the writer and pushes after it;
+the writer merges the already-present `origin/<trunk>`.
 
 ## Waiting, capturing, judging
 
@@ -111,5 +123,4 @@ Run with `--sandbox worktree-writer`, the reviewer's other flags and a higher
   not to).
 - `--effort high` on grok-4.6.
 - `~/.grok/sandbox.toml` as the profile home.
-- `restrict_network`.
-- Push to GitHub and `aco` commands from inside either sandbox.
+- `aco` commands from inside either sandbox.

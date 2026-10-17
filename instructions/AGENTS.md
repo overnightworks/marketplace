@@ -329,6 +329,8 @@ required final gate comes from a provider other than the builder's. If no
 eligible provider is available, the gate waits. The routing is provisional and
 is re-measured (below).
 
+Before a head runs the `codex` or `grok` CLI itself, outside the lane workflow, it loads the `providers` skill, which owns the command lines, sandbox modes and output capture for the installed CLI versions.
+
 gpt-5.6-terra is not used for reviews. **High is the one effort ceiling** for
 routine work, overrides and the escalation ladder. The only exception is the
 hardest proof after high proved insufficient: then the head may choose xhigh or

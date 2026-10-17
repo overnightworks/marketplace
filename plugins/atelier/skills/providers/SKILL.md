@@ -19,11 +19,12 @@ check before relying on a command; do not guess. Create the scratch repo with
 its linked worktree outside `/tmp` and the profile's default-writable paths, for
 example under `~/.cache`; under `/tmp` a write to `<commondir>/hooks` succeeds
 and the check misleads. A writer setup must commit and merge an already-fetched
-`origin/<trunk>`, and must fail to write `<commondir>/config` and
-`<commondir>/hooks`. A local bare origin proves only gitdir and refs writes, not
-network: also run `git ls-remote <network remote> HEAD` in the setup and record
-whether it resolves. A reviewer setup is
-proven when a write to a tracked file fails.
+`origin/<trunk>`, must fail to write `<commondir>/config` and
+`<commondir>/hooks`, and must fail `git ls-remote <network remote> HEAD`. Test a
+write (`: >> <commondir>/config`), not a `touch` of the existing file: under
+Grok `touch` exits 0 on a sound writer. A local bare origin proves only gitdir
+and refs writes, not network. A reviewer setup is proven when a write to a
+tracked file fails.
 
 ## Codex reviewer (read-only)
 
@@ -55,7 +56,7 @@ The tail, as `codexReview` has it: no `-s`, then `-m <model>`,
   "Could not resolve host", so `git fetch` and `git push` against a network
   remote fail. The head fetches outside the sandbox before starting the writer
   and pushes after it; the writer merges the already-present `origin/<trunk>`
-  (`git merge --ff-only origin/main` or a plain merge).
+  (a plain `git merge origin/<trunk>`).
 - Commit and merge work. Writes to `<commondir>/config`, `<commondir>/hooks` and
   new files in the common-dir root fail.
 - `git branch -D` and `git pack-refs` fail (they need
@@ -122,5 +123,4 @@ the writer merges the already-present `origin/<trunk>`.
   not to).
 - `--effort high` on grok-4.6.
 - `~/.grok/sandbox.toml` as the profile home.
-- Push from inside the Grok sandbox, and `aco` commands from inside either
-  sandbox.
+- `aco` commands from inside either sandbox.

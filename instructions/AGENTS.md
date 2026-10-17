@@ -265,6 +265,7 @@ changes, and puts every file that pins one into the claim scope or names it in
 the body as deliberately untouched; a reviewer treats a pinning file that the
 diff neither changes nor the body names as blocking, and where the hits span
 more than a handful of test modules, CI on the pushed branch is their proof.
+Before claiming, at the recorded revision, trace changed signatures to their callers and each acceptance sentence through the implementation and verification paths needed to satisfy it, resolving helpers to their current owners. Record these paths in the item body; include every path requiring an edit in scope, and explain why each excluded path already supports the intended result.
 
 A small card is not a slice: three or four land together as one lane, under the
 lead card's issue number for its claim, worktree and branch, with the other

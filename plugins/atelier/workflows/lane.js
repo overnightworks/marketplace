@@ -342,8 +342,8 @@ function openFollowups() {
 }
 const raisedBeforeTip = (open) => open.filter(f => f.tip && !sameCommit(f.tip, tip))
 // A builder or fixer that needs a path outside the claim hands the head a rescope request; the scope stage stays the backstop.
-const awaitRescope = (stage, rescope, reason = '') =>
-  openResult('awaiting-head', stage, { reason: `the work needs paths outside the claim scope; run aco rescope for them and resume with fixFirst carrying the rescope entries, so a fixer makes the change.${reason}`, rescope })
+const awaitRescope = (stage, rescope, reason = '', extra = {}) =>
+  openResult('awaiting-head', stage, { reason: `the work needs paths outside the claim scope; run aco rescope for them and resume with fixFirst carrying the rescope entries as findings (path to where, change to text, reason to evidence, kind defect), so a fixer makes the change.${reason}`, rescope, ...extra })
 const openResult = (status, stage, extra) =>
   ({ status, stage, pr, tip, spent, routing: ROUTING, history, followups: openFollowups(), raisedBeforeTip: raisedBeforeTip(openFollowups()), folded: [...folded.values()], disputed, ...extra })
 
@@ -431,12 +431,18 @@ function foldInBrief(foldIn) {
 // The reviewer sees which follow-ups the fixer was given, so it can tell a skipped one from a done one.
 const foldInsInRange = (foldIn) => foldIn.length ? `\nThe fixer was also given these follow-ups to fold in; check each is done:\n${listFoldIns(foldIn)}` : ''
 
-// A disputed finding is a disagreement between two fresh agents about evidence: the head decides it.
-function awaitHeadOnDispute(fixed, blocking) {
-  disputed.push(...fixed.disputed)
+// The fixer's returned tip becomes the lane tip; it is unreviewed when the fixer committed anything. Returns whether it did.
+function adoptFixerTip(fixed) {
   tip = fixed.tip
   const committed = !sameCommit(fixed.tip, fixed.oldTip)
   history.push({ after: spent.total, by: 'fix', tip: fixed.tip, reviewed: !committed })
+  return committed
+}
+
+// A disputed finding is a disagreement between two fresh agents about evidence: the head decides it.
+function awaitHeadOnDispute(fixed, blocking) {
+  disputed.push(...fixed.disputed)
+  const committed = adoptFixerTip(fixed)
   return openResult('awaiting-head', 'fix', { reason: committed ? 'the fixer disputes findings with counter-evidence; the returned tip carries fix commits no reviewer has seen' : 'the fixer disputes every finding with counter-evidence and committed nothing', lastBlocking: blocking })
 }
 
@@ -533,10 +539,8 @@ async function fixBatch(blocking, source, budgetKey) {
   // What the fixer says it found already done is only reported to the head: an unaccepted fix folds nothing in.
   const unaccepted = (result) => ({ stop: (fixed.resolved || []).length ? { ...result, resolved: fixed.resolved } : result })
   if ((fixed.rescope || []).length) {
-    tip = fixed.tip
-    const committed = !sameCommit(fixed.tip, fixed.oldTip)
-    history.push({ after: spent.total, by: 'fix', tip: fixed.tip, reviewed: !committed })
-    return unaccepted(awaitRescope('fix', fixed.rescope, committed ? ' The returned tip carries fix commits no reviewer has seen; resume with deltaFrom.' : ''))
+    const committed = adoptFixerTip(fixed)
+    return unaccepted(awaitRescope('fix', fixed.rescope, committed ? ' The returned tip carries fix commits no reviewer has seen; resume with deltaFrom.' : '', { lastBlocking: blocking }))
   }
   if (fixed.blocked) return unaccepted(openResult('escalated', 'fix', { reason: fixed.blockedReason }))
   if ((fixed.disputed || []).length) return unaccepted(awaitHeadOnDispute(fixed, blocking))

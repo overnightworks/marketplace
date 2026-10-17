@@ -1,8 +1,0 @@
-claim_id = "eeeea4202d9843eb8075066f90cd5a67"
-agent = "Claude 3e666570-2fb5-4abd-955d-af106f942216"
-role = "builder"
-base = "d8ce8955d815b12a749af383c78e84ac94e90f08"
-branch = "fix/providers-network"
-scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/skills/providers/SKILL.md"]
-opened_commit = "6f80c14a4432330203a756725364421511a30f6a"
-whole_reason = "The skill fix ships with its release manifests as one release."

@@ -84,6 +84,7 @@ The built-in `--sandbox workspace` cannot commit: it denies `index.lock` in
 ```toml
 [profiles.worktree-writer]
 extends = "workspace"
+restrict_network = true
 read_write = ["<commondir>/objects", "<commondir>/refs", "<commondir>/logs", "<commondir>/worktrees/<name>"]
 ```
 
@@ -91,8 +92,10 @@ read_write = ["<commondir>/objects", "<commondir>/refs", "<commondir>/logs", "<c
 
 Run with `--sandbox worktree-writer`, the reviewer's other flags and a higher
 `--max-turns`. Append, `git add` and `git commit` work; writing
-`<commondir>/hooks` fails. Unlike the Codex writer, the Grok writer has network:
-`git ls-remote https://github.com/openai/codex HEAD` succeeded inside it.
+`<commondir>/hooks` fails. Like the Codex writer, the Grok writer has no network
+(`restrict_network = true`): `git ls-remote https://...` fails with "Could not
+resolve host". The head fetches before starting the writer and pushes after it;
+the writer merges the already-present `origin/<trunk>`.
 
 ## Waiting, capturing, judging
 
@@ -111,8 +114,6 @@ Run with `--sandbox worktree-writer`, the reviewer's other flags and a higher
 - Grok's `workspace` and `read-only` profiles can write `~/.grok`, and the custom
   profile file sits in the worktree, so a sandboxed Grok can edit the profile its
   next run reads.
-- A Grok writer can reach the network, so the sandbox does not stop it fetching
-  or pushing.
 - `--always-approve` makes the sandbox Grok's only control.
 
 ## Unproven
@@ -121,6 +122,5 @@ Run with `--sandbox worktree-writer`, the reviewer's other flags and a higher
   not to).
 - `--effort high` on grok-4.6.
 - `~/.grok/sandbox.toml` as the profile home.
-- `restrict_network`.
 - Push from inside the Grok sandbox, and `aco` commands from inside either
   sandbox.

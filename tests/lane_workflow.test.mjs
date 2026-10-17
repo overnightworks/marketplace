@@ -275,18 +275,31 @@ const agentProvidersReplay = {
 }
 const replays = [webauthReplay, agentProvidersReplay]
 
+const gateRevise = agentProvidersReplay.answers['r0-gate']
+const contradictoryCourier = { verdict: 'failed', blocking: [], followups: [], codexExit: 0, note: 'Verdict was REVISE, not failed' }
 const courierAnswersByExit = [
-  ['a REVISE with a clean Codex exit goes to a fixer', { ...agentProvidersReplay.answers['r0-gate'], codexExit: 0 }, ['ready-to-land', undefined], true],
-  ['a REVISE without a clean Codex exit stops the lane', { ...agentProvidersReplay.answers['r0-gate'], codexExit: 1 }, ['failed', 'review'], false],
-  ['a failed courier without a marker stops the lane', { verdict: 'failed', blocking: [], followups: [], codexExit: -1, note: 'no marker' }, ['failed', 'review'], false],
+  ['a REVISE with a clean Codex exit goes to a fixer', { ...gateRevise, codexExit: 0 }, undefined, ['ready-to-land', undefined], true, 0],
+  ['a REVISE without a clean Codex exit stops the lane', { ...gateRevise, codexExit: 1 }, undefined, ['failed', 'review'], false, 0],
+  ['a failed courier without a marker stops the lane', { verdict: 'failed', blocking: [], followups: [], codexExit: -1, note: 'no marker' }, undefined, ['failed', 'review'], false, 0],
+  ['a failed courier with a clean exit is re-read once and the re-read REVISE goes to a fixer', contradictoryCourier, { ...gateRevise, codexExit: 0 }, ['ready-to-land', undefined], true, 1],
+  ['a failed courier with a clean exit whose re-read fails again stops the lane', contradictoryCourier, contradictoryCourier, ['failed', 'review'], false, 1],
 ]
-for (const [what, gateAnswer, outcome, reachesFixer] of courierAnswersByExit) {
+for (const [what, gateAnswer, rereadAnswer, outcome, reachesFixer, rereads] of courierAnswersByExit) {
   test(`#128 AC-gate-revise-reaches-fixer: ${what}`, async () => {
-    const { result, launchedAgents } = await runLane(agentProvidersReplay.args, { ...agentProvidersReplay.answers, 'r0-gate': gateAnswer })
+    const answers = { ...agentProvidersReplay.answers, 'r0-gate': gateAnswer, ...(rereadAnswer && { 'r0-gate-reread': rereadAnswer }) }
+    const { result, launchedAgents } = await runLane(agentProvidersReplay.args, answers)
     assert.deepEqual([result.status, result.stage], outcome)
     assert.equal(launchedAgents.includes('fix-1'), reachesFixer)
+    assert.equal(launchedAgents.filter(label => label.startsWith('r0-gate-reread')).length, rereads)
   })
 }
+
+test('#128 AC-courier-final-action: the courier and its re-read name StructuredOutput as their only final action', async () => {
+  const { agentCalls } = await runLane(agentProvidersReplay.args, { ...agentProvidersReplay.answers, 'r0-gate': contradictoryCourier, 'r0-gate-reread': { ...gateRevise, codexExit: 0 } })
+  for (const label of ['r0-gate', 'r0-gate-reread']) {
+    assert.match(agentCalls[label].prompt, /only final action is the StructuredOutput call.*verbatim.*never write a text answer first/s, label)
+  }
+})
 
 // The recorded answers as a reviewer and fixer briefed with finding kinds would give them: the test-gap finding
 // carries the kind its reviewer gives it, and its proof the mutation its fixer reported. The other options vary

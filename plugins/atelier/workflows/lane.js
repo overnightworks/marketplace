@@ -286,6 +286,18 @@ function claudeReview(label, role, range) {
     { label, phase: 'Review', schema: VERDICT, agentType: 'atelier:code-reviewer', ...claudeRole('review') })
 }
 
+const STRUCTURED_OUTPUT_ONLY_LINE = `Your only final action is the StructuredOutput call: copy verdict, blocking and followups verbatim from the out.json and never write a text answer first.`
+
+// A courier that reports failed beside a clean Codex exit contradicts itself; one read-only courier reads the same files again.
+function rereadContradictoryCourier(answer, label, base) {
+  if (!(answer && answer.verdict === 'failed' && answer.codexExit === 0)) return answer
+  return safeAgent(
+    `You are a courier re-reading a finished Codex review. Do not start Codex, do not review anything yourself and do not edit anything.\n` +
+    `Read ${base}-out.json.exit and ${base}-out.json. If the exit status is 0 and the file is valid JSON, return its verdict, blocking and followups UNCHANGED, reportPath ${base}-out.json and codexExit 0. ` +
+    `Otherwise return verdict failed with the exit status in codexExit and the reason in note.\n${STRUCTURED_OUTPUT_ONLY_LINE}`,
+    { label: `${label}-reread`, phase: 'Review', schema: COURIER_VERDICT, ...MECHANICAL })
+}
+
 function codexReview(label, routing, role, range) {
   const base = `${A.scratch}/${TAG}-${label}`
   const brief = `Read-only sandbox: read files and run read-only commands freely; do not run tests.\n` + reviewerBrief(role, range) +
@@ -304,8 +316,9 @@ function codexReview(label, routing, role, range) {
     `7. Decide by the exit status first. If ${base}-out.json.exit holds 0 and ${base}-out.json is valid JSON, return its verdict, blocking and followups UNCHANGED, ` +
     `reportPath ${base}-out.json and codexExit 0: APPROVE, REVISE and architectural are all valid review results, and a REVISE with blocking findings is never failed — the lane sends those findings to a fixer.\n` +
     `   Return verdict failed only when the 7 waits are spent without a marker (codexExit -1), the exit status is not 0 (codexExit = that number), or the file is missing or not valid JSON. ` +
-    `Then give the last 20 lines of ${base}-run.log in note.`,
+    `Then give the last 20 lines of ${base}-run.log in note.\n${STRUCTURED_OUTPUT_ONLY_LINE}`,
     { label, phase: 'Review', schema: COURIER_VERDICT, ...MECHANICAL })
+    .then(v => rereadContradictoryCourier(v, label, base))
     .then(v => (v && v.codexExit !== 0 && v.verdict !== 'failed') ? { ...v, verdict: 'failed', note: `courier returned a verdict without a clean Codex exit (${v.codexExit}): ${v.note || ''}` } : v)
 }
 

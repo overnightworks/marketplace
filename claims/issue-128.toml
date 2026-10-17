@@ -1,0 +1,8 @@
+claim_id = "2f347f9779a347e3b0aac398229174de"
+agent = "Claude 3e666570-2fb5-4abd-955d-af106f942216"
+role = "builder"
+base = "96a8be0ccf625c3677fca4b6d5d2574859e42e31"
+branch = "claude/issue-128-codex-courier-revise"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/workflows/lane.js", "tests/lane_workflow.test.mjs"]
+opened_commit = "b0ec33feaac50e6f441b2c0ea70f2f24027a634a"
+whole_reason = "The courier fix, its test and the version bump that ships it are one change."

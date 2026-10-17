@@ -630,15 +630,16 @@ for (const [step, args, answers, scopeLabel] of stopsWithoutClaim) {
 
 const rescopeRequest = [{ path: 'src/cli.py', change: 'pass the new argument', reason: 'it calls the changed signature' }]
 const rescopeHandbacks = [
-  ['the builder', builtLane, { build: { ...built, rescope: rescopeRequest } }, 'build', { pr: 2, tip: resumeTip, unreviewed: false }],
-  ['a fixer', { ...resumeArgs, fixFirst: [defectWithoutDraft] }, { 'fix-1': { ...resumeFix, rescope: rescopeRequest } }, 'fix', { pr: resumeArgs.pr, tip: resumeFixedTip, unreviewed: true }],
+  ['the builder', builtLane, { build: { ...built, rescope: rescopeRequest } }, 'build', { pr: 2, tip: resumeTip, unreviewed: false, lastBlocking: undefined }],
+  ['a fixer', { ...resumeArgs, fixFirst: [defectWithoutDraft] }, { 'fix-1': { ...resumeFix, rescope: rescopeRequest } }, 'fix', { pr: resumeArgs.pr, tip: resumeFixedTip, unreviewed: true, lastBlocking: [defectWithoutDraft] }],
 ]
 for (const [step, args, answers, stage, resumeFrom] of rescopeHandbacks) {
   test(`#124 AC-rescope-handback: ${step} that needs a path outside the claim ends awaiting-head with the rescope list before the scope check`, async () => {
     const { result, launchedAgents } = await runLane(args, answers)
     assert.deepEqual([result.status, result.stage, result.rescope], ['awaiting-head', stage, rescopeRequest])
     assert.deepEqual([result.pr, result.tip], [resumeFrom.pr, resumeFrom.tip])
-    assert.match(result.reason, /fixFirst/)
+    assert.match(result.reason, /path to where, change to text, reason to evidence, kind defect/)
+    assert.deepEqual(result.lastBlocking, resumeFrom.lastBlocking)
     assert.equal(/no reviewer has seen/.test(result.reason), resumeFrom.unreviewed)
     assert.equal(result.history.some(entry => entry.tip === resumeFixedTip && !entry.reviewed), resumeFrom.unreviewed)
     assert.ok(!launchedAgents.some(label => label.startsWith('scope-') && label !== 'scope-resume'))

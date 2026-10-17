@@ -1,0 +1,7 @@
+claim_id = "ada8e62921b248e9bb3da890bb19c294"
+agent = "Claude fe12493e-3d52-442e-b01b-4ee4336de2f0"
+role = "builder"
+base = "72571166890ad13c0c07715039fe03074f38dc46"
+branch = "claude/issue-124-scope-trace"
+scope = ["instructions/AGENTS.md", "plugins/atelier/skills/aco/SKILL.md", "plugins/atelier/workflows/lane.js"]
+opened_commit = "c13c01da1f5592f5be2d8376ee42e1a19e0919d7"

@@ -1,8 +1,0 @@
-claim_id = "21bbd608db4f42499dfd797b1abc65a9"
-agent = "Claude 3e666570-2fb5-4abd-955d-af106f942216"
-role = "builder"
-base = "63c2f7ce6b3846e97009a1198a5c845aafd503b3"
-branch = "claude/issue-126-providers-skill"
-scope = [".claude-plugin/marketplace.json", "instructions/AGENTS.md", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/skills/providers"]
-opened_commit = "73ac6b22dfd514b9b383da6459f2c56b11d6f5eb"
-whole_reason = "One new skill directory, its one contract pointer sentence and the release manifests ship together as one release."

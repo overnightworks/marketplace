@@ -290,7 +290,7 @@ const STRUCTURED_OUTPUT_ONLY_LINE = `Your only final action is the StructuredOut
 
 // A courier that reports failed beside a clean Codex exit contradicts itself; one read-only courier reads the same files again.
 function rereadContradictoryCourier(answer, label, base) {
-  if (!(answer && answer.verdict === 'failed' && answer.codexExit === 0)) return answer
+  if (!(answer?.verdict === 'failed' && answer.codexExit === 0)) return answer
   return safeAgent(
     `You are a courier re-reading a finished Codex review. Do not start Codex, do not review anything yourself and do not edit anything.\n` +
     `Read ${base}-out.json.exit and ${base}-out.json. If the exit status is 0 and the file is valid JSON, copy its verdict, blocking and followups verbatim into the StructuredOutput call, with reportPath ${base}-out.json and codexExit 0. ` +

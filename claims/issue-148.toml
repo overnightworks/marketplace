@@ -1,0 +1,8 @@
+claim_id = "c9f87a5954634dc5beef820052d2f8b7"
+agent = "claude"
+role = "builder"
+base = "12b0cf1ef8f4702fab4a3c2a5dea5188fe8f9907"
+branch = "claude/issue-148-board-hygiene-round-2"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/skills/board-hygiene/SKILL.md"]
+opened_commit = "ec94865b468f8740e205d45398eb509b088548dc"
+whole_reason = "One skill revised from fleet friction, plus the three version pins that ship it."

@@ -18,7 +18,8 @@ body holds a line naming the last run's commit (for example
 with `gh issue list --state open --search "Standing-Audit in:title"` in the
 repository's work-item board (GitHub issues, or `aco board --json` where aco
 runs) and take the one whose title, in the repository's language, names
-this audit's subject (architecture: layers, boundaries, owner modules). Count landings since X with
+this audit's subject (architecture: layers, boundaries, owner modules).
+Count landings since X with
 `git log --oneline --first-parent X..origin/<default>` (or the age `aco next`
 shows where aco runs), or count the days since the run. If no item is found,
 this is the first run: say so in the report and tell the head to open the

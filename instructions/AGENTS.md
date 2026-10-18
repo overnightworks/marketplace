@@ -39,7 +39,8 @@ Every main session in a repository with a board delegates, in parallel and
 without waiting for it, one read-only board check (the `board-hygiene` skill)
 to a fresh agent; the head applies the clear verdicts and brings the unclear
 ones to the operator as one short list with a recommendation and a default
-each; an unanswered line keeps its default (operator ruling 18.10.2026).
+each; an unanswered line keeps its default, with the expectation list's
+exceptions (operator ruling 18.10.2026).
 
 An explicit operator request wins. Without one:
 

@@ -1,0 +1,7 @@
+claim_id = "2ad252cdd8da49d5a6d65c7192a5a9f8"
+agent = "claude"
+role = "builder"
+base = "cf35e3b818921acb0fc3bafc725e8ab4f93d82fd"
+branch = "claude/issue-163-check-skills-fixes"
+scope = ["scripts/check_skills.py", "tests/test_check_skills.py"]
+opened_commit = "d79418a40c3eac1af1d44baab4936a0f323a58f9"

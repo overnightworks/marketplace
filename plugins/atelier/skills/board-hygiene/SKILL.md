@@ -69,8 +69,10 @@ One line per item, nothing else except the closing list:
   and `gh issue view` only; list the `gh` calls you made.
 - Never flag: an active claim, an unpulled idea (no projection, by design,
   even when listed in `stale`), a container with open children, an unruled expectation
-  line (list it for the operator), or a real dependency from GitHub's
-  `blocked_by` relation. Idle age alone is never proof of completion.
+  line (list it for the operator; `aco rulings` and
+  `items[].expectation_state` show them), anything the operator touched
+  recently unless independently proven landed, or a real dependency from
+  GitHub's `blocked_by` relation. Idle age alone is never proof of completion.
 - One pass, one report. No loops, no fixes, no persistent marker, tracking
   issue, or state-ref write.
 - When in doubt, keep and mark `unclear`. A wrongly closed item costs trust;

@@ -26,12 +26,20 @@ new source of truth. Architecture (a new or moved boundary or dependency
 direction) and genuine uncertainty earn the independent plan review, not the
 final gate.
 
-Outside the expectation-list process below, the head asks at most one short
-question at a time, and only for a product choice, genuine uncertainty, or a
-material-risk decision that is not safely inferable. Give a recommendation and
-two or three concrete options.
+Outside the expectation-list process and the session-start board list, the
+head first looks up what the code, the board or the rulings answer, then asks
+at most one short question at a time, and only for a product choice, genuine
+uncertainty, or a material-risk decision that is not safely inferable; it
+never guesses one (operator ruling 18.10.2026). Give a recommendation and two
+or three concrete options. A subagent asks its parent.
 
 ## Start of a main session
+
+Every main session in a repository with a board delegates, in parallel and
+without waiting for it, one read-only board check (the `board-hygiene` skill)
+to a fresh agent; the head applies the clear verdicts and brings the unclear
+ones to the operator as one short list with a recommendation and a default
+each; an unanswered line keeps its default (operator ruling 18.10.2026).
 
 An explicit operator request wins. Without one:
 
@@ -170,6 +178,18 @@ head opens or refines its owning item before further work. After a PR merges
 or an issue closes, release its claim before removing the stale worktree and
 branch. The head checks `git worktree list` at session start and prunes.
 
+Friction goes to its owner (operator ruling 18.10.2026). When a session meets
+something in a repository the operator owns that does not make sense — a tool
+that refuses, a skill or workflow that does not fit, a rule that misleads — the
+head reports it in the repository that owns it rather than silently working
+around it; a subagent reports it to the head. First the head questions its own
+wish: what happened, why it wants a change, whether the wish is right, what
+could be better and why. Then it searches that board as above, plus its closed
+items and rulings. A new item is an idea: the incident with evidence, the wish
+with its reason, and the lane that hit it as its caller, never a finished
+solution. Evidence from a private repository enters a public one only as a
+pointer.
+
 One exclusive build claim per issue before the first edit; read-only review
 stays free. Do not use a value another lane holds exclusively. GitHub issue
 comments are the durable handoff; `/tmp` is only transport.
@@ -245,8 +265,8 @@ The lane workflow (`plugins/atelier/workflows/lane.js`) is a help, not a duty
 (operator ruling 18.10.2026). A head runs a lane through it where that helps,
 and otherwise runs the lane steps by hand. This ruling is the operator's
 standing opt-in: a head whose session has the `Workflow` tool starts the lane
-workflow without asking first. What does not fit is reported on the marketplace
-board: search first, then sharpen the open owner or open one item.
+workflow without asking first. What does not fit is friction for marketplace,
+which owns the workflow.
 
 Review and audit findings (operator rulings 24.08. and 25.08.2026): a review
 yields ONE distributor issue holding the numbered findings list with evidence;

@@ -1,0 +1,7 @@
+claim_id = "5f5ac77740e44222af435b36ab092058"
+agent = "claude"
+role = "builder"
+base = "cf35e3b818921acb0fc3bafc725e8ab4f93d82fd"
+branch = "claude/issue-158-cadence-audits-anchor"
+scope = ["plugins/atelier/skills/audit-architecture/SKILL.md", "plugins/atelier/skills/audit-deadweight/SKILL.md", "plugins/atelier/skills/audit-ownership/SKILL.md"]
+opened_commit = "e4fff4e780b132c2130fa90e7e671e1194f9cac2"

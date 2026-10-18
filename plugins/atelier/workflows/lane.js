@@ -373,7 +373,7 @@ if (A.build) {
   if (!(built.rescope || []).length && built.blocked) return openResult('escalated', 'build', { reason: built.blockedReason })
   if (!SHA.test(built.tip || '')) return openResult('failed', 'build', { reason: `the builder returned a tip that is not a sha: ${String(built.tip).slice(0, 80)}` })
   pr = built.pr; tip = built.tip
-  if ((built.rescope || []).length) return awaitRescope('build', built.rescope)
+  if ((built.rescope || []).length) return awaitRescope('build', built.rescope, ` The returned tip is the whole build and no reviewer has seen it; resume with fixFirst and deltaFrom set to the output of \`git -C '${A.worktree}' merge-base origin/main ${tip}\` after \`git -C '${A.worktree}' fetch origin\`.`)
   log(`built PR #${pr} at ${tip}`)
 } else {
   phase('Sync')

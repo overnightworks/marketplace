@@ -1,8 +1,0 @@
-claim_id = "64aa72a74286454c84180236adcac23b"
-agent = "claude"
-role = "builder"
-base = "7cfdf8f6e20f0ef25c2dd49d582040d751e8d4ec"
-branch = "claude/issue-175-followup-bundle"
-scope = ["plugins/atelier/skills/agent-documentation/SKILL.md", "plugins/atelier/skills/audit-code/SKILL.md", "plugins/atelier/skills/audit-runtime/SKILL.md", "plugins/atelier/skills/audit-security/SKILL.md", "plugins/atelier/skills/audit-tests/SKILL.md", "plugins/atelier/skills/see/SKILL.md"]
-opened_commit = "8b22478fffc362a1b247716a9fb037eee63f5b86"
-whole_reason = "The parked follow-ups of one audit, each a few words in the skill it names."

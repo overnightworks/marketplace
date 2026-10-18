@@ -1,0 +1,8 @@
+claim_id = "ec617f5250964c4191f20e6e7e6dc80a"
+agent = "claude"
+role = "builder"
+base = "b3c546c6975ba6ef85bca406dc4c17a8c4ee5606"
+branch = "claude/issue-177-residual-polish-0-7-17"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/skills/agent-documentation/SKILL.md", "plugins/atelier/skills/agent-documentation/references/skill-audit.md", "plugins/atelier/skills/audit-code/SKILL.md", "plugins/atelier/skills/audit-runtime/SKILL.md", "plugins/atelier/skills/audit-security/SKILL.md", "plugins/atelier/skills/audit-tests/SKILL.md", "plugins/atelier/skills/see/SKILL.md"]
+opened_commit = "915f289773409ca30e81270061400fd3985cce4f"
+whole_reason = "The residual polish of one audit across the skills it names, shipped with its version bump."

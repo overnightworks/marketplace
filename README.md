@@ -17,8 +17,9 @@ Licensed under the [MIT License](LICENSE).
   generated seed of the root `AGENTS.md`.
 - `plugins/atelier/hooks/hooks.json` is the shared quality-gate hook configuration.
 - `plugins/atelier/workflows/` holds the Claude Code workflows; `lane` drives
-  one claimed aco lane from build to ready-to-land. Claude Code (2.1.299) lists
-  no plugin workflow by name, so start one by path:
+  one claimed aco lane from build to ready-to-land. Claude Code documents plugin
+  workflows as `/<plugin>:<name>`, but name lookup has not been verified for
+  `lane`; start it by path:
   `Workflow({scriptPath: "<plugin dir>/workflows/lane.js", args: {...}})`, where
   `<plugin dir>` is the installed copy at
   `~/.claude/plugins/cache/atelier/atelier/<version>/` or `plugins/atelier/` in a
@@ -57,14 +58,14 @@ repository.
 Codex:
 
 ```bash
-codex plugin marketplace add git@github.com:FlexOr2/marketplace.git --ref main
+codex plugin marketplace add git@github.com:overnightworks/marketplace.git --ref main
 codex plugin add atelier@atelier
 ```
 
 Claude Code:
 
 ```bash
-claude plugin marketplace add git@github.com:FlexOr2/marketplace.git
+claude plugin marketplace add git@github.com:overnightworks/marketplace.git
 claude plugin install atelier@atelier
 ```
 
@@ -153,9 +154,9 @@ Compatibility notes:
   preserved in the `atelier-agent` metadata comment.
 - Claude has a `tools` frontmatter field that Codex TOML does not carry; the
   sync script validates it against `codex_sandbox_mode`.
-- `maxTurns` is Claude-only, like `tools`: `sync_agents.py` keeps it on the
-  Claude side and emits no Codex equivalent (Codex's knob is
-  `model_reasoning_effort`).
+- `maxTurns` is Claude-only, like `tools`: it lives in the Markdown frontmatter
+  that Claude Code loads directly, and `sync_agents.py` neither reads it nor
+  emits a Codex equivalent (Codex's knob is `model_reasoning_effort`).
 - Generated files under `plugins/atelier/.codex/agents/` should not be edited by
   hand; update the Markdown source instead.
 
@@ -210,9 +211,10 @@ CI runs these checks next to the agent sync check.
 
 ## Quality Gate
 
-CI calls the `overnightworks/quality` gate (`quality/config.toml` names its
-mandatory jobs): hygiene, the SonarCloud scan with coverage, and the verdict.
-`quality / verdict` is the required check for merging into `main`.
+CI calls the `overnightworks/quality` gate. `quality/config.toml` names the
+mandatory job `Sync check and tests`; the reusable gate adds hygiene, the
+SonarCloud scan with coverage, and the verdict. `quality / verdict` is the
+required check for merging into `main`.
 
 ## Hook Behavior
 

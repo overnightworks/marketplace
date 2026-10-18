@@ -50,17 +50,19 @@ unless stated.
 ## Overlap
 
 Compare the skill's description with every other installed skill's
-description. Take them from the skill listing the session shows, or
-`plugins/*/skills/*/SKILL.md` in the repository when no listing exists.
+description. When auditing a repository, take them from its
+`plugins/*/skills/*/SKILL.md` files (the listing the session shows may be an
+older installed copy); use the listing only when no checkout is present.
 Name each collision as a pair plus the trigger phrase both match, and the
 owner that should keep it. Evidence: `static`.
 
 ## Usage
 
 Data source: `/skill-doctor` (needs Claude Code v2.1.252 or later, terminal
-session only, unavailable over Remote Control); when it is unavailable, count Skill invocations per skill across the transcripts under
-`~/.claude/projects/` (default: report `usage` as `UNKNOWN` and name the
-source tried). A skill nobody invokes is a retire-or-fix-trigger candidate,
+session only, unavailable over Remote Control); when it is unavailable,
+count the `"name":"Skill"` tool uses per `"skill":"<plugin>:<name>"` in
+`~/.claude/projects/**/*.jsonl` (default: report `usage` as `UNKNOWN` and
+name the source tried). A skill nobody invokes is a retire-or-fix-trigger candidate,
 never deleted automatically. Evidence: `usage`.
 
 ## Benefit over no skill
@@ -69,7 +71,8 @@ Does the skill beat the no-skill baseline (S1-S3)?
 - Every skill: a Haiku follow-the-procedure round. A fresh Haiku agent gets
   the skill and one concrete task and runs it; every point where it guessed
   or asked is a finding. Evidence: `procedure-round`.
-- High-use or high-risk skills only: a trigger and outcome eval on Sonnet,
+- High-use or high-risk skills only (high-use: in the top quarter by the
+  Usage count; high-risk: it writes, lands, or decides scope): a trigger and outcome eval on Sonnet,
   with the skill-creator loop (S4) or `claude plugin eval` (S3). Cost as read
   18.10.2026: a toy case about $0.41 at 3 runs per arm (S3), the
   skill-creator loop about 360 `claude -p` calls per skill (S4). Default when
@@ -80,8 +83,10 @@ Does the skill beat the no-skill baseline (S1-S3)?
 
 Missing rules or checks come from misses: findings a later stage caught after
 an earlier review approved (the escalation and re-measurement lines in the
-item journals, per the repository's coordination contract, its `AGENTS.md`;
-default when it has none: the reviews and CI failures of the last landed lanes).
+item journals, per the coordination contract: `instructions/AGENTS.md` in the
+marketplace repository, else the global contract `~/.claude/CLAUDE.md`;
+default when neither exists: the reviews and CI failures of the last landed
+lanes).
 Do not propose a check from imagination.
 
 ## Output
@@ -89,5 +94,5 @@ Do not propose a check from imagination.
 One distributor issue per audit run, holding the numbered findings, each with
 skill, rule, evidence type and evidence. Write each finding as a `FINDING`
 line in the format of `SKILL.md` Output. A finding becomes its own item only
-when it is dispatched. Write the body per the `aco` skill; default when aco is not installed:
-the repository's issue template.
+when it is dispatched. Write the body per the `aco` skill; default when aco
+is not installed: the repository's issue template.

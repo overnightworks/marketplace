@@ -1,8 +1,0 @@
-claim_id = "a84d1e14a3d04eafbeaaafaa68d6fb9a"
-agent = "claude"
-role = "builder"
-base = "7cfdf8f6e20f0ef25c2dd49d582040d751e8d4ec"
-branch = "claude/issue-167-codex-name-mapping"
-scope = ["scripts/check_skills.py", "scripts/sync_agents.py", "tests/test_check_skills.py", "tests/test_sync_agents.py"]
-opened_commit = "ca1bc308835e7eaa041b25b15b8418cb7c73abc7"
-whole_reason = "One shared reader extracted from two scripts and their tests."

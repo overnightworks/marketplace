@@ -4,7 +4,8 @@ description: Audit source code for maintainability and code-hygiene problems tha
 ---
 
 Audit code hygiene against the repository's coding guidance (`AGENTS.md` or
-`CLAUDE.md`; the global contract when absent). Let configured tools
+`CLAUDE.md`; the global contract if installed, else the conventions the code itself
+follows). Let configured tools
 own mechanical checks such as formatting, imports, type errors, dead code, and
 known complexity thresholds. This skill is for semantic judgment after reading
 the code.

@@ -15,7 +15,8 @@ Sources, read 18.10.2026:
    Any failure is a finding; do not re-check those rules by hand. Default
    when the script is absent: apply the S1/S2 frontmatter, name, description
    and body-size limits by hand.
-2. Read the skill, then apply the rules below. Each finding names its
+2. Read the skill, then apply the rules below in addition to the Checklist
+   in `SKILL.md`, without repeating its Token economy and Clarity items. Each finding names its
    evidence type: `static`, `usage`, `procedure-round` or `eval`.
 3. Run the overlap, usage and benefit checks below.
 4. Return one distributor issue for the run (see Output).
@@ -56,8 +57,8 @@ owner that should keep it. Evidence: `static`.
 
 ## Usage
 
-Data source: `/skill-doctor` in a terminal Claude Code session; when it is
-unavailable, count Skill invocations per skill across the transcripts under
+Data source: `/skill-doctor` (needs Claude Code v2.1.252 or later, terminal
+session only, unavailable over Remote Control); when it is unavailable, count Skill invocations per skill across the transcripts under
 `~/.claude/projects/` (default: report `usage` as `UNKNOWN` and name the
 source tried). A skill nobody invokes is a retire-or-fix-trigger candidate,
 never deleted automatically. Evidence: `usage`.
@@ -86,6 +87,7 @@ Do not propose a check from imagination.
 ## Output
 
 One distributor issue per audit run, holding the numbered findings, each with
-skill, rule, evidence type and evidence. A finding becomes its own item only
+skill, rule, evidence type and evidence. Write each finding as a `FINDING`
+line in the format of `SKILL.md` Output. A finding becomes its own item only
 when it is dispatched. Write the body per the `aco` skill; default when aco is not installed:
 the repository's issue template.

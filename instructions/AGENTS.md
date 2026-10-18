@@ -109,9 +109,13 @@ line in the operator's language with an example, a counterexample, and a default
 before that, and a slice that neither proves a ruled line nor names it as
 deferred with its owner is unfinished. Internal machinery (isolation, flakes,
 refactors, adapters) needs a plan review instead; an expectation list there is
-noise. After the head presents a list with its own dissent, unanswered lines keep
-their default — except lines about secrets, money, deletion, or anything
-irreversible, which always wait for a spoken ruling.
+noise. After the head presents a list with its own dissent, unanswered lines
+keep their default — except lines about secrets, money, deletion, or anything
+irreversible, which always wait for a spoken ruling. Head-written wording is a
+proposal unless it records an existing ruling or has been accepted through the
+process above. The item identifies the source of its ruled sentences, including
+any applied default; authorship alone grants no authority. A second look may
+revise a proposal, but changing ruled behaviour follows the same ruling process.
 
 A rule change is itself a change under review (operator ruling 31.08.2026):
 before the head anchors a new or altered standing rule — in this contract, a
@@ -126,8 +130,20 @@ the gate binds the head's own proposals, not the operator's word.
 
 Take the cleanest solution that still looks right in a year: one owner, no
 parallel copies, no workaround that has to be undone later. Fix the cause.
-Verify evidence before you say it is done. If the UI changed, require a
-delegated agent to drive it like a user. If you cannot verify, say exactly
+Before presenting a plan or demanding an addition, compare it once more with the
+simplest alternative that meets the requirements. State briefly in the plan or
+finding what problem it solves, for whom, and why the added complexity earns its
+keep. For a safeguard, consider credible failures or attacks, their likelihood
+and severity, recovery, and the costs and risks of building, operating,
+maintaining or deferring it; name uncertainty rather than treating it as low
+risk. Distinguish what an applicable standard requires, recommends and leaves
+optional: optional does not mean unnecessary for this system. This comparison
+cannot waive ruled behaviour, required checks, mandatory edges, or necessary
+protection of data, security and rights. Leave unjustified additions out and
+name any remaining risk on the owning item. For example, an extra confirmation
+click and exposing a credential are different harms; the solution must account
+for both. Verify evidence before you say it is done. If the UI changed, require
+a delegated agent to drive it like a user. If you cannot verify, say exactly
 what you could not do — after you actually tried.
 
 No new item without a named caller (operator ruling 04.09.2026).
@@ -381,25 +397,28 @@ what CI already proves.
 Every review finding is marked **blocking** or **follow-up**. Blocking is a
 defect the reviewed diff introduces against the ruled sentences, the contract,
 or a repository rule, and always anything touching data safety, security,
-secrets, a public contract, or a failing check. Follow-up is polish with no
-behavioural effect, pre-existing behaviour the lane did not change (the
-reviewer cites the unchanged evidence), or work outside the lane's scope (the
-reviewer names its owning item). A verdict of `architectural` stops the lane;
-it is never a follow-up. Only blocking findings are a `REVISE`: they return to
-the lane's builder step and earn a delta re-check. A follow-up goes to its
-owning item, or to the review's distributor issue when it has none, before the
-lane lands, without another review round and without opening a fresh item —
-except a follow-up inside a file the lane already changed whose fix cannot
-change behaviour outside the reviewed diff (about ten lines is the practical
-cap), which the lane's fixer resolves in the same fix batch, no card; where
-the lane has no fix batch it goes to its owning item unchanged. The head may
-reclassify a finding, never drop it. The dispatch names the lane's material
-risk or says it has none; a lane without it gets one review, and a delta only
-if a blocking finding was raised. Risk is judged by what the diff can break,
-not by the item's topic: a patch-level dependency bump that closes an
-advisory, a docs-only change, a test-only change, or a refactor its unchanged
-tests prove carries none, needs no drive, and is proven by CI on a clean
-install. The review may raise the lane to material risk.
+secrets, a public contract, or a failing check. Each blocking finding cites
+evidence, names the violated requirement or concrete safety defect, and states
+the consequence of leaving it unresolved. A required check or contract violation
+needs no further damage estimate; a proposed remedy still has to earn its
+complexity. Follow-up is polish with no behavioural effect, pre-existing
+behaviour the lane did not change (the reviewer cites the unchanged evidence),
+or work outside the lane's scope (the reviewer names its owning item). A verdict
+of `architectural` stops the lane; it is never a follow-up. Only blocking
+findings are a `REVISE`: they return to the lane's builder step and earn a delta
+re-check. A follow-up goes to its owning item, or to the review's distributor
+issue when it has none, before the lane lands, without another review round and
+without opening a fresh item — except a follow-up inside a file the lane already
+changed whose fix cannot change behaviour outside the reviewed diff (about ten
+lines is the practical cap), which the lane's fixer resolves in the same fix
+batch, no card; where the lane has no fix batch it goes to its owning item
+unchanged. The head may reclassify a finding, never drop it. The dispatch names
+the lane's material risk or says it has none; a lane without it gets one review,
+and a delta only if a blocking finding was raised. Risk is judged by what the
+diff can break, not by the item's topic: a patch-level dependency bump that
+closes an advisory, a docs-only change, a test-only change, or a refactor its
+unchanged tests prove carries none, needs no drive, and is proven by CI on a
+clean install. The review may raise the lane to material risk.
 
 Repeat the final gate with fresh context when a later fix changes interaction,
 scope, or risk — an edit to production behaviour, a data path, secrets, or a

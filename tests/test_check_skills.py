@@ -18,10 +18,12 @@ def write_skill(
     name: str = "sample",
     frontmatter: str = VALID_FRONTMATTER,
     body: str = "Body.\n",
+    document: str | None = None,
 ) -> Path:
     directory = root / "plugins" / "atelier" / "skills" / name
     directory.mkdir(parents=True)
-    (directory / "SKILL.md").write_text(f"---\n{frontmatter}\n---\n{body}", encoding="utf-8")
+    text = document if document is not None else f"---\n{frontmatter}\n---\n{body}"
+    (directory / "SKILL.md").write_text(text, encoding="utf-8")
     return directory
 
 
@@ -46,6 +48,9 @@ def lines(count: int) -> str:
         ("name: sample\ndescription: " + "d" * 1025, "Body.\n", ("sample: description has 1025 characters > 1024",)),
         ("name: sample\ndescription: Use <b>bold text", "Body.\n", ("sample: description contains the XML tag '<b>'",)),
         (VALID_FRONTMATTER, "See [the guide](references/guide.md).\n", ("sample: link 'references/guide.md' does not resolve to a file",)),
+        (VALID_FRONTMATTER, "```\n[x](references/none.md)\n```\n~~~\n[y](references/none.md)\n~~~\n", ()),
+        (VALID_FRONTMATTER, "```\ncode\n```\nSee [the guide](references/guide.md).\n", ("sample: link 'references/guide.md' does not resolve to a file",)),
+        ("name: sample\ndescription: >-\n  First half\n  second half.\nlicense: MIT", "Body.\n", ()),
         (VALID_FRONTMATTER, "See [web](https://example.com/a) and [here](#top) and `references/none.md`.\n", ()),
     ],
     ids=[
@@ -63,6 +68,9 @@ def lines(count: int) -> str:
         "description over 1024 characters",
         "description with an XML tag",
         "broken relative link",
+        "links inside fenced blocks",
+        "link after a closed fenced block",
+        "folded description followed by another field",
         "web link, anchor and inline code path",
     ],
 )
@@ -98,11 +106,9 @@ def test_a_folded_description_and_an_existing_relative_link_pass(tmp_path: Path)
     ids=["no opening fence", "no closing fence", "duplicate field"],
 )
 def test_malformed_frontmatter_fails_loudly(tmp_path: Path, text: str, problem: str) -> None:
-    directory = tmp_path / "plugins" / "atelier" / "skills" / "sample"
-    directory.mkdir(parents=True)
-    (directory / "SKILL.md").write_text(text, encoding="utf-8")
+    write_skill(tmp_path, document=text)
 
-    assert check_skills.check_skills(tmp_path, {}).problems == (f"sample: {problem}",)
+    assert check_skills.check_skills(tmp_path, {"sample": 600}).problems == (f"sample: {problem}",)
 
 
 @pytest.mark.parametrize(
@@ -114,8 +120,9 @@ def test_malformed_frontmatter_fails_loudly(tmp_path: Path, text: str, problem: 
         (541, {"sample": 541}, (), ()),
         (520, {"sample": 541}, (), ("sample: body 520 lines < baseline 541; lower the baseline entry to 520",)),
         (500, {"sample": 541}, ("sample: baseline entry is orphaned, the skill is gone or has at most 500 lines",), ()),
+        (10, {"gone": 600}, ("gone: baseline entry is orphaned, the skill is gone or has at most 500 lines",), ()),
     ],
-    ids=["at the limit", "new oversize skill", "growth", "unchanged", "shrinkage", "shrunk to the limit"],
+    ids=["at the limit", "new oversize skill", "growth", "unchanged", "shrinkage", "shrunk to the limit", "removed skill"],
 )
 def test_the_size_limit_is_a_ratchet_over_the_baseline(
     tmp_path: Path, body_lines: int, baseline: dict[str, int], problems: tuple[str, ...], notes: tuple[str, ...]
@@ -123,14 +130,6 @@ def test_the_size_limit_is_a_ratchet_over_the_baseline(
     write_skill(tmp_path, body=lines(body_lines))
 
     assert check_skills.check_skills(tmp_path, baseline) == check_skills.Report(problems, notes)
-
-
-def test_a_baseline_entry_for_a_removed_skill_is_orphaned(tmp_path: Path) -> None:
-    write_skill(tmp_path)
-
-    report = check_skills.check_skills(tmp_path, {"gone": 600})
-
-    assert report.problems == ("gone: baseline entry is orphaned, the skill is gone or has at most 500 lines",)
 
 
 @pytest.fixture
@@ -151,7 +150,7 @@ def test_the_command_passes_a_clean_tree_and_prints_the_shrink_note(
     assert check_skills.main() == 0
     output = capsys.readouterr().out
     assert "lower the baseline entry to 510" in output
-    assert "skill check passed" in output
+    assert "skill check passed: 1 skills" in output
 
 
 def test_the_command_exits_non_zero_and_names_the_failure(

@@ -66,9 +66,11 @@ candidate is judged against it before the operator ever sees the surface.
 
 - Before building: name the page's one question and the card's one state.
   Everything on the surface must serve them.
-- Prefer the existing token owner for status vocabulary; never invent a
-  synonym for a state that already has a token. New states need a new token
-  at the owner, not an ad-hoc string.
+- Prefer the existing token owner for status vocabulary (search the repository
+  for where existing state names, colours and tokens are defined; where none
+  exists, the slice creates the owner); never invent a synonym for a state that
+  already has a token. New states need a new token at the owner, not an ad-hoc
+  string.
 - Actions that destroy or publish get a confirm; everything else acts
   directly. Confirmation dialogs repeat law 3: one verb, one consequence line.
 - Timestamps show age ("for 5 hours"), not raw dates, wherever the question
@@ -86,17 +88,22 @@ candidate is judged against it before the operator ever sees the surface.
 ## Reviewing against it
 
 Walk the surface and ask, in order: Which question does this page answer? Can
-I read every state with the text blurred — and in grayscale? Is any label
-longer than two words, or not the domain's own word? Is any explanation
+I read every state with the text blurred and in grayscale (capture it with
+`filter: blur(4px) grayscale(1)` injected on `body`)? Is any label
+longer than two words (a count prefix like "3 runs" is data, not a word), or not
+the domain's own word? Is any explanation
 inline? Does any affordance — or block of information — appear twice? Are
 empty, loading, and error designed? Does anything move that is not alive?
 Is any identifier lying around as reading matter instead of anchoring proof?
-Does this behavior already exist elsewhere as its own component? (Owned by
-REQ-UIQ-13 in docs/requirements/0003-ziel-ui.md.)
-Each "no" is a REVISE citing the law's number.
+Does this behavior already exist elsewhere as its own component? (The
+repository's UI requirements, if it has any, own the matching rule; without
+them the seven laws alone judge.)
+Each "no" is a REVISE citing the law's number, one line each:
+`REVISE law <n>: <what the screenshot shows>`. No "no" is `APPROVE`.
 
 **Evidence is a screenshot, not test green.** A UI candidate's proof includes
-a real-browser capture (the e2e Chromium against the live console serves) of
+a real-browser capture (the `see` skill's headless command against the running
+surface, at desktop and ~390px width) of
 the changed surface in its common state and — when they changed — its
 empty/error state. A reviewer judges the picture against the laws; code alone
 cannot show joylessness. A surface that passes all seven laws but feels

@@ -17,10 +17,16 @@ explorative-testing skill and use this skill as its camera.
 1. Start or identify the local server when the artifact needs one. For standalone
    HTML, a file URL is enough.
 2. Capture the relevant viewport with a bounded headless browser command.
-3. Open the screenshot with the available image-viewing tool.
+3. Open the screenshot with the Read tool, which shows images.
 4. Judge what is actually visible: framing, readability, overlap, empty states,
-   contrast, scroll depth, responsive behavior, and missing assets.
-5. Fix concrete visual defects and capture again when verification matters.
+   contrast, content below the fold, responsive behavior, and missing assets.
+5. When asked to fix, fix concrete visual defects and capture again; when asked
+   only to judge, report the defects and change nothing.
+
+Write captures to one scratch directory the session allows (`$SCRATCH` below).
+`--screenshot` captures only the viewport: for a full page, raise the height in
+`--window-size` to the page height (for example 4000); say in the report which
+height was seen.
 
 ## Example Commands
 
@@ -33,14 +39,16 @@ Running page:
 ```bash
 timeout -k 5 60 google-chrome --headless --disable-gpu --no-sandbox \
   --hide-scrollbars --virtual-time-budget=4000 --window-size=1280,1400 \
-  --screenshot=/tmp/see/page.png http://127.0.0.1:8000/
+  --screenshot="$SCRATCH/page.png" http://127.0.0.1:8000/
 ```
+
+Phone width: the same command with `--window-size=390,844` and another file name.
 
 Standalone HTML:
 
 ```bash
 timeout -k 5 60 google-chrome --headless --disable-gpu --no-sandbox \
-  --window-size=1280,1000 --screenshot=/tmp/see/page.png \
+  --window-size=1280,1000 --screenshot="$SCRATCH/page.png" \
   "file:///absolute/path/to/page.html"
 ```
 
@@ -49,6 +57,7 @@ capture path before retrying with a bounded command.
 
 ## Output
 
-Report what the screenshot shows, the concrete visual defects found, and the
-verification screenshot path. Do not claim a UI is visually correct unless you
+Report what the screenshot shows, the concrete visual defects found (one line
+each: where, what, and a verdict of ok or defect), and the verification
+screenshot path. Do not claim a UI is visually correct unless you
 looked at a rendered image.

@@ -1,0 +1,8 @@
+claim_id = "78c1641027ad41678dc20cfc38f6cf18"
+agent = "claude"
+role = "builder"
+base = "cf35e3b818921acb0fc3bafc725e8ab4f93d82fd"
+branch = "claude/issue-154-skill-audit-pass"
+scope = ["plugins/atelier/agents/capability-critic.md", "plugins/atelier/agents/capability-improver.md", "plugins/atelier/skills/agent-documentation/SKILL.md", "plugins/atelier/skills/agent-documentation/references/skill-audit.md"]
+opened_commit = "abfc413a5db2af4e45a0abf131ad3bdb904c1d64"
+whole_reason = "One audit pass as a reference file, its link, and the two agents that apply it."

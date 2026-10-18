@@ -58,7 +58,7 @@ rule message in `title`, and a SonarCloud deep link in `message`. It carries
 measured, vulnerabilities included: two of the six annotations of home-tools
 check run 101531038872 (commit `f1f222f`) resolve, read with the token, to
 vulnerability-type issues of `githubactions:S8541`. That number also appears in
-"Shell rules" below as `shell:S8541`, refused there because a packaged project
+"Shell rules" in rules-by-language.md as `shell:S8541`, refused there because a packaged project
 cannot take `--no-build`; home-tools declares no build system, so the flag
 works and the finding was fixed rather than excepted. Whether a security
 hotspot is annotated at all is **unknown** — no run in reach carried one. The
@@ -70,7 +70,7 @@ decoration.
 Hopin check run 101501941091 (commit `665b41c`) is `success`, titled "Quality
 Gate passed", while carrying an annotation for a real finding
 (`src/hopin/app.py:24`, unused local variable). That is the ratings-not-counts
-trap of the standing rulings below, seen through this route.
+trap of the standing rulings in SKILL.md, seen through this route.
 
 Three limits bound what a reader may conclude:
 

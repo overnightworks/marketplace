@@ -70,8 +70,8 @@ stops at a checksum that cannot parse, which names the wrong cause and one step
 too late.
 
 The token goes in the environment, never `-Dsonar.token=`, for the `ps` reason
-of "API access". Read the result under `pullRequest=<n>` with the API route
-above, and `api/components/tree` in the same scope for the file list, which
+of "API access". Read the result under `pullRequest=<n>` with the API route in
+SKILL.md "API access", and `api/components/tree` in the same scope for the file list, which
 tells a finding that was fixed apart from a file that dropped out of scope.
 
 Two refusals a reader hits first (measured here, 07.09.2026, scanner CLI
@@ -95,8 +95,8 @@ Two refusals a reader hits first (measured here, 07.09.2026, scanner CLI
 
 What the route is for, in one case: `githubactions:S8544` ("Python dependencies
 should be locked to verified versions", type vulnerability) sat on this
-repository's CI workflow, on a line no change touched, where every route above
-reported zero. It was read this way and fixed in commit `3f02341`. The before-and-after pair was
+repository's CI workflow, on a line no change touched, where every route in SKILL.md
+("API access" and the procedure) reported zero. It was read this way and fixed in commit `3f02341`. The before-and-after pair was
 measured in that lane and is deliberately not re-measured here — CI has since
 overwritten the analysis that held it, exactly as the warning above says, and a
 fresh measurement would mean another write.

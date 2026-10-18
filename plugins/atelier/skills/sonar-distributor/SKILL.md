@@ -57,14 +57,16 @@ mattered.
 
 ## Procedure
 
-1. **Pull the numbers.** Without `$SONAR_TOKEN`, stop and ask the head for the
-   token through the header-file route below; a run never falls back to an
-   unauthenticated read, which answers zero about nothing. Read with the credential that produced the analysis
-   and prove the scope, for the reason under "API access" below. The credential
-   is basic auth — the token as user name, an empty password — and it goes to
-   `curl` in a header file, never in an argument: `-u` and `-H` both put it in
-   the command line, where any local process reads it out of `ps`, and base64
-   is encoding, not concealment.
+1. **Pull the numbers.** Without `$SONAR_TOKEN`, write no partial issue,
+   report the stop, and ask the head (the session that dispatched you, or the
+   operator when you run as the head) for the token through the header-file
+   route of this step; a run never falls back to an unauthenticated read, which
+   answers zero about nothing. Read with the credential that produced the
+   analysis and prove the scope, for the reason under "API access" below. The
+   credential is basic auth — the token as user name, an empty password — and
+   it goes to `curl` in a header file, never in an argument: `-u` and `-H` both
+   put it in the command line, where any local process reads it out of `ps`,
+   and base64 is encoding, not concealment.
 
    ```bash
    key=overnightworks_<repo>
@@ -97,10 +99,15 @@ mattered.
    hits is one decision, not dozens.
 2. **Classify every group** into the four classes below. A group belongs to
    exactly one class, and each class has one named action and one owner.
-3. **Write ONE distributor issue** per repository (search the board first —
-   `gh issue list --state all --search "distributor closed:>=<date 30 days ago>"`
-   catches open and recently closed — and sharpen an
-   existing distributor rather than opening a twin).
+3. **Write ONE distributor issue** per repository. Search the board first
+   with two queries, because `closed:` excludes open issues:
+
+   ```bash
+   gh issue list --state open --search "distributor" --limit 100
+   gh issue list --state closed --search "distributor closed:>=<date 30 days ago>" --limit 100
+   ```
+
+   Sharpen whichever distributor exists rather than opening a twin.
 4. **Cut slices** in corridor size, one owner each, and dispatch them one at a
    time from the distributor. A finding becomes its own issue only when it is
    dispatched.

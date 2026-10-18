@@ -20,9 +20,9 @@ real user experiences.
    their head, and "known issue" is not "not an issue." Prefer a
    context-fresh agent as the witness when one is available.
 2. Boot or attach the way the repository's README or AGENTS.md documents; a
-   stateless CLI has no boot, so run it on a scratch copy of its inputs. Prefer an isolated state
-   directory or database; never explore against live user state unless
-   explicitly told to. A throwaway HOME still reaches the operator's
+   stateless CLI has no boot, so run it on a scratch copy of its inputs. Prefer
+   an isolated state directory or database; never explore against live user
+   state unless explicitly told to. A throwaway HOME still reaches the operator's
    desktop, because the session bus, the user's systemd and the display are
    found through the environment: drive with
    `env -u DBUS_SESSION_BUS_ADDRESS -u DISPLAY -u WAYLAND_DISPLAY XDG_RUNTIME_DIR=<scratch>/run`

@@ -66,10 +66,11 @@ candidate is judged against it before the operator ever sees the surface.
 
 - Before building: name the page's one question and the card's one state.
   Everything on the surface must serve them.
-- Prefer the existing token owner for status vocabulary (find it with
-  `git grep -il "status"` over the stylesheets and constants; where none
-  exists, the slice creates the owner); never invent a synonym for a state that already has a token. New states need a new token
-  at the owner, not an ad-hoc string.
+- Prefer the existing token owner for status vocabulary (search the repository
+  for where existing state names, colours and tokens are defined; where none
+  exists, the slice creates the owner); never invent a synonym for a state that
+  already has a token. New states need a new token at the owner, not an ad-hoc
+  string.
 - Actions that destroy or publish get a confirm; everything else acts
   directly. Confirmation dialogs repeat law 3: one verb, one consequence line.
 - Timestamps show age ("for 5 hours"), not raw dates, wherever the question

@@ -10,11 +10,10 @@ outputs, and refusal sentences are in the installed `aco <command> --help` (the
 local owner) and in `README.md` and `specs/<command>.spec.md` of the
 agent-coordination repository (github.com/overnightworks/agent-coordination; a
 local checkout may carry another directory name, so find it with
-`git -C <candidate> remote get-url origin`, and read the spec on the forge when
-none exists). Read the spec of a command before
-using it the first time; this file copies none of it. The global
-contract's section "How to coordinate" says *that* a lane is claimed, reviewed and
-landed; this says *how*.
+`git -C <candidate> remote get-url origin`, and read the spec on the forge
+when none exists). Read the spec of a command before using it the first time;
+this file copies none of it. The global contract's section "How to coordinate"
+says *that* a lane is claimed, reviewed and landed; this says *how*.
 
 ## Session start
 
@@ -116,9 +115,10 @@ named task, but the precondition is aco's:
    lane worktree.
 2. `aco land <pr> --head <sha>` merges only if the PR head is that sha, then runs
    the release for you: claim released, clean merged worktree and branch removed
-   (`--keep-worktree` keeps them). `specs/land.spec.md`. The contract's "the head
-   releases the claim after merge" is satisfied by checking `aco status`
-   afterwards, not by a second release.
+   (`--keep-worktree` keeps them). `specs/land.spec.md`. `aco land` has already
+   released the claim; after a land, the head's release step is verifying that
+   with `aco status`. `aco release --merged` is for merges made outside
+   `aco land`.
 3. Read the `freed:` and `next:` lines it prints and act on them as the contract's
    "How to coordinate" says. Then `aco next`.
 4. Close bundled non-lead cards with the PR link.

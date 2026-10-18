@@ -53,7 +53,8 @@ rest and say so in the report.
   `gh search issues "<owner>/<repo>/issues" --owner <owner>` and
   `gh search issues "<repo>#" --owner <owner>`; run both, pass `--limit 200` to
   each, say when a result hit the cap, and name every query in the report. Read
-  only hits that name this repository's items or files (a bare keyword returns unrelated items).
+  only hits that name this repository's items or files (a bare keyword returns
+  unrelated items).
   A suspected twin counts as false until the two bodies' own boundary text
   fails to separate them, and a cross-repository verdict without a named
   query is invalid. Verdict: `merge into #m`, or `close` when the other one

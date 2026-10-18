@@ -28,8 +28,9 @@ to a tracked file in the worktree fails; it needs no commit, merge or network te
 
 ## Codex reviewer (read-only)
 
-Model and effort come from the global contract's section "Model routing" (the
-row for the work, the Codex column; its Effort column), never from a guess.
+Model and effort come from the global contract's section "Model routing" if
+installed (the row for the work, the Codex column; its Effort column);
+otherwise use the operator's stated model and effort, or ask. Never guess.
 `$MODEL` and `$EFFORT` below are those values.
 
 ```bash
@@ -85,7 +86,8 @@ jq -r .text "$OUT"
 - Always pass `--effort`: `~/.grok/config.toml` defaults to `xhigh` and
   `permission_mode = "always-approve"`. `grok --help` lists no valid values for
   `--effort` (alias `--reasoning-effort`), so the values are unverified: take the
-  level from the global contract's "Model routing" table, default `high`.
+  level from the global contract's "Model routing" table if installed, default
+  `high`.
 - `--sandbox` takes a profile name (`grok --help` shows a free-form `<PROFILE>`);
   `read-only` and `workspace` are unverified as built-ins beyond the smoke check
   above, so run that check before relying on either.

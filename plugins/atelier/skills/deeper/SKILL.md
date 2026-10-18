@@ -22,10 +22,12 @@ actually calls for those.
 
 ## Procedure
 
-1. Name the task in one sentence and the real outcome it serves (Altitude).
+1. Name the task in one sentence, then the real outcome it serves, stated as
+   an outcome rather than a task.
 2. Answer these four questions concretely for this task and field — name
    actual tools, datasets, source files, solvers, or checkers, never
-   categories:
+   categories. When none exists, write "none exists" and name the check
+   someone would have to build or the third party who could run it:
    - What would a leading practitioner in this field do here that was not
      asked for?
    - What is the rawest material they would start from, instead of what has
@@ -35,14 +37,16 @@ actually calls for those.
      is right?
 3. Name where the work has been growing bigger instead of deeper — longer
    documents, more review rounds, more findings — without a machine or
-   third-party check moving it closer to proof, if it has.
+   third-party check moving it closer to proof, if it has. With no visible
+   history, write "no history".
 4. Rewrite the task as a request for exactly that, in the asker's own
    language.
 5. If a plan or work item exists, name what the rewritten task replaces or
    removes in it, proposing only what the existing rules already allow.
    Otherwise end with the rewritten task.
 
-Answer short, in the asker's language. The fourth question matters most:
+Answer short, in the asker's language: one line per question, names without
+explanation. The fourth question matters most:
 prefer evidence from a machine or a third party — a model checker, a solver, a
 benchmark under a frozen protocol, an independent re-run, an external
 reviewer — over evidence from the task's own author.

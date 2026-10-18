@@ -5,12 +5,16 @@ Sources, read 18.10.2026:
 - S1: https://code.claude.com/docs/en/skills.md
 - S2: https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices.md
 - S3: https://code.claude.com/docs/en/plugin-evals.md
+- S4: the installed skill-creator, `~/.claude/skills/**/skill-creator`
 
 ## Procedure
 
-1. Run `python3 scripts/check_skills.py` from the repository root. It owns the
-   machine-checkable rules (frontmatter, name, description length, body size,
-   linked files). Any failure is a finding; do not re-check those rules by hand.
+1. Run `python3 scripts/check_skills.py` from the root of the checkout being
+   audited. It owns the machine-checkable rules (frontmatter, name,
+   description length, body size, linked files) and prints only pass/fail.
+   Any failure is a finding; do not re-check those rules by hand. Default
+   when the script is absent: apply the S1/S2 frontmatter, name, description
+   and body-size limits by hand.
 2. Read the skill, then apply the rules below. Each finding names its
    evidence type: `static`, `usage`, `procedure-round` or `eval`.
 3. Run the overlap, usage and benefit checks below.
@@ -65,9 +69,10 @@ Does the skill beat the no-skill baseline (S1-S3)?
   the skill and one concrete task and runs it; every point where it guessed
   or asked is a finding. Evidence: `procedure-round`.
 - High-use or high-risk skills only: a trigger and outcome eval on Sonnet,
-  with the skill-creator loop or `claude plugin eval` (S3; a toy case costs
-  about $0.41 at 3 runs per arm, the skill-creator loop about 360 `claude -p`
-  calls per skill). Evidence: `eval`.
+  with the skill-creator loop (S4) or `claude plugin eval` (S3). Cost as read
+  18.10.2026: a toy case about $0.41 at 3 runs per arm (S3), the
+  skill-creator loop about 360 `claude -p` calls per skill (S4). Default when
+  skill-creator is not installed: run only the Haiku round. Evidence: `eval`.
 - Default when no budget is named: Haiku round for all, evals for none.
 
 ## Gaps
@@ -82,4 +87,5 @@ Do not propose a check from imagination.
 
 One distributor issue per audit run, holding the numbered findings, each with
 skill, rule, evidence type and evidence. A finding becomes its own item only
-when it is dispatched. Write the body per the `aco` skill.
+when it is dispatched. Write the body per the `aco` skill; default when aco is not installed:
+the repository's issue template.

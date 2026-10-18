@@ -1,7 +1,0 @@
-claim_id = "0a12b39bb22c4843b62ae089d02296d3"
-agent = "claude"
-role = "builder"
-base = "7cfdf8f6e20f0ef25c2dd49d582040d751e8d4ec"
-branch = "claude/issue-172-release-0-7-16"
-scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json"]
-opened_commit = "165aecf8f0f62517c6309691eab0d3b4b8f82ebc"

@@ -241,6 +241,13 @@ journal, so nothing a later step needs lives only in a transcript; the next
 brief names the body, the lane tip, the files touched, the findings verbatim,
 and the commands that proved the step.
 
+The lane workflow (`plugins/atelier/workflows/lane.js`) is a help, not a duty
+(operator ruling 18.10.2026). A head runs a lane through it where that helps,
+and otherwise runs the lane steps by hand. This ruling is the operator's
+standing opt-in: a head whose session has the `Workflow` tool starts the lane
+workflow without asking first. What does not fit is reported on the marketplace
+board: search first, then sharpen the open owner or open one item.
+
 Review and audit findings (operator rulings 24.08. and 25.08.2026): a review
 yields ONE distributor issue holding the numbered findings list with evidence;
 a finding becomes its own issue only when it is dispatched (then it needs a

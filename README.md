@@ -18,8 +18,8 @@ Licensed under the [MIT License](LICENSE).
 - `plugins/atelier/hooks/hooks.json` is the shared quality-gate hook configuration.
 - `plugins/atelier/workflows/` holds the Claude Code workflows; `lane` drives
   one claimed aco lane from build to ready-to-land. Claude Code documents plugin
-  workflows as namespaced by plugin name, so `lane` runs as `/atelier:lane`; to
-  start one by path instead:
+  workflows as `/<plugin>:<name>`, but name lookup has not been verified for
+  `lane`; start it by path:
   `Workflow({scriptPath: "<plugin dir>/workflows/lane.js", args: {...}})`, where
   `<plugin dir>` is the installed copy at
   `~/.claude/plugins/cache/atelier/atelier/<version>/` or `plugins/atelier/` in a

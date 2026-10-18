@@ -1,8 +1,0 @@
-claim_id = "7db05147a7c64eb6819af2f16f7ece6e"
-agent = "claude"
-role = "builder"
-base = "68f03f9ff0cca1860c3d4a7dda8615348bce7fe2"
-branch = "claude/issue-136-lane-help-opt-in"
-scope = [".claude-plugin/marketplace.json", "instructions/AGENTS.md", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/skills/aco/SKILL.md"]
-opened_commit = "558499278622f48383cbaad2f9c8157c14ef47c5"
-whole_reason = "One ruling anchored in the contract and the skill that applies it, plus the three version pins that ship the skill."

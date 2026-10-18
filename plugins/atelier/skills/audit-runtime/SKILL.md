@@ -30,9 +30,9 @@ is a source audit, not a profiler: report structural hazards proven by code.
 - Hot paths: synchronous I/O, blocking subprocesses, sleeps, and network calls
   do not block async or latency-sensitive paths. In an orchestration script,
   a wait that can outlast the time limit of the call that hosts it counts as a
-  hot-path hazard. A hazard guarded only by an instruction in an agent prompt
-  is unguarded: prompts are not controls, so enforcement must live in code or
-  tool permissions.
+  hot-path hazard.
+- Prompts are not controls: a hazard guarded only by an instruction in an
+  agent prompt is unguarded; enforcement must live in code or tool permissions.
 - Repeated work and access patterns: loops do not re-read, re-parse, or
   recompute invariant work, and a membership test that repeats or grows uses a
   set or dict, not a list.

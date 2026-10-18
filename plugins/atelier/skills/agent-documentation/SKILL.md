@@ -44,6 +44,12 @@ kept.
    Do not run runtime tests for docs-only edits unless static policy or
    executable behavior is touched.
 
+## Skill audit
+
+When the target is an installed skill (not only its wording), also run the pass
+in [references/skill-audit.md](references/skill-audit.md) and return its
+distributor issue.
+
 ## Checklist
 
 - Loading: entry-point files use provider-supported loading behavior. Do not

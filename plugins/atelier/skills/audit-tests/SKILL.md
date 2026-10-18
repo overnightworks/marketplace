@@ -3,15 +3,19 @@ name: audit-tests
 description: Audit test discipline and coverage quality. Use when asked to review tests, check behavioral coverage, find brittle tests, verify parallel-test safety, or judge whether a change is tested at the right layer.
 ---
 
-Audit tests against the current repository testing guidance. Passing tests are
+Audit tests against the repository's testing guidance (the tests section of
+`AGENTS.md` or `CLAUDE.md`; the global contract when absent). Passing tests are
 not enough; judge whether the suite proves behavior clearly, deterministically,
 and at the right altitude.
 
 ## Procedure
 
 1. Define mode from the request. For a change audit, inspect changed source and
-   tests. For a full audit, enumerate the suite scope.
-2. Run the configured test command when needed to verify current state.
+   tests. For a full audit, enumerate the suite scope. For a named test file,
+   audit that file against the source it covers.
+2. Find the test command in `README.md`, `AGENTS.md`, or `.github/workflows/`
+   and run only the named tests when current state matters; when no command is
+   documented, judge from source and say so.
 3. Cross-reference source behavior against tests. Prefer behavior contracts over
    line-count reasoning.
 4. Report only confirmed test defects or coverage gaps.
@@ -25,11 +29,14 @@ and at the right altitude.
 - Observable assertions: tests assert user-visible output, state, errors, or
   contracts instead of private implementation details.
 - Dependency control: pure tests do not require live services, real network, or
-  external processes.
+  external processes. A test in a unit file that needs a live dependency is a
+  finding: it belongs in the integration suite.
 - Determinism: tests avoid sleeps, wall-clock races, shared mutable state, and
   order dependence.
 - Parallel safety: tests can run concurrently without shared filesystem,
-  environment, port, process, or global-state collisions.
+  environment, port, process, or global-state collisions. Judge it from the
+  source (fixed paths, ports, environment writes, module-level state) when the
+  repository documents no parallel run command.
 - Maintainability: repeated scenarios are data-driven or fixture-backed when
   repetition would hide intent; a builder a test file writes privately for a
   contract another test file already builds is a duplication finding.
@@ -43,7 +50,8 @@ and at the right altitude.
 
 ## Output
 
-Return findings grouped by check:
+Return findings under one heading per check that has findings, each in this
+form:
 
 ```text
 [SEVERITY] <check> - <file:line>

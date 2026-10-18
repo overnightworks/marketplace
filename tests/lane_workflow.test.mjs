@@ -664,7 +664,7 @@ for (const [step, args, answers, scopeLabel] of stopsWithoutClaim) {
 
 const rescopeRequest = [{ path: 'src/cli.py', change: 'pass the new argument', reason: 'it calls the changed signature' }]
 const rescopeHandbacks = [
-  ['the builder', builtLane, { build: { ...built, rescope: rescopeRequest } }, 'build', { pr: 2, tip: resumeTip, unreviewed: false, lastBlocking: undefined }],
+  ['the builder', builtLane, { build: { ...built, rescope: rescopeRequest } }, 'build', { pr: 2, tip: resumeTip, unreviewed: true, lastBlocking: undefined }],
   ['a fixer', { ...resumeArgs, fixFirst: [defectWithoutDraft] }, { 'fix-1': { ...resumeFix, rescope: rescopeRequest } }, 'fix', { pr: resumeArgs.pr, tip: resumeFixedTip, unreviewed: true, lastBlocking: [defectWithoutDraft] }],
 ]
 for (const [step, args, answers, stage, resumeFrom] of rescopeHandbacks) {
@@ -675,11 +675,26 @@ for (const [step, args, answers, stage, resumeFrom] of rescopeHandbacks) {
     assert.match(result.reason, /path to where, change to text, reason to evidence, kind defect/)
     assert.deepEqual(result.lastBlocking, resumeFrom.lastBlocking)
     assert.equal(/no reviewer has seen/.test(result.reason), resumeFrom.unreviewed)
-    assert.equal(result.history.some(entry => entry.tip === resumeFixedTip && !entry.reviewed), resumeFrom.unreviewed)
+    if (stage === 'fix') assert.ok(result.history.some(entry => entry.tip === resumeFixedTip && !entry.reviewed))
     assert.ok(!launchedAgents.some(label => label.startsWith('scope-') && label !== 'scope-resume'))
     assert.ok(!launchedAgents.some(label => label.includes('review')))
   })
 }
+
+test('#131 AC-build-rescope-names-the-base: the build hand-back names the merge-base command with the worktree and the returned tip', async () => {
+  const { result } = await runLane(builtLane, { build: { ...built, rescope: rescopeRequest } })
+  assert.ok(result.reason.includes(`git -C '/w' merge-base origin/main ${resumeTip}`), result.reason)
+  assert.ok(result.reason.includes("git -C '/w' fetch origin"), result.reason)
+})
+
+test('#131 AC-build-rescope-resume-reviews-the-build: resuming a build hand-back as its sentence says has the review and the gate judge deltaFrom..HEAD', async () => {
+  const mergeBase = 'a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1'
+  const fixFirst = rescopeRequest.map(({ path, change, reason }) => ({ ...finding(path, change), evidence: reason, kind: 'defect' }))
+  const answers = { 'fix-1': { ...resumeFix, regression: [] }, 'r1-review': APPROVE, 'r1-gate': { ...APPROVE, codexExit: 0 }, 'e2e-0': PASS, 'ci-0': greenCi(resumeFixedTip) }
+  const { result, agentCalls } = await runLane({ ...resumeArgs, risk: 'material', fixFirst, deltaFrom: mergeBase }, answers)
+  assert.equal(result.status, 'ready-to-land')
+  for (const label of ['r1-review', 'r1-gate']) assert.ok(agentCalls[label].prompt.includes(`git diff ${mergeBase}..HEAD`), label)
+})
 
 test('#71 AC-answer-not-aco: the scope agent gets one complete command line that enters the lane worktree first', async () => {
   const { agentCalls } = await runLane(builtLane, { build: built })

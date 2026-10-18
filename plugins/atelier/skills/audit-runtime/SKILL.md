@@ -12,9 +12,7 @@ is a source audit, not a profiler: report structural hazards proven by code.
 2. Read `AGENTS.md`, `CLAUDE.md`, and `README.md` for declared hot paths,
    lifecycle ownership, and concurrency assumptions. When none are declared,
    treat entry points, loops, and anything awaited by a caller as hot, and the
-   code that spawns or opens a resource as its owner. A hazard guarded
-   only by an instruction in an agent prompt is unguarded: prompts are not
-   controls, so enforcement must live in code or tool permissions.
+   code that spawns or opens a resource as its owner.
 3. Inspect each checklist area. Confirm each candidate by tracing ownership,
    setup, teardown, and parallel access.
 4. Report only hazards that survive a real refutation attempt.
@@ -31,7 +29,10 @@ is a source audit, not a profiler: report structural hazards proven by code.
   strands resources.
 - Hot paths: synchronous I/O, blocking subprocesses, sleeps, and network calls
   do not block async or latency-sensitive paths. In an orchestration script,
-  a wait that can outlast the time limit of the call that hosts it counts.
+  a wait that can outlast the time limit of the call that hosts it counts as a
+  hot-path hazard. A hazard guarded only by an instruction in an agent prompt
+  is unguarded: prompts are not controls, so enforcement must live in code or
+  tool permissions.
 - Repeated work and access patterns: loops do not re-read, re-parse, or
   recompute invariant work, and a membership test that repeats or grows uses a
   set or dict, not a list.

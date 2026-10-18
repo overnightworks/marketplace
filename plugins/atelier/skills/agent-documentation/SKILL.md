@@ -34,13 +34,14 @@ kept.
    until the files prove it.
 5. Fix only confirmed issues when editing is requested. Move a rule to its
    owner instead of copying it. Delete stale or duplicated guidance.
-6. After edits, request up to three independent fresh-eye reviews. Prefer a new
-   isolated review context for each pass when provider-supported tooling is
-   available and safe; otherwise run separate manual passes and report the
-   limitation. Stop when a pass returns no findings. Pass only the skill path,
+6. After edits, the dispatching head requests up to three independent fresh-eye
+   reviews from the `capability-critic` agent. Prefer a new isolated review
+   context for each pass when provider-supported tooling is available and safe;
+   otherwise run separate manual passes and report the limitation. Stop when a pass returns no findings. Pass only the skill path,
    scoped files, and the audit request; do not pass prior conclusions. Fix
    confirmed findings, then continue the loop.
-7. Verify with the smallest command set that proves the documentation change.
+7. Verify with the smallest command set that proves the documentation change:
+   the README's verification section, else the CI workflows.
    Do not run runtime tests for docs-only edits unless static policy or
    executable behavior is touched.
 
@@ -61,7 +62,8 @@ distributor issue.
 - Token economy: every line adds a decision, boundary, trigger, invariant, or
   verification rule.
 - Duplication: generic policy appears only in `AGENTS.md`; project facts appear
-  only in their project owner.
+  only in their project owner. The generated `AGENTS.baseline.md` view is the
+  one allowed copy of generic policy.
 - Clarity: intent is direct, terms are defined by context, and vague advice is
   replaced by observable behavior or deleted.
 - Consistency: current architecture, plans, tooling, tests, commands, skills,
@@ -85,10 +87,15 @@ Return:
 
 ```text
 FIXED <file:line> <change and source verified>
-FINDING <severity> <file:line> <problem> -> <fix>
+FINDING <blocking|follow-up> <file:line> <problem> -> <fix>
 KEPT <file:line> <why it is intentional>
 UNKNOWN <question and source checked>
 VERIFICATION <commands or review passes>
 ```
+
+Severity follows [references/skill-audit.md](references/skill-audit.md).
+A pointer to another owner (for example the coordination contract named at the
+top of `AGENTS.md`) is in scope only for whether its target exists; its content
+belongs to that owner.
 
 End with `CLEAN` when no findings remain.

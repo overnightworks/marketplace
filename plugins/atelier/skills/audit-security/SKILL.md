@@ -8,9 +8,10 @@ source audit against the repository's own trust model: read `AGENTS.md`,
 `CLAUDE.md`, and `README.md` for declared trust boundaries first, and judge
 findings against what the code is actually exposed to, not a generic worst case.
 When none is declared, assume that every input from outside the process (files
-it did not write, network responses, arguments, environment, user text) is
-untrusted, and that the repository's own checked-in files and the operator's
-configuration are trusted. State the assumed model in the report.
+it did not write, network responses, user text, and any argument or environment
+value that carries external content) is untrusted, and that the repository's own
+checked-in files and operator-supplied settings, including arguments and
+environment, are trusted. State the assumed model in the report.
 
 ## Procedure
 

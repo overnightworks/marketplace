@@ -4,7 +4,8 @@ description: Audit test discipline and coverage quality. Use when asked to revie
 ---
 
 Audit tests against the repository's testing guidance (the tests section of
-`AGENTS.md` or `CLAUDE.md`; the global contract when absent). Passing tests are
+`AGENTS.md` or `CLAUDE.md`; the global contract if installed, else the conventions the suite itself
+follows). Passing tests are
 not enough; judge whether the suite proves behavior clearly, deterministically,
 and at the right altitude.
 
@@ -14,7 +15,7 @@ and at the right altitude.
    tests. For a full audit, enumerate the suite scope. For a named test file,
    audit that file against the source it covers.
 2. Find the test command in `README.md`, `AGENTS.md`, or `.github/workflows/`
-   and run only the named tests when current state matters; when no command is
+   and run only the tests that cover the scope when current state matters; when no command is
    documented, judge from source and say so.
 3. Cross-reference source behavior against tests. Prefer behavior contracts over
    line-count reasoning.
@@ -30,7 +31,8 @@ and at the right altitude.
   contracts instead of private implementation details.
 - Dependency control: pure tests do not require live services, real network, or
   external processes. A test in a unit file that needs a live dependency is a
-  finding: it belongs in the integration suite.
+  finding: it belongs in the integration suite (or a separate marker or directory where
+  the repository has no integration split).
 - Determinism: tests avoid sleeps, wall-clock races, shared mutable state, and
   order dependence.
 - Parallel safety: tests can run concurrently without shared filesystem,

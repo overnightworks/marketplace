@@ -1,8 +1,0 @@
-claim_id = "b75f4bf23a2240628a337426154c4b50"
-agent = "claude"
-role = "builder"
-base = "86dadb27f03a9e6e73fc57553dbacfa25fbfeb3e"
-branch = "claude/issue-131-build-rescope-review"
-scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/workflows/lane.js", "tests/lane_workflow.test.mjs"]
-opened_commit = "9ba232b1d4e0eb003e88e6c0999195fdcc3c41a1"
-whole_reason = "One sentence in lane.js, its test, and the three version pins every lane.js change moves together."

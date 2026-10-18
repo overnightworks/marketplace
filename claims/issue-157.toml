@@ -1,0 +1,8 @@
+claim_id = "b0750d059dce4f55aaca93b704ccc212"
+agent = "claude"
+role = "builder"
+base = "cf35e3b818921acb0fc3bafc725e8ab4f93d82fd"
+branch = "claude/issue-157-checklist-audits-pointers"
+scope = ["plugins/atelier/skills/audit-code/SKILL.md", "plugins/atelier/skills/audit-runtime/SKILL.md", "plugins/atelier/skills/audit-security/SKILL.md", "plugins/atelier/skills/audit-tests/SKILL.md"]
+opened_commit = "44fffc0383125afc0e7bbdcdd363929b0e669f92"
+whole_reason = "The four checklist audits that code-auditor uses. One skill group cut by shared findings."

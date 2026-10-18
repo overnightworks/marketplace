@@ -23,13 +23,24 @@ and the check misleads. A writer setup must commit and merge an already-fetched
 `<commondir>/hooks`, and must fail `git ls-remote <network remote> HEAD`. Test a
 write (`: >> <commondir>/config`), not a `touch` of the existing file: under
 Grok `touch` exits 0 on a sound writer. A local bare origin proves only gitdir
-and refs writes, not network. A reviewer setup is proven when a write to a
-tracked file fails.
+and refs writes, not network. A reviewer's smoke check is only that a write
+to a tracked file in the worktree fails; it needs no commit, merge or network test.
 
 ## Codex reviewer (read-only)
 
-`codexReview` in `plugins/atelier/workflows/lane.js` is the worked example. A
-hand-started reviewer uses the same flags; read them there, not from a copy here.
+Model and effort come from the global contract's section "Model routing" (the
+row for the work, the Codex column; its Effort column), never from a guess.
+`$MODEL` and `$EFFORT` below are those values.
+
+```bash
+codex exec -s read-only -C "$WT" -m "$MODEL" -c model_reasoning_effort="$EFFORT" \
+  -o "$OUT" - < "$BRIEF"
+```
+
+The prompt comes on stdin from `$BRIEF`; the answer lands in `$OUT`. Run it in
+the foreground, or detached with its exit status written to a marker file as
+`codexReview` in `plugins/atelier/workflows/lane.js` does. A reviewer never gets
+the writer's permission profile.
 
 ## Codex writer in a linked worktree
 
@@ -47,8 +58,9 @@ codex exec -C "$WT" \
   ...
 ```
 
-The tail, as `codexReview` has it: no `-s`, then `-m <model>`,
-`-c model_reasoning_effort=<effort>`, `-o <out>` and the prompt on stdin.
+The writer's tail has no `-s` (the profile is the sandbox), then
+`-m "$MODEL"`, `-c model_reasoning_effort="$EFFORT"`, `-o "$OUT"` and the prompt
+on stdin, as in the reviewer line.
 
 - The filesystem table must be one inline-TOML value: a dotted `-c` key splits on
   the dots inside `.git` paths and fails with "must be absolute".
@@ -71,7 +83,12 @@ jq -r .text "$OUT"
 ```
 
 - Always pass `--effort`: `~/.grok/config.toml` defaults to `xhigh` and
-  `permission_mode = "always-approve"`.
+  `permission_mode = "always-approve"`. `grok --help` lists no valid values for
+  `--effort` (alias `--reasoning-effort`), so the values are unverified: take the
+  level from the global contract's "Model routing" table, default `high`.
+- `--sandbox` takes a profile name (`grok --help` shows a free-form `<PROFILE>`);
+  `read-only` and `workspace` are unverified as built-ins beyond the smoke check
+  above, so run that check before relying on either.
 - `--json-schema '<schema>'` works and implies json output.
 - Grok loads the global contract, so `.text` may carry a `Contract loaded.` line;
   judge the verdict, not the first line.
@@ -91,7 +108,7 @@ read_write = ["<commondir>/objects", "<commondir>/refs", "<commondir>/logs", "<c
 
 `<name>` is the basename of `$GITDIR`, not of the worktree directory.
 
-Run with `--sandbox worktree-writer`, the reviewer's other flags and a higher
+Run with `--sandbox worktree-writer`, the Grok reviewer's other flags and a higher
 `--max-turns`. Append, `git add` and `git commit` work; writing
 `<commondir>/hooks` fails. Like the Codex writer, the Grok writer has no network
 (`restrict_network = true`): `git ls-remote https://...` fails with "Could not
@@ -100,8 +117,9 @@ the writer merges the already-present `origin/<trunk>`.
 
 ## Waiting, capturing, judging
 
-- Judge completion by the process exit status (or an exit-status marker, as
-  `codexReview` does), never by the output file existing.
+- Judge completion by the process exit status (or an exit-status marker file
+  written after the command, as `codexReview` does), never by the output file
+  existing.
 - Codex: capture the answer with `-o <out>`. Grok: `jq -r .text "$OUT"`.
 - A Grok failure exits 1 with a JSON error on stdout (stderr repeats it).
 - Judge the exit status first, then the answer; a zero exit with an empty answer
@@ -121,6 +139,6 @@ the writer merges the already-present `origin/<trunk>`.
 
 - `--permission-mode default` overriding the config in headless mode (it appeared
   not to).
-- `--effort high` on grok-4.6.
+- `--effort high` on grok-4.6 (the default this skill gives).
 - `~/.grok/sandbox.toml` as the profile home.
 - `aco` commands from inside either sandbox.

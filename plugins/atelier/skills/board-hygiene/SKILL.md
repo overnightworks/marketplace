@@ -21,21 +21,22 @@ applies what is clear under the coordination contract.
 3. An `uncut` entry is the next slice to dispatch: `keep`, whether or not the
    item is a container. `re-cut` is only for an item whose body no longer
    matches its slices. A container (`items[].container` not null) with no
-   `container.open_children` that is not in `uncut` is a `close` candidate (fold into its
-   document). Step 4 still gates every `close` candidate and wins.
+   `container.open_children` that is not in `uncut` is a `close` candidate (fold
+   into its document). Step 4 still gates every `close` candidate and wins.
 4. Before any `close`, test the item's `Done when` against evidence; an unmet
    `Done when` is never `close`.
 5. `aco check <number>` only when an `aco` block looks broken, or for a
    pull request whose classification is in doubt. `body malformed` is the
    only result worth a verdict; `body ok` is not proof of done.
-6. List open pull requests that no open item owns, with whether each can land (`mergeStateStatus` CLEAN and every check green;
-   otherwise name the blocker). An owner is `closingIssuesReferences` or a
+6. List open pull requests that no open item owns, with whether each can land
+   (`mergeStateStatus` CLEAN and every check green; otherwise name the
+   blocker). An owner is `closingIssuesReferences` or a
    `Lands #n` line in the PR body:
    `gh pr list --json number,title,body,author,closingIssuesReferences,mergeStateStatus,statusCheckRollup`.
    A bot pull request without an item is invisible to `aco next`.
 7. A standing audit item whose "last run at commit X" anchor is more than its
-   cadence behind (count the `landings` entries whose `committed_at` is later than X's commit
-   date, `git show -s --format=%cI X`) gets a due line.
+   cadence behind (count the `landings` entries whose `committed_at` is later
+   than X's commit date, `git show -s --format=%cI X`) gets a due line.
 
 ## Pass 2: sense
 
@@ -48,12 +49,11 @@ rest and say so in the report.
 - Twin: once per board, not per item. Compare the open items' titles and
   scopes with each other and with items closed in the last 30 days
   (`gh issue list --state closed --search "closed:>=<date>" --limit 200`);
-  no keyword search per item. Search
-  other repositories with both forms `gh search issues "<owner>/<repo>/issues"
-  --owner <owner>` and `gh search issues "<repo>#" --owner <owner>`; pass
-  `--limit 200`, say when a result hit the cap, run both forms, and name
-  every query in the report. Read only hits that name
-  this repository's items or files (a bare keyword returns unrelated items).
+  no keyword search per item. Search other repositories with both forms
+  `gh search issues "<owner>/<repo>/issues" --owner <owner>` and
+  `gh search issues "<repo>#" --owner <owner>`; run both, pass `--limit 200` to
+  each, say when a result hit the cap, and name every query in the report. Read
+  only hits that name this repository's items or files (a bare keyword returns unrelated items).
   A suspected twin counts as false until the two bodies' own boundary text
   fails to separate them, and a cross-repository verdict without a named
   query is invalid. Verdict: `merge into #m`, or `close` when the other one

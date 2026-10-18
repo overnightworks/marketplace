@@ -7,8 +7,11 @@ description: Operate aco (agent claims, the work board, landing) in any reposito
 
 This skill says the order and the traps of one lane. aco owns the facts: flags,
 outputs, and refusal sentences are in the installed `aco <command> --help` (the
-local owner) and in `README.md` and `specs/<command>.spec.md` of
-github.com/overnightworks/agent-coordination. Read the spec of a command before
+local owner) and in `README.md` and `specs/<command>.spec.md` of the
+agent-coordination repository (github.com/overnightworks/agent-coordination; a
+local checkout may carry another directory name, so find it with
+`git -C <candidate> remote get-url origin`, and read the spec on the forge when
+none exists). Read the spec of a command before
 using it the first time; this file copies none of it. The global
 contract's section "How to coordinate" says *that* a lane is claimed, reviewed and
 landed; this says *how*.
@@ -28,8 +31,13 @@ landed; this says *how*.
 - Issue item: from the main checkout, run the `aco start <n> ...` line that
   `aco next` prints and fill any `<reason>` placeholder it prints (for example after
   `--whole`); it creates the worktree
-  `<repo>-worktrees/issue-<n>-<slug>` and branch, then claims. Scope comes from
-  the item body's aco block; `--scope PATH` (repeatable) must match it.
+  `<repo>-worktrees/issue-<n>-<slug>` and branch, then claims. A blocked or skipped
+  item prints no start line: it is not started; report its blocker. Scope comes
+  from the item body's aco block; `--scope PATH` (repeatable) must match it. When
+  the block lacks `scope`, write `scope = [...]` into the body first (the paths
+  the trace-before-claim step named); when it lacks `whole` and the scope names a
+  directory or more than three paths, write a one-sentence `whole = "..."` too,
+  because aco refuses the claim without it.
   `start` has no `--json`. `specs/start.spec.md`. Push the branch by name
   (`git push origin <branch>`), not with a bare `git push`: its upstream can be `origin/main`.
 - A `malformed ... blocked-by list` refusal has so far been GitHub's issue listing
@@ -37,9 +45,11 @@ landed; this says *how*.
   clears on a retry a minute later. Never answer it with `--out-of-order`. One that
   persists is a defect (see Friction).
 - `--whole REASON` is required for a wide scope (any directory, more than three
-  paths); one sentence why it does not split. Prefer a body `whole` field.
+  paths); aco refuses the claim without it. One sentence why it does not split.
+  Prefer a body `whole` field.
 - `--out-of-order REASON` is required when a higher-ranked item is free or a
-  blocker is open (contract: "Start of a main session").
+  blocker is open; aco refuses the start without it (contract: "Start of a main
+  session").
 - Issue-less work: create the `fix/<slug>` or `docs/<slug>` worktree yourself, then
   `aco claim --scope PATH` in lane mode from inside it (`specs/claim.spec.md`).
   Release with `aco release --merged <pr>` or `--abandoned REASON`
@@ -47,8 +57,9 @@ landed; this says *how*.
 - Bundled cards (contract: "How to coordinate"): claim the lead with `--scope`
   covering every card's paths and `--whole` naming the bundle.
 
-After `aco start`, run the lane through the `lane` workflow where it helps,
-starting it as README.md says, under the contract's standing opt-in. Without the
+After `aco start`, run the lane through the `lane` workflow
+(`plugins/atelier/workflows/lane.js`) where it helps, starting it as the
+README's section "Layout" says, under the contract's standing opt-in. Without the
 `Workflow` tool, or where the workflow does not fit, run the lane steps by hand.
 
 ## Briefs
@@ -57,7 +68,9 @@ starting it as README.md says, under the contract's standing opt-in. Without the
 lane tip and touched files plus that step's own rules. Dispatch briefs point at the
 body, so build them from this output rather than from memory (`specs/brief.spec.md`).
 `--step` refuses (`no .aco/brief.toml in the repository`, exit 2) unless the
-repository tracks `.aco/brief.toml`; without `--step` you get the four sections.
+repository tracks `.aco/brief.toml`. Where it refuses, run `aco brief <n>` without
+`--step`: the four sections are the brief, and the step's rules come from the
+contract and this skill.
 
 ## Item bodies
 
@@ -101,9 +114,11 @@ named task, but the precondition is aco's:
 
 1. Stand in a clean checkout of the default branch — the primary checkout, never the
    lane worktree.
-2. `aco land <pr> --head <sha>` merges only if the PR head is that sha, then runs the
-   release: claim released, clean merged worktree and branch removed
-   (`--keep-worktree` keeps them). `specs/land.spec.md`.
+2. `aco land <pr> --head <sha>` merges only if the PR head is that sha, then runs
+   the release for you: claim released, clean merged worktree and branch removed
+   (`--keep-worktree` keeps them). `specs/land.spec.md`. The contract's "the head
+   releases the claim after merge" is satisfied by checking `aco status`
+   afterwards, not by a second release.
 3. Read the `freed:` and `next:` lines it prints and act on them as the contract's
    "How to coordinate" says. Then `aco next`.
 4. Close bundled non-lead cards with the PR link.
@@ -124,9 +139,10 @@ matcher. Denial reasons: `specs/protect.spec.md`.
 ## Friction
 
 A refusal this skill did not predict is a defect in the skill or in aco. Resolve it
-from the spec first, then open one item in overnightworks/agent-coordination (search
-it first) naming the command, the refusal sentence and the wish with its reason
-(not a finished solution), and extend this skill only where the answer is a *how*, not a copied fact.
+from the spec first, then open one item in overnightworks/agent-coordination
+(search it first) naming the command, the refusal sentence and the wish with its
+reason (not a finished solution), and extend this skill only where the answer is
+a *how*, not a copied fact.
 
 A lane-workflow step that does not fit is reported on the marketplace board
 (contract: "How to coordinate"), not worked around silently.

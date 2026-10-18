@@ -19,7 +19,8 @@ real user experiences.
    user does not carry the data model, the plan status, or the roadmap in
    their head, and "known issue" is not "not an issue." Prefer a
    context-fresh agent as the witness when one is available.
-2. Boot or attach the repository-documented way. Prefer an isolated state
+2. Boot or attach the way the repository's README or AGENTS.md documents; a
+   stateless CLI has no boot, so run it on a scratch copy of its inputs. Prefer an isolated state
    directory or database; never explore against live user state unless
    explicitly told to. A throwaway HOME still reaches the operator's
    desktop, because the session bus, the user's systemd and the display are
@@ -30,10 +31,11 @@ real user experiences.
    records its argv under the scratch directory (for example `notify-send`,
    `xdg-open`).
 3. Exercise real flows through the real interface — HTTP, browser, CLI. When
-   UI is involved, capture screenshots and judge the rendered image (see
-   skill), not the source. Cover at least: the happy path, one error path,
+   UI is involved, capture screenshots and judge the rendered image (the
+   `see` skill), not the source. Cover at least: the happy path, one error path,
    one interrupt/restart path (state durability), and the empty first-run
-   state.
+   state. A server restarts; a CLI is interrupted mid-run and rerun, and its
+   first run starts from absent state (no config, cache or baseline).
 4. Probe like a user, not a fuzzer: what would confuse, mislead, or dead-end
    a person? Stale views, vanished state, unlabeled failures, copy that
    overpromises, controls that silently do nothing.
@@ -45,11 +47,14 @@ real user experiences.
    stale cache, misread expectation, missed refresh. Reproduce it twice.
 6. Report findings with severity, the expectation violated, reproduction
    steps, and evidence (response bodies, screenshot paths). When the user
-   asked for work items and the repository has a work intake, file each
-   finding through it: deduplicated against open items, a bounded number per
-   exploration, evidence attached.
+   asked for work items, report each finding to the head: the head is the work
+   intake and files it on the repository's board, deduplicated against open
+   items, a bounded number per exploration, evidence attached. Without a head,
+   file through the repository's own intake, if it has one.
 
 ## Scenario matrix (first gate of a material-risk lane)
+
+This section is the template the global contract refers to.
 
 When the parent hands you a scenario matrix instead of leaving step 1 to you,
 drive it in full rather than sampling — this is the first independent review of

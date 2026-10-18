@@ -55,6 +55,7 @@ FIELD_LINE = re.compile(r"(?P<key>[A-Za-z][A-Za-z0-9_-]*):(?: (?P<value>.*))?")
 UNSUPPORTED_VALUE_START = ('"', "'", "[", "{", "|", ">", "&", "*", "!")
 XML_TAG = re.compile(r"</?[A-Za-z][^>]*>")
 MARKDOWN_LINK = re.compile(r"\[[^\]]*\]\((?P<target>[^)\s]+)\)")
+CODE_FENCE_MARKERS = ("```", "~~~")
 URL_SCHEME = re.compile(r"[A-Za-z][A-Za-z0-9+.-]*:")
 
 
@@ -158,9 +159,19 @@ def is_relative_file_link(target: str) -> bool:
     return not target.startswith("#") and URL_SCHEME.match(target) is None
 
 
+def text_outside_code_fences(body: str) -> str:
+    prose, inside_fence = [], False
+    for line in body.splitlines():
+        if line.lstrip().startswith(CODE_FENCE_MARKERS):
+            inside_fence = not inside_fence
+        elif not inside_fence:
+            prose.append(line)
+    return "\n".join(prose)
+
+
 def link_problems(skill: Skill) -> list[str]:
     problems = []
-    for match in MARKDOWN_LINK.finditer(skill.body):
+    for match in MARKDOWN_LINK.finditer(text_outside_code_fences(skill.body)):
         target = match["target"]
         if is_relative_file_link(target) and not (skill.directory / target.partition("#")[0]).exists():
             problems.append(f"{skill.name}: link {target!r} does not resolve to a file")
@@ -193,18 +204,24 @@ def size_ratchet(line_counts: dict[str, int], baseline: dict[str, int]) -> Repor
     return Report(tuple(problems), tuple(notes))
 
 
+def skill_files(repository_root: Path) -> list[Path]:
+    return sorted(repository_root.glob(SKILL_PATTERN))
+
+
 def check_skills(repository_root: Path, baseline: dict[str, int]) -> Report:
     problems: list[str] = []
     line_counts: dict[str, int] = {}
-    for skill_file in sorted(repository_root.glob(SKILL_PATTERN)):
+    unreadable: set[str] = set()
+    for skill_file in skill_files(repository_root):
         try:
             skill = parse_skill(skill_file)
         except FrontmatterError as error:
             problems.append(f"{skill_file.parent.name}: {error}")
+            unreadable.add(skill_file.parent.name)
             continue
         problems.extend(skill_problems(skill))
         line_counts[skill.name] = skill.body_line_count
-    ratchet = size_ratchet(line_counts, baseline)
+    ratchet = size_ratchet(line_counts, {name: lines for name, lines in baseline.items() if name not in unreadable})
     return Report(tuple(problems) + ratchet.problems, ratchet.notes)
 
 
@@ -216,7 +233,7 @@ def main() -> int:
     if report.problems:
         print("skill check failed:\n  " + "\n  ".join(report.problems), file=sys.stderr)
         return 1
-    print("skill check passed")
+    print(f"skill check passed: {len(skill_files(REPOSITORY_ROOT))} skills")
     return 0
 
 

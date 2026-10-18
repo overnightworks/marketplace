@@ -20,18 +20,20 @@ applies what is clear under the coordination contract.
 3. An `uncut` entry is the next slice to dispatch: `keep`, whether or not the
    item is a container. `re-cut` is only for an item whose body no longer
    matches its slices. A container (`items[].container` not null) with no
-   `container.open_children` that is not in `uncut` is `close` (fold into its
+   `container.open_children` that is not in `uncut` is a `close` candidate (fold into its
    document).
 4. Before any `close`, test the item's `Done when` against evidence; an unmet
    `Done when` is never `close`.
 5. `aco check <number>` only when an `aco` block looks broken, or for a
    pull request whose classification is in doubt. `body malformed` is the
    only result worth a verdict; `body ok` is not proof of done.
-6. List open pull requests that no open item owns, with whether each can land:
-   `gh pr list --json number,title,author,closingIssuesReferences,mergeStateStatus,statusCheckRollup`.
+6. List open pull requests that no open item owns, with whether each can land
+   (an owner is `closingIssuesReferences` or a `Lands #n` line in the PR body):
+   `gh pr list --json number,title,body,author,closingIssuesReferences,mergeStateStatus,statusCheckRollup`.
    A bot pull request without an item is invisible to `aco next`.
 7. A standing audit item whose "last run at commit X" anchor is more than its
-   cadence behind (count the `landings` committed after X) gets a due line.
+   cadence behind (count the `landings` entries whose `committed_at` is later than X's commit
+   date, `git show -s --format=%cI X`) gets a due line.
 
 ## Pass 2: sense
 
@@ -70,7 +72,8 @@ lines.
 
 ## Output
 
-Exactly one line per open item, nothing else except the closing list. A
+Exactly one line per open item, then a short trailing block: unowned pull
+requests, due audits, queries run, and the closing list. A
 never-flag item gets `keep — clear — <reason>`. Clear lines omit the bracketed
 field.
 

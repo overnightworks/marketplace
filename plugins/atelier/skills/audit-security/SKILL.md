@@ -67,5 +67,5 @@ Use `HIGH` for reachable secret exposure, injection, traversal, or missing
 authorization on a declared or assumed boundary. Use `MEDIUM` for defense gaps
 that need an extra precondition. An unbounded body behind a TLS-trusted path
 is `MEDIUM` when the boundary is assumed and `HIGH` when it is declared. Use
-`LOW` for hardening on paths the repository
-explicitly trusts. End with `CLEAN` when no high or medium findings remain.
+`LOW` for hardening on paths the repository explicitly trusts. End with
+`CLEAN` when no high or medium findings remain.

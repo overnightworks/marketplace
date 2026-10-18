@@ -4,18 +4,24 @@ description: Audit source code for security defects such as injection, secret ex
 ---
 
 Audit how the code treats untrusted input, secrets, and privilege. This is a
-source audit against the repository's own trust model: read the guidance for
-declared trust boundaries first, and judge findings against what the code is
-actually exposed to, not a generic worst case.
+source audit against the repository's own trust model: read `AGENTS.md`,
+`CLAUDE.md`, and `README.md` for declared trust boundaries first, and judge
+findings against what the code is actually exposed to, not a generic worst case.
+When none is declared, assume that every input from outside the process (files
+it did not write, network responses, arguments, environment, user text) is
+untrusted, and that the repository's own checked-in files and the operator's
+configuration are trusted. State the assumed model in the report.
 
 ## Procedure
 
 1. Define scope from the request or changed files.
-2. Read the repository guidance for declared trust boundaries (local-only
-   servers, single-user assumptions, credential channels) and hold findings
-   against them.
+2. Take the trust model from the repository's declared boundaries (local-only
+   servers, single-user assumptions, credential channels) or the default above,
+   and hold findings against it.
 3. Trace each checklist area from the entry point to the sink. Confirm a
-   candidate by following the data flow; try to refute it before reporting.
+   candidate by following the data flow; try to refute it before reporting:
+   look for a check, escape, bound, or constraint on the path that stops the
+   input reaching the sink, and for a precondition the model rules out.
 4. Report only findings that survive refutation, with the concrete attack or
    leak path named.
 
@@ -38,14 +44,16 @@ actually exposed to, not a generic worst case.
 - Subprocess and network: commands are argument-vectors, not interpolated
   strings; TLS verification is not disabled; timeouts bound external calls.
 - Denial by input: request bodies, streams, and collections read from outside
-  have size or count bounds on the paths the repository declares bounded.
+  have size or count bounds on the paths the repository declares bounded, or on
+  any path that reads an external body when no bounds are declared.
 - Randomness and comparison: tokens and ids that guard anything use a
   cryptographic source; secret comparisons are constant-time where timing is
   observable.
 
 ## Output
 
-Return findings grouped by checklist area:
+Return findings under one heading per checklist area that has findings, each
+in this form:
 
 ```text
 [SEVERITY] <area> - <file:line>
@@ -55,6 +63,6 @@ Fix: <concrete change>
 ```
 
 Use `HIGH` for reachable secret exposure, injection, traversal, or missing
-authorization on a declared boundary. Use `MEDIUM` for defense gaps that need
-an extra precondition. Use `LOW` for hardening on paths the repository
+authorization on a declared or assumed boundary. Use `MEDIUM` for defense gaps
+that need an extra precondition. Use `LOW` for hardening on paths the repository
 explicitly trusts. End with `CLEAN` when no high or medium findings remain.

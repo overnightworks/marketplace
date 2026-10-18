@@ -13,17 +13,21 @@ or ownerless information is a defect, not a style choice.
    engineer changing code, or an AI agent executing. Name the altitude:
    overview (mental model), working knowledge, or precise contract. If no
    concrete reader would change a decision by reading it, do not write it.
-2. Choose one document type from [references/document-types.md](references/document-types.md),
-   which owns the type model and gives per type: when to use it, a skeleton,
-   one example, and the classic mistakes. A document that needs two types
+2. Choose one document type from
+   [references/document-types.md](references/document-types.md), which owns the
+   type model and gives per type: when to use it, a skeleton, one example, and
+   the classic mistakes, and declare it. A document that needs two types
    becomes two linked documents.
 3. Find the owner first. If the fact already lives somewhere, update or link
-   the owner — never copy. Copies drift; write views, not copies. A view
-   states its source of truth and can be regenerated from it.
+   the owner — never copy. When a how-to overlaps a README section, move the
+   steps into the how-to and leave one linking line in the README. Copies
+   drift; write views, not copies. A view states its source of truth and can be
+   regenerated from it.
 4. Calibrate to the reader:
    - **AI/agent docs**: compact, precise, deterministic wording; contracts,
      invariants, boundaries, and verification commands; no visuals, no
-     motivation prose beyond the why that constrains decisions.
+     motivation prose beyond the why that constrains decisions. This wins over
+     a type skeleton written for humans; keep the skeleton's section order.
    - **Human overview**: abstract but accurate; lead with the mental model;
      one diagram (visualize skill) beats three paragraphs of structure; cut
      every detail the reader makes no decision about.
@@ -32,7 +36,9 @@ or ownerless information is a defect, not a style choice.
      precision where order or lifecycle matters.
 5. For behavior, prefer linking the human-readable requirement to the
    executable test that proves it over re-describing the behavior in prose —
-   a linked spec cannot silently rot; prose can.
+   a linked spec cannot silently rot; prose can. Requirements live in the
+   document the repository's AGENTS.md or README names; with none, state the
+   requirement in the test's name or docstring.
 6. Verify every concrete claim (paths, names, commands, shapes) against
    source before writing it. Mark unknowns as unknowns.
 7. Re-read the result as the named reader. Delete every sentence they do not

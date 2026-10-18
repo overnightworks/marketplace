@@ -8,10 +8,16 @@ could execute it without inventing missing decisions.
 
 ## Procedure
 
-1. Require a plan path or explicit plan text.
-2. Read repository guidance that constrains the plan.
+1. Require the plan as a file path, pasted text, or an issue body
+   (`gh issue view <n> --json body --jq .body`).
+2. Read the guidance that constrains the plan: the repository's `AGENTS.md`
+   and `CLAUDE.md`, and the user-level contract (for example
+   `~/.claude/CLAUDE.md` or `~/.codex/AGENTS.md`). Skip a file that does not exist and say so.
 3. Check the plan against the checklist below.
 4. Return a verdict; do not edit unless explicitly asked.
+
+A plan that is a container (roadmap, epic, slice table) is judged on its next
+slice only; list later slices as out of review.
 
 ## Checklist
 
@@ -19,7 +25,9 @@ could execute it without inventing missing decisions.
 - Scope: one plan covers one coherent change, not several independent features.
 - Acceptance criteria: each criterion is objective and verifiable.
 - Specificity: vague words do not hide decisions an implementer must make.
-- Dependencies: referenced files, APIs, decisions, or prior work exist.
+- Dependencies: referenced files, APIs, decisions, or prior work exist. Verify
+  with `git grep`/`git ls-files` for files and symbols, `gh issue view <n>` or
+  `gh pr view <n>` for items and pull requests; name any you could not check.
 - Architecture fit: the plan respects current boundaries or explicitly proposes
   a justified boundary change.
 - Reuse before invent: every new owner the plan creates (enum member, field,
@@ -34,9 +42,11 @@ could execute it without inventing missing decisions.
   mechanics) lives behind the adapter boundary; the concept and contract layer
   stays neutral. Flag any provider baked into the neutral contract layer.
 - Verification: tests, static checks, manual checks, or review gates prove the
-  requested behavior. For a material-risk plan, the first gate needs a scenario
-  matrix built from the plan's ruled sentences (see the explorative-testing
-  skill's scenario matrix template) — flag its absence as a gap.
+  requested behavior. For a material-risk plan (as the user-level contract
+  defines it; if none exists, say so and judge it as a public contract,
+  persistent data, secrets, money, security, or irreversibility), the first gate needs a scenario matrix built from the plan's ruled
+  sentences (see "Scenario matrix" in the explorative-testing skill) — flag
+  its absence as a gap.
 - Deletion/simplification: the plan names what can be removed or simplified when
   the work lands.
 

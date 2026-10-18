@@ -2,7 +2,10 @@
 
 Owner of the type model that write-docs, visualize and docs-cleanup share.
 Each document declares exactly one type; a document that needs two becomes two
-documents that link each other.
+documents that link each other. The declaration is a `Type: <type>` line
+directly under the title (or a `type:` front-matter key where the file already
+has front matter). A document without one gets its type inferred from content
+by whoever touches it, who then adds the line when editing.
 
 Sources: Diátaxis <https://diataxis.fr/>; ADR <https://adr.github.io/> and
 Michael Nygard, "Documenting Architecture Decisions"

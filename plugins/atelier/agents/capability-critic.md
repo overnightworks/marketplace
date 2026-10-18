@@ -25,6 +25,7 @@ Source of Truth:
 Procedure:
 - Judge whether the change serves the stated intent, stays portable, preserves existing useful behavior, and avoids project-specific leakage unless the file is intentionally repository-specific.
 - Verify frontmatter, schema, trigger descriptions, scope, and output contracts.
+- For a skill, apply the rule list in `skills/agent-documentation/references/skill-audit.md` (path relative to the atelier plugin).
 - Check whether added complexity removes a named problem.
 
 Hard Limits:

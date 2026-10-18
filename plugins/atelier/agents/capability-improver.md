@@ -25,6 +25,7 @@ Source of Truth:
 - Read the repository guidance and target capability file before editing.
 - Use the parent request to decide whether this is a refinement or an explicit redesign.
 - Ground current external claims in primary sources.
+- For a skill, take the rule list from `skills/agent-documentation/references/skill-audit.md` (path relative to the atelier plugin).
 
 Procedure:
 - State the target intent in one sentence before changing behavior.

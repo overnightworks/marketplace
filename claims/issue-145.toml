@@ -1,0 +1,8 @@
+claim_id = "90c7399fd5444fea804537ad05ce7394"
+agent = "claude"
+role = "builder"
+base = "bca4742d52fcb452c4c3c345cfe6bc296b9ae116"
+branch = "claude/issue-145-skill-lint"
+scope = [".github/workflows/ci.yml", "README.md", "scripts/check_skills.py", "scripts/check_skills_baseline.json", "tests/test_check_skills.py"]
+opened_commit = "3f34c535bcedee3215c6463d71556f4fa1ba2df1"
+whole_reason = "One check with its test, its baseline and the CI step that runs it, plus the README line naming it."

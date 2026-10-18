@@ -1,0 +1,8 @@
+claim_id = "a9a3edecbd284b089756cec82d5c5fda"
+agent = "claude"
+role = "builder"
+base = "cf35e3b818921acb0fc3bafc725e8ab4f93d82fd"
+branch = "claude/issue-160-operational-skills-pointers"
+scope = ["plugins/atelier/skills/aco/SKILL.md", "plugins/atelier/skills/board-hygiene/SKILL.md", "plugins/atelier/skills/design-interface/SKILL.md", "plugins/atelier/skills/explorative-testing/SKILL.md", "plugins/atelier/skills/providers/SKILL.md", "plugins/atelier/skills/see/SKILL.md"]
+opened_commit = "3e362d11255bc22e190bd475e1161f50421309fb"
+whole_reason = "Operational skills; the visualize round's findings landed on the aco skill; the cosmetic follow-ups parked in #149 for aco and board-hygiene ride along. One skill group cut by shared findings."

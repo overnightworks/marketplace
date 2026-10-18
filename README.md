@@ -192,7 +192,21 @@ top-level directory needs its owner named and an entry added to that script.
 python3 scripts/check_root_layout.py
 ```
 
-CI runs both checks next to the agent sync check.
+## Skill Check
+
+`scripts/check_skills.py` holds every `plugins/*/skills/*/SKILL.md` to the
+rules a machine can check: known frontmatter fields only, a valid `name` equal
+to its directory, a non-empty `description` of at most 1,024 characters
+without XML tags, relative links that resolve, and a body of at most 500
+lines. The line limit is a ratchet over `scripts/check_skills_baseline.json`:
+an oversize skill may not grow, and a baseline entry is deleted once its skill
+reaches the limit.
+
+```bash
+python3 scripts/check_skills.py
+```
+
+CI runs these checks next to the agent sync check.
 
 ## Quality Gate
 

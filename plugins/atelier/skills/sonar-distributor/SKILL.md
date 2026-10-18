@@ -57,7 +57,9 @@ mattered.
 
 ## Procedure
 
-1. **Pull the numbers.** Read with the credential that produced the analysis
+1. **Pull the numbers.** Without `$SONAR_TOKEN`, stop and ask the head for the
+   token through the header-file route below; a run never falls back to an
+   unauthenticated read, which answers zero about nothing. Read with the credential that produced the analysis
    and prove the scope, for the reason under "API access" below. The credential
    is basic auth — the token as user name, an empty password — and it goes to
    `curl` in a header file, never in an argument: `-u` and `-H` both put it in
@@ -69,12 +71,19 @@ mattered.
    header="$(mktemp)"
    trap 'rm -f "$header"' EXIT
    printf 'Authorization: Basic %s\n' "$(printf '%s:' "$SONAR_TOKEN" | base64 -w0)" > "$header"
-   main="$(curl -s -H @"$header" "https://sonarcloud.io/api/project_branches/list?project=$key" | python3 -c 'import json,sys; print(next(b["name"] for b in json.load(sys.stdin)["branches"] if b["isMain"]))')"
+   main="$(curl -s -H @"$header" "https://sonarcloud.io/api/project_branches/list?project=$key" | python3 -c 'import json,sys; print(next((b["name"] for b in json.load(sys.stdin)["branches"] if b["isMain"]), ""))')"
+   [ -n "$main" ] || { echo "no main branch found for $key" >&2; exit 1; }
    scope="branch=$main"
    curl -s -H @"$header" "https://sonarcloud.io/api/measures/component?component=$key&$scope&metricKeys=ncloc,bugs,vulnerabilities,security_hotspots,code_smells,duplicated_lines_density,duplicated_blocks,cognitive_complexity,reliability_rating,security_rating,sqale_rating"
    curl -s -H @"$header" "https://sonarcloud.io/api/issues/search?componentKeys=$key&$scope&issueStatuses=OPEN,CONFIRMED,ACCEPTED,FALSE_POSITIVE&ps=500&p=1"
+   gh api repos/<owner>/<repo>/code-scanning/default-setup --jq .state
    gh api repos/<owner>/<repo>/code-scanning/alerts --paginate
    ```
+
+   Read the alerts only after code scanning is proven configured: default setup
+   `state` is `configured`, or `gh api repos/<owner>/<repo>/code-scanning/analyses`
+   lists at least one analysis. An empty alert list from an unconfigured
+   scanner is the same silent zero.
 
    The measures call carries the same scope as the issue search on purpose: it
    is the proof that the query reached something. If it 404s, stop — the issue
@@ -89,7 +98,8 @@ mattered.
 2. **Classify every group** into the four classes below. A group belongs to
    exactly one class, and each class has one named action and one owner.
 3. **Write ONE distributor issue** per repository (search the board first —
-   `gh issue list --search` over open and recently closed — and sharpen an
+   `gh issue list --state all --search "distributor closed:>=<date 30 days ago>"`
+   catches open and recently closed — and sharpen an
    existing distributor rather than opening a twin).
 4. **Cut slices** in corridor size, one owner each, and dispatch them one at a
    time from the distributor. A finding becomes its own issue only when it is
@@ -232,243 +242,22 @@ it.
 
 ### Reading a pull request's own new findings without a token
 
-The pull request analysis writes its findings into the GitHub check run as
-annotations, so the caller's own GitHub credential reads them and no SonarCloud
-token is involved (measured 06.09.2026 in overnightworks/home-tools and
-overnightworks/hopin, independently reproduced). The analysis mode is
-irrelevant: hopin runs the CI scanner and annotates exactly like home-tools on
-Automatic Analysis.
-
-```bash
-head_sha="$(gh api "repos/<owner>/<repo>/pulls/<n>" --jq .head.sha)"
-run="$(gh api "repos/<owner>/<repo>/commits/$head_sha/check-runs?per_page=100" --paginate \
-  --jq '.check_runs[]
-        | select(.name=="SonarCloud Code Analysis" and .status=="completed"
-                 and (.conclusion=="success" or .conclusion=="failure"))
-        | .id' | head -n1)"
-if [ -z "$run" ]; then
-  echo "no SonarCloud analysis for $head_sha — nothing was analysed" >&2
-  false
-else
-  gh api "repos/<owner>/<repo>/check-runs/$run/annotations" --paginate
-fi
-```
-
-Every guard there is load-bearing, because the naive form of the first call is
-a silent zero of exactly the kind "API access" above forbids: a bare selector
-prints nothing and exits zero when the commit carries no SonarCloud check run —
-the app is absent, the fork skip fired, or the run is still queued — and no
-output then reads as a count of none. **A query that answered about nothing
-must never read as clean**: no identifier back means no analysis exists for
-that commit, never a clean commit. Hence the `completed` filter, the explicit
-stop, and `per_page=100` with `--paginate`, since a Sonar run that pages out of
-a long check-run list looks exactly like one that was never created. Ask the
-pull request for its head SHA each time: after a force-push the old head keeps
-its check run and answers about code that is gone.
-
-`completed` alone is not enough, and the measured case is cited two paragraphs
-down: home-tools check run 101333510647 is `completed` with conclusion
-`neutral`, and an identifier for it comes back to a reader who counts the empty
-annotation list as zero findings. Only `success` and `failure` mean an analysis
-was produced; `neutral`, `cancelled`, `timed_out`, `stale` and `skipped` are
-the same nothing as a missing run. Reading the conclusion here is an existence
-proof, not an answer about what was found.
-
-This route reads with a different credential from the one that produced the
-analysis, and its scope proof is of a different kind: the existence, on this
-commit, of a check run that concluded `success` or `failure` is the proof.
-That is what makes the stop above mandatory rather than cosmetic, and the
-skipped job of "API access" is
-the same hole one layer down — where a fork pull request has no token, nothing
-is analysed and nothing is asserted.
-
-An annotation carries `path`, `start_line`, `end_line`, `annotation_level`, the
-rule message in `title`, and a SonarCloud deep link in `message`. It carries
-**no rule key and no type**, and the level was `warning` for everything
-measured, vulnerabilities included: two of the six annotations of home-tools
-check run 101531038872 (commit `f1f222f`) resolve, read with the token, to
-vulnerability-type issues of `githubactions:S8541`. That number also appears in
-"Shell rules" below as `shell:S8541`, refused there because a packaged project
-cannot take `--no-build`; home-tools declares no build system, so the flag
-works and the finding was fixed rather than excepted. Whether a security
-hotspot is annotated at all is **unknown** — no run in reach carried one. The
-deep link points into the private SonarCloud project and resolves only for a
-reader who has a SonarCloud login, so for the reader this route serves it is
-decoration.
-
-**Read the annotation count, never the check run's conclusion as the answer.**
-Hopin check run 101501941091 (commit `665b41c`) is `success`, titled "Quality
-Gate passed", while carrying an annotation for a real finding
-(`src/hopin/app.py:24`, unused local variable). That is the ratings-not-counts
-trap of the standing rulings below, seen through this route.
-
-Three limits bound what a reader may conclude:
-
-- **A branch analysis does not annotate.** The main-branch check run of
-  home-tools, 101333510647, is `neutral`, "Quality Gate not computed", with
-  zero annotations, whatever main carries.
-- **The scope is the pull request analysis's own, new code** ("Clean as You
-  Code" below). Measured positively: hopin's probe finding, introduced by its
-  pull request, is annotated. Whether an untouched pre-existing finding is ever
-  annotated is not measured from this side — five claudebot pull requests
-  returned zero annotations, and a zero is what this entry forbids reading as a
-  cause.
-- **Only a push head carries a Sonar check run.** On home-tools PR #4 the five
-  commits pushed behind the head have none.
-
-The annotations listing pages too, hence `--paginate` on the second call.
-
-The boundary is narrow, and reading it wider is how a lane calls itself clean
-without having looked: **a builder in a private repository can read the
-findings its own change introduced, and only those.** Zero annotations mean no
-new finding, never a clean project — findings already on main stay invisible to
-this route, and reading those keeps the credential and the scope proof above,
-which stays the head's job.
+A builder without a SonarCloud token reads the findings its own pull request
+introduced from the GitHub check-run annotations, with its GitHub credential.
+Zero annotations mean no new finding, never a clean project. The route, its
+guards and its limits: [references/pr-annotation.md](references/pr-annotation.md).
 
 ### Last resort, and it writes: a whole tree's findings when the branch scope is refused
 
-**This route creates an analysis and replaces what other people read.** The
-zero-write answer to the same question is already in the procedure above: land
-the change and re-measure main (step 5). That finds the same finding one landing
-later without touching anything anyone else sees, and it is what a reader should
-reach for first. Take this route only when the answer must exist *before* the
-landing, only on a pull request you own, and re-trigger CI on that head when you
-are done.
+Land the change and re-measure main (step 5) first. Only when the answer must
+exist before the landing, on a pull request you own, does a local scan replace
+that pull request's analysis and decorations. Costs, command and refusals:
+[references/write-route.md](references/write-route.md).
 
-It exists because nothing else reports a finding that is already in the tree
-under a configuration main does not carry yet: a pull request analysis reports
-**new code only**, main's analysis answers for main as main is configured, and
-the branch scope is refused (below). Running the scanner in a pull request scope
-with source-control detection off leaves the analysis no blame to date lines by,
-so it reports the whole tree as new.
+### Language rules
 
-What a run costs, before you decide to make one:
-
-- **It replaces the pull request's SonarCloud analysis** with one made outside
-  CI — every line new, no coverage report — **and posts its own `SonarCloud Code
-  Analysis` check run onto that commit.** GitHub shows only the latest check run
-  per name, so yours becomes the one a reviewer reads; the CI run survives only
-  in the API under `filter=all`. Measured on this repository's PR #31, commit
-  `2c755a5`: three such check runs, of which CI made one, the displayed one was
-  produced locally, and a hidden one still links to a branch scope that has since
-  been deleted and that this plan refuses to read.
-- **The repair is a new push or a manual CI re-run**, and neither happens by
-  itself — on a branch whose work is finished there may never be another
-  analysis, so the locally made one stays the answer on that commit.
-- **The gate can flip in either direction.** Every line new and no coverage
-  report is a different question from the one CI asked; where that check is
-  required, it can block a clean change or clear a dirty one.
-- **The decorations are permanent.** A branch entry deletes, a check run does
-  not. Cleanup is best effort, so the only real containment is not running this
-  where others read: an analysis nobody is allowed to read still changed what
-  everybody sees.
-- **The mess and the broom need different rights.** Creating a branch entry
-  needs analysis rights, which any scan token has; deleting it needs
-  `Administer` on the project (`api/webservices/list` states it for
-  `api/project_branches/delete`). Check you hold both, or name the owner who
-  does, before the first run.
-
-Use the scanner the action runs at the version it resolves — the `scannerVersion`
-default of `action.yml` at the SHA the workflow pins (this repository pins
-`sonarqube-scan-action` v8.2.1, whose default is `8.1.0.6389`) — and verify the
-download against the checksum the publisher ships beside it, since this is a
-large binary run with the project's credential:
-
-```bash
-version=8.1.0.6389
-archive="sonar-scanner-cli-$version-linux-x64.zip"
-base="https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/$archive"
-curl -fsSLO "$base" && curl -fsSLO "$base.sha256" &&
-  printf '%s  %s\n' "$(cat "$archive.sha256")" "$archive" | sha256sum -c - &&
-  unzip -q "$archive" &&
-  SONAR_TOKEN="$(cat <credential>)" SONAR_HOST_URL=https://sonarcloud.io \
-    "./sonar-scanner-$version-linux-x64/bin/sonar-scanner" \
-    -Dsonar.pullrequest.key=<n> -Dsonar.pullrequest.branch=<head> -Dsonar.pullrequest.base=main \
-    -Dsonar.scm.disabled=true -Dsonar.qualitygate.wait=false
-```
-
-It is one `&&` chain on purpose: a checksum that only prints its mismatch while
-the next line unpacks and runs the binary anyway is the guard this ledger's own
-cited finding is about. `-f` belongs on both downloads for the same reason one
-step earlier: without it an error page is written into the file and the chain
-stops at a checksum that cannot parse, which names the wrong cause and one step
-too late.
-
-The token goes in the environment, never `-Dsonar.token=`, for the `ps` reason
-of "API access". Read the result under `pullRequest=<n>` with the API route
-above, and `api/components/tree` in the same scope for the file list, which
-tells a finding that was fixed apart from a file that dropped out of scope.
-
-Two refusals a reader hits first (measured here, 07.09.2026, scanner CLI
-`8.1.0.6389`):
-
-- **The branch scope is not the way out, and it is not refused where you
-  expect.** `-Dsonar.branch.name=<branch>` uploads and processes — the compute
-  engine task answers `SUCCESS` — and only the read is refused, HTTP 403
-  `Organization is not allowed to access data from non main branches.` from
-  `api/measures/component` and `api/issues/search` alike. A scan that was
-  accepted is not an analysis you can read. The run leaves the branch in the
-  project (`api/project_branches/list` shows it `SHORT`, no analysis date, no
-  status); `POST api/project_branches/delete` with form fields `project` and
-  `branch` removes it, under the rights named above. That message is quoted from
-  the run's transcript and is not re-verified here, because re-verifying it means
-  writing another analysis.
-- **A pull request key that does not exist stops before anything is uploaded**:
-  `ERROR Could not find the pullrequest with key '999999'`, `EXECUTION FAILURE`,
-  no entry created. The key names a pull request that really exists; there is no
-  inventing a scratch scope to keep the run out of everyone's way.
-
-What the route is for, in one case: `githubactions:S8544` ("Python dependencies
-should be locked to verified versions", type vulnerability) sat on this
-repository's CI workflow, on a line no change touched, where every route above
-reported zero. It was read this way and fixed in commit `3f02341`. The before-and-after pair was
-measured in that lane and is deliberately not re-measured here — CI has since
-overwritten the analysis that held it, exactly as the warning above says, and a
-fresh measurement would mean another write.
-
-### Python rules
-
-Source: SonarCloud PR analysis, overnightworks/agent-coordination PR #116,
-05.09.2026 (head 5884bdd, quality gate OK). `pythonsecurity:S8705` and
-`python:S8786` carry no SonarCloud description text ("external rule, no
-details available"), so this PR analysis is the only oracle for them.
-
-Positive — cleared:
-- `pythonsecurity:S8705` closed after routing the direct `gh` call through the
-  validating client, `re.fullmatch(REPOSITORY_PATTERN, value)` at every
-  repository guard, and an explicit `int(...)` / `_optional_issue_number`
-  boundary in `main` for argparse-typed numbers.
-- `python:S8786` closed for `FROZEN_LINE_PATTERN` by replacing
-  `(?:>[ \t]*)*` with `(?:[ \t]{0,3}>)*[ \t]{0,3}`.
-- `python:S8786` closed for `CLASSIFICATION_LINE_PATTERN` by capturing the
-  value directly after the colon and trimming with `.strip(" \t")` in code.
-
-Negative — tried and refused:
-- A possessive quantifier did not clear `python:S8786` (tried in 0957f0d).
-- The compiled-pattern method form `PATTERN.fullmatch(value)` was not accepted
-  as validation — it brought the repository taint back in the analysis of
-  4431370.
-- Annotating a local with the expected type to satisfy `python:S5886` added
-  `python:S5890` in the same PR analysis.
-- The intermediate state `[ \t]*(?P<value>[^\r\n]*)$` with an `.rstrip()` was
-  still flagged by `python:S8786`.
-
-Analyzer coverage on test sources (measured agent-coordination #143/PR #145,
-06.09.2026):
-- `python:S1192` (duplicated string literal) does **not** run on test sources —
-  a duplicated-literal probe placed in a test stays invisible to the gate.
-- `python:S5778` (two raising calls inside one `pytest.raises` block) **does**
-  run on test sources and is a reliable test-side probe finding.
-
-### Shell rules
-
-`shell:S8541` (package-manager command without `--no-build`) has no code route
-in a packaged project, so it is class (b) there: `uv run --no-build` refuses to
-install the workspace project itself — "can't be installed because it is marked
-as `--no-build` but has no binary distribution" (uv 0.10.9, cold and warm
-environment) — and the flag therefore blocks every command the project's own
-code serves. A non-packaged project (`[tool.uv] package = false`) takes the flag,
-and `uvx` keeps it legitimately because it installs no local project.
+Cleared and refused fixes measured per analyzer (Python `S8705`/`S8786`, shell
+`S8541`): [references/rules-by-language.md](references/rules-by-language.md).
 
 ## The distributor issue
 
@@ -541,5 +330,7 @@ new repository. Each run updates the existing distributor's metrics line and
 class table rather than opening a second one. The distributor closes when every
 finding is landed, folded into an owning item, or retired — and its rulings are
 harvested into the owning repository document before it closes. If a run finds
-no group outside classes (b) and (c), output `SCANNERS QUIET` and update only
-the metrics line.
+no group outside classes (b) and (c) and both scanners were read (Sonar scope
+proven, CodeQL configured), output `SCANNERS QUIET` and update only the metrics
+line. A scanner that was not read makes the run unfinished, never quiet: say
+which one and why.

@@ -44,7 +44,8 @@ KNOWN_FIELDS = frozenset(
         "model",
     }
 )
-NAME_PATTERN = re.compile(r"[a-z0-9-]{1,64}")
+# Skill names follow the Agent Skills name limits: lowercase letters, digits, hyphens, 64 characters; a digit may come first, unlike agent names.
+SKILL_NAME_PATTERN = re.compile(r"[a-z0-9-]{1,64}")
 RESERVED_NAME_WORDS = ("anthropic", "claude")
 DESCRIPTION_LIMIT = 1024
 BODY_LINE_LIMIT = 500
@@ -133,8 +134,8 @@ def frontmatter_problems(skill: Skill) -> list[str]:
 def name_problems(skill: Skill) -> list[str]:
     declared = skill.frontmatter.get("name", "")
     problems = []
-    if not NAME_PATTERN.fullmatch(declared):
-        problems.append(f"{skill.name}: name {declared!r} does not match {NAME_PATTERN.pattern}")
+    if not SKILL_NAME_PATTERN.fullmatch(declared):
+        problems.append(f"{skill.name}: name {declared!r} does not match {SKILL_NAME_PATTERN.pattern}")
     for word in RESERVED_NAME_WORDS:
         if word in declared:
             problems.append(f"{skill.name}: name {declared!r} contains the reserved word {word!r}")

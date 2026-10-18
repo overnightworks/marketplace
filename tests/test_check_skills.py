@@ -96,6 +96,12 @@ def test_a_folded_description_and_an_existing_relative_link_pass(tmp_path: Path)
     assert check_skills.check_skills(tmp_path, {}) == check_skills.Report((), ())
 
 
+def test_a_skill_name_may_start_with_a_digit(tmp_path: Path) -> None:
+    write_skill(tmp_path, name="1sample", frontmatter=VALID_FRONTMATTER.replace("name: sample", "name: 1sample"))
+
+    assert check_skills.check_skills(tmp_path, {}) == check_skills.Report((), ())
+
+
 @pytest.mark.parametrize(
     ("text", "problem"),
     [

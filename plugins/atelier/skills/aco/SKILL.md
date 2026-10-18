@@ -47,7 +47,9 @@ landed; this says *how*.
 - Bundled cards (contract: "How to coordinate"): claim the lead with `--scope`
   covering every card's paths and `--whole` naming the bundle.
 
-After `aco start`, hand the lane to the `atelier:lane` workflow.
+After `aco start`, run the lane through the `lane` workflow where it helps,
+starting it as README.md says, under the contract's standing opt-in. Without the
+`Workflow` tool, or where the workflow does not fit, run the lane steps by hand.
 
 ## Briefs
 
@@ -125,3 +127,6 @@ A refusal this skill did not predict is a defect in the skill or in aco. Resolve
 from the spec first, then open one item in overnightworks/agent-coordination (search
 it first) naming the command, the refusal sentence and what would have prevented
 it, and extend this skill only where the answer is a *how*, not a copied fact.
+
+A lane-workflow step that does not fit is reported on the marketplace board
+(contract: "How to coordinate"), not worked around silently.

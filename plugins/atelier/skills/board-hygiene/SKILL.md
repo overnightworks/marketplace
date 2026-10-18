@@ -29,8 +29,8 @@ For each open item, read its body and test:
 
 - Twin: search this board with `gh issue list --state all --search`, so
   recently closed items appear, and other repositories with
-  the item's URL form `<owner>/<repo>/issues/<n>` (the sharp query) or,
-  as fallback, `gh search issues "<repo>#" --owner <owner>`; read only hits
+  once per board (not per item) with both forms, `<owner>/<repo>/issues`
+  and `gh search issues "<repo>#" --owner <owner>`; read only hits
   that name this repository's items or files (a bare keyword returns
   unrelated items). A suspected twin counts as false until
   the two bodies' own boundary text fails to separate them. Verdict:
@@ -39,7 +39,7 @@ For each open item, read its body and test:
   need. Verdict: `close`, citing the overtaking ruling or merge.
 - Stale sentence: for each body sentence that names a file, flag, command,
   or behavior, run `git grep` at the default branch's HEAD in the primary checkout
-  after a fetch (`aco status` prints it as `base=`). A sentence the code
+  after `git fetch`. A sentence the code
   contradicts gives `body stale`, quoting the sentence and the grep result.
 - Dangling pointer, both ways: a body that names an item, lane, or file
   that does not exist or is closed; and other repositories' bodies (found
@@ -63,7 +63,8 @@ field.
 ```
 
 - Evidence: the merged PR or sha, the overtaking ruling or landing with its
-  link, or the false sentence and why it is false.
+  link, or the false sentence and why it is false. Terse references
+  (file:line, PR, sha) suffice. Empty `recovery`/`uncut` lists give no line.
 - `clear` means the head may apply the verdict. `unclear` carries the
   evidence both ways, a recommendation, and a default.
 - End with the `unclear` lines grouped per `<owner>/<repo>`: the operator's
@@ -74,8 +75,9 @@ field.
 - Read-only and report-only. Cross-repository work uses `gh search issues`,
   `gh issue view`, and read-only `gh search code` (to test a claim about
   consumers) only; list the `gh` calls you made.
-- Never flag: an active claim, an unpulled idea (no projection, by design,
-  even when listed in `stale`), a container with open children, an unruled expectation
+- Never flag: an active claim, an unpulled idea (`items[].projectionless_idea` true,
+  even when listed in `stale`; a deferred or blocked item with a projection is
+  judged on its merits), a container with open children, an unruled expectation
   line (list it for the operator; `aco rulings` and
   `items[].expectation_state` show them), anything the operator touched
   recently unless independently proven landed, or a real dependency from

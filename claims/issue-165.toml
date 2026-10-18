@@ -1,7 +1,0 @@
-claim_id = "c9d79a2286c74c9c8adf39facccc8f50"
-agent = "claude"
-role = "builder"
-base = "cf35e3b818921acb0fc3bafc725e8ab4f93d82fd"
-branch = "claude/issue-165-readme-fixes"
-scope = ["README.md"]
-opened_commit = "ef8eae8de9341c0bf02cd04436062feedc99a2f1"

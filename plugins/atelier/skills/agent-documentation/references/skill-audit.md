@@ -15,11 +15,13 @@ Sources, read 18.10.2026:
    Any failure is a finding; do not re-check those rules by hand. Default
    when the script is absent: apply the S1/S2 frontmatter, name, description
    and body-size limits by hand.
-2. Read the skill, then apply the rules below in addition to the Checklist
-   in `SKILL.md`, without repeating its Token economy and Clarity items. Each finding names its
-   evidence type: `static`, `usage`, `procedure-round` or `eval`.
+2. Read the skill, then apply the rules below in addition to
+   agent-documentation's own `SKILL.md` Checklist, without repeating its Token
+   economy and Clarity items. Each finding names its evidence type: `static`,
+   `usage`, `procedure-round` or `eval`.
 3. Run the overlap, usage and benefit checks below.
-4. Return one distributor issue for the run (see Output).
+4. Collect the Gaps from misses.
+5. Return one distributor issue for the run (see Output).
 
 ## Judgement rules
 
@@ -58,23 +60,27 @@ owner that should keep it. Evidence: `static`.
 
 ## Usage
 
-Data source: `/skill-doctor` (needs Claude Code v2.1.252 or later, terminal
-session only, unavailable over Remote Control); when it is unavailable,
-count the `"name":"Skill"` tool uses per `"skill":"<plugin>:<name>"` in
-`~/.claude/projects/**/*.jsonl` (default: report `usage` as `UNKNOWN` and
-name the source tried). A skill nobody invokes is a retire-or-fix-trigger candidate,
-never deleted automatically. Evidence: `usage`.
+Data source: `/skill-doctor` (needs Claude Code v2.1.252 or later per S1,
+terminal session only, unavailable over Remote Control); when it is
+unavailable, count the `"name":"Skill"` tool uses per `"skill":"<plugin>:<name>"`
+or bare `"skill":"<name>"` in `~/.claude/projects/**/*.jsonl` (default: report
+`usage` as `UNKNOWN` and name the source tried). A skill nobody invokes is a
+retire-or-fix-trigger candidate, never deleted automatically. Evidence:
+`usage`.
 
 ## Benefit over no skill
 
 Does the skill beat the no-skill baseline (S1-S3)?
 - Every skill: a Haiku follow-the-procedure round. A fresh Haiku agent gets
-  the skill and one concrete task and runs it; every point where it guessed
-  or asked is a finding. Evidence: `procedure-round`.
-- High-use or high-risk skills only (high-use: in the top quarter by the
-  Usage count; high-risk: it writes, lands, or decides scope): a trigger and outcome eval on Sonnet,
-  with the skill-creator loop (S4) or `claude plugin eval` (S3). Cost as read
-  18.10.2026: a toy case about $0.41 at 3 runs per arm (S3), the
+  the skill and one concrete task and runs it (take the task from the skill's
+  own "Use when" trigger and state it in the report; if the trigger names
+  none, say so); every point where it guessed or asked is a finding.
+  Evidence: `procedure-round`.
+- High-use or high-risk skills only (high-use: in the top quarter of the
+  plugin's skills by the Usage count, never when `usage` is `UNKNOWN`;
+  high-risk: it writes, lands, or decides scope): a trigger and outcome eval
+  on Sonnet, with the skill-creator loop (S4) or `claude plugin eval` (S3).
+  Cost as read 18.10.2026: a toy case about $0.41 at 3 runs per arm (S3), the
   skill-creator loop about 360 `claude -p` calls per skill (S4). Default when
   skill-creator is not installed: run only the Haiku round. Evidence: `eval`.
 - Default when no budget is named: Haiku round for all, evals for none.
@@ -93,6 +99,11 @@ Do not propose a check from imagination.
 
 One distributor issue per audit run, holding the numbered findings, each with
 skill, rule, evidence type and evidence. Write each finding as a `FINDING`
-line in the format of `SKILL.md` Output. A finding becomes its own item only
-when it is dispatched. Write the body per the `aco` skill; default when aco
+line in the format of agent-documentation's own `SKILL.md` Output, with
+severity from the global contract's classification (`~/.claude/CLAUDE.md`):
+`blocking` is a defect against the contract or a repository rule, or anything
+touching safety, secrets or a failing check; `follow-up` is polish, pre-existing
+behaviour or out-of-scope work. Default when no contract is installed: the same
+two classes with that definition. A finding becomes its own item only when it
+is dispatched. Write the body per the `aco` skill; default when aco
 is not installed: the repository's issue template.

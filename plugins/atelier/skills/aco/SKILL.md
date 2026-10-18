@@ -125,8 +125,8 @@ matcher. Denial reasons: `specs/protect.spec.md`.
 
 A refusal this skill did not predict is a defect in the skill or in aco. Resolve it
 from the spec first, then open one item in overnightworks/agent-coordination (search
-it first) naming the command, the refusal sentence and what would have prevented
-it, and extend this skill only where the answer is a *how*, not a copied fact.
+it first) naming the command, the refusal sentence and the wish with its reason
+(not a finished solution), and extend this skill only where the answer is a *how*, not a copied fact.
 
 A lane-workflow step that does not fit is reported on the marketplace board
 (contract: "How to coordinate"), not worked around silently.

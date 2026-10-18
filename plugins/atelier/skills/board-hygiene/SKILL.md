@@ -14,21 +14,23 @@ applies what is clear under the coordination contract.
 1. Write `aco board --json` to a scratch file and query that file, so a tool
    output limit cannot truncate the lists; `aco status` shows active claims.
    Read the projection as aco defines it; do not re-derive it from memory.
-2. An entry in the `recovery` list names only the issue: read the merged pull
-   request that declared it and compare what it delivered with the item's
+2. An entry in the `recovery` list names only the issue: find its `item` in
+   the `landings` list, read that `pull_request` (the `sha` when it is null),
+   and compare what it delivered with the item's
    `Done when`. Full coverage is `close`; partial coverage is `body stale`.
 3. An `uncut` entry is the next slice to dispatch: `keep`, whether or not the
    item is a container. `re-cut` is only for an item whose body no longer
    matches its slices. A container (`items[].container` not null) with no
    `container.open_children` that is not in `uncut` is a `close` candidate (fold into its
-   document).
+   document). Step 4 still gates every `close` candidate and wins.
 4. Before any `close`, test the item's `Done when` against evidence; an unmet
    `Done when` is never `close`.
 5. `aco check <number>` only when an `aco` block looks broken, or for a
    pull request whose classification is in doubt. `body malformed` is the
    only result worth a verdict; `body ok` is not proof of done.
-6. List open pull requests that no open item owns, with whether each can land
-   (an owner is `closingIssuesReferences` or a `Lands #n` line in the PR body):
+6. List open pull requests that no open item owns, with whether each can land (`mergeStateStatus` CLEAN and every check green;
+   otherwise name the blocker). An owner is `closingIssuesReferences` or a
+   `Lands #n` line in the PR body:
    `gh pr list --json number,title,body,author,closingIssuesReferences,mergeStateStatus,statusCheckRollup`.
    A bot pull request without an item is invisible to `aco next`.
 7. A standing audit item whose "last run at commit X" anchor is more than its
@@ -37,15 +39,20 @@ applies what is clear under the coordination contract.
 
 ## Pass 2: sense
 
-For each open item, read its body and test. On a large board, read every
+For each open item, read its body and test. A body with no `aco` block has no
+verdict: `body stale — unclear`, evidence "no aco block" (`aco check` prints
+`body legacy`). On a large board, read every
 `aco` block and every sentence that names a file, command, or item; skim the
 rest and say so in the report.
 
-- Twin: once per board, not per item, search this board with
-  `gh issue list --state all --search`, so recently closed items appear, and
+- Twin: once per board, not per item. Compare the open items' titles and
+  scopes with each other and with items closed in the last 30 days
+  (`gh issue list --state closed --search "closed:>=<date>" --limit 200`);
+  no keyword search per item. Search
   other repositories with both forms `gh search issues "<owner>/<repo>/issues"
-  --owner <owner>` and `gh search issues "<repo>#" --owner <owner>`; run
-  both forms and name every query in the report. Read only hits that name
+  --owner <owner>` and `gh search issues "<repo>#" --owner <owner>`; pass
+  `--limit 200`, say when a result hit the cap, run both forms, and name
+  every query in the report. Read only hits that name
   this repository's items or files (a bare keyword returns unrelated items).
   A suspected twin counts as false until the two bodies' own boundary text
   fails to separate them, and a cross-repository verdict without a named
@@ -54,12 +61,12 @@ rest and say so in the report.
 - Overtaken: a later ruling, landing, or a changed vision removed the
   need. Verdict: `close`, citing the overtaking ruling or merge.
 - Stale sentence: for each body sentence that names a file, flag, command,
-  or behavior, run `git grep` at the default branch's HEAD in the primary checkout
-  after `git fetch`. A sentence the code
+  or behavior, run `git grep` at `origin/<default branch>` in the primary checkout (the
+  repository's main checkout, not a lane worktree) after `git fetch`. A sentence the code
   contradicts gives `body stale`, quoting the sentence and the grep result.
 - Dangling pointer, both ways: a body that names an item, lane, or file
   that does not exist or is closed; and other repositories' bodies (found
-  by the sharp search above) that expect this repository to act on an item
+  by the cross-repository searches above) that expect this repository to act on an item
   that does not exist. Check inbound references before any `close` or
   `merge`.
 - Point: does the problem the item names still exist? If not, `close`.
@@ -93,7 +100,8 @@ field.
 
 ## Bounds
 
-- Read-only and report-only. Cross-repository work uses `gh search issues`,
+- Read-only and report-only. Git is limited to fetch, log, show, grep,
+  ls-tree, cat-file, rev-parse, and status. Cross-repository work uses `gh search issues`,
   `gh issue view`, `gh pr list`, and read-only `gh search code` (to test a claim about
   consumers) only; list the `gh` calls you made.
 - An active claim is never flagged `close` or `merge`; its false sentence is

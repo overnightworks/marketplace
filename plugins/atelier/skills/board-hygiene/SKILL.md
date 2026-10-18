@@ -29,14 +29,17 @@ For each open item, read its body and test:
 
 - Twin: search this board with `gh issue list --state all --search`, so
   recently closed items appear, and other repositories with
-  `gh search issues "<repo>#" --owner <owner>` or the item's URL (a bare
-  keyword returns unrelated items). A suspected twin counts as false until
+  the item's URL form `<owner>/<repo>/issues/<n>` (the sharp query) or,
+  as fallback, `gh search issues "<repo>#" --owner <owner>`; read only hits
+  that name this repository's items or files (a bare keyword returns
+  unrelated items). A suspected twin counts as false until
   the two bodies' own boundary text fails to separate them. Verdict:
   `merge into #m`, or `close` when the other one landed.
 - Overtaken: a later ruling, landing, or a changed vision removed the
   need. Verdict: `close`, citing the overtaking ruling or merge.
 - Stale sentence: for each body sentence that names a file, flag, command,
-  or behavior, run `git grep` at the board's commit. A sentence the code
+  or behavior, run `git grep` at the default branch's HEAD in the primary checkout
+  after a fetch (`aco status` prints it as `base=`). A sentence the code
   contradicts gives `body stale`, quoting the sentence and the grep result.
 - Dangling pointer, both ways: a body that names an item, lane, or file
   that does not exist or is closed; and other repositories' bodies (found
@@ -45,28 +48,32 @@ For each open item, read its body and test:
   `merge`.
 - Point: does the problem the item names still exist? If not, `close`.
 
-A nearly empty board (two open items or fewer) skips Pass 1 detail: run
+A nearly empty board (two open items or fewer, claimed or not) skips Pass 1 detail: run
 both aco commands, apply Pass 2 to each item, and report in under five
 lines.
 
 ## Output
 
-One line per item, nothing else except the closing list:
+Exactly one line per open item, nothing else except the closing list. A
+never-flag item gets `keep — clear — <reason>`. Clear lines omit the bracketed
+field.
 
 ```text
-<repo>#<n> keep|close|merge into #m|re-cut|body stale — clear|unclear — <evidence> [— recommendation; default: <verdict>]
+<owner>/<repo>#<n> keep|close|merge into #m|re-cut|body stale — clear|unclear — <evidence> [— recommendation; default: <verdict>]
 ```
 
 - Evidence: the merged PR or sha, the overtaking ruling or landing with its
   link, or the false sentence and why it is false.
 - `clear` means the head may apply the verdict. `unclear` carries the
   evidence both ways, a recommendation, and a default.
-- End with the `unclear` lines grouped per repository: the operator's list.
+- End with the `unclear` lines grouped per `<owner>/<repo>`: the operator's
+  list, one short question per item with the recommendation and the default.
 
 ## Bounds
 
-- Read-only and report-only. Cross-repository work uses `gh search issues`
-  and `gh issue view` only; list the `gh` calls you made.
+- Read-only and report-only. Cross-repository work uses `gh search issues`,
+  `gh issue view`, and read-only `gh search code` (to test a claim about
+  consumers) only; list the `gh` calls you made.
 - Never flag: an active claim, an unpulled idea (no projection, by design,
   even when listed in `stale`), a container with open children, an unruled expectation
   line (list it for the operator; `aco rulings` and

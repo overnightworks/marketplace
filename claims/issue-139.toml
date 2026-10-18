@@ -1,0 +1,8 @@
+claim_id = "2a2bc2a6b71f4364b42d7932c5068495"
+agent = "claude"
+role = "builder"
+base = "4038e47845c640aca4281314187d4ca350c9b155"
+branch = "claude/issue-139-board-check-one-owner"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/skills/board-hygiene/SKILL.md", "plugins/atelier/skills/fleet-alignment/SKILL.md"]
+opened_commit = "82c49d7fde8360b33ef646f87e75b9edf10ea047"
+whole_reason = "One skill rewritten and its overlapping predecessor removed in the same change, plus the three version pins that ship it."

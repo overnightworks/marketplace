@@ -54,7 +54,9 @@ unless stated.
 Compare the skill's description with every other installed skill's
 description. When auditing a repository, take them from its
 `plugins/*/skills/*/SKILL.md` files (the listing the session shows may be an
-older installed copy); use the listing only when no checkout is present.
+older installed copy); use the listing only when no checkout is present. A
+colliding skill that exists only in the session's skill listing (installed,
+not in the repository) has its listing text as the source.
 Name each collision as a pair plus the trigger phrase both match, and the
 owner that should keep it. Evidence: `static`.
 
@@ -106,5 +108,6 @@ anything touching data safety, security, secrets, a public contract or a
 failing check; `follow-up` is polish with no behavioural effect, or work
 outside the audited skill's scope. Default when no contract is installed: the same
 two classes with that definition. A finding becomes its own item only when it
-is dispatched. Write the body per the `aco` skill; default when aco
-is not installed: the repository's issue template.
+is dispatched. Write the body per the `aco` skill. Defaults when aco is not
+installed: the repository's issue template; in a dry run, the FINDING lines
+under a one-line header.

@@ -16,8 +16,9 @@ drop its provenance comment, and fill the entry-points placeholder from the
 repository's real coordination/verification/state docs (delete it when none
 exist yet). That baseline is a generated view of the marketplace's root
 `AGENTS.md`, which owns every rule in it: a rule that is wrong, missing, or
-stale is fixed in that owner and the view regenerated, never edited here. Create `CLAUDE.md` containing exactly `@AGENTS.md` when the host
-loads `CLAUDE.md` and none exists. Merge into an existing file — never
+stale is fixed in that owner and the view regenerated, never edited here.
+Create `CLAUDE.md` containing exactly `@AGENTS.md` when the host loads
+`CLAUDE.md` and none exists. Merge into an existing file — never
 overwrite deliberate project policy; add what is missing and report what was
 kept.
 
@@ -34,14 +35,17 @@ kept.
    until the files prove it.
 5. Fix only confirmed issues when editing is requested. Move a rule to its
    owner instead of copying it. Delete stale or duplicated guidance.
-6. After edits, the dispatching head requests up to three independent fresh-eye
-   reviews from the `capability-critic` agent. Prefer a new isolated review
-   context for each pass when provider-supported tooling is available and safe;
-   otherwise run separate manual passes and report the limitation. Stop when a pass returns no findings. Pass only the skill path,
-   scoped files, and the audit request; do not pass prior conclusions. Fix
-   confirmed findings, then continue the loop.
+6. After edits only, request up to three independent fresh-eye reviews from
+   `capability-critic` where available, else a fresh-context reviewer. A
+   read-only audit requests none. When a subagent runs this skill, it names the
+   reviews it would request in its report instead of requesting them. Prefer a new isolated review context for
+   each pass when provider-supported tooling is available and safe; otherwise
+   run separate manual passes and report the limitation. Stop when a pass
+   returns no findings. Pass only the skill path, scoped files, and the audit
+   request; do not pass prior conclusions. Fix confirmed findings, then
+   continue the loop.
 7. Verify with the smallest command set that proves the documentation change:
-   the README's verification section, else the CI workflows.
+   the README's check or verification sections, else the CI workflows.
    Do not run runtime tests for docs-only edits unless static policy or
    executable behavior is touched.
 
@@ -93,7 +97,14 @@ UNKNOWN <question and source checked>
 VERIFICATION <commands or review passes>
 ```
 
-Severity follows [references/skill-audit.md](references/skill-audit.md).
+A read-only audit returns FINDING, KEPT, UNKNOWN and VERIFICATION lines only,
+then `CLEAN` when no findings remain; FIXED lines appear only when editing was
+requested.
+
+Severity: `blocking` is a defect against the skill's contract or a repository
+rule, or anything touching data safety, security, secrets, a public contract or
+a failing check; `follow-up` is polish with no behavioural effect, or work
+outside the audited skill's scope.
 A pointer to another owner (for example the coordination contract named at the
 top of `AGENTS.md`) is in scope only for whether its target exists; its content
 belongs to that owner.

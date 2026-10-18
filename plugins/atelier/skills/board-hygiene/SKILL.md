@@ -41,7 +41,8 @@ rest and say so in the report.
 
 - Twin: once per board, not per item, search this board with
   `gh issue list --state all --search`, so recently closed items appear, and
-  other repositories with `gh search issues "<repo>#" --owner <owner>`; run
+  other repositories with both forms `gh search issues "<owner>/<repo>/issues"
+  --owner <owner>` and `gh search issues "<repo>#" --owner <owner>`; run
   both forms and name every query in the report. Read only hits that name
   this repository's items or files (a bare keyword returns unrelated items).
   A suspected twin counts as false until the two bodies' own boundary text

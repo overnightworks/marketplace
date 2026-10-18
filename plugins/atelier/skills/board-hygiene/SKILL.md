@@ -1,102 +1,78 @@
 ---
 name: board-hygiene
-description: Inspect the open aco/GitHub work board against reality — flag landed-but-open items, cut-or-close containers, and stale text-only rows for the head to act on. Run when enough has changed, not on a clock.
+description: Check an open aco/GitHub work board against reality and give every open item a verdict (keep, close, merge, re-cut, body stale) with evidence. Finds landed-but-open items, twins (also across repositories), items overtaken by a later ruling or landing, bodies whose sentences are no longer true, and dangling pointers. Use when the operator or the head asks for a board check, or before pulling work on a board that changed.
 ---
 
 # Board Hygiene
 
-Keep the board truthful: every open item is either genuinely open with a
-current body, or gets flagged with evidence for the head to act on. This
-skill inspects and reports; it never edits GitHub, claims, closes, cuts, or
-lands. Those stay head actions under the existing coordination contract.
+The one check of whether each open item still makes sense. It reads and
+reports; it never edits, comments, closes, claims, cuts, or lands. The head
+applies what is clear under the coordination contract.
 
-## When to run
+## Pass 1: mechanical
 
-Run when the operator asks, or when `aco board` shows enough changed or aged
-items since the last look to be worth inspecting — a judgement call, not a
-stored count or marker. If nothing needs attention, report that and stop.
-This skill keeps no persistent hygiene record: no marker comment, no standing
-tracking issue, no state-ref write. Each run inspects the live board fresh.
+1. `aco board --json` for the inventory; `aco status` for active claims.
+   Read the projection as aco defines it; do not re-derive it from memory.
+2. A `RECOVERY` row names only the issue: read the merged pull request that
+   declared it and compare what it delivered with the item's `Done when`.
+   Full coverage is `close`; partial coverage is `body stale`.
+3. A container with `open: none` and an `UNCUT` row is `re-cut`; without one
+   it is `close` (fold into its document).
+4. `aco check <number>` only when an `aco` block looks broken, or for a
+   pull request whose classification is in doubt. `body malformed` is the
+   only result worth a verdict; `body ok` is not proof of done.
 
-## Procedure
+## Pass 2: sense
 
-1. Run `aco board` (or `--json`) for the full inventory, and read each item
-   from what the projection actually means — never re-derive these from
-   memory or diff archaeology:
-   - `RECOVERY` — a merged pull request declared this issue its work item,
-     but the issue is still open. The row prints only `#N`, not the proving
-     pull request: read the merged PR itself (its number or `gh`) to see
-     what it actually delivered. Propose `close` when it covers the item's
-     acceptance sentence, or `re-project` (a fresh Now/Next, not a close)
-     when it only partly does. Membership in `RECOVERY` alone is not
-     completion evidence.
-   - `KIND` — the type column (`task`/`bug`/`feature`/`container`); a
-     `container` row is never itself claimable work.
-   - `CONTAINERS` — every container's child progress (`#N closed/total;
-     open: …`), including ones with open children. A line still showing an
-     open child is not a finding. Only a line reading `open: none` is where
-     step 2 below applies.
-   - `UNCUT` — undispatched slice rows, independent of open-child count.
-     A container with `open: none` in `CONTAINERS` and a row here needs a
-     cut, not a close; the same container with `open: none` and no row
-     here is a close-or-fold-into-its-document candidate instead.
-   - `projectionless_idea` (plus the repository's idea label) — an unpulled
-     wish. By design, not a defect; leave it even when it is also `STALE`.
-   - `CLAIM`, checked against `aco status` — active work. Never flag a
-     claimed item.
-   - `BLOCKERS` — real open-issue dependencies from GitHub's own relation.
-     Keep these; a dependency is not a formatting defect.
-   - `EXPECT`, cross-checked against `aco rulings` — unanswered expectation
-     lines. List them for the operator; an unruled line is not closable.
-   - `STALE` — idle with no code yet. Inspect the body and recent activity
-     before flagging: idle age alone is never proof of completion, and it
-     never overrides `projectionless_idea` or an active `CLAIM` — those stay
-     kept regardless of age.
-2. Back every proposal with evidence:
-   - Close: the merged PR/commit that covers the acceptance sentence.
-   - Re-project: the same PR plus the gap it leaves open.
-   - Cut: the `UNCUT` row's title and index.
-   - Merge: the surviving item, and the unique detail from the weaker one
-     that belongs in the survivor's body.
-   - Superseded: the ruling or landed decision that removed the need.
-   - Ambiguous: the evidence both ways, left for the head or operator.
-3. Run `aco check <number>` only when an `aco` block itself looks
-   broken, or a specific pull request's classification is in doubt (pass
-   that PR's own number, not the issue number — the two probes print
-   differently). `check` reads the block and GitHub's `blocked_by`
-   relation, never a prose "Blocked by" line. On an issue number it answers
-   exactly one of: `body ok` (not proof of done), `body legacy` (no
-   recognized `aco` block at all, not malformed), `body malformed:
-   …` (a block is present but broken — the only case worth a repair
-   proposal), `body incomplete: <sections>` (expected for a not-yet-refined
-   idea, not a defect), or `blocked by <#N>` (a real dependency — keep it).
-   On a pull-request number it instead prints the PR's work-item
-   classification or refusal, not one of those five issue outcomes.
-4. Return the report to whoever dispatched you. Do not post it to GitHub,
-   edit any body, or apply a proposal yourself.
+For each open item, read its body and test:
+
+- Twin: search this board with `gh issue list --state all --search`, so
+  recently closed items appear, and other repositories with
+  `gh search issues "<repo>#" --owner <owner>` or the item's URL (a bare
+  keyword returns unrelated items). A suspected twin counts as false until
+  the two bodies' own boundary text fails to separate them. Verdict:
+  `merge into #m`, or `close` when the other one landed.
+- Overtaken: a later ruling, landing, or a changed vision removed the
+  need. Verdict: `close`, citing the overtaking ruling or merge.
+- Stale sentence: for each body sentence that names a file, flag, command,
+  or behavior, run `git grep` at the board's commit. A sentence the code
+  contradicts gives `body stale`, quoting the sentence and the grep result.
+- Dangling pointer, both ways: a body that names an item, lane, or file
+  that does not exist or is closed; and other repositories' bodies (found
+  by the sharp search above) that expect this repository to act on an item
+  that does not exist. Check inbound references before any `close` or
+  `merge`.
+- Point: does the problem the item names still exist? If not, `close`.
+
+A nearly empty board (two open items or fewer) skips Pass 1 detail: run
+both aco commands, apply Pass 2 to each item, and report in under five
+lines.
 
 ## Output
 
-Plain lines, no growing catalog of invented labels:
+One line per item, nothing else except the closing list:
 
 ```text
-ACTION <#issue> close|re-project|cut|merge into #survivor|supersede|fix-contract: <evidence>
-KEPT <#issue>: <why — active claim, real dependency, idea/container by
-design, open children, unruled expectation line>
-AMBIGUOUS <#issue>: <evidence for> / <evidence against>
+<repo>#<n> keep|close|merge into #m|re-cut|body stale — clear|unclear — <evidence> [— recommendation; default: <verdict>]
 ```
 
-Every `ACTION` is a proposal only; the head applies, defers, or rejects it.
+- Evidence: the merged PR or sha, the overtaking ruling or landing with its
+  link, or the false sentence and why it is false.
+- `clear` means the head may apply the verdict. `unclear` carries the
+  evidence both ways, a recommendation, and a default.
+- End with the `unclear` lines grouped per repository: the operator's list.
 
 ## Bounds
 
-- Never flag: an active claim, a container with open children, an unpulled
-  idea with no projection by design (even when also `STALE`), an unanswered
-  ruling awaiting the operator, a real dependency, or anything recently
-  touched by the operator unless independently proven landed.
-- This skill grants no closing, claiming, cutting, or landing authority, and
-  invents no new ledger or marker convention to replace the one it removes.
-- One pass = one bounded report. No loops, no code fixes, no editing files
-  other than the report you were asked to produce.
-- When in doubt, keep and flag with evidence both ways. A wrongly closed
-  item costs trust; a kept duplicate costs a card.
+- Read-only and report-only. Cross-repository work uses `gh search issues`
+  and `gh issue view` only; list the `gh` calls you made.
+- Never flag: an active claim, an unpulled idea (no projection, by design,
+  even when `STALE`), a container with open children, an unruled expectation
+  line (list it for the operator), or a real dependency from GitHub's
+  `blocked_by` relation. Idle age alone is never proof of completion.
+- One pass, one report. No loops, no fixes, no persistent marker, tracking
+  issue, or state-ref write.
+- When in doubt, keep and mark `unclear`. A wrongly closed item costs trust;
+  a kept duplicate costs a card.
+- Retiring a document with a banner, and contradictions between documents,
+  belong to `docs-cleanup`.

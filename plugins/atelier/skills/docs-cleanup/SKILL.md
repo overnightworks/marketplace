@@ -16,7 +16,7 @@ and note "out of scope: agent-documentation" in the report.
    `docs/` index if present).
 2. Give each scoped document two labels. Its type is one of
    [write-docs' document types](../write-docs/references/document-types.md),
-   read from its `Type:` line and inferred from content when absent. Its status
+   read from its `Type:` line (or `type:` key) and inferred from content when absent. Its status
    is current, plan/spec, record, generated, or unknown.
 3. Verify concrete claims against code, configuration, tests, or canonical
    docs. A claim you cannot check here (external service, version, vendor

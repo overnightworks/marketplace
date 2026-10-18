@@ -13,14 +13,16 @@ or ownerless information is a defect, not a style choice.
    engineer changing code, or an AI agent executing. Name the altitude:
    overview (mental model), working knowledge, or precise contract. If no
    concrete reader would change a decision by reading it, do not write it.
-2. Choose one document type from [references/document-types.md](references/document-types.md),
-   which owns the type model and gives per type: when to use it, a skeleton,
-   one example, and the classic mistakes. A document that needs two types
+2. Choose one document type from
+   [references/document-types.md](references/document-types.md), which owns the
+   type model and gives per type: when to use it, a skeleton, one example, and
+   the classic mistakes, and declare it. A document that needs two types
    becomes two linked documents.
 3. Find the owner first. If the fact already lives somewhere, update or link
-   the owner — never copy. When a how-to overlaps a README section, the
-   how-to owns the steps and the README keeps one line linking it. Copies drift; write views, not copies. A view
-   states its source of truth and can be regenerated from it.
+   the owner — never copy. When a how-to overlaps a README section, move the
+   steps into the how-to and leave one linking line in the README. Copies
+   drift; write views, not copies. A view states its source of truth and can be
+   regenerated from it.
 4. Calibrate to the reader:
    - **AI/agent docs**: compact, precise, deterministic wording; contracts,
      invariants, boundaries, and verification commands; no visuals, no

@@ -11,9 +11,8 @@ could execute it without inventing missing decisions.
 1. Require the plan as a file path, pasted text, or an issue body
    (`gh issue view <n> --json body --jq .body`).
 2. Read the guidance that constrains the plan: the repository's `AGENTS.md`
-   and `CLAUDE.md`, and the global contract (`instructions/AGENTS.md` in the
-   marketplace repository, installed as `~/.claude/CLAUDE.md`). Skip a file
-   that does not exist and say so.
+   and `CLAUDE.md`, and the user-level contract (for example
+   `~/.claude/CLAUDE.md` or `~/.codex/AGENTS.md`). Skip a file that does not exist and say so.
 3. Check the plan against the checklist below.
 4. Return a verdict; do not edit unless explicitly asked.
 
@@ -43,8 +42,9 @@ slice only; list later slices as out of review.
   mechanics) lives behind the adapter boundary; the concept and contract layer
   stays neutral. Flag any provider baked into the neutral contract layer.
 - Verification: tests, static checks, manual checks, or review gates prove the
-  requested behavior. For a material-risk plan (as the global contract defines
-  it), the first gate needs a scenario matrix built from the plan's ruled
+  requested behavior. For a material-risk plan (as the user-level contract
+  defines it; if none exists, say so and judge it as a public contract,
+  persistent data, secrets, money, security, or irreversibility), the first gate needs a scenario matrix built from the plan's ruled
   sentences (see "Scenario matrix" in the explorative-testing skill) — flag
   its absence as a gap.
 - Deletion/simplification: the plan names what can be removed or simplified when

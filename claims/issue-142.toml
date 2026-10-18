@@ -3,5 +3,6 @@ agent = "claude"
 role = "builder"
 base = "bca4742d52fcb452c4c3c345cfe6bc296b9ae116"
 branch = "claude/issue-142-friction-to-owner"
-scope = ["instructions/AGENTS.md", "plugins/atelier/skills/aco/SKILL.md"]
+scope = [".claude-plugin/marketplace.json", "instructions/AGENTS.md", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/skills/aco/SKILL.md"]
 opened_commit = "7a6dbe52dc63a0fd8110062b575fc96b79cfe845"
+whole_reason = "Two contract paragraphs plus the one aco-skill line they align, and the three version pins that ship the skill change."

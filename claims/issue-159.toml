@@ -1,8 +1,0 @@
-claim_id = "c55d906907f64670a38cdf168ede5e77"
-agent = "claude"
-role = "builder"
-base = "cf35e3b818921acb0fc3bafc725e8ab4f93d82fd"
-branch = "claude/issue-159-plan-docs-skills-pointers"
-scope = ["plugins/atelier/skills/deeper/SKILL.md", "plugins/atelier/skills/docs-cleanup/SKILL.md", "plugins/atelier/skills/plan-review/SKILL.md", "plugins/atelier/skills/write-docs/SKILL.md", "plugins/atelier/skills/write-docs/references/document-types.md"]
-opened_commit = "d984b10b16c49d7893e2778c498a5af4b8cf758e"
-whole_reason = "Planning and documentation skills; docs-cleanup and write-docs must share one document-type vocabulary. One skill group cut by shared findings."

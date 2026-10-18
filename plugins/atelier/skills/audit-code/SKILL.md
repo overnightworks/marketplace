@@ -3,15 +3,19 @@ name: audit-code
 description: Audit source code for maintainability and code-hygiene problems that static tools cannot fully judge. Use when asked to audit code quality, find code smells, review readability, or check a diff against repository coding conventions.
 ---
 
-Audit code hygiene against the current repository guidance. Let configured tools
+Audit code hygiene against the repository's coding guidance (`AGENTS.md` or
+`CLAUDE.md`; the global contract when absent). Let configured tools
 own mechanical checks such as formatting, imports, type errors, dead code, and
 known complexity thresholds. This skill is for semantic judgment after reading
 the code.
 
 ## Procedure
 
-1. Define the requested scope. For a change, inspect the changed files first.
-2. Run or inspect configured read-only quality tools when useful.
+1. Define the requested scope: for a change, the changed files first; for a
+   named file or directory, that target.
+2. Run the read-only quality tools the repository configures (linter and type
+   checker settings in the manifest, `README.md`, or `.github/workflows/`);
+   when none are configured, skip this step.
 3. Read candidate code in context. Treat heuristic matches as false positives
    until the code proves otherwise.
 4. Report only issues that a fixer can address concretely.
@@ -36,7 +40,8 @@ the code.
 
 ## Output
 
-Return findings grouped by checklist item:
+Return findings under one heading per checklist item that has findings, each
+in this form:
 
 ```text
 [SEVERITY] <check> - <file:line>

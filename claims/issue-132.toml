@@ -1,0 +1,7 @@
+claim_id = "be223de65f1241b5bb916a9e7c2d2489"
+agent = "claude"
+role = "builder"
+base = "aa220280a0197949127b3838fa7b766633ca34dc"
+branch = "claude/issue-132-second-look-contract"
+scope = ["instructions/AGENTS.md"]
+opened_commit = "e93f7b2109fd28b83f901f7c974c7ca434084795"

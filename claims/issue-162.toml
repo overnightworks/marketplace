@@ -1,8 +1,0 @@
-claim_id = "7abba149d4ad40cba4c063f1caaef068"
-agent = "claude"
-role = "builder"
-base = "cf35e3b818921acb0fc3bafc725e8ab4f93d82fd"
-branch = "claude/issue-162-sonar-distributor-core"
-scope = ["plugins/atelier/skills/sonar-distributor/SKILL.md", "plugins/atelier/skills/sonar-distributor/references/pr-annotation.md", "plugins/atelier/skills/sonar-distributor/references/rules-by-language.md", "plugins/atelier/skills/sonar-distributor/references/write-route.md", "scripts/check_skills_baseline.json"]
-opened_commit = "82e9e0c818d44cc77de587eeeaa946848bdaa011"
-whole_reason = "One skill split into its core and its references, plus its ratchet baseline entry."

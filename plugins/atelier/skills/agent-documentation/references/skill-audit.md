@@ -90,7 +90,7 @@ Does the skill beat the no-skill baseline (S1-S3)?
 Missing rules or checks come from misses: findings a later stage caught after
 an earlier review approved (the escalation and re-measurement lines in the
 item journals, per the coordination contract: `instructions/AGENTS.md` in the
-marketplace repository, else the global contract `~/.claude/CLAUDE.md`;
+marketplace repository, else the global contract `~/.claude/CLAUDE.md` if installed;
 default when neither exists: the reviews and CI failures of the last landed
 lanes).
 Do not propose a check from imagination.
@@ -101,9 +101,10 @@ One distributor issue per audit run, holding the numbered findings, each with
 skill, rule, evidence type and evidence. Write each finding as a `FINDING`
 line in the format of agent-documentation's own `SKILL.md` Output, with
 severity from the global contract's classification (`~/.claude/CLAUDE.md`):
-`blocking` is a defect against the contract or a repository rule, or anything
-touching safety, secrets or a failing check; `follow-up` is polish, pre-existing
-behaviour or out-of-scope work. Default when no contract is installed: the same
+`blocking` is a defect against the skill's contract or a repository rule, or
+anything touching data safety, security, secrets, a public contract or a
+failing check; `follow-up` is polish with no behavioural effect, or work
+outside the audited skill's scope. Default when no contract is installed: the same
 two classes with that definition. A finding becomes its own item only when it
 is dispatched. Write the body per the `aco` skill; default when aco
 is not installed: the repository's issue template.

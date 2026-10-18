@@ -1,0 +1,7 @@
+claim_id = "13cacebb0c664fa3ac6c625a5958f2f8"
+agent = "claude"
+role = "builder"
+base = "857581a84b4c20561a28c1fae22258faf1d9b749"
+branch = "fix/quality-gate-v0.2.1"
+scope = [".github/workflows/ci.yml"]
+opened_commit = "9e759606dee81090db635a3542b0817076c1a308"

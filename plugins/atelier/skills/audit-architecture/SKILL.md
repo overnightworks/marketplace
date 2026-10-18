@@ -13,24 +13,27 @@ is to REFUTE the system's claims, not to confirm them.
 
 Run after every ~100 trunk landings or weekly, whichever comes first.
 Due-ness is owned by the standing board item, never by anyone's memory: its
-body holds the anchor line `last run at commit X`. Find it with
-`gh issue list --state open --search "Standing-Audit in:title"` and take the
-item whose title names this audit's subject, or use the repository's board
-equivalent. Compare X with trunk: landings since X, or days
-since the run. If no item is found, this is the first run: say so in the report
-and tell the head to open the standing item. The audit stays read-only; the
-head writes the new anchor into that item from the report.
+body holds a line naming the last run's commit (for example
+`last run at commit X`; the repository's own language is fine). Find the item
+with `gh issue list --state open --search "Standing-Audit in:title"` in the
+repository's work-item board (GitHub issues, or `aco board --json` where aco
+runs) and take the one whose title, in the repository's language, names
+this audit's subject (architecture: layers, boundaries, owner modules). Count landings since X with
+`git log --oneline --first-parent X..origin/<default>` (or the age `aco next`
+shows where aco runs), or count the days since the run. If no item is found,
+this is the first run: say so in the report and tell the head to open the
+standing item. The audit stays read-only; the head writes the new anchor into
+that item from the report.
 
 ## Why subagents, and why adversarial
 
-A single reviewer inherits the system's own story. The audit that found this
-repository's three-month-silent boundary gate succeeded because each lens was
-independent, each was told to disprove a specific claim, and none saw the
-others' work. Dispatch at least three read-only auditor agents in parallel:
+A single reviewer inherits the system's own story. Each lens is independent,
+is told to disprove a specific claim, and sees none of the others' work.
+Dispatch at least three read-only auditor agents in parallel:
 
 1. **Boundaries and enforcement.** Do the declared owners hold IN CODE — and,
-   the lesson written in blood: **does the enforcement tool actually run the
-   checks everyone believes it runs?** Gates are the CI workflows
+   **does the enforcement tool actually run the checks everyone believes it
+   runs?** Gates are the CI workflows
    (`.github/workflows/*.yml`) or the repository's equivalent. Invoke the
    gate's exact command from there, then the same tool with its widest
    documented scope (`--help`: all files, no baseline, no diff filter), and
@@ -90,9 +93,10 @@ growth.
 ## Output and follow-through
 
 The dispatcher merges the reports into one scored table (0-10 per lens, one
-sentence of reason each) and reports each confirmed finding for the head to file: the head searches the
-board for an existing owner first (`gh issue list --state all --search "<subject>"`)
-and sharpens it instead of opening a twin. Cheap-fix-first ordering: a one-line guard repair outranks a
+sentence of reason each) and reports each confirmed finding for the head to
+file: the head searches the board for an existing owner first
+(`gh issue list --state all --search "<subject>"`) and sharpens it instead of
+opening a twin. Cheap-fix-first ordering: a one-line guard repair outranks a
 redesign. Severity: HIGH for corruption, data loss, security exposure, or a
 guard that silently never ran; MEDIUM for drift that will rot; LOW for
 localized or arguable issues. The prevention check closes the audit: every

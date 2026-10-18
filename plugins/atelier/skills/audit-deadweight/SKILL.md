@@ -13,15 +13,23 @@ alive to every mechanical check.
 
 ## Cadence and anchor
 
-Run after every ~25 trunk landings until two consecutive passes come back clean, then after every ~50 landings or weekly.
+Run after every ~25 trunk landings until two consecutive passes come back
+clean, then after every ~50 landings or weekly.
 Due-ness is owned by the standing board item, never by anyone's memory: its
-body holds the anchor line `last run at commit X`. Find it with
-`gh issue list --state open --search "Standing-Audit in:title"` and take the
-item whose title names this audit's subject, or use the repository's board
-equivalent. Compare X with trunk: landings since X, or days
-since the run. If no item is found, this is the first run: say so in the report
-and tell the head to open the standing item. The audit stays read-only; the
-head writes the new anchor into that item from the report.
+body holds a line naming the last run's commit (for example
+`last run at commit X`; the repository's own language is fine). Find the item
+with `gh issue list --state open --search "Standing-Audit in:title"` in the
+repository's work-item board (GitHub issues, or `aco board --json` where aco
+runs) and take the one whose title, in the repository's language, names
+this audit's subject (dead weight, ballast).
+If one item covers two audits (for example ownership and ballast), the audits
+share its anchor: a run of either resets it, so the report names which audit
+ran. Count landings since X with
+`git log --oneline --first-parent X..origin/<default>` (or the age `aco next`
+shows where aco runs), or count the days since the run. If no item is found,
+this is the first run: say so in the report and tell the head to open the
+standing item. The audit stays read-only; the head writes the new anchor into
+that item from the report.
 
 ## Procedure
 
@@ -74,14 +82,16 @@ head writes the new anchor into that item from the report.
   single caller on each side.
 - **Test ballast**: a module whose test-to-production line ratio is
   more than twice the median ratio of the repository's modules, without
-  behavioral justification. Route near-duplicate
-  test parametrization to audit-tests — that is a quality finding.
+  behavioral justification. Pair module and test by name (`x.py` with
+  `test_x.py`); list the files left unpaired and leave them out of the median.
+  Route near-duplicate test parametrization to audit-tests — that is a
+  quality finding.
 
 ## Output
 
 Return the report inline; the dispatching caller turns findings into
-retire/delete work items or one consolidated diet item on the repository's board; the auditor itself
-posts nothing. Rank by deletable lines, largest first:
+retire/delete work items or one consolidated diet item on the work-item
+board; the auditor itself posts nothing. Rank by deletable lines, largest first:
 
 ```text
 [~<lines>] <hunt category> - <path/module>
@@ -90,13 +100,13 @@ Delete: <files and symbols, incl. tests that only serve it>
 Survivor: <owner to keep, for merges>
 ```
 
-If nothing qualifies, output `NO DEADWEIGHT` and still print the KEPT list,
-the "suspected, unproven" leads, and the prevention check. Otherwise end with:
-the total deletable line count; the KEPT list — what was examined
+On a clean run, print `NO DEADWEIGHT`, then the KEPT list, the "suspected,
+unproven" leads and the prevention check. Otherwise end with: the total
+deletable line count; the KEPT list — what was examined
 and retained because history shows it earning its place (a rescue, a caught
 bug, a prevented loss), so the audit never reads as "delete all safety"; the
 "suspected, unproven" leads; and the prevention check: every open
 replacement/redesign work item (list them with `gh issue list --state open
---search "replace OR redesign OR rewrite"`, or the board equivalent) must
+--search "replace OR redesign OR rewrite"`, or the work-item board) must
 carry demolition of its predecessor in its acceptance criteria — flag (never
 edit) items that lack it, because that gap is how zombies are born.

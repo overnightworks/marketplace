@@ -102,6 +102,14 @@ MALFORMED_AGENT_CASES = [
         "must be lower hyphen-case",
     ),
     (
+        "name_starting_with_a_digit",
+        agent_markdown(
+            frontmatter_lines=["name: 1st-agent", 'description: "Demo agent for tests."'],
+            metadata=metadata_overrides(codex_name="1st_agent"),
+        ),
+        "must be lower hyphen-case",
+    ),
+    (
         "tools_not_list",
         agent_markdown(tools="Read"),
         "field `tools` must be a list of strings",
@@ -160,6 +168,11 @@ MALFORMED_AGENT_CASES = [
         "name_mismatch",
         agent_markdown(metadata=metadata_overrides(codex_name="other_agent")),
         "name mismatch: frontmatter name",
+    ),
+    (
+        "name_not_the_hyphenated_codex_name",
+        agent_markdown(metadata=metadata_overrides(codex_name="demo_agent_extra")),
+        "should match metadata codex_name 'demo_agent_extra' as 'demo-agent-extra'",
     ),
     (
         "tools_sandbox_mismatch",

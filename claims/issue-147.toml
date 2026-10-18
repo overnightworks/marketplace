@@ -1,0 +1,8 @@
+claim_id = "8e882edfa91d4414ad86ff04e06acdd8"
+agent = "claude"
+role = "builder"
+base = "ff3e34aa2256298f3460398611e97c8ed9e4d1b7"
+branch = "claude/issue-147-retire-three-skills"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/skills/report/SKILL.md", "plugins/atelier/skills/ui-operator/SKILL.md", "plugins/atelier/skills/workflow-orchestrator/SKILL.md"]
+opened_commit = "d9d68dd10a8115ba9c30dcd5f536a81e1042e63a"
+whole_reason = "Three skill deletions ruled together, plus the three version pins that ship them."

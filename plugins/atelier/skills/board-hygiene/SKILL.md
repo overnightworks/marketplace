@@ -13,11 +13,12 @@ applies what is clear under the coordination contract.
 
 1. `aco board --json` for the inventory; `aco status` for active claims.
    Read the projection as aco defines it; do not re-derive it from memory.
-2. A `RECOVERY` row names only the issue: read the merged pull request that
-   declared it and compare what it delivered with the item's `Done when`.
-   Full coverage is `close`; partial coverage is `body stale`.
-3. A container with `open: none` and an `UNCUT` row is `re-cut`; without one
-   it is `close` (fold into its document).
+2. An entry in the `recovery` list names only the issue: read the merged pull
+   request that declared it and compare what it delivered with the item's
+   `Done when`. Full coverage is `close`; partial coverage is `body stale`.
+3. A container (`items[].container` not null) whose `open_children` is empty
+   and that is listed in `uncut` is `re-cut`; if not listed, it is `close`
+   (fold into its document).
 4. `aco check <number>` only when an `aco` block looks broken, or for a
    pull request whose classification is in doubt. `body malformed` is the
    only result worth a verdict; `body ok` is not proof of done.
@@ -67,7 +68,7 @@ One line per item, nothing else except the closing list:
 - Read-only and report-only. Cross-repository work uses `gh search issues`
   and `gh issue view` only; list the `gh` calls you made.
 - Never flag: an active claim, an unpulled idea (no projection, by design,
-  even when `STALE`), a container with open children, an unruled expectation
+  even when listed in `stale`), a container with open children, an unruled expectation
   line (list it for the operator), or a real dependency from GitHub's
   `blocked_by` relation. Idle age alone is never proof of completion.
 - One pass, one report. No loops, no fixes, no persistent marker, tracking

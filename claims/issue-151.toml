@@ -1,7 +1,0 @@
-claim_id = "f63877018bc746e49166c84c13a91633"
-agent = "claude"
-role = "builder"
-base = "12b0cf1ef8f4702fab4a3c2a5dea5188fe8f9907"
-branch = "claude/issue-151-board-list-exceptions"
-scope = ["instructions/AGENTS.md"]
-opened_commit = "c0291b2416d55fcb2e14b4b56521a347199311f5"

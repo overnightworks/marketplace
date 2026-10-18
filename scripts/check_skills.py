@@ -44,7 +44,7 @@ KNOWN_FIELDS = frozenset(
         "model",
     }
 )
-# Skill names follow the Agent Skills name limits: lowercase letters, digits, hyphens, 64 characters.
+# Skill names follow the Agent Skills name limits: lowercase letters, digits, hyphens, 64 characters; a digit may come first, unlike agent names.
 SKILL_NAME_PATTERN = re.compile(r"[a-z0-9-]{1,64}")
 RESERVED_NAME_WORDS = ("anthropic", "claude")
 DESCRIPTION_LIMIT = 1024

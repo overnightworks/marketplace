@@ -50,7 +50,6 @@ def lines(count: int) -> str:
         (VALID_FRONTMATTER, "See [the guide](references/guide.md).\n", ("sample: link 'references/guide.md' does not resolve to a file",)),
         (VALID_FRONTMATTER, "```\n[x](references/none.md)\n```\n~~~\n[y](references/none.md)\n~~~\n", ()),
         (VALID_FRONTMATTER, "```\ncode\n```\nSee [the guide](references/guide.md).\n", ("sample: link 'references/guide.md' does not resolve to a file",)),
-        ("name: 1sample\ndescription: ok", "Body.\n", ("sample: name '1sample' differs from its directory 'sample'",)),
         ("name: sample\ndescription: >-\n  First half\n  second half.\nlicense: MIT", "Body.\n", ()),
         (VALID_FRONTMATTER, "See [web](https://example.com/a) and [here](#top) and `references/none.md`.\n", ()),
     ],
@@ -64,7 +63,6 @@ def lines(count: int) -> str:
         "name with claude",
         "name with anthropic",
         "name differing from the directory",
-        "name starting with a digit",
         "empty plain description",
         "empty folded description",
         "description over 1024 characters",
@@ -94,6 +92,12 @@ def test_a_folded_description_and_an_existing_relative_link_pass(tmp_path: Path)
     )
     (directory / "references").mkdir()
     (directory / "references" / "guide.md").write_text("guide\n", encoding="utf-8")
+
+    assert check_skills.check_skills(tmp_path, {}) == check_skills.Report((), ())
+
+
+def test_a_skill_name_may_start_with_a_digit(tmp_path: Path) -> None:
+    write_skill(tmp_path, name="1sample", frontmatter=VALID_FRONTMATTER.replace("name: sample", "name: 1sample"))
 
     assert check_skills.check_skills(tmp_path, {}) == check_skills.Report((), ())
 

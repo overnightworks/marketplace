@@ -362,9 +362,9 @@ column from the builder.
 | Work | Claude | Codex | Grok | Effort |
 |---|---|---|---|---|
 | Mechanical: landing, body edits, search, repetition | Haiku 5.5 | — | 4.6 | low or medium |
-| Fact finding, normal build, fix, test, ordinary code/test/diff review | Sonnet 5.5 | gpt-6-astra | 4.6 | medium |
-| Required final gate (material risk only) | Opus 5.5 or Fable (when the builder is not Claude) | gpt-6-astra (when the builder is not Codex) | 4.6 | high |
-| Architecture, security or product decision; the hardest proof | Opus 5.5 or Fable | gpt-6-astra | 4.6 | high |
+| Fact finding, normal build, fix, test, ordinary code/test/diff review | Sonnet 5.5 | gpt-6-astra | 4.6 (excluding reviews) | medium |
+| Required final gate (material risk only) | Opus 5.5 or Fable (when the builder is not Claude) | gpt-6-astra (when the builder is not Codex) | — | high |
+| Architecture, security or product decision; the hardest proof | Opus 5.5 or Fable | gpt-6-astra | 4.6 (excluding reviews) | high |
 
 Pick the model by the work, at medium effort unless the row says otherwise.
 Save budget without weakening required verification: every implementation lane
@@ -375,10 +375,22 @@ is re-measured (below).
 
 Before a head runs the `codex` or `grok` CLI itself, outside the lane workflow, it loads the `providers` skill, which owns the command lines, sandbox modes and output capture for the installed CLI versions.
 
-gpt-5.6-terra is not used for reviews. **High is the one effort ceiling** for
-routine work, overrides and the escalation ladder. The only exception is the
-hardest proof after high proved insufficient: then the head may choose xhigh or
-above for that single step, and records why in the journal.
+gpt-5.6-terra is not used for reviews.
+
+Grok 4.6 is not eligible for any review role, including ordinary review, plan
+review, an escalation's additional reviewer, or a final gate. It remains
+eligible for building, fixing, testing, fact finding and mechanical work; this
+review measurement does not assess those roles. The provisional exclusion
+follows the 19.10.2026 agent-providers re-measurement: available records show
+approvals on ranges where another reviewer reproduced defects, and findings
+classified as follow-up despite blocking verification gaps. Briefs and
+execution permissions varied; this is evidence about the observed assignments,
+not an equal-condition provider comparison.
+
+**High is the one effort ceiling** for routine work, overrides and the
+escalation ladder. The only exception is the hardest proof after high proved
+insufficient: then the head may choose xhigh or above for that single step, and
+records why in the journal.
 
 **Escalation when a check fails.** Trigger: a later stage (gate, e2e, CI, or the
 operator) finds a blocking defect or test gap in a range an earlier review
@@ -387,12 +399,16 @@ its own ladder:
 
 - Claude: Sonnet medium, Sonnet high, Opus high;
 - Codex: Astra medium, Astra high;
-- Grok: 4.6 medium, 4.6 high;
 - the ladder ends at high.
 
 A further miss at the top of a ladder adds a second independent reviewer from
 another eligible provider to that role for the rest of the session, and the head
 names this in the next report to the operator.
+
+The additional reviewer is distinct from the reviewers already assigned to the
+lane, including its final gate. If no other eligible provider can supply that
+reviewer under the existing independence and gate provider-separation rules,
+the escalated role waits.
 
 The head writes one line into the item's journal (the missed finding, the old
 and the new routing). Escalation overrides the same-reviewer selection of the

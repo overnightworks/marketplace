@@ -75,7 +75,9 @@ on stdin, as in the reviewer line.
 - `git branch -D` and `git pack-refs` fail (they need
   `<commondir>/packed-refs.lock`); branch cleanup stays with the head.
 
-## Grok reviewer (read-only)
+## Grok read-only run
+
+This run supplies facts or execution evidence to an eligible reviewer; it does not issue a review or gate verdict.
 
 ```bash
 grok --cwd "$WT" --sandbox read-only --always-approve -m grok-4.6 --effort "$EFFORT" \
@@ -93,7 +95,7 @@ jq -r .text "$OUT"
   above, so run that check before relying on either.
 - `--json-schema '<schema>'` works and implies json output.
 - Grok loads the global contract, so `.text` may carry a `Contract loaded.` line;
-  judge the verdict, not the first line.
+  inspect the reported evidence, not just the first line.
 
 ## Grok writer in a linked worktree
 
@@ -110,7 +112,7 @@ read_write = ["<commondir>/objects", "<commondir>/refs", "<commondir>/logs", "<c
 
 `<name>` is the basename of `$GITDIR`, not of the worktree directory.
 
-Run with `--sandbox worktree-writer`, the Grok reviewer's other flags and a higher
+Run with `--sandbox worktree-writer`, the read-only command's other flags and a higher
 `--max-turns`. Append, `git add` and `git commit` work; writing
 `<commondir>/hooks` fails. Like the Codex writer, the Grok writer has no network
 (`restrict_network = true`): `git ls-remote https://...` fails with "Could not

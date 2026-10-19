@@ -1,7 +1,0 @@
-claim_id = "e0ddb9b656a44564b5bd6259b3e24a39"
-agent = "claude"
-role = "builder"
-base = "285a10074c59b732274ce26494a111b16cd3e4e0"
-branch = "claude/issue-193-no-stopgap-wait"
-scope = ["instructions/AGENTS.md"]
-opened_commit = "f20ab64e7292c115c903f61f128d9569c5649e16"

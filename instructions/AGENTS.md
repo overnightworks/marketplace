@@ -376,6 +376,7 @@ is re-measured (below).
 Before a head runs the `codex` or `grok` CLI itself, outside the lane workflow, it loads the `providers` skill, which owns the command lines, sandbox modes and output capture for the installed CLI versions.
 
 gpt-5.6-terra is not used for reviews.
+
 Grok 4.6 is not eligible for any review role, including ordinary review, plan
 review, an escalation's additional reviewer, or a final gate. It remains
 eligible for building, fixing, testing, fact finding and mechanical work; this
@@ -384,10 +385,12 @@ follows the 19.10.2026 agent-providers re-measurement: available records show
 approvals on ranges where another reviewer reproduced defects, and findings
 classified as follow-up despite blocking verification gaps. Briefs and
 execution permissions varied; this is evidence about the observed assignments,
-not an equal-condition provider comparison. **High is the one effort ceiling** for
-routine work, overrides and the escalation ladder. The only exception is the
-hardest proof after high proved insufficient: then the head may choose xhigh or
-above for that single step, and records why in the journal.
+not an equal-condition provider comparison.
+
+**High is the one effort ceiling** for routine work, overrides and the
+escalation ladder. The only exception is the hardest proof after high proved
+insufficient: then the head may choose xhigh or above for that single step, and
+records why in the journal.
 
 **Escalation when a check fails.** Trigger: a later stage (gate, e2e, CI, or the
 operator) finds a blocking defect or test gap in a range an earlier review

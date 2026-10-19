@@ -1,0 +1,7 @@
+claim_id = "53dda1b48c684241913f92cb5f88af3b"
+agent = "Claude e1606f00-9f9f-45ac-9386-0530e7a84059"
+role = "builder"
+base = "06c03c4b04efbe16b1936ebac347fb1638280d8b"
+branch = "claude/issue-184-grok-leaves-review-roles"
+scope = ["instructions/AGENTS.md", "plugins/atelier/skills/providers/SKILL.md"]
+opened_commit = "1cda76953d2489af59b89c30101f184dd9d14dcf"

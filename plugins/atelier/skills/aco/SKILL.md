@@ -121,8 +121,10 @@ refused with `only the original claimant may release`.
    released the claim; after a land, the head's release step is verifying that
    with `aco status`. `aco release --merged` is for merges made outside
    `aco land`.
-3. Read the `freed:` and `next:` lines it prints and act on them as the contract's
-   "How to coordinate" says. Then `aco next`.
+3. The landing agent reports the follow-up lines `aco land` prints (`freed:`,
+   `next:`, in agent-coordination also `reinstall:`) to the head and runs none of
+   them. The head acts on them as the contract's "How to coordinate" says, then
+   runs `aco next`.
 4. Close bundled non-lead cards with the PR link.
 
 If the merge worked but a step failed, `aco land` prints `follow-up incomplete`

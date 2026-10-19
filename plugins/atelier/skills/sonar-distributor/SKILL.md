@@ -29,31 +29,12 @@ rule-level exception moves to the CI scanner first. Read the mode of the
 project at hand from the API above; it is not the same across the
 organisation.
 
-The two modes also give the findings gate (`.github/actions/sonar-findings-gate`,
-below) a different guarantee, because Automatic Analysis runs asynchronously
-after the push while a CI scanner step blocks on its own analysis first —
-measured on claude-revive's own gate build (overnightworks/claude-revive#6, PR
-#7): its pull request analysis landed three seconds into a twenty-five-second
-run, comfortable, but its push of `54b9662` to `main` finished CI at 18:43:05
-against an analysis timestamped 18:43:01 — four seconds of margin on the
-fastest repository in the fleet.
-
-- On a **pull request**, losing that race is loud: the gate proves the
-  component resolves under the scope before believing any count, and a scope
-  with no analysis answers 404, so the job fails with the resolution message
-  and a re-run fixes it. Annoying, never a false clean.
-- On a **push to the default branch**, losing it is quiet: the branch scope
-  resolves against the previous commit's analysis, so the gate can report
-  cleanly about the commit before the one just pushed. The next push corrects
-  it, but for that window the green refers to older code.
-- A repository that runs the scanner in CI has neither problem, because its
-  scan step blocks on its own analysis before the gate reads it.
-
-No retry loop was built for this: the gate is one script pinned and consumed
-byte-identical across the fleet, so a wait is machinery every consumer pays
-for, needing its own tests, against a race this narrow on the fastest
-repository measured — revisit if a stale read ever produces a green that
-mattered.
+The two modes differ for a findings check in one way: Automatic Analysis runs
+asynchronously after the push, so a check that reads right away can see the
+previous commit's analysis. A repository on the CI scanner has no such gap
+because the reusable quality gate (below) scans in its own `sonar` job, and
+`quality sonar findings` waits for that analysis before it counts. quality's
+README owns how.
 
 ## Procedure
 
@@ -295,26 +276,29 @@ standing rulings, which every review of a Sonar finding inherits:
   rejection ware, and the reviewer will argue with the rule instead of the code.
 - The quality gate checks **ratings, not counts**: a PR can merge green while
   adding findings — three landings added 16 unnoticed (measured agent-coordination
-  #143/PR #145, 06.09.2026). The control is a CI step in the sonar job, after
-  `sonar.qualitygate.wait=true`, that pages
+  #143/PR #145, 06.09.2026). The control is a CI step in the sonar job, after the
+  scan, that pages
   `api/issues/search?componentKeys=<key>&pullRequest=<n>` with the
   `issueStatuses`, the authentication, the scope proof, the timeout and the
-  scope encoding of "API access" above, and fails on any result — proven red
-  with a probe finding and green without one. That logic is owned once, by the
-  composite action overnightworks/marketplace publishes at
-  `.github/actions/sonar-findings-gate`, because a heredoc inside YAML is
-  reached by no rule and measured by no coverage: three reviews found defects
-  in it by reading, and the first scan of the extracted script found a fourth.
-  A repository on the CI scanner **uses** that action and copies nothing:
+  scope encoding of "API access" above, and fails on a new finding. That logic is
+  owned once, by the reusable workflow overnightworks/quality publishes at
+  `.github/workflows/gate.yml`: its `sonar` job scans and then runs
+  `quality sonar findings` on the run's own analysis, red on new findings on a
+  pull request (legacy findings are counted, and `[gate] legacy` decides) and on
+  any open finding on the default branch, and its `verdict` job judges that job.
+  A repository on the CI scanner **calls** that workflow and copies nothing.
+  quality's README (sections `gate.yml` and `quality sonar findings`) owns the
+  caller form, the token and the `sonar-project.properties` it needs;
+  `overnightworks/marketplace`'s `.github/workflows/ci.yml` (job `quality`)
+  shows one caller, abridged here (the full form also grants
+  `permissions: contents: read, actions: read`, without which the run fails at
+  startup, and runs with `if: always()`):
 
   ```yaml
-  - name: SonarCloud open findings
-    # A composite action's steps take no timeout-minutes, so the ceiling over
-    # the gate's paging lives here.
-    timeout-minutes: 5
-    uses: overnightworks/marketplace/.github/actions/sonar-findings-gate@<commit>
-    with:
-      sonar-token: ${{ secrets.SONAR_TOKEN }}
+  quality:
+    uses: overnightworks/quality/.github/workflows/gate.yml@<commit sha> # v<tag>
+    secrets:
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
   ```
 
   The pin is an **exact commit SHA, never a tag or a branch**: a mutable
@@ -322,13 +306,11 @@ standing rulings, which every review of a Sonar finding inherits:
   hole — whoever can move the ref runs code in every consumer's job — and a
   silent change of what the gate asserts, which is the one thing a gate may
   never do quietly. Write the version beside it as a comment, the way the
-  fleet pins every other action. The action reads the project key from the
-  consumer's own `sonar-project.properties` through `GITHUB_WORKSPACE`, so a
-  distributor's Done when names the step and that file, not a copied script.
-  A floor
-  stronger than the server gate's new-code judgement — zero open findings, a
-  coverage fail-under — lives in the repository's own tooling, so a green build
-  is evidence only once you know what that repository asserts.
+  fleet pins every other action. A distributor's Done when names the caller
+  job and the repository's `sonar-project.properties`, not a copied script.
+  A floor stronger than the server gate's new-code judgement — zero open
+  findings, a coverage fail-under — lives in the repository's own tooling, so a
+  green build is evidence only once you know what that repository asserts.
 
 ## Cadence and closing
 

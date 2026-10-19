@@ -97,10 +97,14 @@ landing makes false. It becomes a work item when it is pulled, and only then is
 it refined, pictured, and cut: elaborated-but-unpulled work is inventory, and
 inventory rots while the vision moves on. Re-run the refinement at the pull
 rather than keeping old lists fresh. The pull begins by re-questioning the
-item's point (operator ruling 31.08.2026): does the problem still exist, or has
-a landing, a newer ruling, or the vision itself overtaken it? Only an item that
-survives that question is refined; one that does not is closed or re-cut, never
-built out of momentum.
+item's point (operator rulings 31.08. and 19.10.2026): does the problem still
+exist, or has a landing, a newer ruling, or the vision itself overtaken it; is
+it worth its lifetime cost in build, review rounds and upkeep; does another
+layer or tool cover it better; and is it the symptom of an architecture problem,
+which then goes to plan review instead of being built? An item opened from a
+review finding is pulled when it is opened. Only an item that survives that
+question is refined; one that does not is closed or re-cut, never built out of
+momentum, and an unclear answer goes to the operator with a recommendation.
 
 A change that adds or reshapes a surface (room, page, card, flow) starts from
 the repository's picture owner: read and extend the current mockup, get the
@@ -125,6 +129,14 @@ proposal unless it records an existing ruling or has been accepted through the
 process above. The item identifies the source of its ruled sentences, including
 any applied default; authorship alone grants no authority. A second look may
 revise a proposal, but changing ruled behaviour follows the same ruling process.
+
+Ruled sentences, specs and item bodies bind, but no agent takes them on faith
+(operator ruling 19.10.2026): like a good product owner and architect, every
+agent checks whether what it is asked to build still makes sense, and in doubt
+it must. A doubt or a better idea goes with its reason to the head, from a
+subagent through its parent, and on to the operator, before the contested part
+is built; it is neither built stubbornly nor silently swapped in, and the ruled
+sentence stands until the operator rules again.
 
 A rule change is itself a change under review (operator ruling 31.08.2026):
 before the head anchors a new or altered standing rule — in this contract, a
@@ -155,7 +167,10 @@ for both. Verify evidence before you say it is done. If the UI changed, require
 a delegated agent to drive it like a user. If you cannot verify, say exactly
 what you could not do — after you actually tried.
 
-No new item without a named caller (operator ruling 04.09.2026).
+No new item without a named caller (operator ruling 04.09.2026). A review
+finding is a caller only through the ruled sentence it breaks or the person or
+incident it hit; any other gap waits for usage evidence on its owning item (see
+"Build vertically first").
 
 ## How to coordinate
 
@@ -441,28 +456,37 @@ what CI already proves.
 Every review finding is marked **blocking** or **follow-up**. Blocking is a
 defect the reviewed diff introduces against the ruled sentences, the contract,
 or a repository rule, and always anything touching data safety, security,
-secrets, a public contract, or a failing check. Each blocking finding cites
+secrets, a public contract, or a failing check. The exception is a tripwire
+(operator ruling 19.10.2026): a protective component whose owning spec, by
+operator ruling, declares it an aid for cooperative agents and names the
+boundary that stops a non-cooperative one. Its contract is the cases it lists; a
+gap outside them is follow-up for its owning item and makes no lane material
+risk. An undeclared component counts as a boundary. Each blocking finding cites
 evidence, names the violated requirement or concrete safety defect, and states
 the consequence of leaving it unresolved. A required check or contract violation
 needs no further damage estimate; a proposed remedy still has to earn its
 complexity. Follow-up is polish with no behavioural effect, pre-existing
 behaviour the lane did not change (the reviewer cites the unchanged evidence),
 or work outside the lane's scope (the reviewer names its owning item). A verdict
-of `architectural` stops the lane; it is never a follow-up. Only blocking
-findings are a `REVISE`: they return to the lane's builder step and earn a delta
-re-check. A follow-up goes to its owning item, or to the review's distributor
-issue when it has none, before the lane lands, without another review round and
-without opening a fresh item — except a follow-up inside a file the lane already
-changed whose fix cannot change behaviour outside the reviewed diff (about ten
-lines is the practical cap), which the lane's fixer resolves in the same fix
-batch, no card; where the lane has no fix batch it goes to its owning item
-unchanged. The head may reclassify a finding, never drop it. The dispatch names
-the lane's material risk or says it has none; a lane without it gets one review,
-and a delta only if a blocking finding was raised. Risk is judged by what the
-diff can break, not by the item's topic: a patch-level dependency bump that
-closes an advisory, a docs-only change, a test-only change, or a refactor its
-unchanged tests prove carries none, needs no drive, and is proven by CI on a
-clean install. The review may raise the lane to material risk.
+of `architectural` stops the lane; it is never a follow-up. A third consecutive
+REVISE from the same plan review or gate on one item stops the fix loop: before
+the next batch the head re-asks the pull question against the findings so far
+and cuts back to the declared sentences, re-cuts the item, or brings the
+operator a recommendation. Only blocking findings are a `REVISE`: they return to
+the lane's builder step and earn a delta re-check. A follow-up goes to its
+owning item, or to the review's distributor issue when it has none, before the
+lane lands, without another review round and without opening a fresh item —
+except a follow-up inside a file the lane already changed whose fix cannot
+change behaviour outside the reviewed diff (about ten lines is the practical
+cap), which the lane's fixer resolves in the same fix batch, no card; where the
+lane has no fix batch it goes to its owning item unchanged. The head may
+reclassify a finding, never drop it. The dispatch names the lane's material risk
+or says it has none; a lane without it gets one review, and a delta only if a
+blocking finding was raised. Risk is judged by what the diff can break, not by
+the item's topic: a patch-level dependency bump that closes an advisory, a
+docs-only change, a test-only change, or a refactor its unchanged tests prove
+carries none, needs no drive, and is proven by CI on a clean install. The review
+may raise the lane to material risk.
 
 Repeat the final gate with fresh context when a later fix changes interaction,
 scope, or risk — an edit to production behaviour, a data path, secrets, or a

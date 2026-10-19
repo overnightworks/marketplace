@@ -29,8 +29,8 @@ rule-level exception moves to the CI scanner first. Read the mode of the
 project at hand from the API above; it is not the same across the
 organisation.
 
-The two modes also give the findings gate (`.github/actions/sonar-findings-gate`,
-below) a different guarantee, because Automatic Analysis runs asynchronously
+The two modes also give the findings gate (the `quality / sonar` job of the
+reusable quality gate, below) a different guarantee, because Automatic Analysis runs asynchronously
 after the push while a CI scanner step blocks on its own analysis first —
 measured on claude-revive's own gate build (overnightworks/claude-revive#6, PR
 #7): its pull request analysis landed three seconds into a twenty-five-second
@@ -295,26 +295,26 @@ standing rulings, which every review of a Sonar finding inherits:
   rejection ware, and the reviewer will argue with the rule instead of the code.
 - The quality gate checks **ratings, not counts**: a PR can merge green while
   adding findings — three landings added 16 unnoticed (measured agent-coordination
-  #143/PR #145, 06.09.2026). The control is a CI step in the sonar job, after
-  `sonar.qualitygate.wait=true`, that pages
+  #143/PR #145, 06.09.2026). The control is a CI step in the sonar job, after the
+  scan, that pages
   `api/issues/search?componentKeys=<key>&pullRequest=<n>` with the
   `issueStatuses`, the authentication, the scope proof, the timeout and the
   scope encoding of "API access" above, and fails on any result — proven red
   with a probe finding and green without one. That logic is owned once, by the
-  composite action overnightworks/marketplace publishes at
-  `.github/actions/sonar-findings-gate`, because a heredoc inside YAML is
-  reached by no rule and measured by no coverage: three reviews found defects
-  in it by reading, and the first scan of the extracted script found a fourth.
-  A repository on the CI scanner **uses** that action and copies nothing:
+  reusable workflow overnightworks/quality publishes at
+  `.github/workflows/gate.yml`: its `sonar` job scans and then runs
+  `quality sonar findings` on the run's own analysis, red on any open finding,
+  and its `verdict` job judges that job. A repository on the
+  CI scanner **calls** that workflow and copies nothing. quality's README
+  (sections `gate.yml` and `quality sonar findings`) owns the caller form, the
+  token and the `sonar-project.properties` it needs; the repository's own
+  `.github/workflows/ci.yml` shows one caller:
 
   ```yaml
-  - name: SonarCloud open findings
-    # A composite action's steps take no timeout-minutes, so the ceiling over
-    # the gate's paging lives here.
-    timeout-minutes: 5
-    uses: overnightworks/marketplace/.github/actions/sonar-findings-gate@<commit>
-    with:
-      sonar-token: ${{ secrets.SONAR_TOKEN }}
+  quality:
+    uses: overnightworks/quality/.github/workflows/gate.yml@<commit sha> # v<tag>
+    secrets:
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
   ```
 
   The pin is an **exact commit SHA, never a tag or a branch**: a mutable
@@ -322,9 +322,8 @@ standing rulings, which every review of a Sonar finding inherits:
   hole — whoever can move the ref runs code in every consumer's job — and a
   silent change of what the gate asserts, which is the one thing a gate may
   never do quietly. Write the version beside it as a comment, the way the
-  fleet pins every other action. The action reads the project key from the
-  consumer's own `sonar-project.properties` through `GITHUB_WORKSPACE`, so a
-  distributor's Done when names the step and that file, not a copied script.
+  fleet pins every other action. A distributor's Done when names the caller
+  job and the repository's `sonar-project.properties`, not a copied script.
   A floor
   stronger than the server gate's new-code judgement — zero open findings, a
   coverage fail-under — lives in the repository's own tooling, so a green build

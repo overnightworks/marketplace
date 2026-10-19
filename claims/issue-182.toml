@@ -1,8 +1,0 @@
-claim_id = "ec04a33fd0aa4403bb38cdf4f11ecd55"
-agent = "claude"
-role = "builder"
-base = "6a7aeee9cf7ec6cf9fe38454bb6b8f040f561413"
-branch = "claude/issue-182-providers-reviewer-brief"
-scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/skills/providers/SKILL.md"]
-opened_commit = "f3276182e32a3d85a64bdc9d6652ea89a461f230"
-whole_reason = "Two sentences in one skill from two friction reports, plus the three version pins that ship them."

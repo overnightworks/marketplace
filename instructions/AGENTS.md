@@ -381,15 +381,15 @@ column from the builder.
 | Required final gate (material risk only) | Opus 5.5 or Fable (when the builder is not Claude) | gpt-6-astra (when the builder is not Codex) | — | high |
 | Architecture, security or product decision; the hardest proof | Opus 5.5 or Fable | gpt-6-astra | 4.6 (excluding reviews) | high |
 
-Pick the model by the work, at medium effort unless the row says otherwise.
-A fix batch is behaviour-neutral when none of its findings can change
-behaviour: wording, a local rename, formatting, a one-line scanner fix
-(operator ruling 19.10.2026). One finding that can, or that needs judgement,
-makes the whole batch a fix. Save budget without weakening required verification: every implementation lane
-keeps its independent review, builders never review their own work, and a
-required final gate comes from a provider other than the builder's. If no
-eligible provider is available, the gate waits. The routing is provisional and
-is re-measured (below).
+Pick the model by the work, at medium effort unless the row says otherwise. A
+fix batch is behaviour-neutral when none of its findings can change behaviour:
+wording, a local rename, formatting, a one-line scanner fix (operator ruling
+19.10.2026). One finding that can, or that needs judgement, makes the whole
+batch a fix. Save budget without weakening required verification: every
+implementation lane keeps its independent review, builders never review their
+own work, and a required final gate comes from a provider other than the
+builder's. If no eligible provider is available, the gate waits. The routing is
+provisional and is re-measured (below).
 
 Before a head runs the `codex` or `grok` CLI itself, outside the lane workflow, it loads the `providers` skill, which owns the command lines, sandbox modes and output capture for the installed CLI versions.
 

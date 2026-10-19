@@ -1,0 +1,8 @@
+claim_id = "2871be069d514e389beca711b725b02b"
+agent = "claude"
+role = "builder"
+base = "285a10074c59b732274ce26494a111b16cd3e4e0"
+branch = "claude/issue-191-haiku-fix-batches"
+scope = [".claude-plugin/marketplace.json", "instructions/AGENTS.md", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/workflows/lane.js", "tests/lane_workflow.test.mjs"]
+opened_commit = "02cb79e06cc2ac868f326916de7c1fff9ae0ea9a"
+whole_reason = "One ruled routing sentence at its contract owner, the lane workflow's one branch that follows it with its test, and the pins that ship it."

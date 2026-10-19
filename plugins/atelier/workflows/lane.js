@@ -236,7 +236,7 @@ const driveFacts = `Any drive you run keeps its pidfiles and evidence under ${A.
 
 const BLOCKING_LINE =
   `A finding is **blocking** when the change introduces a defect against the item's contract, a repository specification, ` +
-  `a repository rule, data safety, security, secrets, a public contract, or a failing check. Everything else is a **follow-up**: polish, ` +
+  `a repository rule, data safety, security, secrets, a public contract, or a failing check, except a gap outside the listed cases of a component whose spec declares it a tripwire by operator ruling, which is follow-up for its owning item. Everything else is a **follow-up**: polish, ` +
   `behaviour that already exists on origin/main unchanged (reproduce it there before calling it pre-existing), or work outside the lane's scope — ` +
   `each follow-up names its owning item (#n) or "distributor". Every blocking finding names the rule it breaks and the evidence you observed; ` +
   `a finding you cannot back with evidence is not blocking. Every blocking finding names its kind: **defect** when the code breaks a rule or ` +

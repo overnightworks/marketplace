@@ -376,13 +376,16 @@ column from the builder.
 
 | Work | Claude | Codex | Grok | Effort |
 |---|---|---|---|---|
-| Mechanical: landing, body edits, search, repetition | Haiku 5.5 | — | 4.6 | low or medium |
+| Mechanical: landing, body edits, search, repetition, a behaviour-neutral fix batch | Haiku 5.5 | — | 4.6 | low or medium |
 | Fact finding, normal build, fix, test, ordinary code/test/diff review | Sonnet 5.5 | gpt-6-astra | 4.6 (excluding reviews) | medium |
 | Required final gate (material risk only) | Opus 5.5 or Fable (when the builder is not Claude) | gpt-6-astra (when the builder is not Codex) | — | high |
 | Architecture, security or product decision; the hardest proof | Opus 5.5 or Fable | gpt-6-astra | 4.6 (excluding reviews) | high |
 
 Pick the model by the work, at medium effort unless the row says otherwise.
-Save budget without weakening required verification: every implementation lane
+A fix batch is behaviour-neutral when none of its findings can change
+behaviour: wording, a local rename, formatting, a one-line scanner fix
+(operator ruling 19.10.2026). One finding that can, or that needs judgement,
+makes the whole batch a fix. Save budget without weakening required verification: every implementation lane
 keeps its independent review, builders never review their own work, and a
 required final gate comes from a provider other than the builder's. If no
 eligible provider is available, the gate waits. The routing is provisional and

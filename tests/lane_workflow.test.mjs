@@ -415,6 +415,19 @@ const tidy = followup('x.py:1', 'tidy the import order', 'follow-up (fix in plac
 const defectWithoutDraft = { ...finding('t.py:1', 'the code breaks the rule'), kind: 'defect' }
 const resumeFix = { oldTip: resumeTip, mergedBase: resumeTip, tip: resumeFixedTip, mergeResolvedLaneConflict: false, files: ['x.py'], disputed: [], blocked: false }
 const resumeArgs = { ...resumedLane, tip: resumeTip }
+const docsFinding = { ...finding('README.md:1', 'a wrong word'), kind: 'docs' }
+
+const fixBatchRouting = [
+  ['only docs findings', { fixFirst: [docsFinding] }, 'haiku', 'low'],
+  ['docs findings plus a defect', { fixFirst: [docsFinding, defectWithoutDraft] }, 'sonnet', 'medium'],
+  ['docs findings plus a fold-in', { fixFirst: [docsFinding], foldIn: [tidy] }, 'sonnet', 'medium'],
+]
+for (const [batch, handedOver, model, effort] of fixBatchRouting) {
+  test(`#191 AC-docs-batch-mechanical: a fix batch with ${batch} runs on ${model} at ${effort} effort`, async () => {
+    const { agentCalls } = await runLane({ ...resumeArgs, ...handedOver }, { 'fix-1': resumeFix })
+    assert.deepEqual([agentCalls['fix-1'].options.model, agentCalls['fix-1'].options.effort], [model, effort])
+  })
+}
 
 const resumesByHandedOver = [
   ['foldIn alone', { foldIn: [tidy] }, ['sync', 'scope-resume', 'fix-1', 'scope-1', 'r1-review']],

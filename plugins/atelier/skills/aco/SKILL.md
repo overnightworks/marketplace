@@ -126,8 +126,8 @@ refused with `only the original claimant may release`.
 4. Close bundled non-lead cards with the PR link.
 
 If the merge worked but a step failed, `aco land` prints `follow-up incomplete`
-and the re-run command; re-run it, which resumes and never merges twice. Abandoned: `aco release <n> --abandoned
-REASON`; the item stays open.
+and the re-run command; re-run it, which resumes and never merges twice.
+Abandoned: `aco release <n> --abandoned REASON`; the item stays open.
 
 ## protect hook
 

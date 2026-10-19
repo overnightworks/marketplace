@@ -26,7 +26,7 @@ says *that* a lane is claimed, reviewed and landed; this says *how*.
 
 ## Start a lane
 
-- Before the claim, trace callers and owners into the scope (contract: "How to coordinate", the trace-before-claim rule). A lane that returns `awaiting-head` with a `rescope` list needs `aco rescope`, then a resume.
+- Before the claim, trace callers and owners into the scope (contract: "How to coordinate", the trace-before-claim rule). A lane that returns `awaiting-head` with a `rescope` list needs `aco rescope`, run from the claim's own worktree (it refuses the main checkout, unlike `aco start`), then a resume.
 - Issue item: from the main checkout, run the `aco start <n> ...` line that
   `aco next` prints and fill any `<reason>` placeholder it prints (for example after
   `--whole`); it creates the worktree
@@ -109,7 +109,9 @@ becomes its own item first (`aco cut`); bundled cards use `Lands #<m>`.
 ## Land
 
 Gates are green and you hold the tip the reviewers saw. Landing is delegated as a
-named task, but the precondition is aco's:
+named task, but the precondition is aco's. The landing task must run as the
+identity the claim was made under (`ACO_AGENT` or `--agent`); another identity is
+refused with `only the original claimant may release`.
 
 1. Stand in a clean checkout of the default branch — the primary checkout, never the
    lane worktree.
@@ -123,8 +125,8 @@ named task, but the precondition is aco's:
    "How to coordinate" says. Then `aco next`.
 4. Close bundled non-lead cards with the PR link.
 
-If the merge worked but a step failed, `aco release <n> --merged <pr>` finishes it
-from the checkout that holds the worktree. Abandoned: `aco release <n> --abandoned
+If the merge worked but a step failed, `aco land` prints `follow-up incomplete`
+and the re-run command; re-run it, which resumes and never merges twice. Abandoned: `aco release <n> --abandoned
 REASON`; the item stays open.
 
 ## protect hook

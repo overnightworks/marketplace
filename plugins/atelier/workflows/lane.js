@@ -530,7 +530,7 @@ function acceptFix(fixed, blocking, foldIn) {
 }
 
 // Only a docs finding is provably behaviour-neutral; whether a defect changes behaviour needs judgement.
-const isMechanicalBatch = (blocking, foldIn) => blocking.length > 0 && blocking.every(f => f.kind === 'docs') && !foldIn.length
+const fixerRole = (blocking, foldIn) => blocking.length > 0 && blocking.every(f => f.kind === 'docs') && !foldIn.length ? 'mechanical' : 'fix'
 
 async function fixBatch(blocking, source, budgetKey) {
   const stop = fixRoundStop(blocking, budgetKey)
@@ -551,7 +551,7 @@ async function fixBatch(blocking, source, budgetKey) {
     `so name in mutation the production change, made and reverted, under which the test fails; a test that fails on the pre-fix code counts as such a mutation (failedBefore true). When a test-gap's cell pins no behaviour at all, you may remove it instead: report resolution removed-vacuous with the removal diff in diff. A docs finding needs no test. When the only finding is that the pull request conflicts with main, the merge is the whole fix. ` +
     `Otherwise one commit per finding. Push, patch the PR body only where it became false (REST PATCH with --input, never gh pr edit --body-file), run \`aco check ${pr}\` from the worktree. ` +
     `Return the new tip and files: git diff --name-only from mergedBase (from oldTip when mergeResolvedLaneConflict) to the new tip.`,
-    { label: `fix-${spent.total}`, phase: 'Fix', schema: FIX, agentType: 'atelier:code-fixer', ...claudeRole(isMechanicalBatch(blocking, foldIn) ? 'mechanical' : 'fix') })
+    { label: `fix-${spent.total}`, phase: 'Fix', schema: FIX, agentType: 'atelier:code-fixer', ...claudeRole(fixerRole(blocking, foldIn)) })
   if (!fixed) return { stop: openResult('failed', 'fix', { reason: `the fixer returned no result; inspect ${A.worktree} for commits past ${tip} and uncommitted work, then resume this run`, lastBlocking: blocking }) }
   if (![fixed.oldTip, fixed.mergedBase, fixed.tip].every(t => SHA.test(t || ''))) return { stop: openResult('failed', 'fix', { reason: 'the fixer returned a tip that is not a sha' }) }
   // What the fixer says it found already done is only reported to the head: an unaccepted fix folds nothing in.

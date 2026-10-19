@@ -1,0 +1,8 @@
+claim_id = "4b972bf4227842fb8ef4e1b7e2a7123f"
+agent = "claude"
+role = "builder"
+base = "0c90a2afcaa24c7fe21b07b864ae6e63c2bec196"
+branch = "docs/aco-skill-4746a83"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/skills/aco/SKILL.md"]
+opened_commit = "7e59d39a9fe7e648829c65a297f9e77b5336fd56"
+whole_reason = "One skill check against aco 4746a83 plus the three version pins that ship it."

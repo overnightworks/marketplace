@@ -1,0 +1,8 @@
+claim_id = "7ec1c700fd0d41ceacba095ad2694cc2"
+agent = "claude"
+role = "builder"
+base = "d8861e41f9ebe0684aa7a79908547a21ce55fe5e"
+branch = "claude/issue-186-value-before-build"
+scope = [".claude-plugin/marketplace.json", "instructions/AGENTS.md", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/.codex/agents/code-reviewer.toml", "plugins/atelier/agents/code-reviewer.md", "plugins/atelier/skills/plan-review/SKILL.md", "plugins/atelier/workflows/lane.js"]
+opened_commit = "ed813af4757fbd5c6825f49f2bc70dbc8dbdcda9"
+whole_reason = "One ruled rule anchored at its contract owner, mirrored in the two reviewer texts that restate the blocking definition, plus the pins that ship them."

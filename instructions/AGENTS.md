@@ -150,22 +150,26 @@ judgment to contract. A rule the operator has just spoken is already ruled —
 the gate binds the head's own proposals, not the operator's word.
 
 Take the cleanest solution that still looks right in a year: one owner, no
-parallel copies, no workaround that has to be undone later. Fix the cause.
-Before presenting a plan or demanding an addition, compare it once more with the
-simplest alternative that meets the requirements. State briefly in the plan or
-finding what problem it solves, for whom, and why the added complexity earns its
-keep. For a safeguard, consider credible failures or attacks, their likelihood
-and severity, recovery, and the costs and risks of building, operating,
-maintaining or deferring it; name uncertainty rather than treating it as low
-risk. Distinguish what an applicable standard requires, recommends and leaves
-optional: optional does not mean unnecessary for this system. This comparison
-cannot waive ruled behaviour, required checks, mandatory edges, or necessary
-protection of data, security and rights. Leave unjustified additions out and
-name any remaining risk on the owning item. For example, an extra confirmation
-click and exposing a credential are different harms; the solution must account
-for both. Verify evidence before you say it is done. If the UI changed, require
-a delegated agent to drive it like a user. If you cannot verify, say exactly
-what you could not do — after you actually tried.
+parallel copies, no workaround that has to be undone later. Fix the cause. A
+stopgap that an open item's planned solution will replace is built only when the
+people who use the system today cannot wait for that item, or when the current
+state is unlawful or misleading; otherwise the work waits for that item and is
+built right once (operator ruling 19.10.2026). Before presenting a plan or
+demanding an addition, compare it once more with the simplest alternative that
+meets the requirements. State briefly in the plan or finding what problem it
+solves, for whom, and why the added complexity earns its keep. For a safeguard,
+consider credible failures or attacks, their likelihood and severity, recovery,
+and the costs and risks of building, operating, maintaining or deferring it;
+name uncertainty rather than treating it as low risk. Distinguish what an
+applicable standard requires, recommends and leaves optional: optional does not
+mean unnecessary for this system. This comparison cannot waive ruled behaviour,
+required checks, mandatory edges, or necessary protection of data, security and
+rights. Leave unjustified additions out and name any remaining risk on the
+owning item. For example, an extra confirmation click and exposing a credential
+are different harms; the solution must account for both. Verify evidence before
+you say it is done. If the UI changed, require a delegated agent to drive it
+like a user. If you cannot verify, say exactly what you could not do — after you
+actually tried.
 
 No new item without a named caller (operator ruling 04.09.2026). A review
 finding is a caller only through the ruled sentence it breaks or the person or

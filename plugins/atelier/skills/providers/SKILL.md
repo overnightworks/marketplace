@@ -11,6 +11,13 @@ read auth files. `$WT` is the agent's worktree, `$BRIEF` its brief, `$OUT` its
 output file; `$BRIEF` and `$OUT` are absolute paths, because Grok resolves a
 relative `--prompt-file` against `--cwd`.
 
+Every `$BRIEF` a head writes for Codex or Grok opens with this line, so the
+agent does not take itself for a main session and run the session-start
+routine:
+
+> This is a delegated step started by a head, not a main session: skip the
+> session-start routine and do only this brief.
+
 ## Version check and smoke check
 
 Proven with codex-cli 0.163.0 and grok 1.0.60; read the installed versions with
@@ -42,6 +49,11 @@ The prompt comes on stdin from `$BRIEF`; the answer lands in `$OUT`. Run it in
 the foreground, or detached with its exit status written to a marker file as
 `codexReview` in `plugins/atelier/workflows/lane.js` does. A reviewer never gets
 the writer's permission profile.
+
+A read-only reviewer runs no tests: `uv` cannot write its cache lock on the
+read-only filesystem, and a `.venv` fallback can stall. Its brief says "do not
+run tests"; its verdict is a reading review that the builder's targeted run and
+CI complete.
 
 ## Codex writer in a linked worktree
 

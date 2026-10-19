@@ -1,0 +1,8 @@
+claim_id = "f5e6d425bc764e5f84219f081cd7a4f0"
+agent = "claude"
+role = "builder"
+base = "6a7aeee9cf7ec6cf9fe38454bb6b8f040f561413"
+branch = "claude/issue-140-retire-sonar-findings-gate"
+scope = [".claude-plugin/marketplace.json", ".github/actions/sonar-findings-gate/action.yml", "README.md", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/skills/sonar-distributor/SKILL.md", "scripts/sonar_findings_gate.py", "tests/test_sonar_findings_gate.py"]
+opened_commit = "b48de9e73acd1c7041efd438a9b039858dcfe06e"
+whole_reason = "One retired action removed with its script, test, README section and skill pointer, plus the three version pins that ship it."

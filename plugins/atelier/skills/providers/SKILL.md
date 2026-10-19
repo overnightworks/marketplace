@@ -51,9 +51,9 @@ the foreground, or detached with its exit status written to a marker file as
 the writer's permission profile.
 
 A read-only reviewer runs no tests: `uv` cannot write its cache lock on the
-read-only filesystem, and a `.venv` fallback can stall (webauth, 18-19.10.2026).
-Its brief says "do not run tests"; its verdict is a reading review that the
-builder's targeted run and CI complete.
+read-only filesystem, and a `.venv` fallback can stall. Its brief says "do not
+run tests"; its verdict is a reading review that the builder's targeted run and
+CI complete.
 
 ## Codex writer in a linked worktree
 

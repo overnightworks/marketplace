@@ -47,6 +47,9 @@ deterministically, and at the right altitude.
   orphans fail in both directions; when e2e tests exist with no spec scheme,
   recommend one as a finding. Unit tests stay exempt — their names are their
   spec.
+- Shape: when tests need heavy arrangement, or test:src rises well above its
+  history, run audit-architecture's depth pass on the module under test;
+  test explosion is usually a shallow-module symptom.
 - Failure clarity: assertion messages, test names, and fixtures make the broken
   behavior easy to identify.
 

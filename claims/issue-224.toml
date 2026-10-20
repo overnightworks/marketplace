@@ -1,8 +1,0 @@
-claim_id = "791a211c1e6843dd86d793b4ae3e8541"
-agent = "claude"
-role = "builder"
-base = "b578ce478dcd7f4b231eba7a32deba050854ec8f"
-branch = "claude/issue-224-audit-capabilities"
-scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/skills/audit/SKILL.md", "plugins/atelier/skills/audit/references/deadweight.md", "plugins/atelier/skills/audit/references/tests.md"]
-opened_commit = "6f518fd78a54aa13a925307ed82b07e14fee85a5"
-whole_reason = "Six small capability lines in one skill under one version bump; split, they only multiply bumps."

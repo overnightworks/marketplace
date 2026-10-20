@@ -44,8 +44,14 @@ exceptions (operator ruling 18.10.2026).
 
 An explicit operator request wins. Without one:
 
-1. In a Git repository, read its guidance and product truth, then inspect the
-   live board, active claims, dependencies, working tree, and CI.
+1. In a Git repository, read its guidance and product truth — its vision
+   (`docs/VISION.md`), its architecture overview (`docs/ARCHITECTURE.md`) and
+   the ruled sentences it keeps — then inspect the live board, active claims,
+   dependencies, working tree, and CI. A repository without one of the two
+   documents gets it when a decision first needs it: the head has it drafted
+   from the README, the code and the rulings, in the shape the `write-docs`
+   skill gives; a vision comes to the operator with that decision and binds
+   once he has blessed it.
 2. Resume an unfinished lane you own. Otherwise run `aco next` and
    take the item it names; production/security/data loss and red CI still
    come first. Claim a different item only with `--out-of-order REASON`; the
@@ -138,6 +144,15 @@ subagent through its parent, and on to the operator, before the contested part
 is built; it is neither built stubbornly nor silently swapped in, and the ruled
 sentence stands until the operator rules again.
 
+Each repository's head owns its product: what it is for, what it deliberately
+is not, and its quality, judged by who uses it today. For a library or shared
+workflow these include the repositories that depend on it, read from their
+manifests and pins when a decision touches them, never kept as a list; a
+dependency no manifest shows stands as one sentence in the vision. A change that
+breaks what a dependent uses is asked of that dependent before it is built, and
+each dependent's head owns its own upgrade. A head asks about a decision at
+hand; wishes gathered without one are inventory (operator ruling 20.10.2026).
+
 A rule change is itself a change under review (operator ruling 31.08.2026):
 before the head anchors a new or altered standing rule — in this contract, a
 doctrine document, or the coordination process — it writes the problem, the
@@ -198,16 +213,23 @@ head opens or refines its owning item before further work. After a PR merges
 or an issue closes, release its claim before removing the stale worktree and
 branch. The head checks `git worktree list` at session start and prunes.
 
-Friction goes to its owner (operator ruling 18.10.2026). When a session meets
-something in a repository the operator owns that does not make sense — a tool
-that refuses, a skill or workflow that does not fit, a rule that misleads — the
-head reports it in the repository that owns it rather than silently working
-around it; a subagent reports it to the head. First the head questions its own
-wish: what happened, why it wants a change, whether the wish is right, what
-could be better and why. Then it searches that board as above, plus its closed
-items and rulings. A new item is an idea: the incident with evidence, the wish
-with its reason, and the lane that hit it as its caller, never a finished
-solution. Evidence from a private repository enters a public one only as a
+Friction and questions go to their owner (operator rulings 18.10. and
+20.10.2026). When a session meets something in a repository the operator owns
+that does not make sense — a tool that refuses, a skill or workflow that does
+not fit, a rule that misleads, or something that needs an answer only that
+repository's head can give — the head reports it in the repository that owns it
+rather than silently working around it; a subagent reports it to the head. First
+the head questions its own wish: what happened, why it wants a change, whether
+the wish is right, what could be better and why. It looks up what that
+repository's code, board and vision already answer. A question goes first to
+that repository's head when this session can reach it live, and the answer goes
+into the asking item; otherwise, or when no answer comes before it is needed,
+the head goes on as follows. Then it searches that board as above, plus its
+closed items and rulings. A new item is an idea: the incident with evidence, the
+wish with its reason, and the lane that hit it as its caller, never a finished
+solution. A question is a work item when opened: an `aco` block, the question,
+the asker's recommendation, and the waiting item, which names it in `Blocked by`
+as `<owner>/<repo>#<n>` and as a GitHub dependency. Evidence from a private repository enters a public one only as a
 pointer.
 
 One exclusive build claim per issue before the first edit; read-only review
@@ -231,7 +253,8 @@ Comments preserve evidence; the issue body alone is the current handoff. After
 every landing or plan pivot, update each still-open affected item with a
 compact projection: `Now`; exactly one concrete `Next`, including an issue or
 PR link when it depends on one; `Blocked by`, containing `nichts` when
-unblocked or comma-separated open issue numbers when blocked; and `Done when`.
+unblocked or comma-separated open issue numbers when blocked,
+`<owner>/<repo>#<n>` for another repository's item; and `Done when`.
 When a child or slice lands, update its parent or
 epic body too — the landing brief names this step. An epic without a
 terminal, checkable `Done when` is not an item: give it one at dispatch or

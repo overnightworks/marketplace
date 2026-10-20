@@ -30,7 +30,8 @@ that item from the report.
 
 A single reviewer inherits the system's own story. Each lens is independent,
 is told to disprove a specific claim, and sees none of the others' work.
-Dispatch at least three read-only auditor agents in parallel:
+Dispatch the lenses below as read-only auditor agents in parallel (at least
+three; the depth pass whenever modules or tests are in question):
 
 1. **Boundaries and enforcement.** Do the declared owners hold IN CODE — and,
    **does the enforcement tool actually run the checks everyone believes it
@@ -56,7 +57,6 @@ Dispatch at least three read-only auditor agents in parallel:
    path on that copy: wall-clock per endpoint, scaling with page size and
    history. An invariant without an enforcing function and a cost without a
    measurement are both findings.
-
 4. **Depth.** Judge each module by what a caller must learn (invariants,
    ordering, errors, configuration, performance) against the behaviour it
    gives. A deep module has a small interface over much behaviour; a shallow
@@ -66,9 +66,17 @@ Dispatch at least three read-only auditor agents in parallel:
      pass-through; complexity that reappears across its callers means it
      earned its place.
    - **Test surface.** Tests should need only the interface. Tests that reach
-     past it, or need heavy arrangement, show the wrong shape.
+     past it, or need heavy arrangement, show the wrong shape. For each
+     production entry point, check whether tests drive it or a test-only
+     sibling (a function with no production caller, a copy of a worker
+     script, a fake that re-implements a production step); report the shipped
+     path as unproven and name the real adapter the tests should move onto.
    - **Seam count.** One adapter behind a port is a hypothetical seam; two
      real ones make a seam. Lens 2 counts them.
+   - **Enforcement.** When an interface carries an ordering or "callers must
+     not" rule only in a docstring or an assert, look for a caller that
+     already breaks it (a flush defeats a dirty-session assert). A broken
+     rule goes on the defects list.
 
    Findings that reshape an interface are `needs plan review`. Concepts after
    mattpocock/skills, `engineering/codebase-design` and

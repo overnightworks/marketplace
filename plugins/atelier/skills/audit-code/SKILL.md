@@ -3,9 +3,9 @@ name: audit-code
 description: Audit source code for maintainability and code-hygiene problems that static tools cannot fully judge. Use when asked to audit code quality, find code smells, review readability, or check a diff against repository coding conventions.
 ---
 
-Audit code hygiene against the repository's coding guidance (`AGENTS.md` or
-`CLAUDE.md`; the global contract if installed at `~/.claude/CLAUDE.md`, or
-`~/.codex/AGENTS.md` for Codex, else the conventions the code itself follows).
+Audit code hygiene against the global contract's code policy (`~/.claude/CLAUDE.md`, or
+`~/.codex/AGENTS.md` for Codex) and the repository's `AGENTS.md` or `CLAUDE.md`
+for its facts, else the conventions the code itself follows.
 Let configured tools own mechanical checks such as formatting, imports, type
 errors, dead code, and known complexity thresholds. This skill is for semantic
 judgment after reading the code.

@@ -19,7 +19,7 @@ Scope:
 - Stay read-only.
 
 Source of Truth:
-- Read AGENTS.md, the repository's tooling/verification doc when one exists, and the smallest relevant architecture, plan, source, test, and configuration files.
+- Read the code policy, the repository's AGENTS.md, the repository's tooling/verification doc when one exists, and the smallest relevant architecture, plan, source, test, and configuration files.
 - Use the plan-review skill's checklist when the Skill tool offers it; it is the checklist owner.
 
 Procedure:

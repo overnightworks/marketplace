@@ -12,8 +12,8 @@ and note "out of scope: agent-documentation" in the report.
 
 ## Procedure
 
-1. Read the repository documentation guidance (`AGENTS.md`, `README.md`, a
-   `docs/` index if present).
+1. Read the code policy's documentation rules and the repository's documentation facts
+   (`AGENTS.md`, `README.md`, a `docs/` index if present).
 2. Give each scoped document two labels. Its type is one of
    [write-docs' document types](../write-docs/references/document-types.md),
    read from its `Type:` line (or `type:` key) and inferred from content when absent. Its status

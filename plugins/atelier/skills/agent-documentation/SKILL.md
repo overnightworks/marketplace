@@ -12,8 +12,8 @@ what is shared policy versus project fact.
 
 When a repository has no `AGENTS.md`, or one that is not facts-only, seed:
 
-- `AGENTS.md` with project facts only: commands, layout facts, state and
-  tooling owners;
+- `AGENTS.md` with only the facts the global contract's preamble defines as
+  that repository's own;
 - `CLAUDE.md` containing exactly `@AGENTS.md`.
 
 Generic rules live in the global contract (`instructions/AGENTS.md` in the

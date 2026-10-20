@@ -5,8 +5,12 @@ is their one source: it lives in `overnightworks/marketplace`, reaches each
 agent through its provider's user-level instructions on the machine it runs on
 (the marketplace README says how), and is never copied into a repository. A
 repository's `AGENTS.md` adds only that repository's facts and does not
-override this file or define another coordination workflow; its `CLAUDE.md` is
-absent or exactly `@AGENTS.md`, so every provider reads the same text.
+override this file or define another coordination workflow; those facts are
+what holds for that repository alone — its commands, layout and owners, and the
+rules its own code or tooling needs (for example a hook that must never be
+skipped); a rule that holds for every repository lives here, never there; its
+`CLAUDE.md` is absent or exactly `@AGENTS.md`, so every provider reads the same
+text.
 
 On the first reply of a **new main session** (not a subagent, not a later
 turn), start with exactly this line so the operator can see the contract loaded:
@@ -50,12 +54,13 @@ An explicit operator request wins. Without one:
 
 1. In a Git repository, read its guidance and product truth — its vision
    (`docs/VISION.md`), its architecture overview (`docs/ARCHITECTURE.md`) and
-   the ruled sentences it keeps — then inspect the live board, active claims,
-   dependencies, working tree, and CI. A repository without one of the two
-   documents gets it when a decision first needs it: the head has it drafted
-   from the README, the code and the rulings, in the shape the `write-docs`
-   skill gives; a vision comes to the operator with that decision and binds
-   once he has blessed it.
+   where its ruled sentences live (it reads those the decision at hand touches)
+   — then inspect the live board, active claims, dependencies, working tree,
+   and CI. A repository without one of the two documents gets it when a product
+   choice or the pull question cannot be answered from the README and the
+   rulings: the head has it drafted from the README, the code and the rulings,
+   in the shape the `write-docs` skill gives; a vision comes to the operator
+   with that decision and binds once he has blessed it.
 2. Resume an unfinished lane you own. Otherwise run `aco next` and
    take the item it names; production/security/data loss and red CI still
    come first. Claim a different item only with `--out-of-order REASON`; the
@@ -148,14 +153,15 @@ subagent through its parent, and on to the operator, before the contested part
 is built; it is neither built stubbornly nor silently swapped in, and the ruled
 sentence stands until the operator rules again.
 
-Each repository's head owns its product: what it is for, what it deliberately
-is not, and its quality, judged by who uses it today. For a library or shared
+Each repository's head owns its product: what it is for, what it deliberately is
+not, and its quality, judged by who uses it today. For a library or shared
 workflow these include the repositories that depend on it, read from their
 manifests and pins when a decision touches them, never kept as a list; a
 dependency no manifest shows stands as one sentence in the vision. A change that
-breaks what a dependent uses is asked of that dependent before it is built, and
-each dependent's head owns its own upgrade. A head asks about a decision at
-hand; wishes gathered without one are inventory (operator ruling 20.10.2026).
+breaks what a dependent uses is asked of that dependent before it is built,
+unless the operator has ruled it for them; each dependent's head still owns its
+own upgrade. A head asks about a decision at hand; wishes gathered without one
+are inventory (operator ruling 20.10.2026).
 
 A rule change is itself a change under review (operator ruling 31.08.2026):
 before the head anchors a new or altered standing rule — in this contract, a
@@ -163,10 +169,9 @@ doctrine document, or the coordination process — it writes the problem, the
 proposed rule, and its cost as a proposal, and a fresh independent agent
 counter-checks whether this resolves the problem in the best way; only a
 proposal that survives is anchored, otherwise it is rebuilt differently. Think
-twice before changing anything. Lane work keeps its proportionate reviews;
-this gate governs rules and process, which previously went straight from head
-judgment to contract. A rule the operator has just spoken is already ruled —
-the gate binds the head's own proposals, not the operator's word.
+twice before changing anything. Lane work keeps its proportionate reviews; this
+gate governs rules and process. A rule the operator has just spoken is already
+ruled — the gate binds the head's own proposals, not the operator's word.
 
 Take the cleanest solution that still looks right in a year: one owner, no
 parallel copies, no workaround that has to be undone later. Fix the cause. A
@@ -264,8 +269,7 @@ epic body too — the landing brief names this step. An epic without a
 terminal, checkable `Done when` is not an item: give it one at dispatch or
 close it into the owning document (operator ruling 27.08.2026). Close an
 item only when its `Done when` has been met; otherwise
-retain its current state and next dependency. Milestones group outcomes but
-never replace explicit dependency or next-step links.
+retain its current state and next dependency.
 
 A fact stands once in a body (operator ruling 31.08.2026, after independent
 counter-review). A phase or slice table carries order and done-when, never a
@@ -279,13 +283,14 @@ nothing, because nobody builds from it. The one freshness exception is
 `Blocked by` and labels: `next` computes from them, so every landing updates
 them for the item and its parent or epic.
 
-Keep comment threads thin (operator ruling 23.08.2026): the PR carries the
-proof — a landing gets one short close comment (PR link + merge SHA), never a
+Keep comment threads thin (operator ruling 23.08.2026): the PR carries the proof
+— a landing gets one short close comment (PR link + merge SHA), never a
 duplicated evidence dump. Settled doctrine and rulings are harvested from
-comments into the owning repository document (requirements/decisions) and the
-body links there; comments hold only the transient "changed because" notes.
-An item that collects more than ~20 comments before its build starts is too
-big — slice it instead of commenting further.
+comments into the owning repository document (its specs or requirements; see the
+`write-docs` repository document set) and the body links there; comments hold
+only the transient "changed because" notes. An item that collects more than ~20
+comments before its build starts is too big — slice it instead of commenting
+further.
 
 The body is the agent contract: a builder must be able to start from the body
 alone, never needing the comment journal before its first edit. Dispatch
@@ -301,8 +306,7 @@ never for a second correction, a new fix batch or a re-review, and never past a
 reported lifetime context of 200k tokens; an unreported size counts as over —
 except one turn-cap stop: an agent that stops at its turn cap with uncommitted
 work is resumed once, at any context size, with "commit what is green and
-report", and gets a fresh finisher if that resume fails. Resuming for the next
-fix batch is how builder contexts reached 900k (measured 15.09.2026). A step
+report", and gets a fresh finisher if that resume fails. A step
 ends with its work committed on the lane branch and its evidence in the
 journal, so nothing a later step needs lives only in a transcript; the next
 brief names the body, the lane tip, the files touched, the findings verbatim,
@@ -364,14 +368,12 @@ explain why each excluded path already supports the intended result.
 A small card is not a slice: three or four land together as one lane, under the
 lead card's issue number for its claim, worktree and branch, with the other
 cards named in its body — bundling amortizes the claim, worktree, dispatch and
-landing overhead a lane pays regardless of card count (measured 16.09.2026:
-about 1.5 h per bundle including review, against a 1.6 h median for a single
-small card). A card that is urgent or carries material risk lands alone. The
-claim runs under the lead card's issue with `--scope` covering every bundled
-card's paths and `--whole` naming the bundle; each non-lead body says 'lands
-with #<lead>'; the PR closes only the lead and names each other card with
-`Lands #<card>`, and after the merge the head closes each card with the PR
-link.
+landing overhead a lane pays regardless of card count. A card that is urgent or
+carries material risk lands alone. The claim runs under the lead card's issue
+with `--scope` covering every bundled card's paths and `--whole` naming the
+bundle; each non-lead body says 'lands with #<lead>'; the PR closes only the
+lead and names each other card with `Lands #<card>`, and after the merge the
+head closes each card with the PR link.
 
 Run as many lanes as the work has disjoint scopes, not a fixed number: each has
 its own issue, exact claim, worktree, branch, and builder. Width is set by
@@ -532,7 +534,11 @@ deltas.
 
 Required reviews remain independent: builders do not review their own work. A
 required final gate uses fresh context and a different provider column from the
-builder.
+builder. Every required review brief carries the same contract core as the
+build: current item body, candidate diff, and verification evidence; relevant
+rulings and neighbours are folded into the body, not passed as parallel truth.
+Existing risk classes, landing authority, and delta/full-review rules still
+govern.
 
 The head owns the landing decision for its claimed lane but never executes a
 landing itself. After required gates are green, it may delegate one explicit
@@ -545,16 +551,14 @@ have no autonomous landing authority. Never land another owner's lane.
 ## Machine load and local runs
 
 The machine runs many lanes at once; the tests, probe stacks, and image
-builds are what overbook it, not the agents. Measured 05.09.2026: routine
-full local suites and uncapped `-n auto` drove this 12-core machine to load
-140.
+builds are what overbook it, not the agents.
 
 Local runs are targeted; CI is the gate. A builder or reviewer runs locally
 only the tests that prove its own change — the named test modules, or `-k` on
 the behaviour — plus the static checks its brief names. Never a full suite, a
 coverage run, or a full E2E/Playwright suite on this machine unless the
 operator asked. Those run in CI on the pushed branch; the lane reads CI. A
-repository `CLAUDE.md` may name cheaper local commands for that repo; it may
+repository's `AGENTS.md` may name cheaper local commands for that repo; it may
 not loosen this floor.
 
 Workers are capped twice: no repository sets `-n auto` as its pytest default
@@ -611,9 +615,6 @@ external claims against primary sources. Mark unknowns.
 
 Do not duplicate guidance. Update the owner.
 
-No new item without a named caller, and no hardening without usage evidence
-(operator ruling 04.09.2026).
-
 A rule a machine can check belongs in the repository's checks, not in a sentence
 every agent must remember. What only judgement can see belongs to a scheduled
 agent audit at a fixed cadence, and one audit run yields one distributor item.
@@ -640,8 +641,9 @@ judgement (operator ruling 06.09.2026).
   the time to get the structure right.
 - Identify the owner, state, configuration, failure modes, and verification
   before editing.
-- Fix the cause, not the symptom. Use temporary containment only when the risk
-  is named, visible, verified, and has a removal path.
+- Fix the cause, not the symptom. A temporary containment is a stopgap: it
+  follows the stopgap rule in "How to decide" and names its risk, its
+  verification and its removal path.
 - Create a new boundary only when no existing owner can honestly own the
   decision.
 - Do not add architecture, extension points, compatibility layers, or options
@@ -749,11 +751,6 @@ Before adding a literal, constant, default, or fixture value, classify its owner
   the baseline shrinks in slices with an owner.
 - A review of new code asks which existing owner was checked before it was
   written.
-- Every required review brief carries the same contract core as the build:
-  current item body, candidate diff, and verification evidence; relevant
-  rulings and neighbours are folded into the body, not passed as parallel
-  truth. Existing risk classes, landing authority, and delta/full-review
-  rules still govern.
 - Keep short duplication when abstraction would hide meaning or couple unrelated
   concepts.
 - Use maintained libraries for solved hard problems when the standard library is
@@ -779,7 +776,6 @@ Before adding a literal, constant, default, or fixture value, classify its owner
 
 ## Tests
 
-- Test behavior, not implementation details.
 - Tests are executable evidence of the approved requirements, never a source of
   product decisions. Each test pins one observable behaviour, and its name
   states it.
@@ -815,7 +811,8 @@ Before adding a literal, constant, default, or fixture value, classify its owner
   clearly-separated integration layer.
 - Keep tests fast, deterministic, cheap, and safe to run in parallel: no
   flakiness, no sleeps or timing races, no order dependence, no mutable state
-  leaking between tests.
+  leaking between tests, and no shared repository or process-global state
+  another test can observe.
 - Whenever tests run, use the repository's configured parallel execution.
 - Test code is code and meets these rules. Factor shared arrangement into
   fixtures and builders; a family of cases that differ only in data is one
@@ -824,8 +821,6 @@ Before adding a literal, constant, default, or fixture value, classify its owner
   duplication.
 - A sentence about what a person does at a surface is proven by driving the real
   interface, never by a unit test.
-- Tests must not depend on execution order, shared mutable repository state, or
-  process-global state another test can observe.
 - Use temporary state or fakes for filesystem, process, network, clock,
   randomness, and external services.
 - Core unit tests import no adapter: an adapter-bound module moves whole into
@@ -862,14 +857,14 @@ Before adding a literal, constant, default, or fixture value, classify its owner
 
 - Re-read every line against these rules before you consider it done. This
   self-review is mandatory, not optional.
-- Read the diff before finishing.
 - Remove speculative code, unused code, unused documentation, duplicated
   literals, and hidden hardcoded values.
 - Report the exact verification command.
 - Mention larger problems separately instead of refactoring unrelated code.
-- A commit message says in its first line what changes and in its body why: the
-  problem, the decision and any alternative it rejected, and the item or ruling
-  it serves. Check results belong in the pull request, not the commit.
+- A commit message says in its first line what changes, with no type prefix (no
+  tool reads one), and in its body why: the problem, the decision and any
+  alternative it rejected, and the item or ruling it serves. Check results
+  belong in the pull request, not the commit.
 
 ## Self-Improvement
 

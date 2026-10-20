@@ -73,8 +73,13 @@ contract and this skill.
 
 ## Item bodies
 
-- Forge issues are edited on the forge. `aco item` is only for state-ref items;
-  `aco item edit` on a forge issue refuses.
+- Open an item with `aco item new --title … --kind task|feature|container
+  [--parent N]`, with the body on stdin. Under `storage = "github"` it opens the
+  GitHub issue, sets its issue type and parent, and refuses a possible twin (a
+  similar open or recently closed title) unless `--not-a-twin` is given
+  (`specs/item.spec.md`). A bare `gh issue create` leaves type and parent unset.
+- Forge issues are edited on the forge; `aco item edit` on a forge issue
+  refuses.
 - Read a body with `gh issue view <n> --json body --jq .body` and write it with
   `gh issue edit <n> --body-file <file>` (a PR uses `gh pr view` and `gh pr edit`).
 - Keep the contract's `Blocked by:` line, and record each blocker as a GitHub issue
@@ -120,7 +125,9 @@ refused with `only the original claimant may release`.
    (`--keep-worktree` keeps them). `specs/land.spec.md`. `aco land` has already
    released the claim; after a land, the head's release step is verifying that
    with `aco status`. `aco release --merged` is for merges made outside
-   `aco land`.
+   `aco land`. Then pull the primary checkout (`git pull --ff-only`) so it holds
+   the landed main; in marketplace that checkout is the installed contract for
+   every agent.
 3. The landing agent reports the follow-up lines `aco land` prints (`freed:`,
    `next:`, in agent-coordination also `reinstall:`) to the head and runs none of
    them. The head acts on them as the contract's "How to coordinate" says, then

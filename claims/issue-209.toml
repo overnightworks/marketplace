@@ -1,0 +1,8 @@
+claim_id = "3efc24fa7d934434ac256c4365b1fe39"
+agent = "claude"
+role = "builder"
+base = "0e04edf2b48e9be05a82c874cda71d88e6805643"
+branch = "claude/issue-209-audit-skill"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/.codex/agents/code-auditor.toml", "plugins/atelier/agents/code-auditor.md", "plugins/atelier/skills/audit", "plugins/atelier/skills/audit-architecture", "plugins/atelier/skills/audit-code", "plugins/atelier/skills/audit-deadweight", "plugins/atelier/skills/audit-ownership", "plugins/atelier/skills/audit-runtime", "plugins/atelier/skills/audit-security", "plugins/atelier/skills/audit-tests", "plugins/atelier/skills/code-cleanup", "scripts/check_skills_baseline.json"]
+opened_commit = "6b2abe86171dfa819eeef71929b7d5e76f61803a"
+whole_reason = "One rename of a skill family: the new skill, the deletion of its predecessors and their only consumer must land together or two sets of triggers coexist."

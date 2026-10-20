@@ -781,8 +781,8 @@ Before adding a literal, constant, default, or fixture value, classify its owner
 
 - Test behavior, not implementation details.
 - Tests are executable evidence of the approved requirements, never a source of
-  product decisions. Each test pins one observable behaviour, and its name states
-  it.
+  product decisions. Each test pins one observable behaviour, and its name
+  states it.
 - Assert outcomes, not internals: no private fields, and no mock call counts or
   order unless the interaction is itself a contract; no pinning exact log
   strings or internal data shapes that aren't part of the contract. Would the

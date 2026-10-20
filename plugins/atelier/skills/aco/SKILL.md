@@ -1,6 +1,6 @@
 ---
 name: aco
-description: Operate aco (agent claims, the work board, landing) in any repository that coordinates with it. Use before `aco start`, `aco claim`, `aco land`, writing a pull request body, or editing an item body; when briefing agents, releasing a claim, or installing the protect hook; and whenever aco refuses something.
+description: Operate aco (agent claims, the work board, landing) in any repository that coordinates with it. Use before `aco start`, `aco claim`, `aco land`, writing a pull request body, or editing an item body; when briefing agents or releasing a claim; and whenever aco refuses something.
 ---
 
 # Operating aco as a head
@@ -137,15 +137,6 @@ refused with `only the original claimant may release`.
 If the merge worked but a step failed, `aco land` prints `follow-up incomplete`
 and the re-run command; re-run it, which resumes and never merges twice.
 Abandoned: `aco release <n> --abandoned REASON`; the item stays open.
-
-## protect hook
-
-`aco protect` is a `PreToolUse` hook that denies a mutating tool call (writes, Bash
-write patterns) outside a linked worktree with a live claim covering the path.
-Install it once, in the head's git-ignored `.claude/settings.local.json` — the
-session that runs the subagents, not each worktree — using the exact matcher and
-`ACO_AGENT` guidance in the README section "PreToolUse write gate". Never `"*"` as
-matcher. Denial reasons: `specs/protect.spec.md`.
 
 ## Friction
 

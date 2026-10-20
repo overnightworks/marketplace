@@ -1,0 +1,8 @@
+claim_id = "63ff02260bcf4990973f4cac09f5bb1e"
+agent = "claude"
+role = "builder"
+base = "461cf940216c396035ee455edfc748ff8dd5ac42"
+branch = "claude/issue-196-contract-product-truth"
+scope = [".claude-plugin/marketplace.json", "instructions/AGENTS.md", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/skills/write-docs/SKILL.md", "plugins/atelier/skills/write-docs/references/document-types.md"]
+opened_commit = "c6d4cc68ce6c00b41fbf15e9a5b2725d929c4d1f"
+whole_reason = "One ruled contract change and the write-docs owner of the document set it points to, plus the pins that ship it."

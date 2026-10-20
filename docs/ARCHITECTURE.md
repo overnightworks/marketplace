@@ -21,7 +21,7 @@ flowchart LR
     subgraph marketplace["overnightworks/marketplace"]
         contract["instructions/AGENTS.md<br/>contract + code policy"]
         plugin["plugins/atelier<br/>skills, agents, workflows"]
-        codexagents[".codex/agents<br/>generated from agents/"]
+        codexagents["plugins/atelier/.codex/agents<br/>generated from agents/"]
     end
     subgraph machine["each machine"]
         userfiles["~/.claude/CLAUDE.md<br/>~/.codex/AGENTS.md"]

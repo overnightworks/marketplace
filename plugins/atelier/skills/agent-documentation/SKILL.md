@@ -12,14 +12,17 @@ what is shared policy versus project fact.
 
 When a repository has no `AGENTS.md`, or one that is not facts-only, seed:
 
-- `AGENTS.md` with project facts only: commands, layout facts, state and tooling
-  owners, and a pointer to `docs/VISION.md` and `docs/ARCHITECTURE.md`;
+- `AGENTS.md` with project facts only: commands, layout facts, state and
+  tooling owners;
 - `CLAUDE.md` containing exactly `@AGENTS.md`.
 
 Generic rules live in the global contract (`instructions/AGENTS.md` in the
 marketplace repository, installed per machine) and are never copied into a
-repository. Merge into an existing file — never overwrite deliberate project
-policy; add what is missing and report what was kept.
+repository. When migrating an existing file, keep every repository fact and
+remove each generic rule the contract already states. A local policy that
+differs from the contract is not kept as a second owner: report it to the
+parent, who brings it to the operator, and leave it in place only until that
+ruling. Report what was kept and what was removed.
 
 ## Procedure
 

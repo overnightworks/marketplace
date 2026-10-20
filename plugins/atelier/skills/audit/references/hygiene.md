@@ -38,7 +38,9 @@ The code policy owns the rules; this is the list of what the audit looks for.
 
 ## Severity examples
 
-Group findings under one heading per checklist item; `Why` is optional here.
+Group findings under one heading per checklist item.
 `HIGH` for code shape that hides behavior or makes future changes unsafe.
 `MEDIUM` for clear maintainability drift. `LOW` for localized or arguable
 issues.
+
+Hand-offs: none.

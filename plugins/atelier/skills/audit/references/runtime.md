@@ -44,4 +44,6 @@ is a source audit, not a profiler: report structural hazards proven by code.
 Group findings under one heading per hazard. `HIGH` for leaks, corruption, or
 resource exhaustion under normal operation. `MEDIUM` for risks that degrade at
 scale or on error paths. `LOW` for edge or arguable cases. The finding's
-`What` is the confirmed runtime risk and `Why` is when it bites.
+`Evidence` is the confirmed runtime risk and `Why` is when it bites.
+
+Hand-offs: none.

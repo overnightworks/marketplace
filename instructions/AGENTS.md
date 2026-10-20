@@ -229,8 +229,8 @@ closed items and rulings. A new item is an idea: the incident with evidence, the
 wish with its reason, and the lane that hit it as its caller, never a finished
 solution. A question is a work item when opened: an `aco` block, the question,
 the asker's recommendation, and the waiting item, which names it in `Blocked by`
-as `<owner>/<repo>#<n>` and as a GitHub dependency. Evidence from a private repository enters a public one only as a
-pointer.
+as `<owner>/<repo>#<n>` and as a GitHub dependency. Evidence from a private
+repository enters a public one only as a pointer.
 
 One exclusive build claim per issue before the first edit; read-only review
 stays free. Do not use a value another lane holds exclusively. GitHub issue

@@ -64,6 +64,12 @@ subject: dead weight, ballast.
 Test ballast and near-duplicate test parametrization belong to the Test size
 check in `tests.md`; route them there.
 
+Before proposing to delete code with no production caller, search the board
+for an open item that names it as its caller (an idea or plan paragraph does
+not count): such code is "frozen (item #n)", never a cut, per the code
+policy's frozen-code rule in the global contract. A feature someone uses is
+never a cut; put it on an operator decision list.
+
 ## Output
 
 Return the report inline, ranked by deletable lines, largest first; the head
@@ -76,7 +82,7 @@ Delete: <files and symbols, incl. tests that only serve it>
 Survivor: <owner to keep, for merges>
 ```
 
-On a clean run, print `CLEAN`, then the KEPT list, the "suspected, unproven"
+With no finding left (`CLEAN` as the shared Report defines it), print `CLEAN`, then the KEPT list, the "suspected, unproven"
 leads and the prevention check. Otherwise end with: the total deletable line
 count; the KEPT list — what was examined and retained because history shows it
 earning its place (a rescue, a caught bug, a prevented loss), so the audit

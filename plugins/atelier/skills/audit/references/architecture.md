@@ -74,4 +74,4 @@ localized or arguable issues.
 Prevention check: every enforcement tool a gate runs must ANNOUNCE what it
 checked (counts, not just green) — route a fix for any guard that can pass
 silently, because silent guards are how this defect class is born. If every
-claim survived every lens, output `CLEAN` with the refutation attempts listed.
+claim survived every lens, output `CLEAN` (no `HIGH` or `MEDIUM` finding remains) with the refutation attempts listed.

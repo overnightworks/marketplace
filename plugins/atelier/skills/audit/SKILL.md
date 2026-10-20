@@ -1,6 +1,6 @@
 ---
 name: audit
-description: Audit a codebase through read-only lenses, chosen by goal. Use when asked to clean up, slim down or shrink code, find dead or unnecessary code or the wrong architecture; to check architecture, module boundaries or ownership; to review security, performance, leaks or concurrency; to audit a change for code hygiene and tests; or to run a scheduled standing audit, and after any structural change or replacement. Returns a ranked, evidenced report and the distributor text; changes nothing. For plans use plan-review, for documentation trees docs-cleanup, for AGENTS.md, skills and agents agent-documentation. Not the built-in security-review (pending branch changes) or simplify (applies edits).
+description: Audit a codebase through read-only lenses, chosen by goal. Use when asked to clean up, slim down or shrink code, find dead or unnecessary code or the wrong architecture; to check architecture, module boundaries, ownership or duplicate deciders (who decides X); to review security, performance, leaks or concurrency; to audit a change for code smells, readability, test quality or coverage, brittle tests; or to run a scheduled standing audit, and after any structural change or replacement (check that a replacement left no predecessor). Returns a ranked, evidenced report and the distributor text; changes nothing. For plans use plan-review, for documentation trees docs-cleanup, for AGENTS.md, skills and agents agent-documentation. Not the built-in security-review (pending branch changes) or simplify (applies edits).
 ---
 
 An audit judges code against its own claims and the repository's rules.
@@ -16,15 +16,16 @@ item or executes a cut.** Pick the goal, run its lenses, return one report.
 | Security review | `security` |
 | Runtime and performance: leaks, blocking, growth, races | `runtime` |
 | Change audit: hygiene and tests on a diff | `hygiene`, `tests` |
-| Scheduled standing audit | `architecture`, `deadweight` or `ownership`, each on its own cadence |
+| Scheduled standing audit | `architecture`, `deadweight` (with the `tests` Test size check) or `ownership`, each on its own cadence |
 
 ## Dispatch
 
 The dispatching seat spawns one read-only subagent per lens (per numbered
 lens inside `architecture.md`) and never audits alone. A lens subagent reads
-only this file and its own reference and spawns nothing. A seat that is itself
-a lens subagent (for example `code-auditor`) takes the lens or goal the parent
-names, reads this file plus that reference, and spawns nothing.
+this file's shared rules, its own reference and any reference that one names
+for a hand-off, and spawns nothing. A seat that is itself a lens subagent (for
+example `code-auditor`) takes the lens or goal the parent names and reads the
+same way.
 
 ## Shared rules
 
@@ -54,9 +55,11 @@ names, reads this file plus that reference, and spawns nothing.
 - **Severity.** One scale: `HIGH` is a defect, exposure, corruption or loss
   that matters under normal operation; `MEDIUM` is drift or a gap needing a
   precondition; `LOW` is localized or arguable. Each lens defines its own
-  examples. Mapping to the global contract: `HIGH` is blocking; `MEDIUM` is
-  blocking when it breaks a ruled sentence or repository rule, otherwise
-  follow-up; `LOW` is follow-up.
+  examples. For a change audit, against the global contract: `HIGH` is
+  blocking; `MEDIUM` is blocking when it breaks a ruled sentence, a contract
+  or a repository rule, or touches data safety, security, secrets or a public
+  contract, otherwise follow-up; `LOW` is follow-up. On code the audit did not
+  change everything is follow-up, and the head classifies it.
 - **Report.** One heading per check that has findings, each finding as:
 
   ```text
@@ -66,10 +69,11 @@ names, reads this file plus that reference, and spawns nothing.
   Fix: <concrete change>
   ```
 
-  End with `CLEAN` when no `HIGH` or `MEDIUM` finding remains; then still list
+  End with `CLEAN` when no `HIGH` or `MEDIUM` finding remains (for
+  `deadweight` and `ownership` formats: no finding at all); then still list
   the examined-and-kept and suspected-unproven sections. A lens whose
   reference defines another finding format (`deadweight`, `ownership`) uses
-  that format and the same ending.
+  that format and this definition of `CLEAN`.
 - **Distributor hand-off.** The audit returns the distributor text: the
   numbered findings list with evidence, ready to paste. The head searches the
   board (`gh issue list --state all --search "<subject>"`, or
@@ -98,16 +102,22 @@ Make the code smaller without making it less proven. The audit produces one
 ranked list of cuts and never executes them.
 
 1. **Measure first.** Count non-blank src and test lines, the test:src ratio,
-   and growth per area since a stated base commit. Use quality's scoreboard
-   where the repository has it; otherwise state one counting rule and use it
-   throughout. Count commits per file over the last 200 commits in the area,
-   and how many files each of the last 10 feature commits touched. Start the
-   depth pass on files both hot and large, unless the caller names an area;
-   cite "feature commits touched K files" as locality evidence.
+   and growth per area since a base commit. Use quality's scoreboard where
+   the repository has it; otherwise state one counting rule (non-blank lines
+   of tracked code files) and use it throughout. Without a named base, use
+   the commit about 30 days back, or report "growth not measured". Count
+   commits per file over the last 200 commits in the area, and how many files
+   each of the last 10 non-merge commits touching production files in the
+   area ("feature commits") touched. When the caller names no area, start the
+   depth pass on files both hot and large; cite "feature commits touched K
+   files" as locality evidence.
 2. **Run the lenses in parallel** on the chosen area: `deadweight` (code that
    has not earned its place), `ownership` (several deciders for one question),
    `tests` (test size against proven behaviour), `depth` (shallow modules and
-   unreal seams).
+   unreal seams). A near-duplicate pair has one owner: a pair of deciders, or
+   a rewrite instead of a reuse, goes to `ownership`; textual clones belong to
+   quality's clone ratchet, and where the repository has none, report the pair
+   under `ownership`.
 3. **Merge** into one numbered list (defects, then concept candidates, then
    cuts). Drop duplicates across lenses and keep the strongest evidence.
    - **Defects.** When two deciders of one question disagree, trace one
@@ -133,7 +143,14 @@ ranked list of cuts and never executes them.
    `needs plan review`, never `cut now`. Test cuts follow the Test size rules
    in `references/tests.md`. Size, complexity and clone thresholds belong to
    quality's gate: point at the gate; do not restate or re-measure its rules.
-4. **Report** as one distributor item per the hand-off above; search for an
-   existing cleanup distributor first. End with the measurements from step 1,
-   the defects found, the total estimated lines saved, what was examined and
-   kept, and leads under "suspected, unproven".
+4. **Report** the distributor text per the hand-off above; the head searches
+   for an existing cleanup distributor and writes the item. Shape:
+
+   ```text
+   Measurements: <counts, counting rule, commands>
+   Suspected defects: <numbered, with triggering input>
+   Concept candidates: <members, owner, interface>
+   Ranked cuts: <cut now | needs plan review>
+   Examined and kept / Suspected and unproven:
+   Totals: <estimated lines saved, src and test apart>
+   ```

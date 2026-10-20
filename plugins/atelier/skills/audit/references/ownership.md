@@ -48,4 +48,4 @@ concepts) for this run, so it can be compared against the previous run. The
 concept list and exemption list go in the report for the head to store in the
 standing item beside the anchor; a later run reads them there and reuses
 them, appending new concepts and never renumbering. If every concept has
-exactly one decider, the report is `CLEAN`.
+exactly one decider, no finding remains: `CLEAN` as the shared Report defines it.

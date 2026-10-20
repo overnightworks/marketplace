@@ -1,7 +1,0 @@
-claim_id = "40d7d101e46c4a3da1585f5cbc0d034d"
-agent = "claude"
-role = "builder"
-base = "5c1072e85fde21ec9ac24aa3b06dfc44d6f0ab6c"
-branch = "claude/issue-217-root-layout-test-parametrize"
-scope = ["tests/test_check_root_layout.py"]
-opened_commit = "a4bd56478499087204d9c5dfe3fbc1b21043ddae"

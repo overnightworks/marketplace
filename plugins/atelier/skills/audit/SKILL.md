@@ -70,7 +70,9 @@ lead from a lens the goal does not run goes to that lens's owner list or to
   claim or suspicion, not confirm it. Confirm by reading the code, trace the
   path, then look for the check, bound or precondition that stops it. Report
   only what survives. Treat heuristic matches as false positives until the
-  code proves otherwise.
+  code proves otherwise. Before reporting a concept or a cut, search the
+  closed items and rulings for it; one a closed item retired is examined and
+  kept, citing that item.
 - **Evidence.** A finding carries `file:line` and a reproduction or proof
   (command, measurement, import graph, commit). Every count cites the command
   that produced it. Never run against live operator state; copy stores into
@@ -173,7 +175,10 @@ ranked list of cuts and never executes them.
    - **Concepts.** Group the deciders of one domain concept (for example
      "the effective price") into one candidate (its own list, not a ranked
      cut) that lists its members, the owner it should have, the interface
-     that owner would offer, and its estimated saving.
+     that owner would offer, and its estimated saving. Where an area has
+     concept candidates, sketch two target shapes (owners and the interface
+     each offers), pick one with its reason, and rank structural cuts by how
+     far they move the area toward it.
    - **Ranking.** Defects first, then concept candidates by structural
      leverage, then line-level cuts by lines saved. A pure test
      deduplication never outranks a finding on the production path.

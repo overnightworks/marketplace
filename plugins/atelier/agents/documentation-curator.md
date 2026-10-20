@@ -22,7 +22,7 @@ Scope:
 - Work with existing user changes; do not revert unrelated edits.
 
 Source of Truth:
-- Read AGENTS.md for documentation rules, then read the smallest relevant project docs, code, tests, configuration, and plans.
+- Read the code policy for documentation rules and the repository's AGENTS.md for its facts, then read the smallest relevant project docs, code, tests, configuration, and plans.
 - Use docs-cleanup when available.
 - Code and configured contracts are the source of truth for implemented behavior.
 

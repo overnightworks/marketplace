@@ -128,7 +128,7 @@ and the 05.09.2026 measurement PR (PR overnightworks/agent-coordination#116).
   `sonar-project.properties` is allowed because pyright (#114, a planned CI
   gate) is named and scheduled as the stronger owner for type consistency; the
   entry carries `#114` next to it until that gate is actually in CI.*
-- **(c) Frozen code** — code built ahead of its caller (AGENTS.md rule: frozen,
+- **(c) Frozen code** — code built ahead of its caller (code policy rule: frozen,
   not deleted; no hardening, no new tests). Action: the finding **stays open**,
   named against the item that will delete or pull that code, so the scanner
   stops being asked the question the board already owns. *Example:

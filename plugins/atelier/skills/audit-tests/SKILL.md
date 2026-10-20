@@ -3,10 +3,9 @@ name: audit-tests
 description: Audit test discipline and coverage quality. Use when asked to review tests, check behavioral coverage, find brittle tests, verify parallel-test safety, or judge whether a change is tested at the right layer.
 ---
 
-Audit tests against the repository's testing guidance (the tests section of
-`AGENTS.md` or `CLAUDE.md`; the global contract if installed at
-`~/.claude/CLAUDE.md`, or `~/.codex/AGENTS.md` for Codex, else the conventions
-the suite itself follows). Passing tests are not enough; judge whether the
+Audit tests against the global contract's code policy (`~/.claude/CLAUDE.md`, or
+`~/.codex/AGENTS.md` for Codex) and the repository's `AGENTS.md` or `CLAUDE.md`
+for its test facts, else the conventions the suite itself follows. Passing tests are not enough; judge whether the
 suite proves behavior clearly, deterministically, and at the right altitude.
 
 ## Procedure

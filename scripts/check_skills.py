@@ -9,7 +9,7 @@ Skills best practices; the gate holds them where review would otherwise have to
 remember them.
 
 The 500-line body limit is a ratchet over `check_skills_baseline.json`, as
-AGENTS.md asks for size limits: a skill over the limit may not grow, a new one
+the code policy asks for size limits: a skill over the limit may not grow, a new one
 may not appear, and an entry whose skill shrank to the limit or went away is
 red until it is deleted from the baseline.
 

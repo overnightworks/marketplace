@@ -1,0 +1,8 @@
+claim_id = "7b9c7c39c3384c1fb27f6b89dd207741"
+agent = "claude"
+role = "builder"
+base = "3d2fe765dc3287fc2d64f1ce1e62d1f0f33e5a07"
+branch = "claude/issue-201-pointer-sweep"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/.codex/agents/documentation-curator.toml", "plugins/atelier/.codex/agents/plan-reviewer.toml", "plugins/atelier/agents/documentation-curator.md", "plugins/atelier/agents/plan-reviewer.md", "plugins/atelier/skills/audit-code/SKILL.md", "plugins/atelier/skills/audit-tests/SKILL.md", "plugins/atelier/skills/docs-cleanup/SKILL.md", "plugins/atelier/skills/plan-review/SKILL.md", "plugins/atelier/skills/sonar-distributor/SKILL.md", "scripts/check_skills.py"]
+opened_commit = "97d438c76722197b471c4a81d6fb1cbb57914e35"
+whole_reason = "One mechanical pointer change across the skills and agents that restate where generic rules live, plus the generated agents and pins that ship it."

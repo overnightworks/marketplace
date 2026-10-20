@@ -1,0 +1,8 @@
+claim_id = "9dd8d2b0e1af487d8eec4262249997fd"
+agent = "claude"
+role = "builder"
+base = "6da12b4f7d8529873ccc4c8498eb99cfbeb741ef"
+branch = "claude/issue-221-predecessor-rule"
+scope = [".claude-plugin/marketplace.json", "instructions/AGENTS.md", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/skills/audit/references/deadweight.md"]
+opened_commit = "c92967e6cb03bf68f7518af140b5f9f306d2d833"
+whole_reason = "One ruled rule and the one lens line that must point at it, plus the version pins that ship the lens change."

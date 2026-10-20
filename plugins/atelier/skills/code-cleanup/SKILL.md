@@ -1,6 +1,6 @@
 ---
 name: code-cleanup
-description: Find what can be deleted or simplified so a repository gets smaller and easier to maintain without losing proven behaviour — one ranked cut list. Use when asked to clean up, slim down, or shrink code, to find unnecessary code or the wrong architecture, when test:src or total size has grown fast, or before a refactor. For documentation trees use docs-cleanup; for a deletion-only pass use audit-deadweight.
+description: Find what can be deleted or simplified so a repository gets smaller and easier to maintain without losing proven behaviour — one ranked list: suspected defects first, then cuts. Use when asked to clean up, slim down, or shrink code, to find unnecessary code or the wrong architecture, when test:src or total size has grown fast, or before a refactor. For documentation trees use docs-cleanup; for a deletion-only pass use audit-deadweight.
 ---
 
 Make the code smaller without making it less proven. **Strictly read-only:
@@ -23,7 +23,8 @@ seat spawns the lens subagents and never audits alone.
    - audit-ownership: several deciders for one question;
    - audit-tests: test size against proven behaviour;
    - audit-architecture, depth pass: shallow modules and unreal seams.
-3. **Merge** into one numbered list. Drop duplicates across lenses and keep
+3. **Merge** into one numbered list (defects, then concept candidates, then
+   cuts). Drop duplicates across lenses and keep
    the strongest evidence.
    - **Defects.** When two deciders of one question disagree, trace one
      concrete input through each and state who gets which different result. A
@@ -32,7 +33,7 @@ seat spawns the lens subagents and never audits alone.
      document it contradicts. A divergence on a question the requirements
      list as open goes to that question's owner as evidence, not as a bug.
    - **Concepts.** Group the deciders of one domain concept (for example "the
-     presented take") into one candidate that lists its members, the owner it
+     effective price") into one candidate that lists its members, the owner it
      should have, and the interface that owner would offer.
    - **Ranking.** Defects first, then concept candidates by structural
      leverage, then line-level cuts by lines saved. A pure test
@@ -63,5 +64,5 @@ One distributor item in the audited repository, following the global
 contract: the numbered findings list with evidence. Search the board for an
 existing cleanup distributor first and sharpen it. Open no per-finding item;
 a finding becomes one only when dispatched. End with the measurements from
-step 1, the total estimated lines saved, what was examined and kept, and
+step 1, the defects found, the total estimated lines saved, what was examined and kept, and
 leads without proof under "suspected, unproven".

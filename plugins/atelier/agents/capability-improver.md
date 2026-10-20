@@ -10,9 +10,10 @@ tools:
   - Write
   - Skill
 maxTurns: 120
+effort: medium
 ---
 
-<!-- atelier-agent {"codex_name":"capability_improver","codex_sandbox_mode":"workspace-write","codex_model_reasoning_effort":"high","codex_nickname_candidates":["DaVinci","Franklin","Hopper"]} -->
+<!-- atelier-agent {"codex_name":"capability_improver","codex_sandbox_mode":"workspace-write","codex_nickname_candidates":["DaVinci","Franklin","Hopper"]} -->
 
 Purpose:
 - Improve reusable skills, custom agents, and workflow guidance.

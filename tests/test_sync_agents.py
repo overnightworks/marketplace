@@ -21,7 +21,6 @@ DEFAULT_TOOLS = list(sync_agents.READ_TOOLS)
 DEFAULT_METADATA = {
     "codex_name": "demo_agent",
     "codex_sandbox_mode": "read-only",
-    "codex_model_reasoning_effort": "medium",
     "codex_nickname_candidates": ["Ada", "Grace"],
 }
 DEFAULT_INSTRUCTIONS = "Purpose:\n- Demonstrate the fixture agent."
@@ -40,12 +39,15 @@ def metadata_without(*keys: str) -> dict[str, object]:
 def agent_markdown(
     *,
     frontmatter_lines: list[str] | None = None,
+    effort: str | None = "medium",
     tools: list[str] | str | None = None,
     metadata: dict[str, object] | None = None,
     metadata_raw: str | None = None,
     instructions: str | None = DEFAULT_INSTRUCTIONS,
 ) -> str:
     lines = ["---", *(DEFAULT_FRONTMATTER_LINES if frontmatter_lines is None else frontmatter_lines)]
+    if effort is not None:
+        lines.append(f"effort: {effort}")
     resolved_tools = DEFAULT_TOOLS if tools is None else tools
     if isinstance(resolved_tools, list):
         lines.append("tools:")
@@ -155,9 +157,9 @@ MALFORMED_AGENT_CASES = [
         "metadata `codex_sandbox_mode` must be a non-empty string",
     ),
     (
-        "missing_reasoning_effort",
-        agent_markdown(metadata=metadata_without("codex_model_reasoning_effort")),
-        "metadata `codex_model_reasoning_effort` must be a non-empty string",
+        "missing_effort",
+        agent_markdown(effort=None),
+        "frontmatter `effort` must be a non-empty string",
     ),
     (
         "invalid_nickname_candidates",
@@ -263,6 +265,20 @@ def test_generation_mode_writes_expected_codex_files(
 
     write_toml = (target_dir / "demo-writer.toml").read_text(encoding="utf-8")
     assert 'sandbox_mode = "workspace-write"' in write_toml
+
+
+def test_generation_mode_carries_effort_into_codex_reasoning_effort(
+    agent_tree: tuple[Path, Path], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source_dir, target_dir = agent_tree
+    write_source_agent(
+        source_dir,
+        agent_markdown(effort="high"),
+    )
+
+    run_main(monkeypatch)
+
+    assert 'model_reasoning_effort = "high"' in (target_dir / "demo-agent.toml").read_text(encoding="utf-8")
 
 
 def test_generation_mode_second_run_reports_already_in_sync(

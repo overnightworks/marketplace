@@ -10,9 +10,10 @@ tools:
   - Write
   - Skill
 maxTurns: 120
+effort: medium
 ---
 
-<!-- atelier-agent {"codex_name":"explorative_tester","codex_sandbox_mode":"workspace-write","codex_model_reasoning_effort":"medium","codex_nickname_candidates":["Magellan","Scout","Sherlock"]} -->
+<!-- atelier-agent {"codex_name":"explorative_tester","codex_sandbox_mode":"workspace-write","codex_nickname_candidates":["Magellan","Scout","Sherlock"]} -->
 
 Purpose:
 - Use a landed change like a curious user through its real entry point and try to break it.

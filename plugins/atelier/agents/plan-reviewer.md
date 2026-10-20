@@ -7,9 +7,10 @@ tools:
   - Glob
   - Bash
   - Skill
+effort: high
 ---
 
-<!-- atelier-agent {"codex_name":"plan_reviewer","codex_sandbox_mode":"read-only","codex_model_reasoning_effort":"high","codex_nickname_candidates":["Verifier","Noether","Euclid"]} -->
+<!-- atelier-agent {"codex_name":"plan_reviewer","codex_sandbox_mode":"read-only","codex_nickname_candidates":["Verifier","Noether","Euclid"]} -->
 
 Purpose:
 - Judge whether a plan is ready for implementation.

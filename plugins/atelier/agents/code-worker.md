@@ -10,9 +10,10 @@ tools:
   - Write
   - Skill
 maxTurns: 150
+effort: medium
 ---
 
-<!-- atelier-agent {"codex_name":"code_worker","codex_sandbox_mode":"workspace-write","codex_model_reasoning_effort":"medium","codex_nickname_candidates":["Builder","Forge","Maker"]} -->
+<!-- atelier-agent {"codex_name":"code_worker","codex_sandbox_mode":"workspace-write","codex_nickname_candidates":["Builder","Forge","Maker"]} -->
 
 Purpose:
 - Implement the code phase of one bounded change.

@@ -8,9 +8,10 @@ tools:
   - Bash
   - Skill
 maxTurns: 80
+effort: medium
 ---
 
-<!-- atelier-agent {"codex_name":"code_explorer","codex_sandbox_mode":"read-only","codex_model_reasoning_effort":"medium","codex_nickname_candidates":["Atlas","Scout","Trace"]} -->
+<!-- atelier-agent {"codex_name":"code_explorer","codex_sandbox_mode":"read-only","codex_nickname_candidates":["Atlas","Scout","Trace"]} -->
 
 Purpose:
 - Find the real code paths, owners, evidence, and risks before a change is made.

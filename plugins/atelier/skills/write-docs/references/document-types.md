@@ -230,6 +230,10 @@ Skeleton:
 ## Deliberate non-goals
 ```
 
+"Who uses it today" names people and products, not a list of dependent
+repositories: those are read from manifests (the contract's product ownership),
+and only a dependency no manifest shows stands here.
+
 Limits: one screen. No plans, phases, status or technical choices, because
 those rot; they belong in items and the architecture overview.
 
@@ -276,7 +280,7 @@ Owner of which documents every repository carries.
 | `AGENTS.md` | owned by the agent-documentation skill | agent | every repository |
 | `docs/VISION.md` | Vision | the operator and whoever decides | every repository, drafted when a decision first needs it |
 | `docs/ARCHITECTURE.md` | Architecture overview (arc42-lite) | engineer changing the system | every repository, drafted when a decision first needs it; a small repository keeps it to a few lines and one diagram |
-| specs or requirements | Reference | human and agent, exact, linked to the tests that prove them | where others rely on ruled behaviour |
+| specs or requirements | Reference | human and agent, exact, linked to the tests that prove them | where others rely on ruled behaviour; harvested rulings live here |
 | a decisions directory | ADR | a maintainer asking why | only where a decision with rejected alternatives keeps coming back; existing directories keep their names |
 
 No `quickstart.md`, changelog or runbook by default; each needs a reader who

@@ -151,7 +151,10 @@ ln -s ~/git/marketplace/instructions/AGENTS.md ~/.codex/AGENTS.md
 
 Grok reads `~/.claude/CLAUDE.md` through its Claude compatibility
 (`compat.claude.agents`, on by default). Every agent reads whatever the
-checkout holds, so keep it an up-to-date `main`.
+checkout holds, so keep it an up-to-date `main`. A repository without
+`CLAUDE.md` relies on Claude Code reading `AGENTS.md` when no `CLAUDE.md`
+exists (v2.1.277+, the default "Project instructions" setting
+`claude-md-or-agents-md`).
 
 ## Repository Layout Check
 

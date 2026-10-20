@@ -145,7 +145,7 @@ ranked list of cuts and never executes them.
 3. **Merge** the finding records into one numbered list (defects, then concept
    candidates, then cuts). Drop duplicates across lenses and keep the strongest
    evidence.
-   - **Defects.** A defect is any reproduced wrong behaviour; two deciders of
+   - **Defects.** A defect is any confirmed wrong behaviour; two deciders of
      one question giving different results for one input is one kind. For
      that kind, trace one concrete input through each and state who gets
      which result. A reachable defect goes into a separate `suspected defects`
@@ -172,7 +172,7 @@ ranked list of cuts and never executes them.
    ```text
    Measurements: <counts, counting rule, commands, growth per area>
    Suspected defects: <finding records, with triggering input>
-   Concept candidates: <members, owner, interface>
+   Concept candidates: <members, owner, interface, estimated saving>
    Ranked cuts: <finding records, each cut now | needs plan review>
    Examined and kept / Suspected and unproven:
    Totals: <lines saved by line-level cuts, src and test apart>

@@ -17,7 +17,8 @@ subject: dead weight, ballast.
 1. Establish scope: full repository on the scheduled run; on a
    post-replacement run, the replaced feature's old surface plus everything
    only it referenced. For "reinvented wheels", the diff window is everything
-   landed since the previous deadweight pass.
+   landed since the previous deadweight pass; the library half (see that
+   bullet) is not limited to it.
 2. Build the reachability picture from REAL entry points only — the
    composition root, registered CLI commands, registered HTTP routes, started
    loops, frontend routes actually linked from navigation, and (for a library
@@ -49,7 +50,9 @@ subject: dead weight, ballast.
   copied per feature where one generic owner would serve. Name the
   surviving owner.
 - **Reinvented wheels**: code landed since the last pass that reimplements a
-  helper that already existed at the time, instead of calling it.
+  helper that already existed at the time, instead of calling it, or
+  reimplements what the standard library, a maintained dependency already in
+  the tree, or a linter rule the repository runs provides.
 - **Hardening without a threat**: a protection whose threat the trust model
   excludes (quote the line) or the deployment cannot produce (cite the
   proof). Before it relies on a model exclusion, check the model against the
@@ -70,7 +73,9 @@ Before proposing to delete code with no production caller, search the board
 for an open item that names it as its caller (an idea or plan paragraph does
 not count): such code is "frozen (item #n)", never a cut, per the code
 policy's frozen-code rule in the global contract. A feature someone uses is
-never a cut; put it on an operator decision list.
+never a cut; put it on an operator decision list with its evidence (last
+commit, production callers, logs where the repository has them); the operator
+decides.
 
 ## Output
 

@@ -23,9 +23,16 @@ Hand-offs: depth.md (Test size shape check), deadweight.md.
 
 The code policy owns the rules; each line below is what this audit adds.
 
+- Suite shape: before judging single tests, name the suite's layers, what each
+  proves, and where a mock stands in for a boundary that a fake or the real
+  dependency would prove more cheaply. When the shape makes every behaviour
+  expensive (for example, call-count assertions as the main proof), report one
+  target-shape finding instead of one finding per test.
 - Behavior coverage: every new or changed behavior has a test or an explicit,
   justified reason it cannot. Code with no production caller is not a
-  coverage finding; hand it to `deadweight.md` (frozen or dead).
+  coverage finding; hand it to `deadweight.md` (frozen or dead). A gap on a
+  branch that cannot occur under the trust model or the types is a deletion,
+  not a missing test: hand it to `deadweight.md` as a cut.
 - Right altitude: pure logic is tested directly; integration paths use real
   entry points without reimplementing production flow in the test.
 - Observable assertions: tests assert user-visible output, state, errors, or
@@ -61,7 +68,9 @@ One owner for judging whether tests are too large:
   median ratio of the repository's modules, without behavioral justification.
   Pair module and test by name (`x.py` with `test_x.py`); list the files left
   unpaired and leave them out of the median. Near-duplicate test
-  parametrization is a quality finding here.
+  parametrization is a quality finding here. A case that runs today's code
+  path again is ballast only when it pins no stated behaviour (its name,
+  docstring or a requirement) that a plausible regression would break.
 - Cuts: a test that proves a ruled sentence, a spec criterion or a defect
   reference is never cut for length alone; it may merge into a table-driven
   test that proves the same. Judge lines per proven behaviour, not in total: a

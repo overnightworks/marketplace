@@ -35,12 +35,13 @@ subject: ownership, one decider per decision.
 
 ## Output
 
-Return ONE distributor list, one line per concept:
+Hand-offs: none.
 
-```text
-<concept> - <decider count> deciders: <function@path, function@path, ...>
-Proposal: <keep as owner> / <fold or delete the others>
-```
+Return ONE distributor list of the finding records of `SKILL.md`, one per
+concept with more than one decider, `<lens>/<check>` being `ownership/<concept>`
+and `file:line` the proposed owner. Extra field:
+`Deciders: <count>: <function@path, function@path, ...>`; `Change` is the
+proposal: keep one as owner, fold or delete the others.
 
 Exempted patterns get their own short list with the reason they are exempt.
 End with the tracked metric **deciders per decision** (total deciders / total
@@ -48,4 +49,4 @@ concepts) for this run, so it can be compared against the previous run. The
 concept list and exemption list go in the report for the head to store in the
 standing item beside the anchor; a later run reads them there and reuses
 them, appending new concepts and never renumbering. If every concept has
-exactly one decider, no finding remains: `CLEAN` as the shared Report defines it.
+exactly one decider, print `ownership: no findings`.

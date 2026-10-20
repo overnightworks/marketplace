@@ -6,6 +6,8 @@ facts, else the conventions the suite itself follows. Passing tests are not
 enough; judge whether the suite proves behavior clearly, deterministically, and
 at the right altitude.
 
+Hand-offs: depth.md (Test size shape check).
+
 ## Procedure
 
 1. Define mode from the request. For a change audit, inspect changed source

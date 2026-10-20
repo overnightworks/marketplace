@@ -72,23 +72,22 @@ never a cut; put it on an operator decision list.
 
 ## Output
 
-Return the report inline, ranked by deletable lines, largest first; the head
-turns it into retire/delete work items or one consolidated diet item:
+Hand-offs: ownership.md (near-duplicate pairs), tests.md (Test size).
 
-```text
-[~<lines>] <hunt category> - <path/module>
-Proof: <import graph / commit / flag default / doc>
-Delete: <files and symbols, incl. tests that only serve it>
-Survivor: <owner to keep, for merges>
-```
+Return the finding records of `SKILL.md`, ranked by `Saves`, largest first,
+with `<lens>/<check>` being `deadweight/<hunt category>`. Extra fields: `Change`
+lists the files and symbols to delete, including tests that only serve them,
+and `Survivor: <owner to keep>` for merges. The head turns the records into
+retire/delete work items or one consolidated diet item.
 
-With no finding left (`CLEAN` as the shared Report defines it), print `CLEAN`, then the KEPT list, the "suspected, unproven"
-leads and the prevention check. Otherwise end with: the total deletable line
-count; the KEPT list — what was examined and retained because history shows it
-earning its place (a rescue, a caught bug, a prevented loss), so the audit
-never reads as "delete all safety"; the "suspected, unproven" leads; and the
-prevention check: every open replacement/redesign work item (list them with
+With no finding left, print `deadweight: no findings`, then the KEPT list, the
+"suspected, unproven" leads and the prevention check. Otherwise end with: the
+total deletable line count; the KEPT list — what was examined and retained
+because history shows it earning its place (a rescue, a caught bug, a
+prevented loss), so the audit never reads as "delete all safety"; the
+"suspected, unproven" leads; and the prevention check: every open
+replacement/redesign work item in the audited area (list them with
 `gh issue list --state open --search "replace OR redesign OR rewrite"`, or the
-work-item board) must carry demolition of its predecessor in its acceptance
-criteria — flag (never edit) items that lack it, because that gap is how
-zombies are born.
+work-item board; only items that name a surface inside the audited area count)
+must carry demolition of its predecessor in its acceptance criteria — flag
+(never edit) items that lack it, because that gap is how zombies are born.

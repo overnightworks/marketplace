@@ -3,7 +3,8 @@
 Judge each module by what a caller must learn (invariants, ordering, errors,
 configuration, performance) against the behaviour it gives. A deep module has a
 small interface over much behaviour; a shallow one costs nearly as much to
-learn as it does. Do not score it as a line ratio. Per suspect module:
+learn as it does. Do not score it as a line ratio. Hand-offs: architecture.md
+(Lens 2, seam count). Per suspect module:
 
 - **Deletion test.** Imagine it removed: complexity that vanishes means a
   pass-through; complexity that reappears across its callers means it

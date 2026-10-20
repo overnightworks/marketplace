@@ -20,12 +20,13 @@ item or executes a cut.** Pick the goal, run its lenses, return one report.
 
 ## Dispatch
 
-The dispatching seat spawns one read-only subagent per lens (per numbered
-lens inside `architecture.md`) and never audits alone. A lens subagent reads
-this file's shared rules, its own reference and any reference that one names
-for a hand-off, and spawns nothing. A seat that is itself a lens subagent (for
-example `code-auditor`) takes the lens or goal the parent names and reads the
-same way.
+The dispatching seat spawns one read-only `atelier:code-auditor` subagent per
+lens (per numbered lens inside `architecture.md`) and never audits alone. A lens
+subagent reads exactly this file's shared rules, its own reference and the
+references on that reference's `Hand-offs:` line, and spawns nothing. A seat
+that is itself a lens subagent takes the lens or goal the parent names and
+reads the same way. Thresholds a lens words as judgement ("heavy", "well
+above") are judgement calls: the lens names the call and its reason.
 
 ## Shared rules
 
@@ -38,6 +39,11 @@ same way.
   then the repository's `AGENTS.md`, `CLAUDE.md` and `README.md` for its
   facts. Default when none exists: the conventions the code itself follows.
   A lens points at the code policy instead of restating it.
+- **Quality gate.** The repository has the shared quality gate when
+  `quality/config.toml` exists and a workflow uses
+  `overnightworks/quality/.github/workflows/gate.yml`. Where it has it, point
+  at its scoreboard, size and complexity thresholds and clone ratchet instead
+  of restating or re-measuring them; where it has not, use the stated fallback.
 - **Refute before reporting.** Every subagent's mandate is to disprove the
   claim or suspicion, not confirm it. Confirm by reading the code, trace the
   path, then look for the check, bound or precondition that stops it. Report
@@ -60,30 +66,35 @@ same way.
   or a repository rule, or touches data safety, security, secrets or a public
   contract, otherwise follow-up; `LOW` is follow-up. On code the audit did not
   change everything is follow-up, and the head classifies it.
-- **Report.** One heading per check that has findings, each finding as:
+- **Finding record.** Every lens emits this one record, under a heading per
+  check that has findings; a lens reference adds only its named extra fields.
 
   ```text
-  [SEVERITY] <check> - <file:line>
-  What: <confirmed issue and its concrete path>
+  [SEVERITY] <lens>/<check> - <file:line>
+  Evidence: <confirmed issue, its concrete path, the proof command>
   Why: <rule or behaviour at risk>
-  Fix: <concrete change>
+  Change: <concrete change and who survives it>
+  Saves: <src lines> src, <test lines> test (cleanup goal and `deadweight` only)
+  Confidence: high | medium | low (cleanup goal and `deadweight` only)
   ```
 
-  End with `CLEAN` when no `HIGH` or `MEDIUM` finding remains (for
-  `deadweight` and `ownership` formats: no finding at all); then still list
-  the examined-and-kept and suspected-unproven sections. A lens whose
-  reference defines another finding format (`deadweight`, `ownership`) uses
-  that format and this definition of `CLEAN`.
+  Confidence: `high` is a claim reproduced at the code, `medium` is evidence
+  read but not reproduced, `low` is an inference.
+- **CLEAN.** Per run: no `HIGH` or `MEDIUM` finding across all lenses. A lens
+  without findings prints `<lens>: no findings`. After `CLEAN` still list the
+  examined-and-kept and suspected-unproven sections.
 - **Distributor hand-off.** The audit returns the distributor text: the
   numbered findings list with evidence, ready to paste. The head searches the
   board (`gh issue list --state all --search "<subject>"`, or
   `aco board --json` where aco runs) for an owner, sharpens it, and writes the
   item; open no item per finding. A finding becomes an item only when
   dispatched.
-- **Standing audit.** Due-ness is owned by the standing board item, never by
-  anyone's memory: its body holds a line naming the last run's commit
-  (`last run at commit X`; the repository's own language is fine). Find it
-  with `gh issue list --state open --search "Standing-Audit in:title"` (or
+- **Standing audit.** Only the scheduled standing audit goal uses this anchor
+  and cadence; a one-off goal run skips it. Due-ness is owned by the standing
+  board item, never by anyone's memory: its body holds a line naming the last
+  run's commit (`last run at commit X`; the repository's own language is
+  fine). Find it with
+  `gh issue list --state open --search "Standing-Audit in:title"` (or
   `aco board --json`) and take the one whose title names the audit's subject.
   Count landings since X with
   `git log --oneline --first-parent X..origin/<default>` (or the age `aco next`
@@ -101,25 +112,29 @@ same way.
 Make the code smaller without making it less proven. The audit produces one
 ranked list of cuts and never executes them.
 
-1. **Measure first.** Count non-blank src and test lines, the test:src ratio,
-   and growth per area since a base commit. Use quality's scoreboard where
-   the repository has it; otherwise state one counting rule (non-blank lines
-   of tracked code files) and use it throughout. Without a named base, use
-   the commit about 30 days back, or report "growth not measured". Count
-   commits per file over the last 200 commits in the area, and how many files
-   each of the last 10 non-merge commits touching production files in the
-   area ("feature commits") touched. When the caller names no area, start the
-   depth pass on files both hot and large; cite "feature commits touched K
-   files" as locality evidence.
+1. **Measure first.** Count non-blank src and test lines and the test:src
+   ratio per area, using the quality gate's scoreboard where the repository
+   has it, otherwise one stated rule (non-blank lines of tracked code files)
+   throughout. Where the area has no src/test split, src is the area's code
+   files and tests are the files under the repository's test directories that
+   import the area's modules. Growth is required: report it per area as src
+   and test lines at base and now, with the base being the caller's base commit
+   or else the commit about 30 days back; write "growth not measured" only when
+   no base commit exists. Count commits per file over the last 200 commits in
+   the area, and how many files each of the last 10 non-merge commits touching
+   production files in the area ("feature commits") touched. When the caller
+   names no area, start the depth pass on files both hot and large; cite
+   "feature commits touched K files" as locality evidence.
 2. **Run the lenses in parallel** on the chosen area: `deadweight` (code that
    has not earned its place), `ownership` (several deciders for one question),
    `tests` (test size against proven behaviour), `depth` (shallow modules and
    unreal seams). A near-duplicate pair has one owner: a pair of deciders, or
    a rewrite instead of a reuse, goes to `ownership`; textual clones belong to
-   quality's clone ratchet, and where the repository has none, report the pair
-   under `ownership`.
-3. **Merge** into one numbered list (defects, then concept candidates, then
-   cuts). Drop duplicates across lenses and keep the strongest evidence.
+   the quality gate's clone ratchet, and where the repository has none, report
+   the pair under `ownership`.
+3. **Merge** the finding records into one numbered list (defects, then concept
+   candidates, then cuts). Drop duplicates across lenses and keep the strongest
+   evidence.
    - **Defects.** When two deciders of one question disagree, trace one
      concrete input through each and state who gets which different result. A
      reachable divergence goes into a separate `suspected defects` list above
@@ -133,24 +148,20 @@ ranked list of cuts and never executes them.
      leverage, then line-level cuts by lines saved. A pure test
      deduplication never outranks a finding on the production path.
 
-   Each finding carries:
-   - `file:line` evidence and its lens;
-   - the proposed change and who survives it;
-   - estimated lines saved (src and test apart) and a confidence;
-   - the proven behaviour it touches.
-
-   A finding that moves a boundary or reshapes an interface is marked
-   `needs plan review`, never `cut now`. Test cuts follow the Test size rules
-   in `references/tests.md`. Size, complexity and clone thresholds belong to
-   quality's gate: point at the gate; do not restate or re-measure its rules.
-4. **Report** the distributor text per the hand-off above; the head searches
-   for an existing cleanup distributor and writes the item. Shape:
+   Each record also names the proven behaviour it touches. A finding that
+   moves a boundary or reshapes an interface is marked `needs plan review`,
+   never `cut now`. Test cuts follow the Test size rules in
+   `references/tests.md`.
+4. **Report** the distributor text per the hand-off above. The head searches
+   for an open item whose title starts "Distributor:" and names the goal, or
+   the standing-audit anchor item; if none exists it opens a new distributor.
+   Shape:
 
    ```text
-   Measurements: <counts, counting rule, commands>
-   Suspected defects: <numbered, with triggering input>
+   Measurements: <counts, counting rule, commands, growth per area>
+   Suspected defects: <finding records, with triggering input>
    Concept candidates: <members, owner, interface>
-   Ranked cuts: <cut now | needs plan review>
+   Ranked cuts: <finding records, each cut now | needs plan review>
    Examined and kept / Suspected and unproven:
    Totals: <estimated lines saved, src and test apart>
    ```

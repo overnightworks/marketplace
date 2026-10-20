@@ -7,6 +7,8 @@ through the disjoint numbered lenses below (dispatch at least three, and
 disprove a specific claim and sees none of the others' work, because a single
 reviewer inherits the system's own story.
 
+Hand-offs: depth.md.
+
 Standing audit: after every ~100 trunk landings or weekly, whichever comes
 first. Standing-item subject: architecture (layers, boundaries, owner
 modules).
@@ -65,7 +67,7 @@ after UI growth.
 ## Output
 
 The dispatcher merges the reports into one scored table (0-10 per lens, one
-sentence of reason each) and lists each confirmed finding for the head to file.
+sentence of reason each) and lists each confirmed finding as the finding record of `SKILL.md`.
 Cheap-fix-first ordering: a one-line guard repair outranks a redesign.
 Severity examples: `HIGH` for corruption, data loss, security exposure, or a
 guard that silently never ran; `MEDIUM` for drift that will rot; `LOW` for
@@ -74,4 +76,4 @@ localized or arguable issues.
 Prevention check: every enforcement tool a gate runs must ANNOUNCE what it
 checked (counts, not just green) — route a fix for any guard that can pass
 silently, because silent guards are how this defect class is born. If every
-claim survived every lens, output `CLEAN` (no `HIGH` or `MEDIUM` finding remains) with the refutation attempts listed.
+claim survived every lens, output `CLEAN` as `SKILL.md` defines it with the refutation attempts listed.

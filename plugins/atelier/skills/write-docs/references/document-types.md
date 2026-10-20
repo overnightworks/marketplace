@@ -203,7 +203,9 @@ Skeleton:
 2. Building Block View      <- containers/components and their jobs
 3. Runtime View             <- two or three key scenarios as sequences
 4. Deployment View          <- where the blocks run
-5. Crosscutting Concepts    <- auth, errors, persistence, one paragraph each
+5. Crosscutting Concepts    <- auth, errors, persistence, and Trust once a
+                               security or deadweight decision needs one;
+                               one paragraph each
 6. Architectural Decisions  <- links to ADRs
 7. Risks and Technical Debt <- known weak points
 ```

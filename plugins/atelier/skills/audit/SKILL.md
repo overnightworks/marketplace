@@ -40,8 +40,24 @@ lead from a lens the goal does not run goes to that lens's owner list or to
   (`~/.claude/CLAUDE.md`, `~/.codex/AGENTS.md` for Codex, or
   `instructions/AGENTS.md` "# Code policy" in the marketplace repository),
   then the repository's `AGENTS.md`, `CLAUDE.md` and `README.md` for its
-  facts. Default when none exists: the conventions the code itself follows.
+  facts, and `docs/ARCHITECTURE.md` (its Trust paragraph) for the trust
+  model. Default when none exists: the conventions the code itself follows.
   A lens points at the code policy instead of restating it.
+- **Trust model.** Only the Trust paragraph in `docs/ARCHITECTURE.md`
+  section 5 (Crosscutting Concepts) declares a repository's trust model. For
+  each boundary it says who can reach it, what they control, and what the
+  system trusts. Boundary statements elsewhere, such as a README's
+  "local-only", are leads for drafting it. A Trust paragraph narrows the
+  default only when it cites the operator ruling that blessed it; otherwise
+  the lenses use the default and name the draft. The default:
+  assume that every input from outside the process (files it did not write,
+  network responses, user text, and any argument or environment value that
+  carries external content) is untrusted, and that the repository's own
+  checked-in files and operator-supplied settings, including arguments and
+  environment, are trusted. The Trust paragraph points to the components that the tripwire
+  ruling (global contract, "Every review finding is marked ...") declares and
+  does not restate them. A report that ran `security` or `deadweight` names
+  the model it used: declared (with the ruling), or default.
 - **Quality gate.** The repository has the shared quality gate when
   `quality/config.toml` exists and a workflow uses
   `overnightworks/quality/.github/workflows/gate.yml`. The gate owns the
@@ -144,7 +160,8 @@ ranked list of cuts and never executes them.
    report the pair under `ownership`.
 3. **Merge** the finding records into one numbered list (defects, then concept
    candidates, then cuts). Drop duplicates across lenses and keep the strongest
-   evidence.
+   evidence. Drop a `tests` coverage finding on code that a `deadweight` cut
+   deletes.
    - **Defects.** A defect is any confirmed wrong behaviour; two deciders of
      one question giving different results for one input is one kind. For
      that kind, trace one concrete input through each and state who gets

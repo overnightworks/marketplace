@@ -58,9 +58,11 @@ An explicit operator request wins. Without one:
    — then inspect the live board, active claims, dependencies, working tree,
    and CI. A repository without one of the two documents gets it when a product
    choice or the pull question cannot be answered from the README and the
-   rulings: the head has it drafted from the README, the code and the rulings,
-   in the shape the `write-docs` skill gives; a vision comes to the operator
-   with that decision and binds once he has blessed it.
+   rulings, and the architecture overview gets its Trust paragraph when a
+   security or deadweight decision needs a trust model: the head has it drafted
+   from the README, the code and the rulings, in the shape the `write-docs`
+   skill gives; a vision or a Trust paragraph comes to the operator with that
+   decision and binds once he has blessed it (operator ruling 20.10.2026).
 2. Resume an unfinished lane you own. Otherwise run `aco next` and
    take the item it names; production/security/data loss and red CI still
    come first. Claim a different item only with `--out-of-order REASON`; the
@@ -184,16 +186,18 @@ meets the requirements. State briefly in the plan or finding what problem it
 solves, for whom, and why the added complexity earns its keep. For a safeguard,
 consider credible failures or attacks, their likelihood and severity, recovery,
 and the costs and risks of building, operating, maintaining or deferring it;
-name uncertainty rather than treating it as low risk. Distinguish what an
-applicable standard requires, recommends and leaves optional: optional does not
-mean unnecessary for this system. This comparison cannot waive ruled behaviour,
-required checks, mandatory edges, or necessary protection of data, security and
-rights. Leave unjustified additions out and name any remaining risk on the
-owning item. For example, an extra confirmation click and exposing a credential
-are different harms; the solution must account for both. Verify evidence before
-you say it is done. If the UI changed, require a delegated agent to drive it
-like a user. If you cannot verify, say exactly what you could not do — after you
-actually tried.
+name uncertainty rather than treating it as low risk. Credible attacks are
+judged against the repository's trust model (`docs/ARCHITECTURE.md`,
+Crosscutting Concepts, Trust; else the `audit` skill's default) (operator ruling
+20.10.2026). Distinguish what an applicable standard requires, recommends and
+leaves optional: optional does not mean unnecessary for this system. This
+comparison cannot waive ruled behaviour, required checks, mandatory edges, or
+necessary protection of data, security and rights. Leave unjustified additions
+out and name any remaining risk on the owning item. For example, an extra
+confirmation click and exposing a credential are different harms; the solution
+must account for both. Verify evidence before you say it is done. If the UI
+changed, require a delegated agent to drive it like a user. If you cannot
+verify, say exactly what you could not do — after you actually tried.
 
 No new item without a named caller (operator ruling 04.09.2026). A review
 finding is a caller only through the ruled sentence it breaks or the person or

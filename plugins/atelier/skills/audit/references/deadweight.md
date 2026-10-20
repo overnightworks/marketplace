@@ -47,15 +47,14 @@ subject: dead weight, ballast.
   this is the first check: did the old surface leave in the same stroke?
 - **Duplicated machinery**: the same encode/decode/store/validate pattern
   copied per feature where one generic owner would serve; near-identical
-  modules differing only in names. Name the surviving owner. Near-identical
-  text only; if the copies differ in wording or behaviour yet answer the
-  same question, hand the pair to `ownership.md` instead of judging it here.
+  modules differing only in names. Name the surviving owner.
 - **Reinvented wheels**: code landed since the last pass that reimplements a
   helper that already existed at the time, instead of calling it.
-- **Hardening without a threat**: protections whose threat cannot occur in
-  this deployment (multi-tenant defenses with one tenant, sandboxes that
-  default off, "security" checks that only match shapes and stop nothing).
-  Never touch protections with documented saves — check history first.
+- **Hardening without a threat**: a protection whose threat the trust model
+  excludes (quote the line) or the deployment cannot produce (cite the
+  proof). A protection that stops nothing against a threat the model admits
+  goes to `security` as an ineffective defence, never as a cut. Never touch
+  protections with documented saves — check history first.
 - **Cap artifacts** (only where the repository enforces size/complexity
   caps): files that exist only because a cap split them (shim/facade
   docstrings often admit this), re-export barrels, port indirections with a
@@ -72,7 +71,7 @@ never a cut; put it on an operator decision list.
 
 ## Output
 
-Hand-offs: ownership.md (near-duplicate pairs), tests.md (Test size).
+Hand-offs: tests.md (Test size).
 
 Return the finding records of `SKILL.md`, ranked by `Saves`, largest first,
 with `<lens>/<check>` being `deadweight/<hunt category>`. Extra fields: `Change`

@@ -6,7 +6,7 @@ facts, else the conventions the suite itself follows. Passing tests are not
 enough; judge whether the suite proves behavior clearly, deterministically, and
 at the right altitude.
 
-Hand-offs: depth.md (Test size shape check).
+Hand-offs: depth.md (Test size shape check), deadweight.md.
 
 ## Procedure
 
@@ -24,7 +24,8 @@ Hand-offs: depth.md (Test size shape check).
 The code policy owns the rules; each line below is what this audit adds.
 
 - Behavior coverage: every new or changed behavior has a test or an explicit,
-  justified reason it cannot.
+  justified reason it cannot. Code with no production caller is not a
+  coverage finding; hand it to `deadweight.md` (frozen or dead).
 - Right altitude: pure logic is tested directly; integration paths use real
   entry points without reimplementing production flow in the test.
 - Observable assertions: tests assert user-visible output, state, errors, or

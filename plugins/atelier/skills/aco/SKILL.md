@@ -1,6 +1,6 @@
 ---
 name: aco
-description: Operate aco (agent claims, the work board, landing) in any repository that coordinates with it. Use before `aco start`, `aco claim`, `aco land`, writing a pull request body, or editing an item body; when briefing agents, releasing a claim, or installing the protect hook; and whenever aco refuses something.
+description: Operate aco (agent claims, the work board, landing) in any repository that coordinates with it. Use before `aco start`, `aco claim`, `aco land`, writing a pull request body, or editing an item body; when briefing agents or releasing a claim; and whenever aco refuses something.
 ---
 
 # Operating aco as a head
@@ -52,7 +52,12 @@ says *that* a lane is claimed, reviewed and landed; this says *how*.
 - Issue-less work: create the `fix/<slug>` or `docs/<slug>` worktree yourself, then
   `aco claim --scope PATH` in lane mode from inside it (`specs/claim.spec.md`).
   Release with `aco release --merged <pr>` or `--abandoned REASON`
-  (`specs/release.spec.md`). Set `ACO_AGENT` so claim and hook agree on identity.
+  (`specs/release.spec.md`). Set `ACO_AGENT`: without it the identity falls back to
+  `GROK_SESSION_ID` or `CLAUDE_CODE_SESSION_ID`, which change per session, and only the
+  original claimant may release or land the claim.
+- An open pull request without a claim (a dependency bot's, a fixer's): `aco adopt <pr>
+  --no-item deps|fix|docs` makes it a claimed lane on its own branch; `deps` needs
+  `dependency_paths` in `.aco/board.toml`. Then land as usual (`specs/adopt.spec.md`).
 - Bundled cards (contract: "How to coordinate"): claim the lead with `--scope`
   covering every card's paths and `--whole` naming the bundle.
 
@@ -93,7 +98,8 @@ contract and this skill.
 - `aco check <issue>` judges a written issue body's contract.
 - A slice becomes an item with `aco cut` (`specs/cut.spec.md`); expectation lines go
   through `aco ask` and `aco rule` (`specs/ask.spec.md`, `specs/rule.spec.md`), the
-  latter only transcribing the operator's word.
+  latter only transcribing the operator's word; `aco rulings` prints the line index
+  that `aco rule --line N` takes.
 
 ## Pull request body
 
@@ -137,15 +143,6 @@ refused with `only the original claimant may release`.
 If the merge worked but a step failed, `aco land` prints `follow-up incomplete`
 and the re-run command; re-run it, which resumes and never merges twice.
 Abandoned: `aco release <n> --abandoned REASON`; the item stays open.
-
-## protect hook
-
-`aco protect` is a `PreToolUse` hook that denies a mutating tool call (writes, Bash
-write patterns) outside a linked worktree with a live claim covering the path.
-Install it once, in the head's git-ignored `.claude/settings.local.json` — the
-session that runs the subagents, not each worktree — using the exact matcher and
-`ACO_AGENT` guidance in the README section "PreToolUse write gate". Never `"*"` as
-matcher. Denial reasons: `specs/protect.spec.md`.
 
 ## Friction
 

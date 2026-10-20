@@ -7,9 +7,10 @@ tools:
   - Glob
   - Bash
   - Skill
+effort: high
 ---
 
-<!-- atelier-agent {"codex_name":"capability_critic","codex_sandbox_mode":"read-only","codex_model_reasoning_effort":"high","codex_nickname_candidates":["Arendt","Kant","Sontag"]} -->
+<!-- atelier-agent {"codex_name":"capability_critic","codex_sandbox_mode":"read-only","codex_nickname_candidates":["Arendt","Kant","Sontag"]} -->
 
 Purpose:
 - Critique changes to skills, custom agents, hooks, workflow guidance, and orchestration docs.

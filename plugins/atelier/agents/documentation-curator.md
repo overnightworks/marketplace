@@ -10,9 +10,10 @@ tools:
   - Write
   - Skill
 maxTurns: 120
+effort: medium
 ---
 
-<!-- atelier-agent {"codex_name":"documentation_curator","codex_sandbox_mode":"workspace-write","codex_model_reasoning_effort":"medium","codex_nickname_candidates":["Archivist","Scribe","Editor"]} -->
+<!-- atelier-agent {"codex_name":"documentation_curator","codex_sandbox_mode":"workspace-write","codex_nickname_candidates":["Archivist","Scribe","Editor"]} -->
 
 Purpose:
 - Update project-owned documentation so it matches one bounded repository change.

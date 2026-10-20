@@ -1,34 +1,16 @@
----
-name: audit-ownership
-description: Audit code for ownership multiplicity — how many functions decide the same question, not whether the code exists. Use when asked to audit ownership, check for one decider per decision, find who decides X, find semantic duplicates, or catch a rewrite instead of a reuse.
----
+# Ownership lens
 
-Judge multiplicity, not existence — that is audit-deadweight's question. A
+Judge multiplicity, not existence — existence is `deadweight.md`'s question. A
 person copies; a model rewrites. A token clone detector (Sonar CPD, PMD CPD,
-pylint similarities) sees near-identical text — type-1/2 clones. This audit
+pylint similarities) sees near-identical text — type-1/2 clones. This lens
 hunts the case where two functions answer the same domain question in
 different words — type-3/4 clones — which only reading, or a code graph built
-from reading, can catch.
+from reading, can catch. Layer and boundary ownership is `architecture.md`'s
+question; this lens asks how many functions decide one question.
 
-## Cadence and anchor
-
-Run after every ~25 trunk landings until two consecutive passes come back
-clean, then after every ~50 landings or weekly.
-Due-ness is owned by the standing board item, never by anyone's memory: its
-body holds a line naming the last run's commit (for example
-`last run at commit X`; the repository's own language is fine). Find the item
-with `gh issue list --state open --search "Standing-Audit in:title"` in the
-repository's work-item board (GitHub issues, or `aco board --json` where aco
-runs) and take the one whose title, in the repository's language, names
-this audit's subject (ownership, one decider per decision).
-If one item covers two audits (for example ownership and ballast), the audits
-share its anchor: a run of either resets it, so the report names which audit
-ran. Count landings since X with
-`git log --oneline --first-parent X..origin/<default>` (or the age `aco next`
-shows where aco runs), or count the days since the run. If no item is found,
-this is the first run: say so in the report and tell the head to open the
-standing item. The audit stays read-only; the head writes the new anchor into
-that item from the report.
+Standing audit: after every ~25 trunk landings until two consecutive passes
+come back clean, then after every ~50 landings or weekly. Standing-item
+subject: ownership, one decider per decision.
 
 ## Procedure
 
@@ -65,6 +47,5 @@ End with the tracked metric **deciders per decision** (total deciders / total
 concepts) for this run, so it can be compared against the previous run. The
 concept list and exemption list go in the report for the head to store in the
 standing item beside the anchor; a later run reads them there and reuses
-them, appending new concepts and never renumbering.
-Strictly read-only: this audit produces the list; it never edits or fixes.
-If every concept has exactly one decider, output `NO MULTIPLICITY`.
+them, appending new concepts and never renumbering. If every concept has
+exactly one decider, the report is `CLEAN`.

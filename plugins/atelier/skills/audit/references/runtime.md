@@ -1,21 +1,16 @@
----
-name: audit-runtime
-description: Audit non-functional runtime risks in source code, including leaks, blocking hot paths, unbounded growth, repeated work, races, and contention. Use when asked about performance, cleanup, resource use, concurrency, scale, or reliability under load.
----
+# Runtime lens
 
 Audit how the code runs under time, scale, cancellation, and parallelism. This
 is a source audit, not a profiler: report structural hazards proven by code.
 
 ## Procedure
 
-1. Define scope from the request or changed files.
-2. Read `AGENTS.md`, `CLAUDE.md`, and `README.md` for declared hot paths,
+1. Read the repository guidance (lookup in `SKILL.md`) for declared hot paths,
    lifecycle ownership, and concurrency assumptions. When none are declared,
    treat entry points, loops, and anything awaited by a caller as hot, and the
    code that spawns or opens a resource as its owner.
-3. Inspect each checklist area. Confirm each candidate by tracing ownership,
+2. Inspect each checklist area. Confirm each candidate by tracing ownership,
    setup, teardown, and parallel access.
-4. Report only hazards that survive a real refutation attempt.
 
 ## Checklist
 
@@ -44,18 +39,9 @@ is a source audit, not a profiler: report structural hazards proven by code.
 - Critical sections: locks are held only around the invariant they protect, not
   around slow work.
 
-## Output
+## Severity examples
 
-Return findings under one heading per hazard that has findings, each in this
-form:
-
-```text
-[SEVERITY] <hazard> - <file:line>
-What: <confirmed runtime risk>
-Why: <when it bites>
-Fix: <concrete change>
-```
-
-Use `HIGH` for leaks, corruption, or resource exhaustion under normal operation.
-Use `MEDIUM` for risks that degrade at scale or on error paths. Use `LOW` for
-edge or arguable cases. End with `CLEAN` when no high or medium findings remain.
+Group findings under one heading per hazard. `HIGH` for leaks, corruption, or
+resource exhaustion under normal operation. `MEDIUM` for risks that degrade at
+scale or on error paths. `LOW` for edge or arguable cases. The finding's
+`What` is the confirmed runtime risk and `Why` is when it bites.

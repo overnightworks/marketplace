@@ -1,11 +1,8 @@
----
-name: audit-security
-description: Audit source code for security defects such as injection, secret exposure, unsafe deserialization, path traversal, missing authorization, and unsafe subprocess or network use. Use when asked to audit security, review code for vulnerabilities, check secrets handling, or judge the safety of an input, authentication, or privilege boundary.
----
+# Security lens
 
 Audit how the code treats untrusted input, secrets, and privilege. This is a
-source audit against the repository's own trust model: read `AGENTS.md`,
-`CLAUDE.md`, and `README.md` for declared trust boundaries first, and judge
+source audit against the repository's own trust model: read the repository
+guidance (lookup in `SKILL.md`) for declared trust boundaries first, and judge
 findings against what the code is actually exposed to, not a generic worst case.
 When none is declared, assume that every input from outside the process (files
 it did not write, network responses, user text, and any argument or environment
@@ -15,16 +12,14 @@ environment, are trusted. State the assumed model in the report.
 
 ## Procedure
 
-1. Define scope from the request or changed files.
-2. Take the trust model from the repository's declared boundaries (local-only
+1. Take the trust model from the repository's declared boundaries (local-only
    servers, single-user assumptions, credential channels) or the default above,
    and hold findings against it.
-3. Trace each checklist area from the entry point to the sink. Confirm a
+2. Trace each checklist area from the entry point to the sink. Confirm a
    candidate by following the data flow; try to refute it before reporting:
    look for a check, escape, bound, or constraint on the path that stops the
    input reaching the sink, and for a precondition the model rules out.
-4. Report only findings that survive refutation, with the concrete attack or
-   leak path named.
+3. Name the concrete attack or leak path of every finding.
 
 ## Checklist
 
@@ -51,21 +46,13 @@ environment, are trusted. State the assumed model in the report.
   cryptographic source; secret comparisons are constant-time where timing is
   observable.
 
-## Output
+## Severity examples
 
-Return findings under one heading per checklist area that has findings, each
-in this form:
-
-```text
-[SEVERITY] <area> - <file:line>
-What: <confirmed defect and the concrete path from input to impact>
-Why: <trust boundary or rule it breaks>
-Fix: <concrete change>
-```
-
-Use `HIGH` for reachable secret exposure, injection, traversal, or missing
-authorization on a declared or assumed boundary. Use `MEDIUM` for defense gaps
+`HIGH` for reachable secret exposure, injection, traversal, or missing
+authorization on a declared or assumed boundary. `MEDIUM` for defense gaps
 that need an extra precondition. An unbounded body behind a TLS-trusted path
-is `MEDIUM` when the boundary is assumed and `HIGH` when it is declared. Use
-`LOW` for hardening on paths the repository explicitly trusts. End with
-`CLEAN` when no high or medium findings remain.
+is `MEDIUM` when the boundary is assumed and `HIGH` when it is declared.
+`LOW` for hardening on paths the repository explicitly trusts. Report the
+check name as the heading for each finding group.
+
+Hand-offs: none.

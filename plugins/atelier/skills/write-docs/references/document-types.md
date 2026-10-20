@@ -26,11 +26,12 @@ arc42 <https://arc42.org/>; Keep a Changelog
 | a future maintainer asking why | one decision and its reasons | ADR |
 | on call, something is wrong | actions under pressure | runbook |
 | engineer changing the system | structure and runtime picture | architecture overview |
+| anyone deciding what the product should do | why it exists, for whom, what it is not | vision |
 | user or operator upgrading | what changed per release | changelog |
 
 The first four are Diátaxis's types: tutorial (learning-oriented), how-to
 guide (goal-oriented), reference (information-oriented), explanation
-(understanding-oriented). In this skill's model, the other five are operational
+(understanding-oriented). In this skill's model, the other six are operational
 types that mix the Diátaxis modes in a fixed, conventional shape.
 
 ## Tutorial
@@ -215,6 +216,31 @@ Mistakes: a diagram per class instead of per question; plans described as
 current structure; deployment detail nobody decides on; sections left as
 template headings.
 
+## Vision
+
+Use for: the operator's intent for one product. It binds once the operator has
+blessed it; until then it is a draft.
+
+Skeleton:
+
+```markdown
+# <Product> vision
+## The wish                 <- in the operator's words
+## Who uses it today
+## Deliberate non-goals
+```
+
+Limits: one screen. No plans, phases, status or technical choices, because
+those rot; they belong in items and the architecture overview.
+
+Example: "# Acme Notes vision. The wish: 'Notes my team can edit together
+without ever losing a line.' Who uses it today: the support team (daily editing)
+and the `acme-cli` repository (calls the sync API). Deliberate non-goals: not a
+wiki, no public pages."
+
+Mistakes: a roadmap or status list; technical choices; wishes with no user
+today; non-goals left empty; wording the operator never said or blessed.
+
 ## Changelog
 
 Use for: per-release, human-readable changes for users and operators. Format
@@ -239,3 +265,22 @@ simultaneous edits."
 
 Mistakes: dumping commit logs; no dates or versions; omitting breaking changes
 and deprecations; wording for developers, not for the reader upgrading.
+
+## Repository document set
+
+Owner of which documents every repository carries.
+
+| File | Type | Reader | Carried |
+|---|---|---|---|
+| `README.md` | README | human, first visit; quick start is a section, not its own file | every repository |
+| `AGENTS.md` | owned by the agent-documentation skill | agent | every repository |
+| `docs/VISION.md` | Vision | the operator and whoever decides | every repository, drafted when a decision first needs it |
+| `docs/ARCHITECTURE.md` | Architecture overview (arc42-lite) | engineer changing the system | every repository, drafted when a decision first needs it; a small repository keeps it to a few lines and one diagram |
+| specs or requirements | Reference | human and agent, exact, linked to the tests that prove them | where others rely on ruled behaviour |
+| a decisions directory | ADR | a maintainer asking why | only where a decision with rejected alternatives keeps coming back; existing directories keep their names |
+
+No `quickstart.md`, changelog or runbook by default; each needs a reader who
+decides something with it.
+
+Overview documents (vision, architecture overview, README) stay abstract and
+link down to the exact documents, never restating them.

@@ -4,7 +4,7 @@ Reader: a human operator or engineer asking where agent guidance lives and why
 it is never copied. Type: architecture overview. Commands live in the
 [README](../README.md), rules in the [contract](../instructions/AGENTS.md), and
 the list of documents a repository carries in the
-[write-docs skill](../plugins/atelier/skills/write-docs/SKILL.md).
+[write-docs skill](../plugins/atelier/skills/write-docs/references/document-types.md#repository-document-set).
 
 ## Mental model
 

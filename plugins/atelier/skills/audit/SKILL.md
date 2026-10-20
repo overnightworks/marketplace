@@ -45,10 +45,10 @@ lead from a lens the goal does not run goes to that lens's owner list or to
 - **Quality gate.** The repository has the shared quality gate when
   `quality/config.toml` exists and a workflow uses
   `overnightworks/quality/.github/workflows/gate.yml`. The gate owns the
-  thresholds only (its `size` rule: file from 800 lines, function from 60,
-  CCN above 15); point at it instead of restating them. Its `quality
-  scoreboard` is a weekly CI summary of public repositories' Python, not
-  readable in a seat: measure with your own commands and say so.
+  thresholds only (its `size` rule); point at it instead of restating them.
+  Its `quality scoreboard` is a weekly CI summary of public repositories'
+  Python, not a measurement of this area: measure with your own commands and
+  say so.
 - **Refute before reporting.** Every subagent's mandate is to disprove the
   claim or suspicion, not confirm it. Confirm by reading the code, trace the
   path, then look for the check, bound or precondition that stops it. Report
@@ -125,12 +125,14 @@ ranked list of cuts and never executes them.
    throughout. Where the area has no src/test split, src is the area's code
    files and tests are the files under the repository's test directories that
    import the area's modules. Growth is required: report it per area as src
-   and test lines at base and now, with the base being the caller's base commit
-   or else the commit about 30 days back; write "growth not measured" only when
-   no base commit exists. Count commits per file over the last 200 commits
-   that touch the area, and how many files each of the last 10 non-merge
-   commits touching the area's production files ("feature commits"; its code
-   files where it has no split) touched. When the caller
+   and test lines at base and now. The base is the caller's base commit, else
+   `git log -1 --before="30 days ago"`; the area at base is every code file
+   under its paths at that commit, files since deleted included. Write
+   "growth not measured" only when no base commit exists. Count commits per
+   file over the last 200 commits that touch the area, and how many files
+   each of the last 10 non-merge commits touching the area's production files
+   ("feature commits"; its code files where it has no split) touched, counting
+   every file the commit touched. When the caller
    names no area, start the depth pass on files both hot and large; cite
    "feature commits touched K files" as locality evidence.
 2. **Run the lenses in parallel** on the chosen area: `deadweight` (code that
@@ -143,15 +145,17 @@ ranked list of cuts and never executes them.
 3. **Merge** the finding records into one numbered list (defects, then concept
    candidates, then cuts). Drop duplicates across lenses and keep the strongest
    evidence.
-   - **Defects.** When two deciders of one question disagree, trace one
-     concrete input through each and state who gets which different result. A
-     reachable divergence goes into a separate `suspected defects` list above
-     the cut list, with the triggering input and the ruled sentence or
-     document it contradicts. A divergence on a question the requirements
+   - **Defects.** A defect is any reproduced wrong behaviour; two deciders of
+     one question giving different results for one input is one kind. For
+     that kind, trace one concrete input through each and state who gets
+     which result. A reachable defect goes into a separate `suspected defects`
+     list above the cut list, with the triggering input and the ruled sentence
+     or document it contradicts. A divergence on a question the requirements
      list as open goes to that question's owner as evidence, not as a bug.
-   - **Concepts.** Group the deciders of one domain concept (for example "the
-     effective price") into one candidate (its own list, not a ranked cut) that lists its members,
-     the owner it should have, and the interface that owner would offer.
+   - **Concepts.** Group the deciders of one domain concept (for example
+     "the effective price") into one candidate (its own list, not a ranked
+     cut) that lists its members, the owner it should have, the interface
+     that owner would offer, and its estimated saving.
    - **Ranking.** Defects first, then concept candidates by structural
      leverage, then line-level cuts by lines saved. A pure test
      deduplication never outranks a finding on the production path.
@@ -171,5 +175,5 @@ ranked list of cuts and never executes them.
    Concept candidates: <members, owner, interface>
    Ranked cuts: <finding records, each cut now | needs plan review>
    Examined and kept / Suspected and unproven:
-   Totals: <estimated lines saved, src and test apart>
+   Totals: <lines saved by line-level cuts, src and test apart>
    ```

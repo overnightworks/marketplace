@@ -48,8 +48,7 @@ End with the tracked metric **deciders per decision**: all deciders found
 (each function that sets or interprets, counted once per concept) divided by
 all concepts examined, flagged or not, printed as counts and ratio
 (`14 deciders / 11 concepts = 1.27`), so it can be compared against the
-previous run. The
-concept list and exemption list go in the report for the head to store in the
-standing item beside the anchor; a later run reads them there and reuses
-them, appending new concepts and never renumbering. If every concept has
-exactly one decider, print `ownership: no findings`.
+previous run. The concept list and exemption list go in the report for the
+head to store in the standing item beside the anchor; a later run reads them
+there and reuses them, appending new concepts and never renumbering. If every
+concept has exactly one decider, print `ownership: no findings`.

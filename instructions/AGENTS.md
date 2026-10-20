@@ -636,6 +636,8 @@ judgement (operator ruling 06.09.2026).
 
 ## Code
 
+- Clean, maintainable architecture is the goal. Speed of delivery is not — take
+  the time to get the structure right.
 - Identify the owner, state, configuration, failure modes, and verification
   before editing.
 - Fix the cause, not the symptom. Use temporary containment only when the risk
@@ -643,7 +645,9 @@ judgement (operator ruling 06.09.2026).
 - Create a new boundary only when no existing owner can honestly own the
   decision.
 - Do not add architecture, extension points, compatibility layers, or options
-  without a current caller.
+  without a current caller. Build for today's real requirement, not an imagined
+  one; leave clean seams where future extension is genuinely likely — the test
+  is "would this be hard to change later?", not "might we need it?".
 - Build vertically first: shapes early, surfaces thin, hardening after use. A
   capability's first slice is the thinnest honest end-to-end proof; edge cases
   are mandatory before that first run only where their absence corrupts durable
@@ -667,19 +671,25 @@ judgement (operator ruling 06.09.2026).
   against the item that names its caller. It is deleted when no item names one
   (operator ruling 04.09.2026).
 - Match existing style unless it conflicts with this file or preserves a known
-  defect.
+  defect. Don't adapt to bad code: if the neighbors are a mess, don't copy the
+  mess to blend in. Raise the bar — match the standard these rules describe,
+  and leave what you touch better than you found it.
 - Use readable, fully written names. Avoid abbreviations unless established.
-- Prefer typed state over loose dictionaries and string protocols.
+- Prefer typed state over loose dictionaries and string protocols. Model the
+  domain with the type system: enums over loose strings, structured types
+  (dataclasses / records) over bare dicts, real path types over strings. Make
+  illegal states unrepresentable.
 - Prefer immutable data where practical.
 - No direct `Any` parameter in the contract, port, application, and API layers.
   `ANN401` proves exactly that and nothing more: a nested `dict[str, Any]` stays
   counted debt that must not grow.
 - Put behavior with the module that owns the decision.
 - Code reads like prose: names carry the intent, so a reader follows it without
-  effort. Keep functions small and single-purpose; one you cannot name in a few
-  words does too much.
+  effort. Small, single-purpose functions and modules, one responsibility each.
+  If you can't name it in a few words, it's doing too much — split it.
 - Choose the data structure by its access pattern wherever a lookup repeats or
   grows: set or dict for membership and keyed lookup, list for order.
+  Performance means the right structure and algorithm, not clever code.
 - Keep side effects visible at the call site.
 - Keep pure logic pure when side effects are not part of the contract.
 - Isolate filesystem, process, network, clock, randomness, and external
@@ -757,7 +767,9 @@ Before adding a literal, constant, default, or fixture value, classify its owner
 ## Failure
 
 - Fail loud when durable state, user data, verification, integration, security,
-  or process ownership could be corrupted.
+  or process ownership could be corrupted. No silent catches that swallow
+  errors — surface them or handle them deliberately. Don't paper over a problem
+  to keep going.
 - Fail soft only when the failure is visible, recoverable, and cannot corrupt
   important state.
 - Validate external input, provider output, configuration, and filesystem state.
@@ -833,6 +845,8 @@ Before adding a literal, constant, default, or fixture value, classify its owner
 
 ## Finish
 
+- Re-read every line against these rules before you consider it done. This
+  self-review is mandatory, not optional.
 - Read the diff before finishing.
 - Remove speculative code, unused code, unused documentation, duplicated
   literals, and hidden hardcoded values.

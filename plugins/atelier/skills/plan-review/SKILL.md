@@ -12,7 +12,8 @@ could execute it without inventing missing decisions.
    (`gh issue view <n> --json body --jq .body`).
 2. Read the guidance that constrains the plan: the global contract's code policy
    (`~/.claude/CLAUDE.md`, or `~/.codex/AGENTS.md` for Codex), and the
-   repository's `AGENTS.md` and `CLAUDE.md` for its facts. Skip a file that does not exist and say so.
+   repository's `AGENTS.md` and `CLAUDE.md` for its facts.
+   Skip a file that does not exist and say so.
 3. Check the plan against the checklist below.
 4. Return a verdict; do not edit unless explicitly asked.
 

@@ -5,8 +5,8 @@ description: Audit test discipline and coverage quality. Use when asked to revie
 
 Audit tests against the global contract's code policy (`~/.claude/CLAUDE.md`, or
 `~/.codex/AGENTS.md` for Codex) and the repository's `AGENTS.md` or `CLAUDE.md`
-for its test facts, else the conventions the suite itself follows. Passing tests are not enough; judge whether the
-suite proves behavior clearly, deterministically, and at the right altitude.
+for its test facts, else the conventions the suite itself follows. Passing
+tests are not enough; judge whether the suite proves behavior clearly, deterministically, and at the right altitude.
 
 ## Procedure
 

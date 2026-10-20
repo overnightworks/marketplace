@@ -91,5 +91,7 @@ prevented loss), so the audit never reads as "delete all safety"; the
 replacement/redesign work item in the audited area (list them with
 `gh issue list --state open --search "replace OR redesign OR rewrite"`, or the
 work-item board; only items that name a surface inside the audited area count)
-must carry demolition of its predecessor in its acceptance criteria — flag
-(never edit) items that lack it, because that gap is how zombies are born.
+must name its predecessor and that predecessor's exit, as the global
+contract's predecessor rule ("How to decide") requires. Flag, never edit, an
+item that breaks the rule, or a kept predecessor that is still being invested
+in.

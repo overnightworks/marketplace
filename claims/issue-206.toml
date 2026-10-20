@@ -1,8 +1,0 @@
-claim_id = "d8f9e5c471aa49748e5f20f06b31fbad"
-agent = "claude"
-role = "builder"
-base = "57853cd433a495870d9ddded30863306ce478582"
-branch = "claude/issue-206-code-cleanup"
-scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/skills/audit-architecture/SKILL.md", "plugins/atelier/skills/audit-tests/SKILL.md", "plugins/atelier/skills/code-cleanup/SKILL.md", "scripts/check_skills_baseline.json"]
-opened_commit = "de5de949d63ae567fab8886cbda80ca5802cd535"
-whole_reason = "One new skill that composes the existing audit lenses toward a smaller codebase, the depth lens it needs in its architecture owner, and the pins that ship it."

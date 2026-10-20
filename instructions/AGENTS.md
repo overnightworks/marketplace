@@ -784,8 +784,10 @@ Before adding a literal, constant, default, or fixture value, classify its owner
   product decisions. Each test pins one observable behaviour, and its name states
   it.
 - Assert outcomes, not internals: no private fields, and no mock call counts or
-  order unless the interaction is itself a contract. Would the test break on a
-  refactor that preserves behaviour? Then it tests the wrong thing.
+  order unless the interaction is itself a contract; no pinning exact log
+  strings or internal data shapes that aren't part of the contract. Would the
+  test break on a refactor that preserves behaviour? Then it tests the wrong
+  thing.
 - When no production contract exists, define the smallest owner and value
   contract before behavioral tests. Do not let tests invent domain owners,
   protocol values, or adapter details.
@@ -800,7 +802,20 @@ Before adding a literal, constant, default, or fixture value, classify its owner
 - Put a regression test at the observable boundary that owns the defect; use a
   port fake only when the defect crosses a port boundary.
 - Coverage is evidence, not the goal. Do not add tests that only execute lines.
-- Keep tests deterministic, cheap, and safe to run in parallel.
+  The target is that every observable behaviour and meaningful edge case has a
+  test — not a line-coverage percentage. Untested behaviour is the real gap; a
+  high line-coverage number with no behavioural assertions is worse than
+  honest.
+- Drive flows through their real entry points against real state. Don't
+  re-implement production logic inside the test to check it.
+- Pure logic must be callable and testable directly — with no live external
+  process, service, or network. If a test has to spawn a real process or hit a
+  real service to exercise logic, the code is at the wrong layer: refactor it to
+  be callable, then test that. Reserve real-dependency tests for a thin,
+  clearly-separated integration layer.
+- Keep tests fast, deterministic, cheap, and safe to run in parallel: no
+  flakiness, no sleeps or timing races, no order dependence, no mutable state
+  leaking between tests.
 - Whenever tests run, use the repository's configured parallel execution.
 - Test code is code and meets these rules. Factor shared arrangement into
   fixtures and builders; a family of cases that differ only in data is one

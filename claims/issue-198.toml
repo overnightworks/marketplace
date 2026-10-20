@@ -1,0 +1,8 @@
+claim_id = "ae926ca9745e424c9518264ccb5e6c2e"
+agent = "claude"
+role = "builder"
+base = "461cf940216c396035ee455edfc748ff8dd5ac42"
+branch = "claude/issue-198-one-code-policy"
+scope = [".claude-plugin/marketplace.json", ".github/workflows/ci.yml", "AGENTS.md", "README.md", "docs/ARCHITECTURE.md", "instructions/AGENTS.md", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/skills/agent-documentation/AGENTS.baseline.md", "plugins/atelier/skills/agent-documentation/SKILL.md", "scripts/agents_baseline_preamble.md", "scripts/check_root_layout.py", "scripts/sync_agents_baseline.py", "tests/test_check_root_layout.py", "tests/test_sync_agents_baseline.py"]
+opened_commit = "81e458dd68ac8ea390619c29f473a0edb7631164"
+whole_reason = "The generator reads the root AGENTS.md, so moving the policy, deleting the generator and changing the seed must land together."

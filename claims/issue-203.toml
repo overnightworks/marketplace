@@ -1,8 +1,0 @@
-claim_id = "95c624c8690344eeb57c93da3f64c745"
-agent = "claude"
-role = "builder"
-base = "cf6f3eb0d35470b59c0014e89bebc40a6d7e83db"
-branch = "claude/issue-203-s6-fixes"
-scope = [".claude-plugin/marketplace.json", "README.md", "instructions/AGENTS.md", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/skills/aco/SKILL.md", "plugins/atelier/skills/agent-documentation/SKILL.md", "plugins/atelier/skills/write-docs/references/document-types.md"]
-opened_commit = "64f15fa435d06f05ddbb85ca13d08c6dc963d6e6"
-whole_reason = "One counter-check's consistency fixes across the contract and the three skills that restate its parts, plus the pins that ship them."

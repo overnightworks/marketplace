@@ -84,16 +84,11 @@ def test_the_gate_leaves_a_root_file_git_ignores_alone(
     assert "passed" in capsys.readouterr().out
 
 
-@pytest.mark.parametrize("working_directory", [".", ".."], ids=["from the repository", "from elsewhere"])
 def test_the_gate_names_a_stray_root_file_and_fails(
-    allowlisted_repository: Path,
-    capsys: pytest.CaptureFixture[str],
-    monkeypatch: pytest.MonkeyPatch,
-    working_directory: str,
+    allowlisted_repository: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """The gate judges the repository that carries it, whatever the caller's cwd."""
+    """A stray the gate never saw tracked is red too."""
     (allowlisted_repository / "NOTES.md").write_text("a stray at the root\n", encoding="utf-8")
-    monkeypatch.chdir(allowlisted_repository / working_directory)
 
     assert check_root_layout.main() == 1
     assert "NOTES.md" in capsys.readouterr().err

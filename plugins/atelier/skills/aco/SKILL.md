@@ -53,6 +53,9 @@ says *that* a lane is claimed, reviewed and landed; this says *how*.
   `aco claim --scope PATH` in lane mode from inside it (`specs/claim.spec.md`).
   Release with `aco release --merged <pr>` or `--abandoned REASON`
   (`specs/release.spec.md`). Set `ACO_AGENT` so claim and hook agree on identity.
+- An open pull request without a claim (a dependency bot's, a fixer's): `aco adopt <pr>
+  --no-item deps|fix|docs` makes it a claimed lane on its own branch; `deps` needs
+  `dependency_paths` in `.aco/board.toml`. Then land as usual (`specs/adopt.spec.md`).
 - Bundled cards (contract: "How to coordinate"): claim the lead with `--scope`
   covering every card's paths and `--whole` naming the bundle.
 
@@ -93,7 +96,8 @@ contract and this skill.
 - `aco check <issue>` judges a written issue body's contract.
 - A slice becomes an item with `aco cut` (`specs/cut.spec.md`); expectation lines go
   through `aco ask` and `aco rule` (`specs/ask.spec.md`, `specs/rule.spec.md`), the
-  latter only transcribing the operator's word.
+  latter only transcribing the operator's word; `aco rulings` prints the line index
+  that `aco rule --line N` takes.
 
 ## Pull request body
 

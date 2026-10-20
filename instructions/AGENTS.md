@@ -668,10 +668,14 @@ judgement (operator ruling 06.09.2026).
 - Code reached only by tests is dead code: reachability counts from real
   entry points — composition root, routes, CLI, workflows — and a test is not
   a caller (operator ruling 04.09.2026).
-- Code built ahead of its caller is frozen, not deleted: it stays in the tree,
-  gets no hardening and no new tests, keeps the tests it has, and is listed
-  against the item that names its caller. It is deleted when no item names one
-  (operator ruling 04.09.2026).
+- Code built ahead of its caller is frozen, not deleted, only while an open item
+  names it as its caller: it stays in the tree, gets no hardening and no new
+  tests, keeps the tests it has, and is listed against that item (operator
+  ruling 04.09.2026). When that item is pulled, the code is used or deleted;
+  when the item closes or is re-cut without it, the code goes. Unused code that
+  no open item names is deleted, and its commit says it stays recoverable from
+  git. An audit never deletes a feature someone uses; that is the operator's
+  decision (operator ruling 20.10.2026).
 - Match existing style unless it conflicts with this file or preserves a known
   defect. Don't adapt to bad code: if the neighbors are a mess, don't copy the
   mess to blend in. Raise the bar — match the standard these rules describe,

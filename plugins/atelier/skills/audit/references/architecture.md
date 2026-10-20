@@ -1,0 +1,79 @@
+# Architecture lens
+
+Judge whether the architecture the documents describe is the architecture the
+code enforces. Every claim is attacked, not confirmed: the subagents audit
+through the disjoint numbered lenses below (dispatch at least three, and
+`depth.md` whenever modules or tests are in question). Each lens is told to
+disprove a specific claim and sees none of the others' work, because a single
+reviewer inherits the system's own story.
+
+Hand-offs: depth.md.
+
+Standing audit: after every ~100 trunk landings or weekly, whichever comes
+first. Standing-item subject: architecture (layers, boundaries, owner
+modules).
+
+## Lenses
+
+1. **Boundaries and enforcement.** Do the declared owners hold IN CODE — and,
+   **does the enforcement tool actually run the checks everyone believes it
+   runs?** Gates are the CI workflows
+   (`.github/workflows/*.yml`) or the repository's equivalent. Invoke the
+   gate's exact command from there, then the same tool with its widest
+   documented scope (`--help`: all files, no baseline, no diff filter), and
+   compare failure counts. If the tool has no wider form, report that as the
+   finding. A guard that has never fired is indistinguishable from one that
+   always passes; prove which you have.
+2. **Abstraction honesty.** For every claimed port: how many real
+   implementations, what adding a third would cost (count the files it must
+   touch), and which abstractions are speculative (zero production callers —
+   check tests-only liveness). For every claimed concentration ("X lives only
+   in owner Y"): count ALL call sites and name the outliers.
+3. **Durable core and cost.** Are the safety invariants enforced at the
+   durable WRITE (a named function as precondition of the append — not a
+   label), and can a real race break them? Find the store in the
+   repository guidance or the storage configuration; probe with real
+   concurrent writers against a COPY of it, never the live one. With no
+   durable store, state that and audit the nearest shared state (files,
+   caches) instead. Then MEASURE the read
+   path on that copy: wall-clock per endpoint, scaling with page size and
+   history. An invariant without an enforcing function and a cost without a
+   measurement are both findings.
+
+Add a lens when the change under audit touches an area no lens above covers:
+security posture before an exposure change (`security.md`), frontend structure
+after UI growth.
+
+## The checklist each lens works
+
+- Source of truth: authoritative state owned in one place, not mirrored in
+  globals, side files, or duplicated stores.
+- Ownership: decisions and writes live with the module that owns the concept.
+- Dependency direction: imports follow the configured contracts.
+- External effects: filesystem, process, network, clock, randomness, services
+  behind explicit boundaries.
+- Types over primitives: closed sets and identifiers as named types; watch
+  for type erasure across codecs (validated on encode, bare on decode).
+- Configuration: tunables and provider choices from the configured owner, no
+  hidden literals; no self-discovered binaries where siblings take config.
+- Signal channels: outcomes read from the documented contract, not inferred
+  from an incidental side channel.
+- Failure behavior: invariant, data, security, and process failures surface
+  visibly. Docstrings are claims, not evidence — when one promises an
+  invariant, find the enforcing line or report the gap.
+- Concurrency: shared state and claims atomic or guarded where parallel work
+  interleaves; prove the guard rests on the store, not on a read window.
+
+## Output
+
+The dispatcher merges the reports into one scored table (0-10 per lens, one
+sentence of reason each) and lists each confirmed finding as the finding record of `SKILL.md`.
+Cheap-fix-first ordering: a one-line guard repair outranks a redesign.
+Severity examples: `HIGH` for corruption, data loss, security exposure, or a
+guard that silently never ran; `MEDIUM` for drift that will rot; `LOW` for
+localized or arguable issues.
+
+Prevention check: every enforcement tool a gate runs must ANNOUNCE what it
+checked (counts, not just green) — route a fix for any guard that can pass
+silently, because silent guards are how this defect class is born. If every
+claim survived every lens, output `CLEAN` as `SKILL.md` defines it with the refutation attempts listed.

@@ -52,7 +52,9 @@ says *that* a lane is claimed, reviewed and landed; this says *how*.
 - Issue-less work: create the `fix/<slug>` or `docs/<slug>` worktree yourself, then
   `aco claim --scope PATH` in lane mode from inside it (`specs/claim.spec.md`).
   Release with `aco release --merged <pr>` or `--abandoned REASON`
-  (`specs/release.spec.md`). Set `ACO_AGENT`: without it the identity falls back to `GROK_SESSION_ID` or `CLAUDE_CODE_SESSION_ID`, which change per session, and only the original claimant may release or land the claim.
+  (`specs/release.spec.md`). Set `ACO_AGENT`: without it the identity falls back to
+  `GROK_SESSION_ID` or `CLAUDE_CODE_SESSION_ID`, which change per session, and only the
+  original claimant may release or land the claim.
 - An open pull request without a claim (a dependency bot's, a fixer's): `aco adopt <pr>
   --no-item deps|fix|docs` makes it a claimed lane on its own branch; `deps` needs
   `dependency_paths` in `.aco/board.toml`. Then land as usual (`specs/adopt.spec.md`).

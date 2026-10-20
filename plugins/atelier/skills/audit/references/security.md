@@ -1,20 +1,16 @@
 # Security lens
 
 Audit how the code treats untrusted input, secrets, and privilege. This is a
-source audit against the repository's own trust model: read the repository
-guidance (lookup in `SKILL.md`) for declared trust boundaries first, and judge
-findings against what the code is actually exposed to, not a generic worst case.
-When none is declared, assume that every input from outside the process (files
-it did not write, network responses, user text, and any argument or environment
-value that carries external content) is untrusted, and that the repository's own
-checked-in files and operator-supplied settings, including arguments and
-environment, are trusted. State the assumed model in the report.
+source audit against the repository's trust model, taken from the shared Trust
+model rule in `SKILL.md`: judge findings against what the code is actually
+exposed to, not a generic worst case. State the model used in the report.
 
 ## Procedure
 
-1. Take the trust model from the repository's declared boundaries (local-only
-   servers, single-user assumptions, credential channels) or the default above,
-   and hold findings against it.
+1. Take the trust model from the shared Trust model rule and hold findings
+   against it. Check a declared model against the code: listen addresses,
+   entry points, and who writes the inputs. Any contradiction is a `HIGH`
+   finding.
 2. Trace each checklist area from the entry point to the sink. Confirm a
    candidate by following the data flow; try to refute it before reporting:
    look for a check, escape, bound, or constraint on the path that stops the

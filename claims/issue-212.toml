@@ -1,0 +1,8 @@
+claim_id = "66af3d5acafd4d64bdc71e72c60f4d6c"
+agent = "claude"
+role = "builder"
+base = "0e04edf2b48e9be05a82c874cda71d88e6805643"
+branch = "claude/issue-212-agent-effort"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/.codex/agents", "plugins/atelier/agents", "plugins/atelier/skills/aco/SKILL.md", "scripts/sync_agents.py", "tests/test_sync_agents.py"]
+opened_commit = "b731d856942f1aa98cd835b86e4e96091e325ece"
+whole_reason = "One field across every agent definition and the generator that reads it must change together; bundled with #214 (one aco skill section)."

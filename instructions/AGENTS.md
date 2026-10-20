@@ -199,6 +199,15 @@ must account for both. Verify evidence before you say it is done. If the UI
 changed, require a delegated agent to drive it like a user. If you cannot
 verify, say exactly what you could not do — after you actually tried.
 
+An item whose landing would leave an older path, surface, store or source of
+truth doing the same job names that predecessor and its exit in its `Done
+when`, and closes only on one of them: the predecessor is gone; its removal is
+an open item that names this one as its caller and is dispatched at the
+landing, and deferring that item needs the third exit; or the operator has
+ruled that it stays, until a date or an open item. A predecessor that stays is
+frozen as the code policy describes: no hardening, no new tests, no new
+callers (operator ruling 20.10.2026).
+
 No new item without a named caller (operator ruling 04.09.2026). A review
 finding is a caller only through the ruled sentence it breaks or the person or
 incident it hit; any other gap waits for usage evidence on its owning item (see

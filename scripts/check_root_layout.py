@@ -3,7 +3,7 @@
 
 The root holds only what a tool must find there — the host marketplace
 catalogs, the scanner configuration, the licence, the entry documents —
-and everything else lives in the directory of its owner (AGENTS.md,
+and everything else lives in the directory of its owner (instructions/AGENTS.md,
 "Repository layout"). The gate reads the tree as git sees it, tracked files
 plus untracked files git does not ignore, so a stray that never landed is red
 too, and every refusal names where the entry belongs.
@@ -45,7 +45,8 @@ ROOT_FILES = frozenset(
 # `.codex/` and `.claude/` this repository's own host configuration,
 # `.aco/` the board configuration aco reads, `.github/` the workflows
 # and the published action: every one of them is a path its tool fixes.
-# `instructions/` owns the operator's coordination contract, `plugins/` the
+# `docs/` the repository's human overview documents, `instructions/` the
+# operator's contract and code policy, `plugins/` the
 # payload both catalogs name as their source, `quality/` the gate configuration
 # the quality workflow reads.
 ROOT_DIRECTORIES = frozenset(
@@ -56,6 +57,7 @@ ROOT_DIRECTORIES = frozenset(
         ".claude-plugin",
         ".codex",
         ".github",
+        "docs",
         "instructions",
         "plugins",
         "quality",

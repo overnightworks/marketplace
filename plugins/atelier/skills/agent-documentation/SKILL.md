@@ -10,17 +10,19 @@ what is shared policy versus project fact.
 
 ## Seeding
 
-When a repository has no `AGENTS.md` (or one missing whole policy areas), seed
-it from `AGENTS.baseline.md` shipped next to this skill: copy the baseline,
-drop its provenance comment, and fill the entry-points placeholder from the
-repository's real coordination/verification/state docs (delete it when none
-exist yet). That baseline is a generated view of the marketplace's root
-`AGENTS.md`, which owns every rule in it: a rule that is wrong, missing, or
-stale is fixed in that owner and the view regenerated, never edited here.
-Create `CLAUDE.md` containing exactly `@AGENTS.md` when the host loads
-`CLAUDE.md` and none exists. Merge into an existing file — never
-overwrite deliberate project policy; add what is missing and report what was
-kept.
+When a repository has no `AGENTS.md`, or one that is not facts-only, seed:
+
+- `AGENTS.md` with project facts only: commands, layout facts, state and
+  tooling owners;
+- `CLAUDE.md` containing exactly `@AGENTS.md`.
+
+Generic rules live in the global contract (`instructions/AGENTS.md` in the
+marketplace repository, installed per machine) and are never copied into a
+repository. When migrating an existing file, keep every repository fact and
+remove each generic rule the contract already states. A local policy that
+differs from the contract is not kept as a second owner: report it to the
+parent, who brings it to the operator, and leave it in place only until that
+ruling. Report what was kept and what was removed.
 
 ## Procedure
 
@@ -59,15 +61,16 @@ distributor issue.
 
 - Loading: entry-point files use provider-supported loading behavior. Do not
   invent imports or auto-load syntax.
-- Ownership: `AGENTS.md` contains all generic policy; project-owned files
-  contain product intent, current architecture, tooling, CI, or plans.
+- Ownership: the global contract owns generic policy; `AGENTS.md` contains
+  project facts only, and project-owned files contain product intent, current
+  architecture, tooling, CI, or plans.
 - Update duty: project owners say what must be updated when facts change; shared
   files change only when the reusable rule or skill improves.
 - Token economy: every line adds a decision, boundary, trigger, invariant, or
   verification rule.
-- Duplication: generic policy appears only in `AGENTS.md`; project facts appear
-  only in their project owner. The generated `AGENTS.baseline.md` view is the
-  one allowed copy of generic policy.
+- Duplication: generic policy appears only in the global contract; project facts
+  appear only in their project owner. A copy of the contract in a repository is a
+  finding.
 - Clarity: intent is direct, terms are defined by context, and vague advice is
   replaced by observable behavior or deleted.
 - Consistency: current architecture, plans, tooling, tests, commands, skills,
@@ -77,10 +80,6 @@ distributor issue.
 - Audience and views: guidance and the docs it references name their reader
   and altitude; a document serving another audience is a view deriving from
   one owner, not an independently edited copy.
-- Baseline coverage: check that the repository's `AGENTS.md` covers every
-  policy area of the shipped `AGENTS.baseline.md`; a missing area is a
-  finding, a different wording is not, and deliberate project divergence is
-  recorded and kept.
 - Portability: reusable skills and agent bodies avoid product names, module
   names, daemon assumptions, and provider-specific paths unless that file owns
   provider glue.

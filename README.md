@@ -13,8 +13,6 @@ Licensed under the [MIT License](LICENSE).
 - `plugins/atelier/agents/` is the canonical Markdown source for agent
   definitions and the native Claude Code agent directory.
 - `plugins/atelier/.codex/agents/` contains generated Codex TOML agents.
-- `plugins/atelier/skills/agent-documentation/AGENTS.baseline.md` is the
-  generated seed of the root `AGENTS.md`.
 - `plugins/atelier/hooks/hooks.json` is the shared quality-gate hook configuration.
 - `plugins/atelier/workflows/` holds the Claude Code workflows; `lane` drives
   one claimed aco lane from build to ready-to-land. Claude Code documents plugin
@@ -140,31 +138,25 @@ Compatibility notes:
 - Generated files under `plugins/atelier/.codex/agents/` should not be edited by
   hand; update the Markdown source instead.
 
-## Policy Baseline
+## Global Contract
 
-The root `AGENTS.md` owns the code policy. The seed the `agent-documentation`
-skill ships is a view of it: `AGENTS.baseline.md` is generated from that file
-plus the seed preamble in `scripts/agents_baseline_preamble.md`, and the
-paragraphs that speak about this repository alone stay behind the
-`baseline-skip` markers in `AGENTS.md`. Fix a rule in the owner, never in the
-view.
-
-To regenerate the baseline after changing the policy:
+`instructions/AGENTS.md` is the operator's contract and code policy for every
+agent. It is installed per machine, never copied into a repository. Link it
+into each provider's user-level instructions:
 
 ```bash
-python3 scripts/sync_agents_baseline.py
+ln -s ~/git/marketplace/instructions/AGENTS.md ~/.claude/CLAUDE.md
+ln -s ~/git/marketplace/instructions/AGENTS.md ~/.codex/AGENTS.md
 ```
 
-To check drift without writing files:
-
-```bash
-python3 scripts/sync_agents_baseline.py --check
-```
+Grok reads `~/.claude/CLAUDE.md` through its Claude compatibility
+(`compat.claude.agents`, on by default). Every agent reads whatever the
+checkout holds, so keep it an up-to-date `main`.
 
 ## Repository Layout Check
 
 `scripts/check_root_layout.py` holds the root to the allowlist the "Repository
-layout" section of `AGENTS.md` describes, and refuses a tracked symlink
+layout" section of `instructions/AGENTS.md` describes, and refuses a tracked symlink
 anywhere in the tree: a consumer's `uses:` checks the whole repository out, so
 a link that resolves nowhere breaks every consuming build. A new root entry or
 top-level directory needs its owner named and an entry added to that script.

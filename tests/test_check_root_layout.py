@@ -173,6 +173,7 @@ def test_every_entry_the_layout_rule_admits_at_the_root_is_accepted() -> None:
         ".agents/plugins/marketplace.json",
         ".claude-plugin/marketplace.json",
         ".github/workflows/ci.yml",
+        "docs/ARCHITECTURE.md",
         "instructions/AGENTS.md",
         "plugins/atelier/skills/agent-documentation/SKILL.md",
         "quality/config.toml",

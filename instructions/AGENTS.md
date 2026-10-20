@@ -1,8 +1,12 @@
 # Global instructions
 
-These apply to every project and every agent (Claude, Grok, Codex).
-A repo `AGENTS.md` / `CLAUDE.md` adds project facts only. It does not override
-this file or define another coordination workflow.
+These apply to every project and every agent (Claude, Grok, Codex). This file
+is their one source: it lives in `overnightworks/marketplace`, reaches each
+agent through its provider's user-level instructions on the machine it runs on
+(the marketplace README says how), and is never copied into a repository. A
+repository's `AGENTS.md` adds only that repository's facts and does not
+override this file or define another coordination workflow; its `CLAUDE.md` is
+absent or exactly `@AGENTS.md`, so every provider reads the same text.
 
 On the first reply of a **new main session** (not a subagent, not a later
 turn), start with exactly this line so the operator can see the contract loaded:
@@ -592,128 +596,216 @@ Do not end or report finished while agents are active or executable work
 remains. Stop only when the objective is complete or every useful lane is
 genuinely blocked on the operator or external state.
 
-# Coding Conventions
+# Code policy
 
-My standing rules for any code you write for me. They are not suggestions —
-treat a violation as a defect to fix before you call the work done.
+Standing rules for any code written for the operator. They are not suggestions —
+treat a violation as a defect to fix before calling the work done.
 
-## Mindset
+## Growth
+
+Grow the repository only to remove a named problem, preserve a real invariant,
+or enable a named capability. Reuse an existing owner before creating one.
+
+Keep facts compact and verified. Check repository claims against files and
+external claims against primary sources. Mark unknowns.
+
+Do not duplicate guidance. Update the owner.
+
+No new item without a named caller, and no hardening without usage evidence
+(operator ruling 04.09.2026).
+
+A rule a machine can check belongs in the repository's checks, not in a sentence
+every agent must remember. What only judgement can see belongs to a scheduled
+agent audit at a fixed cadence, and one audit run yields one distributor item.
+
+An index, vector store, or knowledge graph over the code needs a named consumer
+and a measurement that beats plain search; localisation is a measured problem,
+not an assumed one.
+
+## Repository layout
+
+The repository root holds only what a tool must find there — the package
+manifest and its lockfile, container files, scanner configuration, the licence —
+and the entry documents `README.md`, `AGENTS.md`, `CLAUDE.md` and, where the
+repository carries one, `HEART.md`. Everything else lives in the directory of
+its owner: a ratchet baseline next to the check that reads it, a fixture next to
+its test, a helper under `scripts/`. No catch-all directory (`tooling/`,
+`misc/`) and no deeper hierarchy than the owner needs. A CI check keeps the root
+entries to an allowlist; where an entry below the root belongs stays a
+judgement (operator ruling 06.09.2026).
+
+## Code
 
 - Clean, maintainable architecture is the goal. Speed of delivery is not — take
   the time to get the structure right.
-- Before writing a new line, look for what already exists. Can a current method
-  be reused, or improved to cover this case? Prefer extending well-named
-  existing code over adding parallel code that does almost the same thing.
-- Don't reinvent the wheel. If a well-maintained library already solves the
-  problem, use it — but vet it first: a dependency is a liability too (its
-  maintenance, security, and size become yours).
-- Don't overengineer. Build for today's real requirement, not an imagined one.
-  At the same time, leave clean seams where future extension is genuinely
-  likely — the test is "would this be hard to change later?", not "might we
-  need it?".
-
-## How the code should read
-
-- Code reads like prose. A reader should follow intent without effort.
-- Names carry the meaning: intention-revealing names for variables, functions,
-  and types make most comments unnecessary.
-- No comment should be needed to explain *what* the code does — if one is, the
-  code is wrong, so rewrite it. Reserve comments for *why*: a non-obvious
-  trade-off, a workaround, a rationale that the code itself cannot show.
-- Small, single-purpose functions and modules. One responsibility each. If you
-  can't name it in a few words, it's doing too much — split it.
-
-## Configuration and data
-
-- Put external, environment-, or operator-varying values in configuration.
-  Stable implementation invariants may be named constants next to their owner;
-  never scatter magic numbers, paths, thresholds, URLs, or limits.
-- Model the domain with the type system: enums over loose strings, structured
-  types (dataclasses / records) over bare dicts, real path types over strings.
-  Make illegal states unrepresentable.
-- Prefer immutable data and pure functions where practical.
-- Secrets and API keys enter only through secret or configuration channels.
-  Never put them in logs, prompts, briefs, event records, memory,
-  documentation, fixtures, or tests.
-
-## Architecture
-
-- Before you edit, name what you touch: its owner, its state, where it is
-  configured, how it fails, and how it is verified.
-- Open a new boundary (module, layer, adapter, service) only when no existing
-  owner can honestly own the decision.
-- Put behaviour in the module that owns the decision; callers ask, they do not
-  re-decide.
-- Keep filesystem, process, network, clock, randomness, and external services
-  behind narrow boundaries so the logic between them stays pure and testable.
-- Build vertically first: the thinnest honest end-to-end slice, surfaces thin,
-  hardening after use. Only an edge whose absence corrupts durable state, loses
-  data, or lets the system lie is mandatory before the first run; every other
-  edge is named on the owning item and waits for usage evidence. A review
-  judges the slice against its declared sentences, not against all conceivable
-  hardness.
+- Identify the owner, state, configuration, failure modes, and verification
+  before editing.
+- Fix the cause, not the symptom. Use temporary containment only when the risk
+  is named, visible, verified, and has a removal path.
+- Create a new boundary only when no existing owner can honestly own the
+  decision.
+- Do not add architecture, extension points, compatibility layers, or options
+  without a current caller. Build for today's real requirement, not an imagined
+  one; leave clean seams where future extension is genuinely likely — the test
+  is "would this be hard to change later?", not "might we need it?".
+- Build vertically first: shapes early, surfaces thin, hardening after use. A
+  capability's first slice is the thinnest honest end-to-end proof; edge cases
+  are mandatory before that first run only where their absence corrupts durable
+  state, loses data, or lets the system lie. Every other edge is deferred by
+  naming it — an open sentence or named gap on the owning item — and waits for
+  usage evidence. A review judges the slice against its declared sentences, not
+  against all conceivable hardness. (Operator + coordinator ruling, 16.08.2026.)
+- Keep a slice inside three production files and a hundred changed production
+  lines — additions and deletions counted apart, tests and generated files
+  excluded. Above that corridor the dispatch names in one sentence why the
+  change does not split; the corridor is reported, never gated, because a check
+  cannot judge a cut.
+- Generate what a generator produces deterministically, for declared derived
+  artefacts only; once its generator exists, an empty regeneration diff is the
+  gate.
+- Code reached only by tests is dead code: reachability counts from real
+  entry points — composition root, routes, CLI, workflows — and a test is not
+  a caller (operator ruling 04.09.2026).
+- Code built ahead of its caller is frozen, not deleted: it stays in the tree,
+  gets no hardening and no new tests, keeps the tests it has, and is listed
+  against the item that names its caller. It is deleted when no item names one
+  (operator ruling 04.09.2026).
+- Match existing style unless it conflicts with this file or preserves a known
+  defect. Don't adapt to bad code: if the neighbors are a mess, don't copy the
+  mess to blend in. Raise the bar — match the standard these rules describe,
+  and leave what you touch better than you found it.
+- Use readable, fully written names. Avoid abbreviations unless established.
+- Prefer typed state over loose dictionaries and string protocols. Model the
+  domain with the type system: enums over loose strings, structured types
+  (dataclasses / records) over bare dicts, real path types over strings. Make
+  illegal states unrepresentable.
+- Prefer immutable data where practical.
+- No direct `Any` parameter in the contract, port, application, and API layers.
+  `ANN401` proves exactly that and nothing more: a nested `dict[str, Any]` stays
+  counted debt that must not grow.
+- Put behavior with the module that owns the decision.
+- Code reads like prose: names carry the intent, so a reader follows it without
+  effort. Small, single-purpose functions and modules, one responsibility each.
+  If you can't name it in a few words, it's doing too much — split it.
 - Choose the data structure by its access pattern wherever a lookup repeats or
   grows: set or dict for membership and keyed lookup, list for order.
   Performance means the right structure and algorithm, not clever code.
-
-## Robustness
-
-- Fail loud. No silent catches that swallow errors — surface them or handle them
-  deliberately. Don't paper over a problem to keep going.
-- Validate at the real boundaries (user input, external systems, config, network)
-  and trust your own internal interfaces — don't defensively re-check states
-  that can't occur.
-- Every behavioral change ships with a test that asserts observable behavior,
-  not internal mechanics.
-
-## After writing
-
-- Re-read every line against these rules before you consider it done. This
-  self-review is mandatory, not optional.
-- Follow the surrounding code's conventions when they're sound — consistency
-  matters more than personal style. But don't adapt to bad code: if the
-  neighbors are a mess, don't copy the mess to blend in. Raise the bar — match
-  the standard these rules describe, and leave what you touch better than you
-  found it.
-- Keep changes small and reviewable. Delete dead code and leftover scaffolding;
-  no backwards-compatibility cruft or "for the future" parameters.
+- Keep side effects visible at the call site.
+- Keep pure logic pure when side effects are not part of the contract.
+- Isolate filesystem, process, network, clock, randomness, and external
+  services behind narrow boundaries.
+- Use comments only for unavoidable why: external constraints, security reasons,
+  protocol quirks, data-loss risks, or non-obvious tradeoffs.
+- Keep ageing narrative out of changed source lines: a new comment or docstring
+  does not carry "formerly", "superseded", "replaced X with Y", "since PR", a
+  date, or an issue number as provenance. A durable reason citing a decision
+  record stays allowed.
 - Fix scanner and linter findings in code. An exception exists only after a
   code route was tried and measured or judged counterproductive; it is
   versioned in the repository next to its reason (a rule-specific line marker
   or a properties entry naming its stronger owner), never a SonarCloud status
   change, and never a file-wide ignore.
+- Hold size and complexity with ratchets, not repository-wide allowlists. Files
+  from eight hundred lines, functions from sixty, and cyclomatic complexity
+  above fifteen are debt-entry thresholds, not quality seals: compared per path
+  and qualified symbol between base and head, a new violation or the growth of
+  an existing one is red, and an unresolvable base is red too.
 
-# Testing Conventions
+## Configuration
 
-How I want tests written. These extend the coding conventions — test code is
-code, held to the same bar — and they decide whether a change is "done."
+- Values that vary by user, project, environment, provider, deployment, or
+  runtime boundary belong in configuration.
+- Do not make stable internal invariants externally configurable just to avoid a
+  constant.
+- Secrets and API keys enter only through secret or configuration channels.
+  Never put them in logs, prompts, briefs, event records, memory,
+  documentation, fixtures, or tests.
 
-## Behaviour and evidence
+## Value Ownership
 
-- Approved requirements and product contracts own intended behaviour. Tests are
-  executable verification and evidence: keep them synchronized with that
-  contract; never make them an independent product-decision source. Each test
-  pins one observable behaviour, and its name states that behaviour ("merges a
-  clean branch into main", not "test_merge_3").
-- Test what the unit *does* as seen from outside — its return value, its effect
-  on state, the error it raises — never how it does it.
-- Assert outcomes, not internals. No reaching into private fields, no asserting
-  mock call counts or order where a state/output assertion would do, unless the
-  interaction or order is itself a public or protocol contract; no pinning exact
-  log strings or internal data shapes that aren't part of the contract. The
-  litmus test: would this break on a refactor that preserves behaviour? If yes,
-  it's testing the wrong thing.
+Before adding a literal, constant, default, or fixture value, classify its owner.
 
-## Cover behaviours, not lines
+- Runtime, user, provider, project, environment, and boundary-specific values
+  enter through commands, configuration, environment, fakes, or explicit
+  call-site parameters. Do not hardcode prompts, provider output, ids, paths,
+  clocks, credentials, or user/project choices.
+- Stable domain concepts, protocol tokens, persisted keys, event names,
+  statuses, ids, commands, and records need one production owner, preferably a
+  typed contract instead of loose strings.
+- Adapter representation details stay inside the adapter boundary unless a
+  caller has a real contract with them.
+- Test values are local scenario data. Use builders, fixtures, or scenario
+  objects instead of top-level constants blocks that mix contracts, examples,
+  and adapter internals.
+- Tests reuse production contracts but do not duplicate production construction,
+  serialization, path, or derivation logic to calculate expected results.
 
-- The target is *every observable behaviour and meaningful edge case has a
-  test* — not a line-coverage percentage. Untested behaviour is the real gap; a
-  high line-coverage number with no behavioural assertions is worse than honest.
-- A new behaviour is not done until a test pins it. A bug fix lands with the
-  test that would have caught it.
+## Reuse
 
-## The right layer
+- Reuse code only when the same domain idea, owner, and invariant are present.
+- Remove duplication when duplicated code must evolve together.
+- Hold duplication with a ratchet over a baseline of known pairs: a new
+  near-identical function pair is red, an orphaned baseline entry is red, and
+  the baseline shrinks in slices with an owner.
+- A review of new code asks which existing owner was checked before it was
+  written.
+- Every required review brief carries the same contract core as the build:
+  current item body, candidate diff, and verification evidence; relevant
+  rulings and neighbours are folded into the body, not passed as parallel
+  truth. Existing risk classes, landing authority, and delta/full-review
+  rules still govern.
+- Keep short duplication when abstraction would hide meaning or couple unrelated
+  concepts.
+- Use maintained libraries for solved hard problems when the standard library is
+  not enough.
+- Vet a library before adopting it: its maintenance, security, and size become
+  yours.
+- Do not add a dependency for one trivial helper, style alone, or speculative
+  flexibility.
+- Explain what complexity a new dependency removes.
 
+## Failure
+
+- Fail loud when durable state, user data, verification, integration, security,
+  or process ownership could be corrupted. No silent catches that swallow
+  errors — surface them or handle them deliberately. Don't paper over a problem
+  to keep going.
+- Fail soft only when the failure is visible, recoverable, and cannot corrupt
+  important state.
+- Validate external input, provider output, configuration, and filesystem state.
+- Trust internal interfaces; do not re-check states that cannot occur.
+- Enforce privileged, irreversible, or external side-effect boundaries in code
+  or tool permissions; prompts are not controls.
+
+## Tests
+
+- Test behavior, not implementation details.
+- Tests are executable evidence of the approved requirements, never a source of
+  product decisions. Each test pins one observable behaviour, and its name
+  states it.
+- Assert outcomes, not internals: no private fields, and no mock call counts or
+  order unless the interaction is itself a contract; no pinning exact log
+  strings or internal data shapes that aren't part of the contract. Would the
+  test break on a refactor that preserves behaviour? Then it tests the wrong
+  thing.
+- When no production contract exists, define the smallest owner and value
+  contract before behavioral tests. Do not let tests invent domain owners,
+  protocol values, or adapter details.
+- After the contract exists, write the failing behavioral test first for risky
+  behavior, implement the smallest behavior, then refactor under the same test.
+- For risky behavior, the builder derives that failing test from the ruled
+  sentence or approved plan before implementation; existing code may inform
+  setup, never the expected result. The independent reviewer judges that test
+  against the contract; syntax or mutation metrics become gates only after a
+  project pilot proves signal and runtime cost.
+- Add focused tests for new behavior and regression tests for bug fixes.
+- Put a regression test at the observable boundary that owns the defect; use a
+  port fake only when the defect crosses a port boundary.
+- Coverage is evidence, not the goal. Do not add tests that only execute lines.
+  The target is that every observable behaviour and meaningful edge case has a
+  test — not a line-coverage percentage. Untested behaviour is the real gap; a
+  high line-coverage number with no behavioural assertions is worse than
+  honest.
 - Drive flows through their real entry points against real state. Don't
   re-implement production logic inside the test to check it.
 - Pure logic must be callable and testable directly — with no live external
@@ -721,19 +813,66 @@ code, held to the same bar — and they decide whether a change is "done."
   real service to exercise logic, the code is at the wrong layer: refactor it to
   be callable, then test that. Reserve real-dependency tests for a thin,
   clearly-separated integration layer.
-- Tests are fast and deterministic: no flakiness, no sleeps or timing races, no
-  order dependence, no mutable state leaking between tests.
-- A sentence about what a person does at a surface is proven by driving the
-  real interface, never by a unit test.
+- Keep tests fast, deterministic, cheap, and safe to run in parallel: no
+  flakiness, no sleeps or timing races, no order dependence, no mutable state
+  leaking between tests.
+- Whenever tests run, use the repository's configured parallel execution.
+- Test code is code and meets these rules. Factor shared arrangement into
+  fixtures and builders; a family of cases that differ only in data is one
+  parametrized test, not near-identical copies. Watch the per-behaviour cost: a
+  suite several times the size of the code it covers is almost always
+  duplication.
+- A sentence about what a person does at a surface is proven by driving the real
+  interface, never by a unit test.
+- Tests must not depend on execution order, shared mutable repository state, or
+  process-global state another test can observe.
+- Use temporary state or fakes for filesystem, process, network, clock,
+  randomness, and external services.
+- Core unit tests import no adapter: an adapter-bound module moves whole into
+  the integration suite, and a remaining exception carries one registered module
+  marker, never a path allowlist. From the first move the count per core
+  directory is a ratchet that must not grow, with zero as its target.
+- For agent or provider behavior, verify repeatability, perturbation tolerance,
+  failure handling, and safety bounds; one successful transcript is not proof.
+- For fixture values and expected results, follow Value Ownership.
 
-## No test explosion
+## Documentation
 
-- Test code follows the same conventions as source: clean, DRY,
-  intention-revealing names, no copy-paste. Review it to the same standard.
-- Factor shared arrangement into fixtures and builders. For a family of cases
-  that differ only in data, use one parametrized / table-driven test, not N
-  near-identical copies.
-- Watch the *per-behaviour cost*, not a fixed ratio. A suite that balloons to
-  several times the size of the code it covers is a smell — almost always
-  duplication that should be parametrized or pulled into a fixture. Compact,
-  reusable setup is what keeps near-complete behavioural coverage affordable.
+- Update documentation in the same change that alters behavior, architecture,
+  configuration, testing, tooling, or user-visible usage.
+- Do not document imagined architecture or future plans as current facts.
+- Do not maintain stale-prone inventories, file maps, line references, command
+  transcripts, or implementation trivia.
+- Describe durable intent, contracts, invariants, and decisions at the highest
+  useful abstraction.
+- Write for a named reader — human operator, human engineer, or agent — at a
+  named altitude; agent docs stay compact contracts, human overviews lead with
+  the mental model and prefer one accurate diagram-as-code over structure
+  prose.
+- Facts have one owner. A document serving another audience is a view:
+  derived from the owner, naming its source, corrected by regeneration —
+  never independently edited.
+- Every line must be accurate and earn its keep.
+- Prefer one accurate paragraph over a large stale guide.
+- Delete documentation that no longer matches the code.
+- Use examples only when they prevent a likely misread.
+- Code examples require a real stack, imports, owner, and configuration source.
+
+## Finish
+
+- Re-read every line against these rules before you consider it done. This
+  self-review is mandatory, not optional.
+- Read the diff before finishing.
+- Remove speculative code, unused code, unused documentation, duplicated
+  literals, and hidden hardcoded values.
+- Report the exact verification command.
+- Mention larger problems separately instead of refactoring unrelated code.
+- A commit message says in its first line what changes and in its body why: the
+  problem, the decision and any alternative it rejected, and the item or ruling
+  it serves. Check results belong in the pull request, not the commit.
+
+## Self-Improvement
+
+For self-improvement, report the problem removed, proof, complexity added,
+verification, and what can now be deleted or simplified. Pure growth is a
+defect.

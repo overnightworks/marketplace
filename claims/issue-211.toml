@@ -1,7 +1,0 @@
-claim_id = "235579b950b849ceacd125c2d6b3aa68"
-agent = "claude"
-role = "builder"
-base = "0e04edf2b48e9be05a82c874cda71d88e6805643"
-branch = "claude/issue-211-frozen-deadline"
-scope = ["instructions/AGENTS.md"]
-opened_commit = "54b8ebc917fc47ee032bb1a4d3d33802a28b0a4d"

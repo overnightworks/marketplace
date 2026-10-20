@@ -1,8 +1,0 @@
-claim_id = "19a6c9c383634a5fa4afcb701c95a947"
-agent = "claude"
-role = "builder"
-base = "9c4b7c6b669984cc3de00f176c6200e86b6da4f1"
-branch = "claude/issue-219-trust-model"
-scope = [".claude-plugin/marketplace.json", "instructions/AGENTS.md", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/skills/audit/SKILL.md", "plugins/atelier/skills/audit/references/deadweight.md", "plugins/atelier/skills/audit/references/security.md", "plugins/atelier/skills/audit/references/tests.md", "plugins/atelier/skills/write-docs/references/document-types.md"]
-opened_commit = "59444d1f91dbdecbbffbb03af4778364f312ca57"
-whole_reason = "One ruled rule spans the contract, the audit skill's shared rules, three lenses and the architecture shape it names; split, the lenses would cite a model the contract and write-docs do not name."

@@ -54,10 +54,11 @@ lead from a lens the goal does not run goes to that lens's owner list or to
   network responses, user text, and any argument or environment value that
   carries external content) is untrusted, and that the repository's own
   checked-in files and operator-supplied settings, including arguments and
-  environment, are trusted. The Trust paragraph points to the components that the tripwire
-  ruling (global contract, "Every review finding is marked ...") declares and
-  does not restate them. A report that ran `security` or `deadweight` names
-  the model it used: declared (with the ruling), or default.
+  environment, are trusted. The Trust paragraph points to the components that
+  the tripwire ruling (global contract, "Every review finding is marked ...")
+  declares and does not restate them. A report that ran `security` or
+  `deadweight` names the model it used: declared (with the ruling), or
+  default.
 - **Quality gate.** The repository has the shared quality gate when
   `quality/config.toml` exists and a workflow uses
   `overnightworks/quality/.github/workflows/gate.yml`. The gate owns the
@@ -160,8 +161,8 @@ ranked list of cuts and never executes them.
    report the pair under `ownership`.
 3. **Merge** the finding records into one numbered list (defects, then concept
    candidates, then cuts). Drop duplicates across lenses and keep the strongest
-   evidence. Drop a `tests` coverage finding on code that a `deadweight` cut
-   deletes.
+   evidence. Link a `tests` coverage finding to the `deadweight` cut that
+   would delete its code; the finding stands until that cut lands.
    - **Defects.** A defect is any confirmed wrong behaviour; two deciders of
      one question giving different results for one input is one kind. For
      that kind, trace one concrete input through each and state who gets

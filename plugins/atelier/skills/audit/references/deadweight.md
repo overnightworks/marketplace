@@ -46,13 +46,16 @@ subject: dead weight, ballast.
   page, route, component, panel, or code path still ships. After UI changes
   this is the first check: did the old surface leave in the same stroke?
 - **Duplicated machinery**: the same encode/decode/store/validate pattern
-  copied per feature where one generic owner would serve; near-identical
-  modules differing only in names. Name the surviving owner.
+  copied per feature; modules that differ only in names, where one generic
+  owner would serve. Name the surviving owner.
 - **Reinvented wheels**: code landed since the last pass that reimplements a
   helper that already existed at the time, instead of calling it.
 - **Hardening without a threat**: a protection whose threat the trust model
   excludes (quote the line) or the deployment cannot produce (cite the
-  proof). A protection that stops nothing against a threat the model admits
+  proof). Before it relies on a model exclusion, check the model against the
+  code (listen addresses, entry points, and who writes the inputs); a
+  contradiction goes to `security` as a `HIGH` finding, and nothing is cut.
+  A protection that stops nothing against a threat the model admits
   goes to `security` as an ineffective defence, never as a cut. Never touch
   protections with documented saves — check history first.
 - **Cap artifacts** (only where the repository enforces size/complexity

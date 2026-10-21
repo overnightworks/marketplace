@@ -1,0 +1,7 @@
+claim_id = "b5f59b967f89496681523b125bdffbd6"
+agent = "claude"
+role = "builder"
+base = "0659cf179f689242f40b0327e3fef83b2c8e1206"
+branch = "claude/issue-228-contract-dedup"
+scope = ["instructions/AGENTS.md"]
+opened_commit = "f0f37d693338a45368af30bc079d8512bd73bd16"

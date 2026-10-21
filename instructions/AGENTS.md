@@ -872,8 +872,12 @@ Before adding a literal, constant, default, or fixture value, classify its owner
 
 ## Finish
 
-- Re-read every line against these rules before you consider it done. This
-  self-review is mandatory, not optional.
+- Before you commit or report, read your own diff back (`git diff`, and `git
+  diff --cached` before a commit), generated files excepted: every changed line
+  says what you meant, no line changed that you did not mean to change, and
+  every line meets these rules. This self-review is mandatory, not optional. A
+  heredoc that writes text quotes its delimiter (`<<'EOF'`), so `$…` and
+  backticks stay literal.
 - Remove speculative code, unused code, unused documentation, duplicated
   literals, and hidden hardcoded values.
 - Report the exact verification command.

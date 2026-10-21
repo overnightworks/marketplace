@@ -856,7 +856,10 @@ Before adding a literal, constant, default, or fixture value, classify its owner
   configuration, testing, tooling, or user-visible usage.
 - Do not document imagined architecture or future plans as current facts.
 - Do not maintain stale-prone inventories, file maps, line references, command
-  transcripts, or implementation trivia.
+  transcripts, or implementation trivia. A terminal step an operator runs is a
+  command the repository ships, a script or a CLI verb, never a shell sequence
+  copied from a document; the document names the command and what it is for
+  (operator ruling 21.10.2026).
 - Describe durable intent, contracts, invariants, and decisions at the highest
   useful abstraction.
 - Write for a named reader — human operator, human engineer, or agent — at a

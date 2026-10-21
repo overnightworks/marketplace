@@ -26,7 +26,7 @@ says *that* a lane is claimed, reviewed and landed; this says *how*.
 
 ## Start a lane
 
-- Before the claim, trace callers and owners into the scope (contract: "How to coordinate", the trace-before-claim rule). A lane that returns `awaiting-head` with a `rescope` list needs `aco rescope`, run from the claim's own worktree (it refuses the main checkout, unlike `aco start`), then a resume.
+- Before the claim, trace callers and owners into the scope (contract: "How to coordinate", the trace-before-claim rule). A live claim changes scope only through `aco rescope <n> --add PATH` (or `--drop PATH`), after the body's scope says so, run from the claim's own worktree (it refuses the main checkout, unlike `aco start`); a second `aco claim` refuses. A lane that returns `awaiting-head` with a `rescope` list is resumed after that.
 - Issue item: from the main checkout, run the `aco start <n> ...` line that
   `aco next` prints and fill any `<reason>` placeholder it prints (for example after
   `--whole`); it creates the worktree

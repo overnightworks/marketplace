@@ -808,11 +808,18 @@ Before adding a literal, constant, default, or fixture value, classify its owner
 - Add focused tests for new behavior and regression tests for bug fixes.
 - Put a regression test at the observable boundary that owns the defect; use a
   port fake only when the defect crosses a port boundary.
-- Coverage is evidence, not the goal. Do not add tests that only execute lines.
-  The target is that every observable behaviour and meaningful edge case has a
-  test — not a line-coverage percentage. Untested behaviour is the real gap; a
-  high line-coverage number with no behavioural assertions is worse than
-  honest.
+- Every repository follows one proof strategy; only its numbers and its
+  reasoned exceptions differ. Tests are one proof among several: types and
+  structure rules, end-to-end runs through real flows, a probe in operation,
+  less code to prove, and unit tests for logic with many cases (operator
+  ruling 16.10.2026).
+- 100 % branch coverage is mandatory in every repository, measured over all
+  test layers together (unit, integration, end-to-end); a branch an
+  end-to-end test reaches gets no mirror unit test. Coverage serves deletion:
+  a line that no real flow and no logic rule reaches is dead code and goes,
+  or it lacks a spec; never reach the number with a test that only executes
+  lines (operator ruling 16.10.2026). Until a repository's checks measure it
+  over all layers, its gap is reported, never a blocking review finding.
 - Drive flows through their real entry points against real state. Don't
   re-implement production logic inside the test to check it.
 - Pure logic must be callable and testable directly — with no live external

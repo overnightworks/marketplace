@@ -1,7 +1,0 @@
-claim_id = "03dd0a45efe54e9bbabc44a33f93ed51"
-agent = "Claude 033a4b11-b91c-41c8-a857-b081758dc3c4"
-role = "builder"
-base = "fe047635ebc4a7d506d9abcc725ace0f87427887"
-branch = "claude/issue-241-install-script"
-scope = ["README.md", "scripts/install.py", "tests/test_install.py"]
-opened_commit = "cf24216fe4193cbabc712087ef32377f2bd4777f"

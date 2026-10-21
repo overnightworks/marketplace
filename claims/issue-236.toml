@@ -1,0 +1,8 @@
+claim_id = "35ec028f04444e77b002da5337af1c66"
+agent = "claude"
+role = "builder"
+base = "3ca2fb075542668d49763b55f9d426a92e58396c"
+branch = "claude/issue-236-idea-followup"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/skills/aco/SKILL.md", "plugins/atelier/skills/board-hygiene/SKILL.md"]
+opened_commit = "9a4bdb83e2cb16febe6e0b1ba69c596b994cf4df"
+whole_reason = "Two skill sentences and one bullet that follow one aco change, plus the version pins."

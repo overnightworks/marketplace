@@ -28,73 +28,23 @@ Licensed under the [MIT License](LICENSE).
 - `plugins/atelier/.claude-plugin/plugin.json` is the Claude Code plugin
   manifest.
 
-## Install From GitHub
-
-Run these once on a machine to make the `atelier` plugin available from any
-repository.
-
-Codex:
+## Install And Update
 
 ```bash
-codex plugin marketplace add git@github.com:overnightworks/marketplace.git --ref main
-codex plugin add atelier@atelier
+python3 scripts/install.py
 ```
 
-Claude Code:
-
-```bash
-claude plugin marketplace add git@github.com:overnightworks/marketplace.git
-claude plugin install atelier@atelier
-```
-
-Start a new Codex thread or run `/reload-plugins` in Claude Code after
-installing so the plugin components are loaded.
-
-## Install From This Checkout
-
-Codex:
-
-```bash
-codex plugin marketplace add "$(pwd)"
-codex plugin add atelier@atelier
-```
-
-Claude Code:
-
-```bash
-claude plugin marketplace add "$(pwd)"
-claude plugin install atelier@atelier
-```
-
-Use the local checkout commands while developing the marketplace itself.
-
-## Update Existing Installs
-
-Codex, marketplace added from a Git repository:
-
-```bash
-codex plugin marketplace upgrade atelier
-codex plugin add atelier@atelier
-```
-
-Codex, marketplace added from a local checkout (`marketplace upgrade` only
-applies to Git marketplaces; `add` reads the checkout as it stands):
-
-```bash
-codex plugin add atelier@atelier
-```
+For each provider CLI on `PATH` (`codex`, `claude`) the script adds this
+marketplace from GitHub when it is missing, then installs the `atelier` plugin
+or updates it, so the same command serves a first install and every later
+update. `--from-checkout` adds the marketplace from this checkout instead, for
+developing the marketplace itself. It also links the global contract (see
+below) and never overwrites, moves or deletes a file: a path that holds
+anything else stops the run and is named.
 
 `codex plugin add` removes the previously installed version directory, so
-update between Codex jobs.
-
-Claude Code:
-
-```bash
-claude plugin marketplace update atelier
-claude plugin update atelier@atelier
-```
-
-Start a new Codex thread or run `/reload-plugins` in Claude Code after updating.
+update between Codex jobs. Afterwards start a new Codex thread or run
+`/reload-plugins` in Claude Code.
 
 ## Agents
 
@@ -141,13 +91,9 @@ Compatibility notes:
 ## Global Contract
 
 `instructions/AGENTS.md` is the operator's contract and code policy for every
-agent. It is installed per machine, never copied into a repository. Link it
-into each provider's user-level instructions:
-
-```bash
-ln -s ~/git/marketplace/instructions/AGENTS.md ~/.claude/CLAUDE.md
-ln -s ~/git/marketplace/instructions/AGENTS.md ~/.codex/AGENTS.md
-```
+agent. It is installed per machine, never copied into a repository.
+`scripts/install.py` links it into each provider's user-level instructions
+(`~/.claude/CLAUDE.md`, `~/.codex/AGENTS.md`).
 
 Grok reads `~/.claude/CLAUDE.md` through its Claude compatibility
 (`compat.claude.agents`, on by default). Every agent reads whatever the

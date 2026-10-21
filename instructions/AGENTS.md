@@ -107,7 +107,8 @@ dependencies point at it, and the comments below it become history rather than
 contract. A fresh issue is for a changed subject, not for a stale body.
 
 An idea is not a work item. An idea carries the wish in the operator's words,
-why it matters, and how they will notice it exists — nothing that the next
+why it matters, and how they will notice it exists; it carries its board's idea
+label and no aco block, so a board tells ideas from work — nothing that the next
 landing makes false. It becomes a work item when it is pulled, and only then is
 it refined, pictured, and cut: elaborated-but-unpulled work is inventory, and
 inventory rots while the vision moves on. Re-run the refinement at the pull

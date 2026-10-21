@@ -40,9 +40,10 @@ applies what is clear under the coordination contract.
 
 ## Pass 2: sense
 
-For each open item, read its body and test. A body with no `aco` block has no
-verdict: `body stale — unclear`, evidence "no aco block" (`aco check` prints
-`body legacy`). On a large board, read every
+For each open item, read its body and test. A body with no `aco` block
+(`aco check` prints `body legacy`) that carries no idea label gets `label idea`
+when it reads as an idea (wish, why, how noticed), or `body stale` when it is
+work. On a large board, read every
 `aco` block and every sentence that names a file, command, or item; skim the
 rest and say so in the report.
 
@@ -70,6 +71,11 @@ rest and say so in the report.
   by the cross-repository searches above) that expect this repository to act on an item
   that does not exist. Check inbound references before any `close` or
   `merge`.
+- Goal: when the operator or the head names a current goal, judge every open
+  work item once against it. `keep <reason>`: the item serves the goal now, and
+  the reason names how; a keep without a reason is not a verdict. `close`: the
+  item is done, overtaken, or not worth its lifetime cost now; when it is not
+  done, add one sentence "reopen when <trigger>".
 - Point: does the problem the item names still exist? If not, `close`.
 - Landed but waiting for a live proof only the operator can give: `keep —
   unclear`, with that question on the operator list. Mark nothing "unverified".
@@ -82,11 +88,11 @@ lines.
 
 Exactly one line per open item, then a short trailing block: unowned pull
 requests, due audits, queries run, and the closing list. A
-never-flag item gets `keep — clear — <reason>`. Clear lines omit the bracketed
-field.
+never-flag item gets `keep — clear — <reason>`, an idea `idea — clear`. Clear lines omit the
+bracketed field.
 
 ```text
-<owner>/<repo>#<n> keep|close|merge into #m|re-cut|body stale — clear|unclear — <evidence> [— recommendation; default: <verdict>]
+<owner>/<repo>#<n> keep <reason>|close|merge into #m|re-cut|body stale|label idea|idea — clear|unclear — <evidence> [— recommendation; default: <verdict>]
 ```
 
 - Evidence: the merged PR or sha, the overtaking ruling or landing with its
@@ -107,14 +113,20 @@ field.
   consumers) only; list the `gh` calls you made.
 - An active claim is never flagged `close` or `merge`; its false sentence is
   still reported as `body stale` for its lane.
-- Never flag: an unpulled idea (`items[].projectionless_idea` true, even when
-  listed in `stale`; a deferred or blocked item with a projection is judged on
-  its merits), a container with open children, anything the operator touched
+- An idea (it carries the board's `idea_label`; read the label, because aco
+  reports `projectionless_idea` only for an empty block) is judged only for
+  being overtaken by the vision, a ruling or a landing: overtaken → close,
+  otherwise verdict `idea`, left alone. Age is never a reason. An idea whose
+  body has grown a plan, a scope or slices is a finding ("elaborated before its
+  pull"). A deferred or blocked item with a projection is judged on its merits.
+- Never flag: a container with open children, anything the operator touched
   recently unless independently proven landed, or a real dependency from
   GitHub's `blocked_by` relation. Idle age alone is never proof of completion.
 - One pass, one report. No loops, no fixes, no persistent marker, tracking
   issue, or state-ref write.
-- When in doubt, keep and mark `unclear`. A wrongly closed item costs trust;
-  a kept duplicate costs a card.
+- In doubt between keep and close, the line is `unclear`, recommends close with
+  a reopen trigger, and defaults to close. An idea in the operator's words, or
+  an item he touched recently, defaults to keep.
+- The run proposes no freeze.
 - Retiring a document with a banner, and contradictions between documents,
   belong to `docs-cleanup`.

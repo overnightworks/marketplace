@@ -18,7 +18,8 @@ says *that* a lane is claimed, reviewed and landed; this says *how*.
 ## Session start
 
 1. `aco status` — who holds what; resume a lane you own (its worktree is listed).
-2. `aco next` (`--json`) — the item to pull. `needs-operator` items are never named;
+2. `aco next` (`--json`) — the item to pull. `needs-operator` items and
+   ideas are never named (ideas are listed apart under `ideas:`);
    an item with unruled expectations is refined first, not dispatched
    (`specs/next.spec.md`).
 3. `aco board --json` reads the whole board, read-only (bare `aco board` refuses);
@@ -83,6 +84,10 @@ contract and this skill.
   GitHub issue, sets its issue type and parent, and refuses a possible twin (a
   similar open or recently closed title) unless `--not-a-twin` is given
   (`specs/item.spec.md`). A bare `gh issue create` leaves type and parent unset.
+- Pulling an idea is a decision, not an idle step: remove the board's
+  idea label and replace the body with a work-item body (the fenced `aco`
+  block); `aco claim` refuses an idea whose body still lacks the
+  work-item block (`body incomplete`).
 - Forge issues are edited on the forge; `aco item edit` on a forge issue
   refuses.
 - Read a body with `gh issue view <n> --json body --jq .body` and write it with

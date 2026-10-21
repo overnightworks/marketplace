@@ -1,0 +1,8 @@
+claim_id = "a92a5bf35eff4de7a13fc5d079ef7f76"
+agent = "claude"
+role = "builder"
+base = "954a3966fdfad92718cde07bfc67e4f3799c006e"
+branch = "claude/issue-232-hygiene-goal-lens"
+scope = [".claude-plugin/marketplace.json", "instructions/AGENTS.md", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/skills/board-hygiene/SKILL.md"]
+opened_commit = "4fcd020c263ae51202925d68451b8092a05676c7"
+whole_reason = "One ruled direction spans the contract's idea sentence and the one skill that applies it, plus the pins that ship the skill."

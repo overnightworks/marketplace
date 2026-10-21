@@ -1,8 +1,0 @@
-claim_id = "9dab9ab5771447349436e00e25470232"
-agent = "claude"
-role = "builder"
-base = "0659cf179f689242f40b0327e3fef83b2c8e1206"
-branch = "claude/issue-229-audit-slim"
-scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/.codex/agents/code-reviewer.toml", "plugins/atelier/agents/code-reviewer.md", "plugins/atelier/skills/audit", "scripts/check_skills_baseline.json"]
-opened_commit = "e6ccfd85bdef89a84b147acc5002236bcefd2d69"
-whole_reason = "A size budget across one skill's nine files cannot be met file by file."

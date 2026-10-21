@@ -58,11 +58,9 @@ An explicit operator request wins. Without one:
    — then inspect the live board, active claims, dependencies, working tree,
    and CI. A repository without one of the two documents gets it when a product
    choice or the pull question cannot be answered from the README and the
-   rulings, and the architecture overview gets its Trust paragraph when a
-   security or deadweight decision needs a trust model: the head has it drafted
-   from the README, the code and the rulings, in the shape the `write-docs`
-   skill gives; a vision or a Trust paragraph comes to the operator with that
-   decision and binds once he has blessed it (operator ruling 20.10.2026).
+   rulings: the head has it drafted from the README, the code and the rulings,
+   in the shape the `write-docs` skill gives; a vision comes to the operator
+   with that decision and binds once he has blessed it.
 2. Resume an unfinished lane you own. Otherwise run `aco next` and
    take the item it names; production/security/data loss and red CI still
    come first. Claim a different item only with `--out-of-order REASON`; the
@@ -205,8 +203,8 @@ when`, and closes only on one of them: the predecessor is gone; its removal is
 an open item that names this one as its caller and is dispatched at the
 landing, and deferring that item needs the third exit; or the operator has
 ruled that it stays, until a date or an open item. A predecessor that stays is
-frozen as the code policy describes: no hardening, no new tests, no new
-callers (operator ruling 20.10.2026).
+frozen as the code policy describes (no hardening, no new tests)
+and gets no new callers (operator ruling 20.10.2026).
 
 No new item without a named caller (operator ruling 04.09.2026). A review
 finding is a caller only through the ruled sentence it breaks or the person or
@@ -442,14 +440,9 @@ Before a head runs the `codex` or `grok` CLI itself, outside the lane workflow, 
 gpt-5.6-terra is not used for reviews.
 
 Grok 4.6 is not eligible for any review role, including ordinary review, plan
-review, an escalation's additional reviewer, or a final gate. It remains
-eligible for building, fixing, testing, fact finding and mechanical work; this
-review measurement does not assess those roles. The provisional exclusion
-follows the 19.10.2026 agent-providers re-measurement: available records show
-approvals on ranges where another reviewer reproduced defects, and findings
-classified as follow-up despite blocking verification gaps. Briefs and
-execution permissions varied; this is evidence about the observed assignments,
-not an equal-condition provider comparison.
+review, an escalation's additional reviewer, or a final gate; it stays eligible
+for building, fixing, testing, fact finding and mechanical work (re-measurement
+19.10.2026, #184).
 
 **High is the one effort ceiling** for routine work, overrides and the
 escalation ladder. The only exception is the hardest proof after high proved

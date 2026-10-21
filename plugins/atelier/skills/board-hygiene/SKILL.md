@@ -1,6 +1,6 @@
 ---
 name: board-hygiene
-description: Check an open aco/GitHub work board against reality and give every open item a verdict (keep, close, merge, re-cut, body stale) with evidence. Finds landed-but-open items, twins (also across repositories), items overtaken by a later ruling or landing, bodies whose sentences are no longer true, and dangling pointers. Use when the operator or the head asks for a board check, or before pulling work on a board that changed.
+description: Check an open aco/GitHub work board against reality and give every open item a verdict (keep with a reason, close with a reopen trigger, merge, re-cut, body stale, label idea, idea) with evidence, judging every open item against a named current goal. Finds landed-but-open items, twins (also across repositories), items overtaken by a later ruling or landing, bodies whose sentences are no longer true, and dangling pointers. Use when the operator or the head asks for a board check, or before pulling work on a board that changed.
 ---
 
 # Board Hygiene
@@ -87,8 +87,8 @@ lines.
 ## Output
 
 Exactly one line per open item, then a short trailing block: unowned pull
-requests, due audits, queries run, and the closing list. A
-never-flag item gets `keep — clear — <reason>`, an idea `idea — clear`. Clear lines omit the
+requests, due audits, queries run, and the closing list. A never-flag item gets
+`keep — clear — <reason>`, an idea `idea — clear`. Clear lines omit the
 bracketed field.
 
 ```text

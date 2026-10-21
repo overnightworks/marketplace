@@ -113,8 +113,8 @@ bracketed field.
   consumers) only; list the `gh` calls you made.
 - An active claim is never flagged `close` or `merge`; its false sentence is
   still reported as `body stale` for its lane.
-- An idea (it carries the board's `idea_label`; read the label, because aco
-  reports `projectionless_idea` only for an empty block) is judged only for
+- An idea (it carries the board's idea label; `aco next` lists it under
+  `ideas:`, and `board --json` marks it `idea`) is judged only for
   being overtaken by the vision, a ruling or a landing: overtaken → close,
   otherwise verdict `idea`, left alone. Age is never a reason. An idea whose
   body has grown a plan, a scope or slices is a finding ("elaborated before its

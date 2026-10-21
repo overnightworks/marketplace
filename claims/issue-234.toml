@@ -1,8 +1,0 @@
-claim_id = "763a7712d48949f3961a9cce0d19c190"
-agent = "claude"
-role = "builder"
-base = "e759ab7727527af9acafaa0ea3bbd31b83164a20"
-branch = "claude/issue-234-aco-rescope-line"
-scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/skills/aco/SKILL.md"]
-opened_commit = "b87f220cea063095fba318d843f2a94390cd31be"
-whole_reason = "One skill sentence plus the version pins that ship it."

@@ -1,7 +1,0 @@
-claim_id = "ba60f8f4ccdb49f298798f8d3e546e4b"
-agent = "claude"
-role = "builder"
-base = "71f3cbaeba94b02c6073c8f66d53254ab823e63e"
-branch = "claude/issue-213-diff-read-back"
-scope = ["instructions/AGENTS.md"]
-opened_commit = "77cb916d18ed0ee43f0df337f137ab21b53d2508"

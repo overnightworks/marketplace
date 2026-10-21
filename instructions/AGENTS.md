@@ -817,9 +817,10 @@ Before adding a literal, constant, default, or fixture value, classify its owner
   test layers together (unit, integration, end-to-end); a branch an
   end-to-end test reaches gets no mirror unit test. Coverage serves deletion:
   a line that no real flow and no logic rule reaches is dead code and goes,
-  or it lacks a spec; never reach the number with a test that only executes
-  lines (operator ruling 16.10.2026). Until a repository's checks measure it
-  over all layers, its gap is reported, never a blocking review finding.
+  or it lacks a spec (operator ruling 16.10.2026). Never reach the number
+  with a test that only executes lines. Until a repository's checks measure
+  coverage over all layers, its gap is reported, not raised as a blocking
+  finding; a failing check stays blocking.
 - Drive flows through their real entry points against real state. Don't
   re-implement production logic inside the test to check it.
 - Pure logic must be callable and testable directly — with no live external

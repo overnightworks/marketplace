@@ -1,8 +1,0 @@
-claim_id = "fb9af8346ffd4f62ac9318ac45a5a34f"
-agent = "Claude 033a4b11-b91c-41c8-a857-b081758dc3c4"
-role = "builder"
-base = "1ea88b538d4899dbe458c9ffd62ccb94c464de42"
-branch = "claude/issue-240-terminal-step-is-a-shipped-command"
-scope = [".claude-plugin/marketplace.json", "instructions/AGENTS.md", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/skills/write-docs/references/document-types.md"]
-opened_commit = "726275dd0ce29a24335344854922ad5207b992fe"
-whole_reason = "One ruled sentence in the contract and the skill text that taught the opposite, plus the pins that ship the skill."

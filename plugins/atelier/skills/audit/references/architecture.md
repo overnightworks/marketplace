@@ -36,9 +36,8 @@ first. Standing-item subject: architecture (layers, boundaries, owner modules).
    invariant without an enforcing function and a cost without a measurement
    are both findings.
 
-Add a lens when the change under audit touches an area no lens above covers:
-security posture before an exposure change (`security.md`), frontend structure
-after UI growth.
+Add a lens when the change touches an area none above covers: security
+posture before an exposure change (`security.md`), frontend structure.
 
 ## The checklist each lens works
 
@@ -65,6 +64,9 @@ after UI growth.
 The dispatcher merges the reports into one scored table (0-10 per lens, one
 sentence of reason each) and lists each confirmed finding as the finding
 record. Cheap-fix-first: a one-line guard repair outranks a redesign.
+
+Severity: `HIGH` corruption, data loss, security exposure, or a guard that
+silently never ran; `MEDIUM` drift that will rot.
 
 Prevention check: every enforcement tool a gate runs must ANNOUNCE what it
 checked (counts, not just green); route a fix for any guard that can pass

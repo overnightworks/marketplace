@@ -23,11 +23,13 @@ item or executes a cut.** Pick the goal, run its lenses, return one report.
 The dispatching seat spawns one read-only `atelier:code-auditor` subagent per
 lens (per numbered lens inside `architecture.md`) and never audits alone. A lens
 subagent reads exactly this file's shared rules, its own reference and the
-references on that reference's `Hand-offs:` line, and spawns nothing. A
-`Hand-offs:` line names where a lead goes, not a lens the goal must run; a
-lead from a lens the goal does not run goes to that lens's owner list or to
-"suspected and unproven". A threshold a lens words as judgement ("heavy",
-"well above") is a judgement call: the lens names the call and its reason.
+references on that reference's `Hand-offs:` line (no line: none), and spawns
+nothing; a seat that is itself a lens subagent takes the lens or goal its
+parent names and reads the same way. A `Hand-offs:` line names where a lead
+goes, not a lens the goal must run; a lead from a lens the goal does not run
+goes to that lens's owner list or to "suspected and unproven". A threshold a
+lens words as judgement ("heavy", "well above") is a judgement call: the lens
+names the call and its reason.
 
 ## Shared rules
 
@@ -47,21 +49,19 @@ lead from a lens the goal does not run goes to that lens's owner list or to
   trusts. Boundary statements elsewhere, such as a README's "local-only", are
   leads for drafting it. A Trust paragraph narrows the default only when it
   cites the operator ruling that blessed it; otherwise the lenses use the
-  default and name the draft. The default:
-  assume that every input from outside the process (files it did not write,
-  network responses, user text, and any argument or environment value that
-  carries external content) is untrusted, and that the repository's own
-  checked-in files and operator-supplied settings, including arguments and
-  environment, are trusted. The Trust paragraph points to the components that
-  the tripwire ruling (global contract, "Every review finding is marked ...")
-  declares and does not restate them. A report that ran `security` or
-  `deadweight` names the model it used: declared (with the ruling), or
-  default.
+  default and name the draft. The default: assume that every input from outside
+  the process (files it did not write, network responses, user text, and any
+  argument or environment value that carries external content) is untrusted,
+  and that the repository's own checked-in files and operator-supplied
+  settings, including arguments and environment, are trusted. The Trust
+  paragraph points to the components the tripwire ruling (global contract,
+  "Every review finding is marked ...") declares, without restating them. A
+  report that ran `security` or `deadweight` names its model: declared (with
+  the ruling) or default.
 - **Quality gate.** With `quality/config.toml` and a workflow using
   `overnightworks/quality/.github/workflows/gate.yml`, the shared gate owns
-  the thresholds only (its `size` rule); point at it. Its `quality scoreboard`
-  is a weekly CI summary of public repositories, not a measurement of this
-  area: measure with your own commands and say so.
+  the thresholds only (its `size` rule). Its `quality scoreboard` is not a
+  measurement of this area: measure and say so.
 - **Refute before reporting.** Every subagent's mandate is to disprove the
   claim or suspicion: read the code, trace the path, then look for the check,
   bound or precondition that stops it. Report only what survives; heuristic
@@ -74,7 +74,7 @@ lead from a lens the goal does not run goes to that lens's owner list or to
 - **Suspected, unproven and examined, kept.** A lead without proof goes into
   the report's suspected-unproven section, never into the findings. Report
   refuted suspicions ("tried to break X and could not", with what was tried)
-  and what was examined and retained because it earns its place.
+  and what was examined and kept.
 - **Severity.** `HIGH` is a defect, exposure, corruption or loss that matters
   under normal operation; `MEDIUM` is drift or a gap needing a precondition;
   `LOW` is localized or arguable. Each lens adds examples; `ownership` and
@@ -110,14 +110,12 @@ lead from a lens the goal does not run goes to that lens's owner list or to
   cadence. The standing board item owns due-ness: its body holds a line naming
   the last run's commit (`last run at commit X`). Find the one whose title
   names the audit's subject with
-  `gh issue list --state open --search "Standing-Audit in:title"` (or
-  `aco board --json`). Count landings with
-  `git log --oneline --first-parent X..origin/<default>` (or the age `aco next`
-  shows), or count the days. With no item, say it is the first run and tell
-  the head to open the standing item. One item covering two audits shares its
-  anchor: a run of either resets it, so the report names which ran. The head
-  writes the new anchor from the report. Each lens reference gives its
-  interval and subject.
+  `gh issue list --state open --search "Standing-Audit in:title"`. Count
+  landings with `git log --oneline --first-parent X..origin/<default>`, or
+  count the days. With no item, say it is the first run and tell the head to
+  open the standing item. One item covering two audits shares its anchor: a
+  run of either resets it, so the report names which ran. The head writes the
+  new anchor; each lens gives its interval and subject.
 - **Prevention check.** A lens whose reference names one closes its report
   with it: a gap in a guard is routed as a fix (flag, never edit), because an
   unguarded gap is how the defect class is born.

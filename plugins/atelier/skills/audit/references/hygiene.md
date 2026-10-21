@@ -2,8 +2,8 @@
 
 Audit code hygiene against the code policy's "Code" section (guidance lookup
 in `SKILL.md`) and the repository's facts. Configured tools own mechanical
-checks (formatting, imports, type errors, dead code, complexity thresholds);
-this lens is semantic judgment after reading the code.
+checks (formatting, imports, types, dead code, complexity); this lens is
+semantic judgment after reading the code.
 
 ## Procedure
 
@@ -14,7 +14,7 @@ this lens is semantic judgment after reading the code.
 
 ## Checklist
 
-The code policy owns the rules; the audit looks for:
+The code policy owns the rules. Each bullet is one check heading; look for:
 
 - comments and docstrings that restate the next line instead of a
   non-obvious contract or tradeoff; functions with more than one job or no
@@ -27,3 +27,6 @@ The code policy owns the rules; the audit looks for:
 - validation defending impossible internal states instead of real boundaries;
 - compatibility code, deprecated aliases and future parameters without
   current callers; inheritance without a real is-a relationship.
+
+Severity: `HIGH` code shape that hides behavior or makes future changes
+unsafe; `MEDIUM` clear maintainability drift.

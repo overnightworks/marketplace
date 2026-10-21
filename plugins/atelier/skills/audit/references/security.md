@@ -1,9 +1,8 @@
 # Security lens
 
-Audit how the code treats untrusted input, secrets and privilege. This is a
-source audit against the repository's trust model, taken from the shared Trust
-model rule in `SKILL.md`: judge findings against what the code is actually
-exposed to, not a generic worst case. State the model used in the report.
+Audit how the code treats untrusted input, secrets and privilege: a source
+audit against the trust model of the shared Trust model rule in `SKILL.md`,
+judged by what the code is actually exposed to, not a generic worst case.
 
 ## Procedure
 

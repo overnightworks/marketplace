@@ -28,10 +28,9 @@ The code policy owns the rules; each line is what this audit adds.
   expensive (for example, call-count assertions as the main proof), report one
   target-shape finding instead of one finding per test.
 - Behavior coverage: every new or changed behavior has a test or an explicit,
-  justified reason it cannot. Code with no production caller is not a
-  coverage finding; hand it to `deadweight.md` (frozen or dead). A gap on a
-  branch that cannot occur under the trust model or the types is a deletion,
-  not a missing test: hand it to `deadweight.md` as a cut.
+  justified reason it cannot. Code with no production caller (frozen or dead),
+  or a gap on a branch the trust model or the types rule out, is no coverage
+  finding: hand it to `deadweight.md` as a cut.
 - Right altitude and assertions: pure logic is tested directly; integration
   paths use real entry points without reimplementing production flow; tests
   assert user-visible output, state, errors or contracts, not private details.
@@ -58,9 +57,8 @@ The code policy owns the rules; each line is what this audit adds.
 
 One owner for judging whether tests are too large:
 
-- Shape: when tests need heavy arrangement, or test:src rises well above its
-  history, run the `depth.md` lens on the module under test; test explosion is
-  usually a shallow-module symptom.
+- Shape: heavy arrangement, or test:src well above its history: run `depth.md`
+  on the module under test.
 - Ballast: a module whose test-to-production line ratio is more than twice the
   median ratio of the repository's modules, without behavioral justification.
   Pair module and test by name (`x.py` with `test_x.py`); list the unpaired
@@ -72,3 +70,7 @@ One owner for judging whether tests are too large:
   reference is never cut for length alone; it may merge into a table-driven
   test that proves the same. Judge lines per proven behaviour, not in total: a
   cut that deletes a behaviour's only proof is a loss, not a saving.
+
+Severity: `HIGH` missing behavior coverage, live dependencies in pure tests,
+known flakiness; `MEDIUM` brittle coupling, unsafe parallelism, unclear
+duplicated tests.

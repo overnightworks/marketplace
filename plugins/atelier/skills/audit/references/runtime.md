@@ -33,3 +33,7 @@ is a source audit, not a profiler: report structural hazards proven by code.
   Check-then-act: claims, file existence checks and state transitions avoid
   race windows. Critical sections: locks are held only around the invariant
   they protect, not around slow work.
+
+Severity: `HIGH` leaks, corruption or resource exhaustion under normal
+operation; `MEDIUM` risks that degrade at scale or on error paths. `Evidence`
+is the confirmed risk, `Why` is when it bites; one heading per hazard.

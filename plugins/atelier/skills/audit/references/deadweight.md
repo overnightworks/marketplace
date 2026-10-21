@@ -1,14 +1,12 @@
 # Deadweight lens
 
-Judge whether code has earned its place, not whether it is well written. The
-operator's law: code only grows with a reason, and when something new lands
-its predecessor leaves in the same stroke. Static tools cannot answer this
-(vulture counts a test import as "used"; a never-enabled flag looks alive).
-This lens produces the deletion list; it never executes it.
+Judge whether code has earned its place, not whether it is well written.
+The operator's law: code only grows with a reason, and when something new
+lands its predecessor leaves in the same stroke. This lens produces the
+deletion list; it never executes it.
 
-Standing audit: after every ~25 trunk landings until two consecutive passes
-come back clean, then after every ~50 landings or weekly. Standing-item
-subject: dead weight, ballast.
+Standing audit: every ~25 trunk landings until two clean passes, then every
+~50 or weekly. Standing-item subject: dead weight, ballast.
 
 Hand-offs: tests.md (Test size; test ballast and near-duplicate test
 parametrization go there).
@@ -39,7 +37,7 @@ parametrization go there).
   frontend or client calls.
 - **Zombie predecessors**: a successor landed (commit as proof) but the old
   page, route, component, panel or code path still ships. After UI changes
-  this is the first check: did the old surface leave in the same stroke?
+  check first that the old surface left.
 - **Duplicated machinery**: the same encode/decode/store/validate pattern
   copied per feature where one generic owner would serve. Name the surviving
   owner.
@@ -75,13 +73,12 @@ lists the files and symbols to delete, including tests that only serve them,
 and `Survivor: <owner to keep>` for merges. The head turns the records into
 retire/delete work items or one consolidated diet item.
 
-Close with the total deletable line count; the KEPT list (examined and
-retained because history shows it earning its place: a rescue, a caught bug, a
-prevented loss, so the audit never reads as "delete all safety"); the
-suspected-unproven leads; and the prevention check: every open
-replacement/redesign work item in the audited area (list them with
-`gh issue list --state open --search "replace OR redesign OR rewrite"`, or the
-board; only items naming a surface inside the area count) must name its
-predecessor and that predecessor's exit, as the global contract's predecessor
-rule ("How to decide") requires. Flag, never edit, an item that breaks the
-rule, or a kept predecessor that is still being invested in.
+Close with the total deletable line count; the KEPT list (retained because
+history shows it earning its place: a rescue, a caught bug, a prevented loss);
+the suspected-unproven leads; and the prevention check: every open
+replacement/redesign work item in the audited area (`gh issue list --state open
+--search "replace OR redesign OR rewrite"` or the board; only items naming a
+surface in the area) must name its predecessor and that predecessor's exit, as
+the global contract's predecessor rule ("How to decide") requires. Flag, never
+edit, an item that breaks the rule, or a kept predecessor that is still being
+invested in.

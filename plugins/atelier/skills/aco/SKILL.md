@@ -86,7 +86,8 @@ contract and this skill.
   (`specs/item.spec.md`). A bare `gh issue create` leaves type and parent unset.
 - Pulling an idea is a decision, not an idle step: remove the board's
   idea label and replace the body with a work-item body (the fenced `aco`
-  block); `aco claim` refuses an idea that still carries the label.
+  block); `aco claim` refuses an idea whose body still lacks the
+  work-item block (`body incomplete`).
 - Forge issues are edited on the forge; `aco item edit` on a forge issue
   refuses.
 - Read a body with `gh issue view <n> --json body --jq .body` and write it with

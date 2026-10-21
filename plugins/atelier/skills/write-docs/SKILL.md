@@ -49,7 +49,8 @@ or ownerless information is a defect, not a style choice.
 
 - No documentation without a named reader, decision, and one declared type.
 - No duplicated facts across documents; link or derive instead.
-- No planned or imagined behavior presented as current fact.
+- Current state only: no planned or imagined behavior; plans, roadmaps and
+  wishes are board items.
 - Do not pad human overviews with implementation trivia, or agent docs with
   narrative.
 

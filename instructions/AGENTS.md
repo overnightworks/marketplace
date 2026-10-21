@@ -854,7 +854,9 @@ Before adding a literal, constant, default, or fixture value, classify its owner
 
 - Update documentation in the same change that alters behavior, architecture,
   configuration, testing, tooling, or user-visible usage.
-- Do not document imagined architecture or future plans as current facts.
+- A document describes the current state for its named reader. Plans,
+  roadmaps, wishes and open work are board items, never document content
+  (operator ruling 21.10.2026).
 - Do not maintain stale-prone inventories, file maps, line references, command
   transcripts, or implementation trivia. A terminal step an operator runs is a
   command the repository ships, a script or a CLI verb, never a shell sequence

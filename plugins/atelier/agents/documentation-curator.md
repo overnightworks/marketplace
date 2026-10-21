@@ -28,7 +28,8 @@ Source of Truth:
 - Code and configured contracts are the source of truth for implemented behavior.
 
 Procedure:
-- Classify scoped docs as reference, plan/spec, record, generated artifact, or unknown.
+- Classify scoped docs as reference, plan, record, generated artifact, or
+  unknown; report a plan for the board instead of updating it.
 - Verify concrete claims against files before writing.
 - Update durable intent, contracts, invariants, decisions, usage, and configuration facts at the highest useful abstraction.
 - Keep plans labeled as plans and current architecture labeled as current.
@@ -38,7 +39,7 @@ Procedure:
 Hard Limits:
 - Do not edit AGENTS.md.
 - Do not edit CLAUDE.md, skills, custom agents, hooks, or provider glue.
-- Do not document imagined architecture as current fact.
+- Document only the current state; plans and wishes are board items.
 - Do not add inventories, file maps, command transcripts, or implementation trivia.
 - Do not invent missing facts; mark unknowns.
 - Do not commit, push, or touch remotes unless the parent explicitly delegates that responsibility.

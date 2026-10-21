@@ -1,0 +1,7 @@
+claim_id = "97d793176fc74627b317d82e8b9b3cc5"
+agent = "Claude 033a4b11-b91c-41c8-a857-b081758dc3c4"
+role = "builder"
+base = "bada983407d47af7c296bfdf29216262a5c5cec6"
+branch = "claude/issue-238-code-policy-tests-proof-strategy"
+scope = ["instructions/AGENTS.md"]
+opened_commit = "ba2ec414252d21c1062ea38dac02f1c3f6296b44"

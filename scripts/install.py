@@ -122,5 +122,5 @@ def run_json(command: list[str]) -> dict | list:
     return json.loads(run(command, show_output=False).stdout)
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover - process entry point, no logic of its own
     raise SystemExit(main())

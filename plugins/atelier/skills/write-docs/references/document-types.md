@@ -77,7 +77,8 @@ Example: "How to rotate the API token. Prerequisite: admin role. 1. Run
 `acme whoami` prints the new token's expiry."
 
 Mistakes: teaching basics; background paragraphs mid-steps; covering every
-option instead of one goal; a title that names the tool, not the goal.
+option instead of one goal; a title that names the tool, not the goal; a shell
+sequence to copy by hand where the repository should ship one command.
 
 ## Reference
 
@@ -177,7 +178,7 @@ Skeleton:
 # Runbook: <alert or task>
 Symptom: what the responder sees. Impact: who is affected.
 ## Check    <- command and expected output
-## Fix      <- numbered, copy-pasteable, with rollback
+## Fix      <- numbered, one shipped command per step, with rollback
 ## Escalate <- when and to whom
 ```
 
@@ -185,8 +186,9 @@ Example: "Runbook: sync lag above 5 min. Check: `acme ops lag` prints seconds.
 Fix: 1. `acme ops restart-sync`. 2. Re-check; expect below 60. Rollback: none
 needed. Escalate: if lag persists after 10 min, page the platform owner."
 
-Mistakes: prose instead of commands; steps never rehearsed; no expected
-output; no rollback or escalation; explanation that belongs elsewhere.
+Mistakes: prose instead of commands; a shell sequence to copy by hand instead of
+a script the repository ships; steps never rehearsed; no expected output; no
+rollback or escalation; explanation that belongs elsewhere.
 
 ## Architecture overview (arc42-lite)
 

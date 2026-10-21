@@ -9,14 +9,14 @@ learn as it does. Do not score it as a line ratio. Hand-offs: architecture.md
 - **Deletion test.** Imagine it removed: complexity that vanishes means a
   pass-through; complexity that reappears across its callers means it
   earned its place.
-- **Test surface.** Tests should need only the interface. Tests that reach
+- **Test surface.** Tests should need only the interface; tests that reach
   past it, or need heavy arrangement, show the wrong shape. For each
   production entry point, check whether tests drive it or a test-only
-  sibling (a function with no production caller, a copy of a worker
-  script, a fake that re-implements a production step); report the shipped
-  path as unproven and name the real adapter the tests should move onto.
+  sibling (a function with no production caller, a copy of a worker script, a
+  fake that re-implements a production step); report the shipped path as
+  unproven and name the real adapter the tests should move onto.
 - **Seam count.** One adapter behind a port is a hypothetical seam; two
-  real ones make a seam. Lens 2 of `architecture.md` counts them.
+  real ones make a seam (architecture.md Lens 2 counts them).
 - **Enforcement.** When an interface carries an ordering or "callers must
   not" rule only in a docstring or an assert, look for a caller that
   already breaks it (a flush defeats a dirty-session assert). A broken

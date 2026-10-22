@@ -151,6 +151,14 @@ and the 05.09.2026 measurement PR (PR overnightworks/agent-coordination#116).
   measured in this repository's PR #24 on
   `plugins/atelier/hooks/pre_commit_gate.sh`, where the marker took
   `shell:S8541` out of the PR analysis.
+- A `NOSONAR` marker is added only after the refused code route stands on the
+  distributor — class (b) says how.
+- A ruff `# noqa: <code>` takes no prose after the code. SonarPython raised
+  `python:S7632` on such a line whose prose held a comma, measured in
+  overnightworks/hopin PR #20 (`scripts/check_root_layout.py:78`; the
+  comma-free prose on the next line raised nothing). The "SonarCloud Code
+  Analysis" check passed; only the repository's own findings step caught it.
+  The reason goes in a comment on the line above.
 
 ### API access
 

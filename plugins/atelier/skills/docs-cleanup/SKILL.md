@@ -43,6 +43,7 @@ and note "out of scope: agent-documentation" in the report.
 - A frozen mockup is checked only for being blessed (named in its item) and,
   after the landing that built its surface, for being aligned with what was
   built; it has no length budget and is never a plan finding.
+- An issue number that no longer names the item it meant becomes plain words.
 - Content for another reader moves to that reader's document.
 - A document over its type's length budget is a finding.
 - Concrete paths, commands, module names, options, and config keys exist.

@@ -152,6 +152,9 @@ then `acme login`. Docs: docs/. Licence: MIT."
 
 Picture: at most one context diagram; a screenshot where there is a surface.
 
+A CLI's README may list its commands as a pointer table, one line per command
+to the spec that owns it; a pointer is not a restatement.
+
 Mistakes: a full manual in the README; install steps that were never run;
 duplicating facts that live in docs/.
 

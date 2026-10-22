@@ -1,0 +1,8 @@
+claim_id = "fbba791f8bb849d9826561b56621a433"
+agent = "Claude 033a4b11-b91c-41c8-a857-b081758dc3c4"
+role = "builder"
+base = "4a445b3f8e7a2bc3ad347cc8180a587728f5f7da"
+branch = "claude/issue-258-docs-feedback-2"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/skills/docs-cleanup/SKILL.md", "plugins/atelier/skills/write-docs/references/document-types.md"]
+opened_commit = "d9e79787a09bfe4ca4762a94c0d179389a55e200"
+whole_reason = "Two skill sentences answering one head's feedback, plus the pins that ship them."

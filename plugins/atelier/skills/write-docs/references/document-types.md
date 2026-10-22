@@ -270,7 +270,8 @@ wiki, no public pages."
 Picture: none.
 
 A blessed vision stays as blessed; a rewrite to this skeleton waits for the
-operator's blessing.
+operator's blessing. A section the operator has not given words for stays out
+until he does; it is never invented.
 
 Mistakes: a roadmap or status list; technical choices; wishes with no user
 today; non-goals left empty; wording the operator never said or blessed.

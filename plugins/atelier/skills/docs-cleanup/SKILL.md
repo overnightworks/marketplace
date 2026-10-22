@@ -59,6 +59,9 @@ and note "out of scope: agent-documentation" in the report.
   `git ls-files --error-unmatch <path>` for each named path. A link into a
   submodule that is not checked out is reported UNVERIFIED, not dead.
 - Examples are real enough to run in the repository's stack.
+- A shell sequence an operator copies by hand is a finding handed to the item
+  that will ship its command (global contract, Documentation); the document
+  keeps it until that command exists.
 - Documentation remains compact and useful to the next agent.
 
 ## Output

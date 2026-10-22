@@ -29,7 +29,7 @@ ruling. Report what was kept and what was removed.
 1. Read `AGENTS.md` first. Read `CLAUDE.md` when present. Read only scoped
    project-owner docs needed to verify claims.
 2. Classify each scoped file as entry point, shared guidance, project owner,
-   plan, provider glue, skill, custom agent, or record.
+   provider glue, skill, custom agent, or record.
 3. Verify concrete repository claims against source files, tests, config, and
    CI. Verify current provider behavior against primary docs when it affects the
    change.
@@ -63,20 +63,22 @@ distributor issue.
   invent imports or auto-load syntax.
 - Ownership: the global contract owns generic policy; `AGENTS.md` contains
   project facts only, and project-owned files contain product intent, current
-  architecture, tooling, CI, or plans.
+  architecture, tooling, or CI.
 - Update duty: project owners say what must be updated when facts change; shared
   files change only when the reusable rule or skill improves.
 - Token economy: every line adds a decision, boundary, trigger, invariant, or
-  verification rule.
+  verification rule. `AGENTS.md` carries only what an agent cannot derive from
+  the code: commands, repository-specific traps, owners, pointers. No overview
+  or directory tree; those serve humans in the README and the architecture
+  overview.
 - Duplication: generic policy appears only in the global contract; project facts
   appear only in their project owner. A copy of the contract in a repository is a
   finding.
 - Clarity: intent is direct, terms are defined by context, and vague advice is
   replaced by observable behavior or deleted.
-- Consistency: current architecture, plans, tooling, tests, commands, skills,
-  and provider glue do not contradict each other.
-- Truthfulness: plans are labeled as plans, implemented facts match files, and
-  unknowns are marked.
+- Consistency: current architecture, tooling, tests, commands, skills, and
+  provider glue do not contradict each other.
+- Truthfulness: implemented facts match files, and unknowns are marked.
 - Audience and views: guidance and the docs it references name their reader
   and altitude; a document serving another audience is a view deriving from
   one owner, not an independently edited copy.

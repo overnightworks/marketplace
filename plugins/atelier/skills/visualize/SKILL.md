@@ -44,8 +44,9 @@ verify them like any other documented fact.
 
 - No decorative diagrams, and no diagram that duplicates a table or list that
   says it better.
-- Do not draw planned architecture as current structure; label aspirational
-  parts explicitly or leave them out.
+- Draw only what exists; leave planned parts out. Which picture a document type
+  carries is set in
+  [write-docs' document set](../write-docs/references/document-types.md#repository-document-set).
 - A diagram contradicting the code is a defect to fix immediately, in
   whichever of the two is wrong.
 

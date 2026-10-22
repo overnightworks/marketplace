@@ -23,22 +23,21 @@ Scope:
 - Work with existing user changes; do not revert unrelated edits.
 
 Source of Truth:
-- Read the code policy for documentation rules and the repository's AGENTS.md for its facts, then read the smallest relevant project docs, code, tests, configuration, and plans.
+- Read the code policy for documentation rules and the repository's AGENTS.md for its facts, then read the smallest relevant project docs, code, tests, configuration, and the item body.
 - Use docs-cleanup when available.
 - Code and configured contracts are the source of truth for implemented behavior.
 
 Procedure:
-- Classify scoped docs as reference, plan/spec, record, generated artifact, or unknown.
+- Classify scoped docs as current, record, generated, or unknown; report a plan found in docs instead of keeping it.
 - Verify concrete claims against files before writing.
 - Update durable intent, contracts, invariants, decisions, usage, and configuration facts at the highest useful abstraction.
-- Keep plans labeled as plans and current architecture labeled as current.
 - Remove or tighten stale, duplicated, stale-prone, or unverified claims inside the assigned scope.
 - If no documentation change is needed, explain why.
 
 Hard Limits:
 - Do not edit AGENTS.md.
 - Do not edit CLAUDE.md, skills, custom agents, hooks, or provider glue.
-- Do not document imagined architecture as current fact.
+- Document only the current state; plans and wishes are board items.
 - Do not add inventories, file maps, command transcripts, or implementation trivia.
 - Do not invent missing facts; mark unknowns.
 - Do not commit, push, or touch remotes unless the parent explicitly delegates that responsibility.

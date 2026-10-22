@@ -299,10 +299,11 @@ Keep comment threads thin (operator ruling 23.08.2026): the PR carries the proof
 — a landing gets one short close comment (PR link + merge SHA), never a
 duplicated evidence dump. Settled doctrine and rulings are harvested from
 comments into the owning repository document (its specs or requirements; see the
-`write-docs` repository document set) and the body links there; comments hold
+`write-docs` repository document set) and the body links there; a ruling about
+behaviour not yet built stays in the item body until its landing. Comments hold
 only the transient "changed because" notes. An item that collects more than ~20
-comments before its build starts is too big — slice it instead of commenting
-further.
+comments before its build starts is too big — slice it instead of
+commenting further.
 
 The body is the agent contract: a builder must be able to start from the body
 alone, never needing the comment journal before its first edit. Dispatch
@@ -854,7 +855,12 @@ Before adding a literal, constant, default, or fixture value, classify its owner
 
 - Update documentation in the same change that alters behavior, architecture,
   configuration, testing, tooling, or user-visible usage.
-- Do not document imagined architecture or future plans as current facts.
+- A document states what is true today. Plans, wishes, proposals and open work
+  live in issues; the landing that makes one true updates the document. A
+  decision record keeps its history, a vision names the lasting wish without
+  dates, phases or status, and a frozen mockup is the one target picture: the
+  landing that builds its surface aligns the mockup with what was built or
+  replaces it (operator rulings 21. and 22.10.2026).
 - Do not maintain stale-prone inventories, file maps, line references, command
   transcripts, or implementation trivia. A terminal step an operator runs is a
   command the repository ships, a script or a CLI verb, never a shell sequence
@@ -862,10 +868,11 @@ Before adding a literal, constant, default, or fixture value, classify its owner
   (operator ruling 21.10.2026).
 - Describe durable intent, contracts, invariants, and decisions at the highest
   useful abstraction.
-- Write for a named reader — human operator, human engineer, or agent — at a
-  named altitude; agent docs stay compact contracts, human overviews lead with
-  the mental model and prefer one accurate diagram-as-code over structure
-  prose.
+- Each document serves one named reader at one altitude and answers one
+  question; the write-docs document set owns each type's reader, content, length
+  budget and picture. Agent documents carry only what an agent cannot derive
+  from the code; human overviews lead with the mental model and draw structure
+  as diagram-as-code instead of describing it.
 - Facts have one owner. A document serving another audience is a view:
   derived from the owner, naming its source, corrected by regeneration —
   never independently edited.

@@ -37,7 +37,8 @@ or ownerless information is a defect, not a style choice.
 5. For behavior, prefer linking the human-readable requirement to the
    executable test that proves it over re-describing the behavior in prose —
    a linked spec cannot silently rot; prose can. Requirements live where
-   the specs row of [the document set](references/document-types.md#repository-document-set)
+   the specs row of
+   [the document set](references/document-types.md#repository-document-set)
    puts them.
 6. Verify every concrete claim (paths, names, commands, shapes) against
    source before writing it. Mark unknowns as unknowns.

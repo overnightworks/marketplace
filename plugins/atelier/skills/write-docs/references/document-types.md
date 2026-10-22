@@ -30,7 +30,8 @@ arc42 <https://arc42.org/>; Keep a Changelog
 The first four are Diátaxis's types: tutorial (learning-oriented), how-to
 guide (goal-oriented), reference (information-oriented), explanation
 (understanding-oriented). In this skill's model, the other six are operational
-types that mix the Diátaxis modes in a fixed, conventional shape.
+types that mix the Diátaxis modes in a fixed, conventional shape; a mockup is
+a picture, not text.
 
 ## Tutorial
 
@@ -339,8 +340,8 @@ reader's language, one language per document; a quoted wish or ruling keeps the
 words it was spoken in.
 
 The set's paths are exact; a file under another name or case is renamed to it.
-Each ruled sentence names its ruling (date or item); the landing that removes a
-behaviour removes its ruled sentences and their tests.
+Each ruled sentence names its ruling by date (operator ruling <date>); the
+landing that removes a behaviour removes its ruled sentences and their tests.
 
 No roadmap, plan, wish-list or concept file: before the build it is the item
 body; at the landing its lasting part moves into the architecture overview or a

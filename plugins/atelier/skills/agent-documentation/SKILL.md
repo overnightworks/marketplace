@@ -70,13 +70,14 @@ distributor issue.
   verification rule. `AGENTS.md` carries only what an agent cannot derive from
   the code: commands, repository-specific traps, owners, pointers. No overview
   or directory tree; those serve humans in the README and the architecture
-  overview. `AGENTS.md` stays within the 100-line budget of write-docs'
-  document set.
+  overview. `AGENTS.md` stays within its length budget in [write-docs' document set](../write-docs/references/document-types.md#repository-document-set).
 - Duplication: generic policy appears only in the global contract; project facts
   appear only in their project owner. A copy of the contract in a repository is a
   finding.
 - Clarity: intent is direct, terms are defined by context, and vague advice is
   replaced by observable behavior or deleted.
+- Contents: AGENTS.md holds no overview, file map, version pin or copied shell
+  sequence (global contract, Documentation).
 - Consistency: current architecture, tooling, tests, commands, skills, and
   provider glue do not contradict each other.
 - Truthfulness: implemented facts match files, and unknowns are marked.

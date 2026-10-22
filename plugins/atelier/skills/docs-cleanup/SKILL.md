@@ -6,8 +6,8 @@ description: Clean and audit documentation trees. Use when asked to organize doc
 Keep documentation honest. A document is current, a retained record,
 generated, or a frozen mockup (the one target picture). A plan, roadmap or
 concept file is a finding: propose moving its open parts to their item,
-folding built parts into the current document and taken decisions into
-decision records, and deleting the file. Code and configured contracts are the
+folding built parts into the current document and taken decisions into the
+architecture overview or a decision record, and deleting the file. Code and configured contracts are the
 source of truth for implemented behavior.
 
 Out of scope: `AGENTS.md`, `CLAUDE.md`, skills, agents, and hooks. Leave them
@@ -42,14 +42,20 @@ and note "out of scope: agent-documentation" in the report.
   the pass opens no item.
 - A frozen mockup is checked only for being blessed (named in its item) and,
   after the landing that built its surface, for being aligned with what was
-  built; it has no length budget and is never a plan finding.
-- An issue number that no longer names the item it meant becomes plain words.
+  built; it has no length budget.
+- Each part of a plan is sorted as built (folded into the current document),
+  open (its owning item's body) or obsolete (deleted).
+- A history section, or an issue number used as provenance, goes from a current
+  document; git and the items keep the history, and a fact the reader still
+  needs becomes plain words.
 - Content for another reader moves to that reader's document.
-- A document over its type's length budget is a finding.
+- A document over its type's length budget, or with a picture its type's row in
+  write-docs' document set does not name, is a finding.
 - Concrete paths, commands, module names, options, and config keys exist.
 - Cross-doc facts have one owner; mirrors point to the owner instead of drifting.
 - Links and path references resolve: `test -e` for each relative link target,
-  `git ls-files --error-unmatch <path>` for each named path.
+  `git ls-files --error-unmatch <path>` for each named path. A link into a
+  submodule that is not checked out is reported UNVERIFIED, not dead.
 - Completed migration notes are archived or reframed as history, not pending
   work.
 - Examples are real enough to run in the repository's stack.

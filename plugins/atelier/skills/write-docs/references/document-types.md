@@ -152,9 +152,6 @@ then `acme login`. Docs: docs/. Licence: MIT."
 
 Picture: at most one context diagram; a screenshot where there is a surface.
 
-A CLI's README may list its commands as a pointer table, one line per command
-to the spec that owns it; a pointer is not a restatement.
-
 Mistakes: a full manual in the README; install steps that were never run;
 duplicating facts that live in docs/.
 
@@ -271,8 +268,23 @@ wiki, no public pages."
 
 Picture: none.
 
+A blessed vision stays as blessed; a rewrite to this skeleton waits for the
+operator's blessing.
+
 Mistakes: a roadmap or status list; technical choices; wishes with no user
 today; non-goals left empty; wording the operator never said or blessed.
+
+## Mockup
+
+Use for: the blessed picture of one surface, frozen before its build. One file
+per surface; a newer blessed mockup replaces the older one in the same change,
+and the item names it, so there is no index. The landing that builds the
+surface aligns it or replaces it.
+
+Picture: it is the picture.
+
+Mistakes: an unblessed draft kept as current; a second file for the same
+surface; a mockup left unaligned after its surface was built.
 
 ## Changelog
 
@@ -311,7 +323,7 @@ Owner of which documents every repository carries.
 | `AGENTS.md` | owned by the agent-documentation skill | What must I know here that the code does not tell me? | ≤ 100 lines | none | every repository |
 | `docs/VISION.md` | Vision | Why does it exist, for whom today, what is it deliberately not? | ≤ 40 lines | none | every repository, drafted when a decision first needs it |
 | `docs/ARCHITECTURE.md` | Architecture overview (arc42-lite) | Which parts, who talks to whom, where are the boundaries and the trust? | ≤ 200 lines | context and container diagram, one sequence diagram for the core flow | every repository, drafted when a decision first needs it; a small repository keeps it to a few lines and one diagram |
-| specs or requirements | Reference | What exactly must it do, and which test proves it? | one capability per file | state or sequence diagram only where the order is the rule | where others rely on ruled behaviour; harvested rulings live here; a repository without `specs/` keeps a ruling in the reference document of the behaviour it rules |
+| specs or requirements | Reference | What exactly must it do, and which test proves it? | one capability per file | state or sequence diagram only where the order is the rule | where others rely on ruled behaviour; harvested rulings live here; a repository without specs or requirements keeps a ruling in a reference document for the behaviour it rules |
 | a decisions directory | ADR | What was decided, why, what was rejected? | ≤ 120 lines | none | only where a decision with rejected alternatives keeps coming back; existing directories keep their names |
 | runbook or how-to | Runbook or how-to guide | Which command when, and how do I see it worked? | one task, one screen | flow chart for diagnosis | where a reader decides something with it |
 | mockup | Mockup | What does the blessed surface look like? | one file per surface | it is the picture | one per surface the operator has blessed |
@@ -321,10 +333,14 @@ ratchet.
 
 A repository that serves several readers (for example a library's host
 developer, a service's operator and a wire contract's app author) gives each
-reader its own document under `docs/`, named for that reader or topic; the
-README routes each reader there. A repository whose whole product is one small
-contract keeps its reference in the README while both fit the README budget. A
-document is written in its reader's language, one language per document.
+reader their own documents under `docs/`, one type each, named for that reader
+or topic; the README routes each reader there. A document is written in its
+reader's language, one language per document; a quoted wish or ruling keeps the
+words it was spoken in.
+
+The set's paths are exact; a file under another name or case is renamed to it.
+Each ruled sentence names its ruling (date or item); the landing that removes a
+behaviour removes its ruled sentences and their tests.
 
 No roadmap, plan, wish-list or concept file: before the build it is the item
 body; at the landing its lasting part moves into the architecture overview or a

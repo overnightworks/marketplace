@@ -30,7 +30,8 @@ arc42 <https://arc42.org/>; Keep a Changelog
 The first four are Diátaxis's types: tutorial (learning-oriented), how-to
 guide (goal-oriented), reference (information-oriented), explanation
 (understanding-oriented). In this skill's model, the other six are operational
-types that mix the Diátaxis modes in a fixed, conventional shape.
+types that mix the Diátaxis modes in a fixed, conventional shape; a mockup is
+a picture, not text.
 
 ## Tutorial
 
@@ -100,6 +101,11 @@ Example: "`--with <user>`: string, required. Share target. Errors: `E_UNKNOWN_US
 when the user does not exist."
 
 Picture: a state or sequence diagram only where the order is the rule.
+
+A string another tool matches is a contract: the reference states it and a
+test pins it. A fact about an external tool names the version it was measured
+on and the command that re-measures it; a new release is re-measured, not
+trusted.
 
 Mistakes: opinions, tutorials or rationale inside entries; hand-written copies
 of what a generator or the code already states; incomplete or inconsistent
@@ -263,8 +269,23 @@ wiki, no public pages."
 
 Picture: none.
 
+A blessed vision stays as blessed; a rewrite to this skeleton waits for the
+operator's blessing.
+
 Mistakes: a roadmap or status list; technical choices; wishes with no user
 today; non-goals left empty; wording the operator never said or blessed.
+
+## Mockup
+
+Use for: the blessed picture of one surface, frozen before its build. One file
+per surface; a newer blessed mockup replaces the older one in the same change,
+and the item names it, so there is no index. The landing that builds the
+surface aligns it or replaces it.
+
+Picture: it is the picture.
+
+Mistakes: an unblessed draft kept as current; a second file for the same
+surface; a mockup left unaligned after its surface was built.
 
 ## Changelog
 
@@ -303,13 +324,24 @@ Owner of which documents every repository carries.
 | `AGENTS.md` | owned by the agent-documentation skill | What must I know here that the code does not tell me? | ≤ 100 lines | none | every repository |
 | `docs/VISION.md` | Vision | Why does it exist, for whom today, what is it deliberately not? | ≤ 40 lines | none | every repository, drafted when a decision first needs it |
 | `docs/ARCHITECTURE.md` | Architecture overview (arc42-lite) | Which parts, who talks to whom, where are the boundaries and the trust? | ≤ 200 lines | context and container diagram, one sequence diagram for the core flow | every repository, drafted when a decision first needs it; a small repository keeps it to a few lines and one diagram |
-| specs or requirements | Reference | What exactly must it do, and which test proves it? | one capability per file | state or sequence diagram only where the order is the rule | where others rely on ruled behaviour; harvested rulings live here |
+| specs or requirements | Reference | What exactly must it do, and which test proves it? | one capability per file | state or sequence diagram only where the order is the rule | where others rely on ruled behaviour; harvested rulings live here; a repository without specs or requirements keeps a ruling in a reference document for the behaviour it rules |
 | a decisions directory | ADR | What was decided, why, what was rejected? | ≤ 120 lines | none | only where a decision with rejected alternatives keeps coming back; existing directories keep their names |
 | runbook or how-to | Runbook or how-to guide | Which command when, and how do I see it worked? | one task, one screen | flow chart for diagnosis | where a reader decides something with it |
 | mockup | Mockup | What does the blessed surface look like? | one file per surface | it is the picture | one per surface the operator has blessed |
 
 The length budgets are the operator's ruling; quality's gate holds them as a
 ratchet.
+
+A repository that serves several readers (for example a library's host
+developer, a service's operator and a wire contract's app author) gives each
+reader their own documents under `docs/`, one type each, named for that reader
+or topic; the README routes each reader there. A document is written in its
+reader's language, one language per document; a quoted wish or ruling keeps the
+words it was spoken in.
+
+The set's paths are exact; a file under another name or case is renamed to it.
+Each ruled sentence names its ruling by date (operator ruling <date>); the
+landing that removes a behaviour removes its ruled sentences and their tests.
 
 No roadmap, plan, wish-list or concept file: before the build it is the item
 body; at the landing its lasting part moves into the architecture overview or a

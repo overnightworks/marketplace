@@ -36,9 +36,10 @@ or ownerless information is a defect, not a style choice.
      precision where order or lifecycle matters.
 5. For behavior, prefer linking the human-readable requirement to the
    executable test that proves it over re-describing the behavior in prose —
-   a linked spec cannot silently rot; prose can. Requirements live in the
-   document the repository's AGENTS.md or README names; with none, state the
-   requirement in the test's name or docstring.
+   a linked spec cannot silently rot; prose can. Requirements live where
+   the specs row of
+   [the document set](references/document-types.md#repository-document-set)
+   puts them.
 6. Verify every concrete claim (paths, names, commands, shapes) against
    source before writing it. Mark unknowns as unknowns.
 7. Re-read the result as the named reader. Delete every sentence they do not

@@ -68,9 +68,12 @@ distributor issue.
   files change only when the reusable rule or skill improves.
 - Token economy: every line adds a decision, boundary, trigger, invariant, or
   verification rule. `AGENTS.md` carries only what an agent cannot derive from
-  the code: commands, repository-specific traps, owners, pointers. No overview
-  or directory tree; those serve humans in the README and the architecture
-  overview.
+  the code: commands, repository-specific traps, owners, pointers. No overview,
+  directory tree, version pin or copied shell sequence: overview and tree serve
+  humans in the README and the architecture overview, a version lives in its
+  manifest, and a terminal step is a command the repository ships.
+  `AGENTS.md` stays within its length budget in
+  [write-docs' document set](../write-docs/references/document-types.md#repository-document-set).
 - Duplication: generic policy appears only in the global contract; project facts
   appear only in their project owner. A copy of the contract in a repository is a
   finding.

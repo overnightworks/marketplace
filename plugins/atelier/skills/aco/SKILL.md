@@ -135,7 +135,7 @@ identity. A subagent of the claiming head's own provider inherits it and passes 
 `codex`) can carry its own session variable, so the head does not hand the landing to
 one. Any other identity, including a later session resuming the lane, is refused with
 `only the original claimant may release` and lands as the holder with
-`ACO_AGENT=<holder> aco land <pr> --head <sha>`, never with `--agent`, which Claude
+`ACO_AGENT='<holder>' aco land <pr> --head <sha>`, never with `--agent`, which Claude
 Code's auto mode denies.
 
 1. Stand in a clean checkout of the default branch — the primary checkout, never the

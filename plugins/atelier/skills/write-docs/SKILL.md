@@ -16,8 +16,8 @@ or ownerless information is a defect, not a style choice.
 2. Choose one document type from
    [references/document-types.md](references/document-types.md), which owns the
    type model and gives per type: when to use it, a skeleton, one example, and
-   the classic mistakes, and declare it. A document that needs two types
-   becomes two linked documents.
+   the classic mistakes. A document that needs two types becomes two linked
+   documents.
 3. Find the owner first. If the fact already lives somewhere, update or link
    the owner — never copy. When a how-to overlaps a README section, move the
    steps into the how-to and leave one linking line in the README. Copies
@@ -47,7 +47,7 @@ or ownerless information is a defect, not a style choice.
 
 ## Hard Limits
 
-- No documentation without a named reader, decision, and one declared type.
+- No documentation without a named reader, decision, and exactly one type.
 - No duplicated facts across documents; link or derive instead.
 - Current state only: no planned or imagined behavior; plans, roadmaps and
   wishes are board items.

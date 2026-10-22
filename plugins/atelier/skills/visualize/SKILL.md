@@ -46,7 +46,7 @@ verify them like any other documented fact.
   says it better.
 - Draw only what exists; leave planned parts out. Which picture a document type
   carries is set in
-  [write-docs' document set](../write-docs/references/document-types.md).
+  [write-docs' document set](../write-docs/references/document-types.md#repository-document-set).
 - A diagram contradicting the code is a defect to fix immediately, in
   whichever of the two is wrong.
 

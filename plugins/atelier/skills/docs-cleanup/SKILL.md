@@ -3,8 +3,8 @@ name: docs-cleanup
 description: Clean and audit documentation trees. Use when asked to organize docs, move plans out of documentation into issues, fix documentation drift, reconcile contradictions, repair dead links, or review docs for stale claims. For AGENTS.md, CLAUDE.md, skills, custom agents, and hooks, use agent-documentation instead.
 ---
 
-Keep documentation honest. A document is current, a retained record, or
-generated. A plan, roadmap or concept file is a finding: propose moving its open
+Keep documentation honest. A document is current, a retained record, generated, or a frozen mockup (the
+one target picture). A plan, roadmap or concept file is a finding: propose moving its open
 parts to their item, folding built parts into the current document, and
 deleting the file. Code and configured contracts are the source of truth for
 implemented behavior.
@@ -19,7 +19,7 @@ and note "out of scope: agent-documentation" in the report.
 2. Give each scoped document two labels. Its type is one of
    [write-docs' document types](../write-docs/references/document-types.md),
    taken from its path or its content. Its status is
-   current, record, generated, or unknown, and its reader is the one its type
+   current, record, generated, mockup, or unknown, and its reader is the one its type
    names.
 3. Verify concrete claims against code, configuration, tests, or canonical
    docs. A claim you cannot check here (external service, version, vendor
@@ -34,9 +34,11 @@ and note "out of scope: agent-documentation" in the report.
 - The document stays within its type: a how-to that drifts into explanation,
   or a reference that carries tutorial steps, is split into one document per
   type, linked, with each fact kept in one place.
-- A plan, roadmap, wish list, status table or unbuilt target is a finding
-  (`PROPOSE move-to-board <file:section>`), naming its owning item
-  (`gh issue list --state all --search`) or `no owner`.
+- A plan, roadmap, wish list, status table or unbuilt target other than a
+  frozen mockup is a finding (`PROPOSE move-to-board <file:section>`) naming its
+  owning item (`gh issue list --state all --search`), whose body takes the open
+  part; with `no owner`, the head decides between an idea and dropping it, and
+  the pass opens no item.
 - Content for another reader moves to that reader's document.
 - A document over its type's length budget is a finding.
 - Concrete paths, commands, module names, options, and config keys exist.

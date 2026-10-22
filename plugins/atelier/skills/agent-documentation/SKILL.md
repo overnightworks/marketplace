@@ -63,7 +63,7 @@ distributor issue.
   invent imports or auto-load syntax.
 - Ownership: the global contract owns generic policy; `AGENTS.md` contains
   project facts only, and project-owned files contain product intent, current
-  architecture, tooling, CI, or other current-state facts.
+  architecture, tooling, or CI.
 - Update duty: project owners say what must be updated when facts change; shared
   files change only when the reusable rule or skill improves.
 - Token economy: every line adds a decision, boundary, trigger, invariant, or
@@ -76,10 +76,9 @@ distributor issue.
   finding.
 - Clarity: intent is direct, terms are defined by context, and vague advice is
   replaced by observable behavior or deleted.
-- Consistency: current architecture, tooling, tests, commands, skills,
-  and provider glue do not contradict each other.
-- Truthfulness: implemented facts match files, and
-  unknowns are marked.
+- Consistency: current architecture, tooling, tests, commands, skills, and
+  provider glue do not contradict each other.
+- Truthfulness: implemented facts match files, and unknowns are marked.
 - Audience and views: guidance and the docs it references name their reader
   and altitude; a document serving another audience is a view deriving from
   one owner, not an independently edited copy.

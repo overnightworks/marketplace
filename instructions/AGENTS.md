@@ -299,8 +299,9 @@ Keep comment threads thin (operator ruling 23.08.2026): the PR carries the proof
 — a landing gets one short close comment (PR link + merge SHA), never a
 duplicated evidence dump. Settled doctrine and rulings are harvested from
 comments into the owning repository document (its specs or requirements; see the
-`write-docs` repository document set) and the body links there; comments hold
-only the transient "changed because" notes. An item that collects more than ~20
+`write-docs` repository document set) and the body links there — a ruling about
+behaviour not yet built goes into the item body until its landing —; comments
+hold only the transient "changed because" notes. An item that collects more than ~20
 comments before its build starts is too big — slice it instead of commenting
 further.
 
@@ -867,10 +868,10 @@ Before adding a literal, constant, default, or fixture value, classify its owner
   (operator ruling 21.10.2026).
 - Describe durable intent, contracts, invariants, and decisions at the highest
   useful abstraction.
-- Each document serves one named reader and answers one question; the
-  write-docs document set owns each type's reader, content, length budget and
-  picture. Agent documents carry only what an agent cannot derive from the
-  code; human overviews lead with the mental model and draw structure as
+- Each document serves one named reader at one altitude and answers one
+  question; the write-docs document set owns each type's reader, content, length
+  budget and picture. Agent documents carry only what an agent cannot derive
+  from the code; human overviews lead with the mental model and draw structure as
   diagram-as-code instead of describing it.
 - Facts have one owner. A document serving another audience is a view:
   derived from the owner, naming its source, corrected by regeneration —

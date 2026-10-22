@@ -215,7 +215,7 @@ Skeleton:
 # <System> architecture
 1. Context and Scope        <- who and what is outside; context diagram
 2. Building Block View      <- containers/components and their jobs
-3. Runtime View             <- two or three key scenarios as sequences
+3. Runtime View             <- the core flow as one sequence diagram
 4. Deployment View          <- where the blocks run
 5. Crosscutting Concepts    <- auth, errors, persistence, and Trust once a
                                security or deadweight decision needs one;
@@ -252,8 +252,9 @@ Skeleton:
 repositories: those are read from manifests (the contract's product ownership),
 and only a dependency no manifest shows stands here.
 
-Limits: one screen. No plans, phases, status or technical choices, because
-those rot; they belong in items and the architecture overview.
+Limits: the document set's budget. No plans, phases, status or technical
+choices, because those rot: plans, phases and status belong in items, technical
+choices in the architecture overview.
 
 Example: "# Acme Notes vision. The wish: 'Notes my team can edit together
 without ever losing a line.' Who uses it today: the support team (daily editing)
@@ -307,8 +308,8 @@ Owner of which documents every repository carries.
 | runbook or how-to | Runbook or how-to guide | Which command when, and how do I see it worked? | one task, one screen | flow chart for diagnosis | where a reader decides something with it |
 | mockup | Mockup | What does the blessed surface look like? | one file per surface | it is the picture | one per surface the operator has blessed |
 
-The length budgets are ruled by the operator (22.10.2026); quality's gate holds
-them as a ratchet.
+The length budgets are the operator's ruling; quality's gate holds them as a
+ratchet.
 
 No roadmap, plan, wish-list or concept file: before the build it is the item
 body; at the landing its lasting part moves into the architecture overview or a
@@ -319,15 +320,13 @@ then it lives in the item.
 
 A decision record is written when the decision is taken.
 
-One picture per question, drawn as Mermaid inside the document, never as a
-binary image; the text beside it adds to the picture instead of reading it
-aloud.
+One picture per question. A diagram is code inside the document, Mermaid where
+the host renders it (the visualize skill), never a binary image; a screenshot
+shows only a real surface. The text beside a picture adds to it instead of
+reading it aloud.
 
-A frozen mockup is the one target picture; the landing that builds its surface
-aligns it or replaces it.
-
-No `quickstart.md`, changelog or runbook by default; each needs a reader who
-decides something with it.
+No `quickstart.md` or changelog by default; each needs a reader who decides
+something with it.
 
 Overview documents (vision, architecture overview, README) stay abstract and
 link down to the exact documents, never restating them.

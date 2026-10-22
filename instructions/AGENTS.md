@@ -299,10 +299,10 @@ Keep comment threads thin (operator ruling 23.08.2026): the PR carries the proof
 — a landing gets one short close comment (PR link + merge SHA), never a
 duplicated evidence dump. Settled doctrine and rulings are harvested from
 comments into the owning repository document (its specs or requirements; see the
-`write-docs` repository document set) and the body links there — a ruling about
-behaviour not yet built goes into the item body until its landing —; comments
-hold only the transient "changed because" notes. An item that collects more
-than ~20 comments before its build starts is too big — slice it instead of
+`write-docs` repository document set) and the body links there; a ruling about
+behaviour not yet built stays in the item body until its landing. Comments hold
+only the transient "changed because" notes. An item that collects more than ~20
+comments before its build starts is too big — slice it instead of
 commenting further.
 
 The body is the agent contract: a builder must be able to start from the body

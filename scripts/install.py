@@ -8,6 +8,7 @@ import json
 import shutil
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 
@@ -20,7 +21,9 @@ PLUGIN = "atelier@atelier"
 CONTRACT_LINKS = (Path(".claude") / "CLAUDE.md", Path(".codex") / "AGENTS.md")
 
 RELOAD_STEP = "Reload: run /reload-plugins in Claude Code, and start a new Codex thread."
-CODEX_WARNING = "Codex removes the installed version directory on update: run this between Codex jobs."
+CODEX_PROCESS_NAME = "codex"
+CODEX_POLL_SECONDS = 30
+CODEX_WAIT_NOTE = "Codex removes the installed version directory on update, so the update waits for a gap between Codex jobs."
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -77,6 +80,7 @@ def install_codex(*, from_checkout: bool) -> None:
     if codex is None:
         print("codex: not on PATH, skipped")
         return
+    wait_for_codex_gap()
     marketplaces = {
         entry["name"]: entry
         for entry in run_json([codex, "plugin", "marketplace", "list", "--json"])["marketplaces"]
@@ -88,7 +92,33 @@ def install_codex(*, from_checkout: bool) -> None:
     elif existing.get("marketplaceSource", {}).get("sourceType") != "local":
         run([codex, "plugin", "marketplace", "upgrade", MARKETPLACE])
     run([codex, "plugin", "add", PLUGIN])
-    print(f"codex: {MARKETPLACE} installed or updated. {CODEX_WARNING}")
+    print(f"codex: {MARKETPLACE} installed or updated. {CODEX_WAIT_NOTE}")
+
+
+def wait_for_codex_gap() -> None:
+    """Block until no Codex job runs; the script's own Codex subcommands start after this."""
+    while running := count_codex_jobs():
+        print(f"codex: {running} Codex jobs running, waiting for a gap before updating")
+        pause(CODEX_POLL_SECONDS)
+
+
+def count_codex_jobs(process_root: Path = Path("/proc")) -> int:
+    return sum(
+        1
+        for name_file in process_root.glob("[0-9]*/comm")
+        if read_process_name(name_file) == CODEX_PROCESS_NAME
+    )
+
+
+def read_process_name(name_file: Path) -> str | None:
+    try:
+        return name_file.read_text().strip()
+    except OSError:  # the process ended between listing and reading
+        return None
+
+
+def pause(seconds: float) -> None:
+    time.sleep(seconds)
 
 
 def install_claude(*, from_checkout: bool) -> None:

@@ -77,8 +77,27 @@ class Machine:
         return self.home / relative
 
 
+class CodexJobs:
+    """Running-job counts the script sees in turn (the last repeats); sleeps are recorded, not slept."""
+
+    def __init__(self) -> None:
+        self.counts = [0]
+        self.pauses: list[float] = []
+
+    def count(self) -> int:
+        return self.counts.pop(0) if len(self.counts) > 1 else self.counts[0]
+
+
 @pytest.fixture
-def machine(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Machine:
+def codex_jobs(monkeypatch: pytest.MonkeyPatch) -> CodexJobs:
+    jobs = CodexJobs()
+    monkeypatch.setattr(install, "count_codex_jobs", jobs.count)
+    monkeypatch.setattr(install, "pause", jobs.pauses.append)
+    return jobs
+
+
+@pytest.fixture
+def machine(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, codex_jobs) -> Machine:
     return Machine(tmp_path, monkeypatch)
 
 
@@ -225,3 +244,53 @@ def test_stops_and_changes_nothing_when_a_contract_path_holds_something_else(
         assert path.read_text() == "mine"
     else:
         assert path.readlink() == elsewhere
+
+
+def test_waits_for_a_gap_between_codex_jobs_before_updating_codex(machine, codex_jobs, capsys):
+    machine.install_provider("codex", CODEX_FROM_LOCAL)
+    codex_jobs.counts = [3, 1, 0]
+
+    assert install.main([]) == 0
+
+    assert codex_jobs.pauses == [install.CODEX_POLL_SECONDS] * 2
+    output = capsys.readouterr().out
+    assert output.count("codex: 3 Codex jobs running, waiting") == 1
+    assert output.count("codex: 1 Codex jobs running, waiting") == 1
+    assert "codex plugin add atelier@atelier" in machine.commands()
+
+
+def test_does_not_wait_for_codex_when_no_job_runs(machine, codex_jobs, capsys):
+    machine.install_provider("codex", CODEX_FROM_LOCAL)
+
+    assert install.main([]) == 0
+
+    assert codex_jobs.pauses == []
+    assert "waiting" not in capsys.readouterr().out
+
+
+def test_does_not_wait_for_codex_jobs_when_only_claude_is_updated(machine, codex_jobs):
+    machine.install_provider("claude", CLAUDE_PRESENT)
+    codex_jobs.counts = [5]
+
+    assert install.main([]) == 0
+
+    assert codex_jobs.pauses == []
+
+
+def test_counts_only_processes_named_codex(tmp_path):
+    for pid, name in {"11": "codex\n", "12": "python3\n", "13": "codex\n"}.items():
+        (tmp_path / pid).mkdir()
+        (tmp_path / pid / "comm").write_text(name)
+    (tmp_path / "14").mkdir()
+    (tmp_path / "14" / "comm").mkdir()  # reading fails like a process that just ended
+
+    assert install.count_codex_jobs(tmp_path) == 2
+
+
+def test_pause_sleeps_for_the_given_seconds(monkeypatch):
+    slept = []
+    monkeypatch.setattr(install.time, "sleep", slept.append)
+
+    install.pause(30)
+
+    assert slept == [30]

@@ -66,7 +66,9 @@ complete. A matrix crosses the axes that matter for the change -- typically
 short list of ruled sentences. Where there is no running surface, the cells are
 driven through the change's real entry points -- CLI invocation, API call, or
 public function. Report every cell as **held**, **failed**, or **not driven**;
-an unmarked cell is not a completed gate.
+an unmarked cell is not a completed gate. A cell that a test in CI proves you
+judge by reading that test against its row instead of driving it; only the cells
+you drive by hand count toward the global contract's matrix limit.
 
 ## Hard Limits
 

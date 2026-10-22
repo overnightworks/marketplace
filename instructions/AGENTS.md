@@ -404,15 +404,17 @@ board hygiene, a live proof, or a lane in another repository.
 For a lane carrying material risk, architecture, or spanning multiple owners,
 the head sharpens scope and acceptance criteria, then delegates an independent
 plan review, proportionate implementation and tests, and independent code/risk
-review. The first review on such a lane drives a scenario matrix the head
-writes from the item's ruled sentences crossed with the axes that matter for
-the change (the explorative-testing skill holds the template), and reports
-every cell held, failed, or not driven, so later gates stay true deltas; a
-matrix one reviewer cannot drive in one session -- past roughly forty cells --
-means the item is cut, not the matrix sampled. It delegates fixes and re-review
-until no blocking finding remains. For UI, delegate real-interface checks at
-relevant mobile and desktop widths. Then delegate required CI and evaluate the
-evidence.
+review. The first review on such a lane drives a scenario matrix the head writes
+from the item's ruled sentences crossed with the axes that matter for the change
+(the explorative-testing skill holds the template), and reports every cell held,
+failed, or not driven, so later gates stay true deltas. A matrix one reviewer
+cannot drive in one session -- past roughly forty cells the reviewer drives by
+hand -- means the item is cut, not the matrix sampled; a cell that a test in CI
+proves does not count toward that number, and the reviewer judges that test
+against its row (operator ruling 22.10.2026). The head delegates fixes and
+re-review until no blocking finding remains. For UI, delegate real-interface
+checks at relevant mobile and desktop widths. Then delegate required CI and
+evaluate the evidence.
 
 ### Model routing
 

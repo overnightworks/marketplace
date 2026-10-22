@@ -6,8 +6,9 @@ description: Clean and audit documentation trees. Use when asked to organize doc
 Keep documentation honest. A document is current, a retained record,
 generated, or a frozen mockup (the one target picture). A plan, roadmap or
 concept file is a finding: propose moving its open parts to their item,
-folding built parts into the current document, and deleting the file. Code and
-configured contracts are the source of truth for implemented behavior.
+folding built parts into the current document and taken decisions into
+decision records, and deleting the file. Code and configured contracts are the
+source of truth for implemented behavior.
 
 Out of scope: `AGENTS.md`, `CLAUDE.md`, skills, agents, and hooks. Leave them
 and note "out of scope: agent-documentation" in the report.
@@ -39,6 +40,9 @@ and note "out of scope: agent-documentation" in the report.
   owning item (`gh issue list --state all --search`), whose body takes the open
   part; with `no owner`, the head decides between an idea and dropping it, and
   the pass opens no item.
+- A frozen mockup is checked only for being blessed (named in its item) and,
+  after the landing that built its surface, for being aligned with what was
+  built; it has no length budget and is never a plan finding.
 - Content for another reader moves to that reader's document.
 - A document over its type's length budget is a finding.
 - Concrete paths, commands, module names, options, and config keys exist.
@@ -61,5 +65,8 @@ PROPOSE <action> <file> (why it needs confirmation)
 KEPT <file> (why it looked stale but remains intentional)
 UNVERIFIED <file:line> (claim; why it cannot be checked here)
 ```
+
+Plans without an owner go to the head as one table,
+`| plan (file:section) | recommendation: idea or drop | reason |`.
 
 End with `CLEAN` when no changes or proposals remain.

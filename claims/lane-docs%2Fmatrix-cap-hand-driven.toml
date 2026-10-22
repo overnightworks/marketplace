@@ -1,0 +1,8 @@
+claim_id = "2876a5edb449445287e1638f8bbd5be4"
+agent = "Claude 033a4b11-b91c-41c8-a857-b081758dc3c4"
+role = "builder"
+base = "c7c9b232d70d79221426fcb9e84517924f8cfb31"
+branch = "docs/matrix-cap-hand-driven"
+scope = [".claude-plugin/marketplace.json", "instructions/AGENTS.md", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/skills/explorative-testing/SKILL.md"]
+opened_commit = "ab1264f55d0d24f3dfbdcd9a385cfc6afbed72f9"
+whole_reason = "One operator ruling harvested into the contract sentence and the skill template reviewers read, plus the pins that ship the skill."

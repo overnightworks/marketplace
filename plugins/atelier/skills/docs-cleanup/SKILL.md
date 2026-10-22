@@ -59,9 +59,11 @@ and note "out of scope: agent-documentation" in the report.
   `git ls-files --error-unmatch <path>` for each named path. A link into a
   submodule that is not checked out is reported UNVERIFIED, not dead.
 - Examples are real enough to run in the repository's stack.
-- A shell sequence an operator copies by hand is a finding handed to the item
-  that will ship its command (global contract, Documentation); the document
-  keeps it until that command exists.
+- A shell sequence an operator copies by hand is a finding
+  (`PROPOSE ship-command <file:section>`) naming the item that will ship its
+  command (code policy, Documentation); with `no owner` it goes to the head
+  like a plan, and the pass opens no item. The document keeps the sequence
+  until that command exists.
 - Documentation remains compact and useful to the next agent.
 
 ## Output
@@ -76,7 +78,7 @@ KEPT <file> (why it looked stale but remains intentional)
 UNVERIFIED <file:line> (claim; why it cannot be checked here)
 ```
 
-Plans without an owner go to the head as one table,
-`| plan (file:section) | recommendation: idea or drop | reason |`.
+Plans and shell sequences without an owner go to the head as one table,
+`| plan or sequence (file:section) | recommendation: idea or drop | reason |`.
 
 End with `CLEAN` when no changes or proposals remain.

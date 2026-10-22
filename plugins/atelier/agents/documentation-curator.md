@@ -28,11 +28,9 @@ Source of Truth:
 - Code and configured contracts are the source of truth for implemented behavior.
 
 Procedure:
-- Classify scoped docs as reference, plan, record, generated artifact, or
-  unknown; report a plan for the board instead of updating it.
+- Classify scoped docs as current, record, generated, or unknown; report a plan found in docs instead of keeping it.
 - Verify concrete claims against files before writing.
 - Update durable intent, contracts, invariants, decisions, usage, and configuration facts at the highest useful abstraction.
-- Keep plans labeled as plans and current architecture labeled as current.
 - Remove or tighten stale, duplicated, stale-prone, or unverified claims inside the assigned scope.
 - If no documentation change is needed, explain why.
 

@@ -854,9 +854,12 @@ Before adding a literal, constant, default, or fixture value, classify its owner
 
 - Update documentation in the same change that alters behavior, architecture,
   configuration, testing, tooling, or user-visible usage.
-- A document describes the current state for its named reader. Plans,
-  roadmaps, wishes and open work are board items, never document content
-  (operator ruling 21.10.2026).
+- A document states what is true today. Plans, wishes, proposals and open work
+  live in issues; the landing that makes one true updates the document. A
+  decision record keeps its history, a vision names the lasting wish without
+  dates, phases or status, and a frozen mockup is the one target picture: the
+  landing that builds its surface aligns the mockup with what was built or
+  replaces it (operator rulings 21. and 22.10.2026).
 - Do not maintain stale-prone inventories, file maps, line references, command
   transcripts, or implementation trivia. A terminal step an operator runs is a
   command the repository ships, a script or a CLI verb, never a shell sequence
@@ -864,10 +867,11 @@ Before adding a literal, constant, default, or fixture value, classify its owner
   (operator ruling 21.10.2026).
 - Describe durable intent, contracts, invariants, and decisions at the highest
   useful abstraction.
-- Write for a named reader — human operator, human engineer, or agent — at a
-  named altitude; agent docs stay compact contracts, human overviews lead with
-  the mental model and prefer one accurate diagram-as-code over structure
-  prose.
+- Each document serves one named reader and answers one question; the
+  write-docs document set owns each type's reader, content, length budget and
+  picture. Agent documents carry only what an agent cannot derive from the
+  code; human overviews lead with the mental model and draw structure as
+  diagram-as-code instead of describing it.
 - Facts have one owner. A document serving another audience is a view:
   derived from the owner, naming its source, corrected by regeneration —
   never independently edited.

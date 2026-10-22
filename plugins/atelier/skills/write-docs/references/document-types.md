@@ -1,11 +1,9 @@
 # Document types
 
 Owner of the type model that write-docs, visualize and docs-cleanup share.
-Each document declares exactly one type; a document that needs two becomes two
-documents that link each other. The declaration is a `Type: <type>` line
-directly under the title (or a `type:` front-matter key where the file already
-has front matter). A document without one gets its type inferred from content
-by whoever touches it, who then adds the line when editing.
+Each document has exactly one type; a document that needs two becomes two
+documents that link each other. A document's path names its type; elsewhere its
+content does.
 
 Sources: Diátaxis <https://diataxis.fr/>; ADR <https://adr.github.io/> and
 Michael Nygard, "Documenting Architecture Decisions"
@@ -54,6 +52,8 @@ Example: "Your first shared notebook. You will create a notebook and see a
 teammate's edit appear. 1. Run `acme new demo`. Expected: `Created demo`.
 2. Run `acme share demo --with ada`. Expected: `Shared with ada`."
 
+Picture: none, unless a screenshot shows the expected result.
+
 Mistakes: explaining why instead of guiding; offering choices; steps without
 visible expected output; unverified steps that fail on a clean machine.
 
@@ -76,6 +76,8 @@ Example: "How to rotate the API token. Prerequisite: admin role. 1. Run
 `acme token rotate`. 2. Update `ACME_TOKEN` in your secret store. Verify:
 `acme whoami` prints the new token's expiry."
 
+Picture: a flow chart for diagnosis; otherwise none.
+
 Mistakes: teaching basics; background paragraphs mid-steps; covering every
 option instead of one goal; a title that names the tool, not the goal; a shell
 sequence to copy by hand where the repository should ship one command.
@@ -96,6 +98,8 @@ Per entry: constraints, errors, one minimal usage line.
 
 Example: "`--with <user>`: string, required. Share target. Errors: `E_UNKNOWN_USER`
 when the user does not exist."
+
+Picture: a state or sequence diagram only where the order is the rule.
 
 Mistakes: opinions, tutorials or rationale inside entries; hand-written copies
 of what a generator or the code already states; incomplete or inconsistent
@@ -118,6 +122,8 @@ Example: "Why notebooks sync by operation log. Merging whole files loses
 concurrent edits; an operation log replays both. Cost: log growth, compacted
 nightly."
 
+Picture: one diagram when the model has parts; otherwise none.
+
 Mistakes: drifting into steps or option tables; no stated question; presenting
 a preference as a fact.
 
@@ -138,6 +144,8 @@ One sentence: what it is, for whom.
 
 Example: "# acme-cli. Command-line client for Acme Notes. `pip install acme-cli`
 then `acme login`. Docs: docs/. Licence: MIT."
+
+Picture: at most one context diagram; a screenshot where there is a surface.
 
 Mistakes: a full manual in the README; install steps that were never run;
 duplicating facts that live in docs/.
@@ -164,6 +172,8 @@ edits were lost by whole-file merge. Decision: We will store edits as an
 append-only operation log. Consequences: no lost edits; the log needs nightly
 compaction."
 
+Picture: none.
+
 Mistakes: no alternatives or forces in the context; only upsides listed;
 editing an accepted ADR instead of superseding it; recording a trivial choice.
 
@@ -185,6 +195,8 @@ Symptom: what the responder sees. Impact: who is affected.
 Example: "Runbook: sync lag above 5 min. Check: `acme ops lag` prints seconds.
 Fix: 1. `acme ops restart-sync`. 2. Re-check; expect below 60. Rollback: none
 needed. Escalate: if lag persists after 10 min, page the platform owner."
+
+Picture: a flow chart for diagnosis.
 
 Mistakes: prose instead of commands; a shell sequence to copy by hand instead of
 a script the repository ships; steps never rehearsed; no expected output; no
@@ -216,6 +228,8 @@ Example for section 1: "Acme Notes serves editors in a browser and syncs
 through the API. Outside: the identity provider (login) and the mail service
 (invites)." plus the context diagram.
 
+Picture: a context and container diagram, one sequence diagram for the core flow.
+
 Mistakes: a diagram per class instead of per question; plans described as
 current structure; deployment detail nobody decides on; sections left as
 template headings.
@@ -246,6 +260,8 @@ without ever losing a line.' Who uses it today: the support team (daily editing)
 and the `acme-cli` repository (calls the sync API). Deliberate non-goals: not a
 wiki, no public pages."
 
+Picture: none.
+
 Mistakes: a roadmap or status list; technical choices; wishes with no user
 today; non-goals left empty; wording the operator never said or blessed.
 
@@ -271,6 +287,8 @@ Example: "## [1.2.0] - 2026-10-01 / ### Added / - `acme token rotate` replaces
 manual token reissue. / ### Fixed / - Shared notebooks no longer drop
 simultaneous edits."
 
+Picture: none.
+
 Mistakes: dumping commit logs; no dates or versions; omitting breaking changes
 and deprecations; wording for developers, not for the reader upgrading.
 
@@ -278,14 +296,35 @@ and deprecations; wording for developers, not for the reader upgrading.
 
 Owner of which documents every repository carries.
 
-| File | Type | Reader | Carried |
-|---|---|---|---|
-| `README.md` | README | human, first visit; quick start is a section, not its own file | every repository |
-| `AGENTS.md` | owned by the agent-documentation skill | agent | every repository |
-| `docs/VISION.md` | Vision | the operator and whoever decides | every repository, drafted when a decision first needs it |
-| `docs/ARCHITECTURE.md` | Architecture overview (arc42-lite) | engineer changing the system | every repository, drafted when a decision first needs it; a small repository keeps it to a few lines and one diagram |
-| specs or requirements | Reference | human and agent, exact, linked to the tests that prove them | where others rely on ruled behaviour; harvested rulings live here |
-| a decisions directory | ADR | a maintainer asking why | only where a decision with rejected alternatives keeps coming back; existing directories keep their names |
+| File | Type | Reader's question | Length | Picture | Carried |
+|---|---|---|---|---|---|
+| `README.md` | README | What is this, for whom, how do I start, where do I read on? | ≤ 150 lines | at most one context diagram; a screenshot where there is a surface | every repository; quick start is a section, not its own file |
+| `AGENTS.md` | owned by the agent-documentation skill | What must I know here that the code does not tell me? | ≤ 100 lines | none | every repository |
+| `docs/VISION.md` | Vision | Why does it exist, for whom today, what is it deliberately not? | ≤ 40 lines | none | every repository, drafted when a decision first needs it |
+| `docs/ARCHITECTURE.md` | Architecture overview (arc42-lite) | Which parts, who talks to whom, where are the boundaries and the trust? | ≤ 200 lines | context and container diagram, one sequence diagram for the core flow | every repository, drafted when a decision first needs it; a small repository keeps it to a few lines and one diagram |
+| specs or requirements | Reference | What exactly must it do, and which test proves it? | one capability per file | state or sequence diagram only where the order is the rule | where others rely on ruled behaviour; harvested rulings live here |
+| a decisions directory | ADR | What was decided, why, what was rejected? | ≤ 120 lines | none | only where a decision with rejected alternatives keeps coming back; existing directories keep their names |
+| runbook or how-to | Runbook or how-to guide | Which command when, and how do I see it worked? | one task, one screen | flow chart for diagnosis | where a reader decides something with it |
+| mockup | Mockup | What does the blessed surface look like? | one file per surface | it is the picture | one per surface the operator has blessed |
+
+The length budgets are ruled by the operator (22.10.2026); quality's gate holds
+them as a ratchet.
+
+No roadmap, plan, wish-list or concept file: before the build it is the item
+body; at the landing its lasting part moves into the architecture overview or a
+decision record, and the rest closes with the item.
+
+A ruled sentence enters the spec with the landing whose test proves it; until
+then it lives in the item.
+
+A decision record is written when the decision is taken.
+
+One picture per question, drawn as Mermaid inside the document, never as a
+binary image; the text beside it adds to the picture instead of reading it
+aloud.
+
+A frozen mockup is the one target picture; the landing that builds its surface
+aligns it or replaces it.
 
 No `quickstart.md`, changelog or runbook by default; each needs a reader who
 decides something with it.

@@ -1,0 +1,8 @@
+claim_id = "31dab74bc01e471aa2757d762ffec9f5"
+agent = "Claude 033a4b11-b91c-41c8-a857-b081758dc3c4"
+role = "builder"
+base = "bc72e9cd2434c75e290402d7bf2ed5f86d124900"
+branch = "claude/issue-247-aco-agent-identity"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/skills/aco/SKILL.md"]
+opened_commit = "171fbc3debd4082640344b67326ad56e8b285e7f"
+whole_reason = "Two sentences in one skill plus the three pins that ship it."

@@ -53,11 +53,13 @@ says *that* a lane is claimed, reviewed and landed; this says *how*.
 - Issue-less work: create the `fix/<slug>` or `docs/<slug>` worktree yourself, then
   `aco claim --scope PATH` in lane mode from inside it (`specs/claim.spec.md`).
   Release with `aco release --merged <pr>` or `--abandoned REASON`
-  (`specs/release.spec.md`). A Claude or Grok head leaves `ACO_AGENT` unset: aco takes
-  `CLAUDE_CODE_SESSION_ID` or `GROK_SESSION_ID`, which its delegated agents share, so
-  their landing passes. Claude Code's auto mode denies a landing under another name.
-  That identity ends with the session, so the lane lands within it. A head without such
-  a variable (Codex) sets `ACO_AGENT` once for its session.
+  (`specs/release.spec.md`).
+- Identity (every lane): a Claude or Grok head leaves `ACO_AGENT` unset; aco takes its
+  `CLAUDE_CODE_SESSION_ID` or `GROK_SESSION_ID`, which the head's own subagents inherit,
+  and that identity ends with the session. A Codex head, whose session variable aco does
+  not read, is started with `ACO_AGENT` in its environment (`ACO_AGENT=<name no other
+  running head uses> codex`), so every command and agent it starts carries it; a prefix
+  on single commands does not reach its delegated agents.
 - An open pull request without a claim (a dependency bot's, a fixer's): `aco adopt <pr>
   --no-item deps|fix|docs` makes it a claimed lane on its own branch; `deps` needs
   `dependency_paths` in `.aco/board.toml`. Then land as usual (`specs/adopt.spec.md`).
@@ -128,9 +130,13 @@ becomes its own item first (`aco cut`); bundled cards use `Lands #<m>`.
 
 Gates are green and you hold the tip the reviewers saw. Landing is delegated as a
 named task, but the precondition is aco's. The landing task runs under the claim's
-identity; a delegated agent inherits the session's, so it passes neither `ACO_AGENT`
-nor `--agent`. Another identity is refused with `only the original claimant may
-release`, and only the operator lands such a lane, with `--agent <holder>`.
+identity. A subagent of the claiming head's own provider inherits it and passes neither
+`ACO_AGENT` nor `--agent`; an agent started through another provider's CLI (`grok`,
+`codex`) can carry its own session variable, so the head does not hand the landing to
+one. Any other identity, including a later session resuming the lane, is refused with
+`only the original claimant may release` and lands as the holder with
+`ACO_AGENT=<holder> aco land <pr> --head <sha>`, never with `--agent`, which Claude
+Code's auto mode denies.
 
 1. Stand in a clean checkout of the default branch — the primary checkout, never the
    lane worktree.

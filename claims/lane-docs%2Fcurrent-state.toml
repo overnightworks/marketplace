@@ -1,0 +1,7 @@
+claim_id = "58647ef87001478cbd87da93e70c24e2"
+agent = "Claude 033a4b11-b91c-41c8-a857-b081758dc3c4"
+role = "builder"
+base = "1c5f674ca33828130940242d7e20f947a92f39bc"
+branch = "docs/current-state"
+scope = ["AGENTS.md", "README.md", "docs/ARCHITECTURE.md"]
+opened_commit = "4e9399fa4433f988470446844ccb9b400af9022c"

@@ -1,0 +1,4 @@
+# Measured by `quality baseline write`. Entries only ever go down.
+
+[file_lines]
+"tests/lane_workflow.test.mjs" = 901

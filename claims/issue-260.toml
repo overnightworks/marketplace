@@ -1,0 +1,8 @@
+claim_id = "f5c1234a056246398297598f1c8bf39f"
+agent = "Claude 033a4b11-b91c-41c8-a857-b081758dc3c4"
+role = "builder"
+base = "59644ab587b03934aff52e88cfa21ab5604ac4b2"
+branch = "claude/issue-260-marker-grammar"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/skills/sonar-distributor/SKILL.md"]
+opened_commit = "45394b909c0c7256e26e2c73a56b2d4b3a0f4019"
+whole_reason = "Two bullets in one skill section plus the three pins that ship them."

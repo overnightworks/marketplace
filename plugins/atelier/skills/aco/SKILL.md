@@ -53,9 +53,11 @@ says *that* a lane is claimed, reviewed and landed; this says *how*.
 - Issue-less work: create the `fix/<slug>` or `docs/<slug>` worktree yourself, then
   `aco claim --scope PATH` in lane mode from inside it (`specs/claim.spec.md`).
   Release with `aco release --merged <pr>` or `--abandoned REASON`
-  (`specs/release.spec.md`). Set `ACO_AGENT`: without it the identity falls back to
-  `GROK_SESSION_ID` or `CLAUDE_CODE_SESSION_ID`, which change per session, and only the
-  original claimant may release or land the claim.
+  (`specs/release.spec.md`). A Claude or Grok head leaves `ACO_AGENT` unset: aco takes
+  `CLAUDE_CODE_SESSION_ID` or `GROK_SESSION_ID`, which its delegated agents share, so
+  their landing passes. Claude Code's auto mode denies a landing under another name.
+  That identity ends with the session, so the lane lands within it. A head without such
+  a variable (Codex) sets `ACO_AGENT` once for its session.
 - An open pull request without a claim (a dependency bot's, a fixer's): `aco adopt <pr>
   --no-item deps|fix|docs` makes it a claimed lane on its own branch; `deps` needs
   `dependency_paths` in `.aco/board.toml`. Then land as usual (`specs/adopt.spec.md`).
@@ -125,9 +127,10 @@ becomes its own item first (`aco cut`); bundled cards use `Lands #<m>`.
 ## Land
 
 Gates are green and you hold the tip the reviewers saw. Landing is delegated as a
-named task, but the precondition is aco's. The landing task must run as the
-identity the claim was made under (`ACO_AGENT` or `--agent`); another identity is
-refused with `only the original claimant may release`.
+named task, but the precondition is aco's. The landing task runs under the claim's
+identity; a delegated agent inherits the session's, so it passes neither `ACO_AGENT`
+nor `--agent`. Another identity is refused with `only the original claimant may
+release`, and only the operator lands such a lane, with `--agent <holder>`.
 
 1. Stand in a clean checkout of the default branch — the primary checkout, never the
    lane worktree.

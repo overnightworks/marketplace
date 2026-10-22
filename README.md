@@ -37,9 +37,9 @@ The same command serves a first install and every later update;
 It also links the contract into each provider's user-level instructions (see
 [Architecture](docs/ARCHITECTURE.md)).
 
-`codex plugin add` removes the previously installed version directory, so
-update between Codex jobs. Afterwards start a new Codex thread or run
-`/reload-plugins` in Claude Code.
+`codex plugin add` removes the previously installed version directory, so the
+script waits until no Codex job runs before it updates Codex. Afterwards start
+a new Codex thread or run `/reload-plugins` in Claude Code.
 
 ## Read On
 

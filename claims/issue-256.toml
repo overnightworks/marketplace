@@ -1,0 +1,7 @@
+claim_id = "fef6918d744449b6b6a4be9d4b87f675"
+agent = "Claude 033a4b11-b91c-41c8-a857-b081758dc3c4"
+role = "builder"
+base = "7cb75e559d042d98f4f091457db6957d31c232fa"
+branch = "claude/issue-256-install-waits-for-codex"
+scope = ["README.md", "scripts/install.py", "tests/test_install.py"]
+opened_commit = "bcce3bb38696a7627993b9b5aebea9c43fa71a8a"

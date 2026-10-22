@@ -2,3 +2,5 @@
 
 [file_lines]
 "tests/lane_workflow.test.mjs" = 901
+
+[clones]

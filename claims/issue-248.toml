@@ -1,0 +1,7 @@
+claim_id = "c2637b76bdf148929a84c5e677bc50fe"
+agent = "Claude 033a4b11-b91c-41c8-a857-b081758dc3c4"
+role = "builder"
+base = "e532e1d83dea8e456fdb88915d0bb7dee552d5c6"
+branch = "claude/issue-248-codeql-caller"
+scope = [".aco/board.toml", ".github/workflows/codeql.yml"]
+opened_commit = "5ff5f03b136561b2428f8f35ebf7e799798e996f"

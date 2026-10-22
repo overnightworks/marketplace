@@ -270,10 +270,13 @@ wiki, no public pages."
 Picture: none.
 
 A blessed vision stays as blessed; a rewrite to this skeleton waits for the
-operator's blessing.
+operator's blessing. A draft takes each section from the operator's words, the
+README or the rulings; a section none of them answers stays out and goes to the
+operator as a question with the draft, never invented.
 
 Mistakes: a roadmap or status list; technical choices; wishes with no user
-today; non-goals left empty; wording the operator never said or blessed.
+today; a section invented or left as an empty heading; wording the operator
+never said or blessed.
 
 ## Mockup
 

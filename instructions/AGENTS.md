@@ -301,9 +301,9 @@ duplicated evidence dump. Settled doctrine and rulings are harvested from
 comments into the owning repository document (its specs or requirements; see the
 `write-docs` repository document set) and the body links there — a ruling about
 behaviour not yet built goes into the item body until its landing —; comments
-hold only the transient "changed because" notes. An item that collects more than ~20
-comments before its build starts is too big — slice it instead of commenting
-further.
+hold only the transient "changed because" notes. An item that collects more
+than ~20 comments before its build starts is too big — slice it instead of
+commenting further.
 
 The body is the agent contract: a builder must be able to start from the body
 alone, never needing the comment journal before its first edit. Dispatch
@@ -871,8 +871,8 @@ Before adding a literal, constant, default, or fixture value, classify its owner
 - Each document serves one named reader at one altitude and answers one
   question; the write-docs document set owns each type's reader, content, length
   budget and picture. Agent documents carry only what an agent cannot derive
-  from the code; human overviews lead with the mental model and draw structure as
-  diagram-as-code instead of describing it.
+  from the code; human overviews lead with the mental model and draw structure
+  as diagram-as-code instead of describing it.
 - Facts have one owner. A document serving another audience is a view:
   derived from the owner, naming its source, corrected by regeneration —
   never independently edited.

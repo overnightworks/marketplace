@@ -98,7 +98,7 @@ def install_codex(*, from_checkout: bool) -> None:
 def wait_for_codex_gap() -> None:
     """Block until no Codex job runs; the script's own Codex subcommands start after this."""
     while running := count_codex_jobs():
-        print(f"codex: {running} Codex jobs running, waiting for a gap before updating")
+        print(f"codex: {running} Codex process(es) running, waiting for a gap before updating")
         pause(CODEX_POLL_SECONDS)
 
 

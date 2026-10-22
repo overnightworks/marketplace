@@ -254,8 +254,8 @@ def test_waits_for_a_gap_between_codex_jobs_before_updating_codex(machine, codex
 
     assert codex_jobs.pauses == [install.CODEX_POLL_SECONDS] * 2
     output = capsys.readouterr().out
-    assert output.count("codex: 3 Codex jobs running, waiting") == 1
-    assert output.count("codex: 1 Codex jobs running, waiting") == 1
+    assert output.count("codex: 3 Codex process(es) running, waiting") == 1
+    assert output.count("codex: 1 Codex process(es) running, waiting") == 1
     assert "codex plugin add atelier@atelier" in machine.commands()
 
 

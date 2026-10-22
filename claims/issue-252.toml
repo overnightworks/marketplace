@@ -1,0 +1,8 @@
+claim_id = "250305fd002e4667abbeafafef75f65c"
+agent = "Claude 033a4b11-b91c-41c8-a857-b081758dc3c4"
+role = "builder"
+base = "1c5f674ca33828130940242d7e20f947a92f39bc"
+branch = "claude/issue-252-docs-feedback"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/skills/agent-documentation/SKILL.md", "plugins/atelier/skills/docs-cleanup/SKILL.md", "plugins/atelier/skills/write-docs/references/document-types.md"]
+opened_commit = "5f59ae1d59c88fd7b310c8fb645b793c6c811831"
+whole_reason = "Three skill texts answering one round of fleet feedback, plus the pins that ship them."

@@ -1,8 +1,10 @@
 # Atelier Marketplace
 
-Atelier is a shared plugin of skills, provider-native agents, Claude Code
-workflows and a commit-gate hook, plus the operator's agent contract, for
-engineers who run Codex, Claude Code or Grok on their own repositories.
+Atelier is the operator's shared agent toolkit: a plugin of skills,
+provider-native agents, Claude Code workflows and a commit-gate hook for Codex
+and Claude Code, plus the agent contract and code policy that Codex, Claude
+Code and Grok all read. It serves the agent sessions across the overnightworks
+repositories.
 
 Licensed under the [MIT License](LICENSE).
 
@@ -55,4 +57,5 @@ ruleset requires its `quality / verdict` check to merge into `main`.
 python3 scripts/sync_agents.py --check
 python3 scripts/check_root_layout.py
 python3 scripts/check_skills.py
+node scripts/check_workflow_meta.mjs plugins/*/workflows/*.js
 ```

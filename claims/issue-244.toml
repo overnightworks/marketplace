@@ -1,8 +1,0 @@
-claim_id = "a0aa65cec5a049f695818d316309e58f"
-agent = "Claude 033a4b11-b91c-41c8-a857-b081758dc3c4"
-role = "builder"
-base = "a493ae89678d0821a40eb3baf9fb02e6c0b01248"
-branch = "claude/issue-244-docs-current-state-only"
-scope = [".claude-plugin/marketplace.json", "docs/ARCHITECTURE.md", "instructions/AGENTS.md", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/.codex/agents/documentation-curator.toml", "plugins/atelier/agents/documentation-curator.md", "plugins/atelier/skills/agent-documentation/SKILL.md", "plugins/atelier/skills/docs-cleanup/SKILL.md", "plugins/atelier/skills/visualize/SKILL.md", "plugins/atelier/skills/write-docs/SKILL.md", "plugins/atelier/skills/write-docs/references/document-types.md"]
-opened_commit = "2a5e9a164c1cf221ae3efe7e91dc5fbd313d7cfa"
-whole_reason = "One documentation rule and every skill, agent and contract text that applies it, plus the pins that ship them; a split leaves skills contradicting the contract between landings."

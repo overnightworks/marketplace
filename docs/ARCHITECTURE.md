@@ -1,7 +1,7 @@
 # Architecture
 
 Reader: a human operator or engineer asking where agent guidance lives and why
-it is never copied. Commands live in the
+it is never copied. Install and verification commands live in the
 [README](../README.md), rules in the [contract](../instructions/AGENTS.md), and
 the list of documents a repository carries in the
 [write-docs skill](../plugins/atelier/skills/write-docs/references/document-types.md#repository-document-set).
@@ -38,10 +38,6 @@ flowchart LR
     docs -- git --> host
 ```
 
-Question answered: where does each kind of agent guidance live and how does it
-arrive. Sources: `instructions/`, `plugins/atelier/`, the README install and
-agent sections.
-
 ## Why there are no copies
 
 A rule copied into a repository is owned by nobody: the copies drifted by dozens
@@ -49,3 +45,9 @@ of lines and contradicted current rules, and repositories that were never
 seeded had no code policy at all. One file installed on the machine reaches
 every repository at once and cannot diverge. The price is that the checkout
 must be an up-to-date `main`, because agents read whatever it holds.
+
+## How the contract reaches each host
+
+`scripts/install.py` links `instructions/AGENTS.md` to `~/.claude/CLAUDE.md`
+and `~/.codex/AGENTS.md`. Grok reads `~/.claude/CLAUDE.md` through its Claude
+compatibility (`compat.claude.agents`, on by default).

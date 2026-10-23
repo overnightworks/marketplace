@@ -20,9 +20,10 @@ could execute it without inventing missing decisions.
 A plan that is a container (epic, roadmap, slice outline) is judged on its
 invariants, on its order only where an earlier slice constrains a later one, and
 on its next slice in full; a later slice is judged only on its outline line and
-gets its own review at its pull. A finding whose repair would change the next
-slice or an invariant blocks the container; any other finding about a later
-slice becomes one clause on that line's done-when and does not block.
+is reviewed at its own pull where the contract asks for a plan review. A finding
+whose repair would change the next slice or an invariant blocks the container;
+any other finding about a later slice becomes one clause on that line's
+done-when and does not block.
 
 ## Checklist
 

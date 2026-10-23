@@ -28,7 +28,7 @@ Source of Truth:
 
 Procedure:
 - Load the explorative-testing skill.
-- Take `/tmp/probe-stack.lock` and check the load before a run that starts a server, container, browser or a test suite. No process you start may inherit the lock: take it with `flock -o`, or close fd 9 (`9>&-`) for every child. Run every server under `timeout <cap>`, write its pid to a file under the scratch dir, and kill it before reporting; stop every other process you start (a container, a background browser) before reporting too; `lsof` in the report is evidence only, never a guard.
+- Take `/tmp/probe-stack.lock` before a run that starts a server, a container, a browser or an E2E stack; a targeted unit-test run takes no lock. Check the load before any local run. No process you start may inherit the lock: take it with `flock -o`, or close fd 9 (`9>&-`) for every child. Run every server under `timeout <cap>`, write its pid to a file under the scratch dir, and kill it before reporting; stop every other process you start (a container, a background browser) before reporting too; `lsof` in the report is evidence only, never a guard.
 - Build the smallest real setup in the scratch location the parent names.
 - Drive the named area and its neighbours through the real entry point.
 - Repeat commands; probe error paths; check every count and status label the surface claims against its source of truth.

@@ -87,12 +87,13 @@ re-read.
 
 A fresh auditor maps each duty to evidence in the repositories. The head hands
 it pass 1's register text in its brief. It maps only `in scope` instruments;
-`unknown` ones stay open questions. Marks as in `platform.md` (Marks):
-`100 %`, `partial`, `0 %`, `n/a`, `unverified (host | operator)`. A duty that exists on paper, such as a
-signed processor contract or an incident procedure, is `unverified (operator)`
-with its question, never `0 %`. Each duty gets an owner from a board search,
-open and closed, as in `platform.md` (Modern and already planned). Yardsticks
-get a short gap list for a one-person setup, not a full checklist.
+`unknown` ones stay open questions. Marks as in `platform.md` (Marks): `100 %`,
+`partial`, `0 %`, `n/a`, `unverified (host | operator)`. A duty that exists on
+paper, such as a signed processor contract or an incident procedure, is
+`unverified (operator)` with its question, never `0 %`. Each duty gets an owner
+from a board search, open and closed, as in `platform.md` (Modern and already
+planned). Yardsticks get a short gap list for a one-person setup, not a full
+checklist.
 
 ## Access routes
 
@@ -142,8 +143,10 @@ curl -s -o /dev/null -w '%{http_code}\n' https://raw.githubusercontent.com/OWASP
 The commands print status 200 and the identifiers in the table; the BSI PDF
 probe prints 200 and curl stops at the cap. The SPARQL title query prints
 `02016R0679-20160504` and the `gii-toc.xml` grep prints the BFSG titles: they
-show how discovery by title works on each index. Run them in an empty scratch
-directory.
+show how discovery by title works on each index. Bound the title filter by a
+short CELEX stem, a year such as `02024` or a decade such as `0202`; an
+unbounded title scan times out. The full `02016R0679` stem in the example only
+demonstrates the join. Run them in an empty scratch directory.
 
 ## Limits
 
@@ -175,9 +178,12 @@ and `file:line` the missing or failing evidence. Report, in order:
 10. suspected and unproven;
 11. the register text for the head to write.
 
-Severity examples: `HIGH` a required duty that applies within 12 months with no
-owner, or that already applies with `0 %`; `MEDIUM` a required, applicable duty
-with gaps but an owner; `LOW` a recommended duty missing.
+Severity examples:
+
+- `HIGH`: a required duty that applies now, with `0 %` and no owner.
+- `MEDIUM`: a required duty that applies within 12 months with no owner, or
+  applies now with gaps but an owner.
+- `LOW`: a recommended duty missing.
 
 Prevention check: name which fact change should trigger a re-run (a new AI
 feature, a new cookie or third-party request, a first paying consumer, a

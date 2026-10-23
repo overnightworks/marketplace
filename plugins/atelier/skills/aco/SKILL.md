@@ -7,13 +7,13 @@ description: Operate aco (agent claims, the work board, landing) in any reposito
 
 This skill says the order and the traps of one lane. aco owns the facts: flags,
 outputs, and refusal sentences are in the installed `aco <command> --help` (the
-local owner) and in `README.md` and `specs/<command>.spec.md` of the
-aco repository (github.com/overnightworks/aco; a
-local checkout may carry another directory name, so find it with
-`git -C <candidate> remote get-url origin`, and read the spec on the forge
-when none exists). Read the spec of a command before using it the first time;
-this file copies none of it. The global contract's section "How to coordinate"
-says *that* a lane is claimed, reviewed and landed; this says *how*.
+local owner) and in `README.md` and `specs/<command>.spec.md` of the aco
+repository (github.com/overnightworks/aco; a local checkout may carry another
+directory name, so find it with `git -C <candidate> remote get-url origin`, and
+read the spec on the forge when none exists). Read the spec of a command before
+using it the first time; this file copies none of it. The global contract's
+section "How to coordinate" says *that* a lane is claimed, reviewed and landed;
+this says *how*.
 
 ## Session start
 
@@ -88,8 +88,9 @@ contract and this skill.
   GitHub issue, sets its issue type and parent, and refuses a possible twin (a
   similar open or recently closed title) unless `--not-a-twin` is given
   (`specs/item.spec.md`). A bare `gh issue create` leaves type and parent unset.
-  `--parent N` types its parent (ITEM-29, ITEM-45). A sub-issue linked by hand under
-  a parent that has no type makes `aco check` refuse `has parent <ref> of kind <kind>,
+  `--parent N` retypes an open Task parent to Container and refuses any other
+  non-container (ITEM-29, ITEM-45). A sub-issue linked by hand under a parent
+  that has no type makes `aco check` refuse `has parent <ref> of kind <kind>,
   which is not a container; only a container holds children` (LAND-27,
   `specs/landing-grammar.spec.md`); set the parent's type with `gh api -X PATCH
   repos/<owner>/<repo>/issues/<parent> -f type=Container`.

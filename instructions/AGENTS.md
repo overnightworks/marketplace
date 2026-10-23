@@ -485,10 +485,11 @@ separation for gates never changes through escalation.
 arguments. An override never bypasses reviewer independence, gate provider
 separation, or the effort ceiling.
 
-**Re-measurement.** For every landed, blocked or abandoned lane, the lane result
-records each role's model and effort, and which stage found each blocking
-finding. After five lanes, the head compares misses per routing and proposes any
-change through the rule-change gate.
+**Re-measurement.** For every landed or abandoned lane, its pull request body
+carries one `Routing:` line, written by the head before the landing (the `aco`
+skill gives its form): each role's model and effort, and the stage that found
+each blocking finding. After five lanes, the head compares misses per routing
+and proposes any change through the rule-change gate.
 
 A required final gate is required only where the lane carries material risk.
 Start it once, in parallel with the lane's first independent review, on the

@@ -126,6 +126,10 @@ missing, doubled or fenced line (`specs/landing-grammar.spec.md`); a pass proves
 classification, the closing reference, a claim on the head branch and the default-branch
 target, not that the work is reviewed or the checks are green.
 
+One more line records the routing, in this form:
+`Routing: build <model>/<effort>; review <model>/<effort>; gate <model>/<effort>|none; land <model>/<effort>. Blocking: <finding> → <stage>; …|none`.
+The head writes it before the landing, because a landing agent does not know the routing.
+
 Push the branch, then open the pull request with `gh pr create` (title, head, base,
 body).
 

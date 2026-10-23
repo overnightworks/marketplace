@@ -300,7 +300,7 @@ function rereadContradictoryCourier(answer, label, base) {
 
 function codexReview(label, routing, role, range) {
   const base = `${A.scratch}/${TAG}-${label}`
-  const brief = `Read-only sandbox: read files and run read-only commands freely; do not run tests.\n` + reviewerBrief(role, range) +
+  const brief = `Read-only sandbox: read files and run read-only commands freely; do not run tests. The sandbox has no network and cannot write, /tmp included; report a command you cannot run as not verified, never as a blocking finding.\n` + reviewerBrief(role, range) +
     `\nGive every finding its file:line in "where".`
   return safeAgent(
     `You are a courier for one independent Codex review. Do not review anything yourself and do not edit the repository.\n` +

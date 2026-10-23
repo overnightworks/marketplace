@@ -1,10 +1,9 @@
 # Atelier Marketplace
 
 Atelier is the operator's shared agent toolkit: a plugin of skills,
-provider-native agents, Claude Code workflows and a commit-gate hook for Codex
-and Claude Code, plus the agent contract and code policy that Codex, Claude
-Code and Grok all read. It serves the agent sessions across the overnightworks
-repositories.
+provider-native agents and Claude Code workflows for Codex and Claude Code,
+plus the agent contract and code policy that Codex, Claude Code and Grok all
+read. It serves the agent sessions across the overnightworks repositories.
 
 Licensed under the [MIT License](LICENSE).
 
@@ -12,8 +11,7 @@ Licensed under the [MIT License](LICENSE).
 
 - `plugins/atelier/` is the plugin: `skills/` is shared by both hosts,
   `agents/` holds the Markdown source of every agent (loaded directly by Claude
-  Code), `hooks/` holds the commit-gate hook, and `workflows/` holds the Claude
-  Code workflows.
+  Code), and `workflows/` holds the Claude Code workflows.
 - `plugins/atelier/.codex/agents/` is generated from `agents/`; change the
   Markdown source and run `python3 scripts/sync_agents.py`, never edit the
   generated files.

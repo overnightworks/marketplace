@@ -1,0 +1,8 @@
+claim_id = "47fccd9d223b44b5bb53f680f9c4efd1"
+agent = "Claude 033a4b11-b91c-41c8-a857-b081758dc3c4"
+role = "builder"
+base = "314e7c3922845c2e072642dce3e4cdbaa6ed455f"
+branch = "claude/issue-268-audit-platform-goal"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/skills/audit/SKILL.md", "plugins/atelier/skills/audit/references/platform.md"]
+opened_commit = "153cbc08d0757e620cb3753a9302ca9f26298fe1"
+whole_reason = "One audit goal: its lens reference, its goal-table rows and the shared rules it needs, plus the pins that ship them."

@@ -4,10 +4,10 @@ Part of the sonar-distributor skill. Sections quoted by name ("API access", "Cle
 
 ## Python rules
 
-Source: SonarCloud PR analysis, overnightworks/aco PR #116,
-05.09.2026 (head 5884bdd, quality gate OK). `pythonsecurity:S8705` and
-`python:S8786` carry no SonarCloud description text ("external rule, no
-details available"), so this PR analysis is the only oracle for them.
+Source: SonarCloud PR analysis of 05.09.2026 (head 5884bdd, quality gate
+OK). `pythonsecurity:S8705` and `python:S8786` carry no SonarCloud
+description text ("external rule, no details available"), so this PR
+analysis is the only oracle for them.
 
 Positive — cleared:
 - `pythonsecurity:S8705` closed after routing the direct `gh` call through the
@@ -29,8 +29,7 @@ Negative — tried and refused:
 - The intermediate state `[ \t]*(?P<value>[^\r\n]*)$` with an `.rstrip()` was
   still flagged by `python:S8786`.
 
-Analyzer coverage on test sources (measured overnightworks/aco #143/PR #145,
-06.09.2026):
+Analyzer coverage on test sources (measured 06.09.2026):
 - `python:S1192` (duplicated string literal) does **not** run on test sources —
   a duplicated-literal probe placed in a test stays invisible to the gate.
 - `python:S5778` (two raising calls inside one `pytest.raises` block) **does**

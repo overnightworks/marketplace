@@ -93,14 +93,13 @@ README owns how.
    time from the distributor. A finding becomes its own issue only when it is
    dispatched.
 5. **Re-measure main after every landing** while the distributor is open — the
-   default quality gate does not (measured overnightworks/aco #143/PR #145,
-   06.09.2026: three green-merged landings added 16 findings on main
-   unnoticed).
+   default quality gate does not (measured 06.09.2026: three green-merged
+   landings added 16 findings on main unnoticed).
 
 ## The four classes
 
 Illustrated with the first atelier-2 run (04.09.2026, 131 open Sonar issues)
-and the 05.09.2026 measurement PR (PR overnightworks/aco#116).
+and a measurement pull request of 05.09.2026.
 
 - **(a) Noise an exclusion removes** — mockups, vendored assets, generated
   artefacts, fixtures: trees the rules were never written for. Action: one
@@ -283,9 +282,8 @@ standing rulings, which every review of a Sonar finding inherits:
   the rulings, the frozen-code list. A finding reviewed without it is mostly
   rejection ware, and the reviewer will argue with the rule instead of the code.
 - The quality gate checks **ratings, not counts**: a PR can merge green while
-  adding findings — three landings added 16 unnoticed (measured overnightworks/aco
-  #143/PR #145, 06.09.2026). The control is a CI step in the sonar job, after the
-  scan, that pages
+  adding findings — three landings added 16 unnoticed (measured 06.09.2026).
+  The control is a CI step in the sonar job, after the scan, that pages
   `api/issues/search?componentKeys=<key>&pullRequest=<n>` with the
   `issueStatuses`, the authentication, the scope proof, the timeout and the
   scope encoding of "API access" above, and fails on a new finding. That logic is

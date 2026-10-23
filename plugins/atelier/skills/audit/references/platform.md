@@ -134,6 +134,8 @@ with its exact question; it is neither a pass nor a fail.
    - Alerts name a delivery channel (config).
    - Unverified (operator): does a test alert reach the operator, and when did
      it last?
+   - Key check: a test alert reached a person. Without a dated record within 90
+     days, delivery is an open `unverified (operator)` question.
 9. **Logging and audit trail** (CIS 8; BSI OPS.1.1.5, OPS.1.2.6; CSF DE.CM).
    Intent: sign-in and admin events are kept and bounded.
    - Sign-in and admin actions are logged (config).
@@ -187,9 +189,9 @@ with its exact question; it is neither a pass nor a fail.
   belong here.
 
 An unverified check is listed, not counted. There is no percentage across
-areas. An area with an open `unverified (host | operator)` question on a check
-it names as its key check caps at `partial`; only area 7 names one. Say "on
-repository evidence, N host questions open".
+areas. An area whose named key check is open caps at `partial`; areas 7 and 8
+name one. Any mark with open `unverified (host | operator)` questions, key check
+or not, carries "on repository evidence, N open".
 
 ## Modern and already planned
 

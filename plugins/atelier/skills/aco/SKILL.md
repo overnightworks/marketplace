@@ -151,9 +151,9 @@ Code's auto mode denies.
    (`--keep-worktree` keeps them). `specs/land.spec.md`. `aco land` has already
    released the claim; after a land, the head's release step is verifying that
    with `aco status`. `aco release --merged` is for merges made outside
-   `aco land`. Then pull the primary checkout (`git pull --ff-only`) so it holds
-   the landed main; in marketplace that checkout is the installed contract for
-   every agent.
+   `aco land`. `aco land` also fast-forwards this checkout to the landed main
+   (in marketplace that checkout is the installed contract for every agent);
+   the landing runs no git command beside or after it.
 3. The landing agent reports the follow-up lines `aco land` prints (`freed:`,
    `next:`, in aco also `reinstall:`) to the head and runs none of
    them. The head acts on them as the contract's "How to coordinate" says, then

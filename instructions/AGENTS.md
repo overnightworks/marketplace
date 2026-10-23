@@ -361,10 +361,14 @@ It carries the ruled sentences it proves, its files and its own done-when; it is
 built, landed and closed, and its parent's projection records what that leaves.
 The parent closes when its children are done.
 
-Cut before you dispatch. For anything beyond a few files the head runs the
-breakdown workflow first and writes its slices — files, done-when, dependencies
-— into the item body, then dispatches one slice at a time. A hand-written brief
-for a large change is how a lane becomes a forty-file candidate with dozens of
+Cut before you dispatch. For anything beyond a few files the head has the phase
+planner cut the item at its pull: the body states the invariants every slice
+keeps and an ordered outline, one line per slice with its done-when; only the
+next slice carries its files and dependencies, and each later line gets them at
+its own pull, as an item that names the invariants it keeps. A ruling or another
+owner's work that would change the cut is asked at the pull, even for a far
+slice. Then the head dispatches one slice at a time. A hand-written brief for a
+large change is how a lane becomes a forty-file candidate with dozens of
 findings; the planner exists so the cut is argued before the build, not after.
 Before every claim, the head runs `git grep` across the whole tree for each
 printed literal, key, spec ID, default value, command and public name the item

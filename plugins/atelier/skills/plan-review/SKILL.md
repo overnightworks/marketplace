@@ -17,8 +17,12 @@ could execute it without inventing missing decisions.
 3. Check the plan against the checklist below.
 4. Return a verdict; do not edit unless explicitly asked.
 
-A plan that is a container (roadmap, epic, slice table) is judged on its next
-slice only; list later slices as out of review.
+A plan that is a container (epic, roadmap, slice outline) is judged on its
+invariants, on its order only where an earlier slice constrains a later one, and
+on its next slice in full; a later slice is judged only on its outline line and
+gets its own review at its pull. A finding whose repair would change the next
+slice or an invariant blocks the container; any other finding about a later
+slice becomes one clause on that line's done-when and does not block.
 
 ## Checklist
 

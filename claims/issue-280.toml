@@ -1,0 +1,8 @@
+claim_id = "bf1709cfe08e481685329a20d1f23b55"
+agent = "Claude 033a4b11-b91c-41c8-a857-b081758dc3c4"
+role = "builder"
+base = "478c84234996ba9b312d30394cb68e65f6f26964"
+branch = "claude/issue-280-remeasure-texts"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/.codex/agents/code-fixer.toml", "plugins/atelier/.codex/agents/code-reviewer.toml", "plugins/atelier/.codex/agents/code-worker.toml", "plugins/atelier/agents/code-fixer.md", "plugins/atelier/agents/code-reviewer.md", "plugins/atelier/agents/code-worker.md", "plugins/atelier/skills/aco/SKILL.md", "plugins/atelier/skills/providers/SKILL.md"]
+opened_commit = "0fae544bd936f1df7932d9f7eb99780fcbfdfc57"
+whole_reason = "Four gate-checked text changes from one review, across three agents and two skills, plus the generated twins and the pins that ship them."

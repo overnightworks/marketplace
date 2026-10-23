@@ -1,6 +1,6 @@
 ---
 name: audit
-description: Audit a codebase through read-only lenses, chosen by goal. Use when asked to clean up, slim down or shrink code, find dead or unnecessary code or the wrong architecture; to check architecture, module boundaries, ownership or duplicate deciders (who decides X); to review security, performance, leaks or concurrency; to audit a change for code smells, readability, test quality or coverage, brittle tests; to grade how far each operational area (backup, access, patching, deploy) of the operator's platform reaches across repositories; or to run a scheduled standing audit, and after any structural change or replacement (check that a replacement left no predecessor). Returns a ranked, evidenced report and the distributor text; changes nothing. For plans use plan-review, for documentation trees docs-cleanup, for AGENTS.md, skills and agents agent-documentation. Not the built-in security-review (pending branch changes) or simplify (applies edits).
+description: Audit a codebase through read-only lenses, chosen by goal. Use when asked to clean up, slim down or shrink code, find dead or unnecessary code or the wrong architecture; to check architecture, module boundaries, ownership or duplicate deciders (who decides X); to review security, performance, leaks or concurrency; to audit a change for code smells, readability, test quality or coverage, brittle tests; to grade how far each operational area (backup, access, patching, deploy) of the platform reaches across repositories; to find which laws and standards apply (compliance, GDPR, AI Act and the like); or to run a scheduled standing audit, and after any structural change or replacement (check that a replacement left no predecessor). Returns a ranked, evidenced report and the distributor text; changes nothing. For plans use plan-review, for documentation trees docs-cleanup, for AGENTS.md, skills and agents agent-documentation. Not the built-in security-review (pending branch changes) or simplify (applies edits).
 ---
 
 An audit judges code against its own claims and the repository's rules.
@@ -17,7 +17,8 @@ item or executes a cut.** Pick the goal, run its lenses, return one report.
 | Runtime and performance: leaks, blocking, growth, races | `runtime` |
 | Change audit: hygiene and tests on a diff | `hygiene`, `tests` |
 | Platform: how far each operational area reaches across the operator's repositories | `platform` |
-| Scheduled standing audit | `architecture`, `deadweight` (with the `tests` Test size check), `ownership` or `platform`, each on its own cadence |
+| Standards: which laws and standards apply, and where each requirement stands | `standards`, run as two passes: applicability, then the map |
+| Scheduled standing audit | `architecture`, `deadweight` (with the `tests` Test size check), `ownership`, `platform` or `standards`, each on its own cadence |
 
 ## Dispatch
 

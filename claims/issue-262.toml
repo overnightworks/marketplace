@@ -1,8 +1,0 @@
-claim_id = "ab6ef45f6572460b903adcb85dfb5bbf"
-agent = "Claude 033a4b11-b91c-41c8-a857-b081758dc3c4"
-role = "builder"
-base = "f4cde67052d9af91d771d643de5a8547b94b8714"
-branch = "claude/issue-262-aco-5-names"
-scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/skills/aco/SKILL.md", "plugins/atelier/skills/sonar-distributor/SKILL.md", "plugins/atelier/skills/sonar-distributor/references/rules-by-language.md"]
-opened_commit = "4c2b53cca2c7ee3dee5334caf66c10ab302de659"
-whole_reason = "One rename pass across two skills and a reference, plus the pins that ship them."

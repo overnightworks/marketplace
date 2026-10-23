@@ -1,0 +1,8 @@
+claim_id = "c5ad764ec7b24dd7aac07d427186dd7b"
+agent = "Claude 033a4b11-b91c-41c8-a857-b081758dc3c4"
+role = "builder"
+base = "dce1d7e50814896119106d1fd7efc7e52951596e"
+branch = "claude/issue-276-probe-lock-scope"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/.codex/agents/code-fixer.toml", "plugins/atelier/.codex/agents/code-worker.toml", "plugins/atelier/.codex/agents/explorative-tester.toml", "plugins/atelier/agents/code-fixer.md", "plugins/atelier/agents/code-worker.md", "plugins/atelier/agents/explorative-tester.md"]
+opened_commit = "d76cbb52a136ebddbeea8dc8c1d0ba7aa2c17141"
+whole_reason = "One sentence in three agent definitions, their generated Codex twins, and the pins that ship them."

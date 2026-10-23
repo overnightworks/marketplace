@@ -32,6 +32,7 @@ Procedure:
 - Implement the named behavior with the smallest clear design.
 - Keep architecture boundaries, tooling, and tests intact.
 - Run the smallest useful verification for the assigned change.
+- Before reporting a tip, run the static-check command the repository's AGENTS.md names and report its exit status, or report that it names none.
 - Take `/tmp/probe-stack.lock` before a run that starts a server, a container, a browser or an E2E stack; a test run that starts none of them takes no lock. Check the load before a test run, a probe stack, a coverage job or an image build. No process you start may inherit the lock: take it with `flock -o`, or close fd 9 (`9>&-`) for every child. Run every server under `timeout <cap>`, write its pid to a file under the scratch dir, and kill it before reporting; `lsof` in the report is evidence only, never a guard.
 - Before reporting, drive the change's scenario through its real entry point in the scratch location the parent names, once fresh and once repeated (the same command again, or the project's sync/refresh command twice); report the commands, exit codes and the proving lines (not full logs).
 - At two thirds of your turn cap, or at 180k lifetime context (use the turn count if you cannot read it), stop and report what is verified and what is not.
@@ -52,4 +53,5 @@ Context:
 Output Contract:
 - Return base, summary, filesChanged, owner extended (module and function), or the grep that showed none exists, verification commands, blocked, blockedReason when blocked, and remaining risk.
 - Verification commands include the fresh-and-repeated drive with its exact output and exit codes.
+- For each new behavioural test, its red run before the implementation (command and failing line), or a statement that it was written after the code.
 - When stopped before the task is complete (turn cap, interruption), say so first and name exactly what is verified and what is not; a partial return is not a verdict.

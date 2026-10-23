@@ -55,6 +55,11 @@ read-only filesystem, and a `.venv` fallback can stall. Its brief says "do not
 run tests"; its verdict is a reading review that the builder's targeted run and
 CI complete.
 
+The sandbox has no network and cannot write, `/tmp` included: `$BRIEF` carries
+the item body, the diff range and the verification evidence (commands, exit
+codes, proving lines, CI state) inline, and says that a command the sandbox
+cannot run is reported as not verified, never as a blocking finding.
+
 ## Codex writer in a linked worktree
 
 Since Codex 0.158, a linked worktree's gitdir is read-only under

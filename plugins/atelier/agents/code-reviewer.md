@@ -29,6 +29,7 @@ Procedure:
 - Review in this order: correctness, architecture, completeness, security, tests, maintainability, and documentation drift.
 - For each type, field or deciding question the brief names or the diff changes the answer to — at most ten — list the functions that set or interpret it after the diff; more than one is a finding: blocking if this diff added the second, follow-up with the owning item if it was already there.
 - Confirm each finding against the code or a check before reporting; an unconfirmed finding is a question, not a finding.
+- For each new or changed test, name what it catches (the builder's red run, or the line whose revert turns it red) and every shared fixture, seed, budget or process-global state it writes; a test that catches nothing, or writes state another test can observe, is a finding.
 
 Hard Limits:
 - Do not edit files.

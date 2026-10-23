@@ -85,9 +85,10 @@ re-read.
 
 ## Pass 2: the map
 
-A fresh auditor, fed by pass 1's register, maps each duty to evidence in the
-repositories. Marks as in `platform.md` (Marks): `100 %`, `partial`, `0 %`,
-`n/a`, `unverified (host | operator)`. A duty that exists on paper, such as a
+A fresh auditor maps each duty to evidence in the repositories. The head hands
+it pass 1's register text in its brief. It maps only `in scope` instruments;
+`unknown` ones stay open questions. Marks as in `platform.md` (Marks):
+`100 %`, `partial`, `0 %`, `n/a`, `unverified (host | operator)`. A duty that exists on paper, such as a
 signed processor contract or an incident procedure, is `unverified (operator)`
 with its question, never `0 %`. Each duty gets an owner from a board search,
 open and closed, as in `platform.md` (Modern and already planned). Yardsticks
@@ -105,7 +106,7 @@ route that refuses follows the drift route in `SKILL.md` External sources.
 | EU law, Publications Office Cellar | consolidated `02024R1689-20260727` (header "Consolidated TEXT ... 27.07.2026") | the Cellar command below |
 | EU consolidated versions, SPARQL | `02024R1689` lists `-20240712` and `-20260727` | the SPARQL command below |
 | German federal law, gesetze-im-internet.de | `bfsg` Stand "Art. 32 G v. 6.5.2024"; `bsig_2025` carries a pending amendment note | the `gii` commands below |
-| BSI IT-Grundschutz-Kompendium | Edition 2023 (file dated 1.2.2023) | the BSI command below; the edition page names it |
+| BSI IT-Grundschutz-Kompendium | Edition 2023 (the edition page: "seit dem 1. Februar 2023 verfügbar") | the BSI commands below |
 | OWASP ASVS | tag `v5.0.0_release` | the ASVS command below |
 | ISO/IEC standards | paid; `iso.org` answers 403 | none: cite clause titles only, no normative text |
 
@@ -114,12 +115,15 @@ Rules that make the routes work:
 - Cellar needs `Accept-Language: eng`; without it the answer is 400. Always read
   the latest consolidated CELEX (`0YYYYRNNNN-YYYYMMDD`), found through SPARQL:
   the original `3`-prefixed act can be outdated by later amendments.
-- A German statute's Stand line is `<standkommentar>` in its `xml.zip`. Slugs
+- A German statute's Stand line is the first `<standkommentar>` in its
+  `xml.zip`; later ones are amendment notes (`bsig_2025` has four). Slugs
   come from `gii-toc.xml`; the slug of a statute may carry its year
   (`bsig_2025`). A note "textlich nachgewiesen, dokumentarisch noch nicht
   abschließend bearbeitet" is a pending amendment: re-read the text.
-- The BSI server refuses `HEAD`; probe with a one-byte `GET` range. The
-  `?__blob=publicationFile` suffix is required.
+- The BSI server refuses `HEAD` and ignores `Range` (it answers 200 and sends
+  the whole PDF, about 5.7 MB): cap the transfer with `--max-filesize 1000`
+  (curl exit 63 is expected). The `?__blob=publicationFile` suffix is required.
+  `Last-Modified` is not always sent, so the edition page is the anchor.
 - ASVS moves on its default branch: pin a release tag. Read the file at the tag
   through `raw.githubusercontent.com`.
 
@@ -128,12 +132,18 @@ curl -sL -o cellar.xhtml -w '%{http_code}\n' -H 'Accept: application/xhtml+xml' 
 curl -sG -w '\n%{http_code}\n' -H 'Accept: application/sparql-results+json' --data-urlencode 'query=PREFIX cdm: <http://publications.europa.eu/ontology/cdm#> SELECT ?c WHERE { ?w cdm:resource_legal_id_celex ?c . FILTER(STRSTARTS(STR(?c),"02024R1689")) } ORDER BY DESC(?c)' https://publications.europa.eu/webapi/rdf/sparql
 curl -s -o toc.xml -w '%{http_code}\n' https://www.gesetze-im-internet.de/gii-toc.xml; grep -o -m1 '<link>[^<]*bfsg/xml.zip' toc.xml
 curl -s -o bfsg.zip -w '%{http_code}\n' https://www.gesetze-im-internet.de/bfsg/xml.zip; unzip -p bfsg.zip | grep -o '<standkommentar>[^<]*'
-curl -s -o /dev/null -r 0-0 -D - 'https://www.bsi.bund.de/SharedDocs/Downloads/DE/BSI/Grundschutz/IT-GS-Kompendium/IT_Grundschutz_Kompendium_Edition2023.pdf?__blob=publicationFile' | grep -iE '^(HTTP|last-modified)'
+curl -s -o /dev/null -D - --max-filesize 1000 'https://www.bsi.bund.de/SharedDocs/Downloads/DE/BSI/Grundschutz/IT-GS-Kompendium/IT_Grundschutz_Kompendium_Edition2023.pdf?__blob=publicationFile' | grep -E '^HTTP'
+curl -sL -o bsi.html -w '%{http_code}\n' https://www.bsi.bund.de/DE/Themen/Unternehmen-und-Organisationen/Standards-und-Zertifizierung/IT-Grundschutz/IT-Grundschutz-Kompendium/it-grundschutz-kompendium_node.html; grep -o -m1 'Edition 2023 ist seit[^.]*' bsi.html
+curl -sG -w '\n%{http_code}\n' -H 'Accept: application/sparql-results+json' --data-urlencode 'query=PREFIX cdm: <http://publications.europa.eu/ontology/cdm#> SELECT DISTINCT ?c WHERE { ?e cdm:expression_title ?t . ?e cdm:expression_belongs_to_work ?w . ?w cdm:resource_legal_id_celex ?c . FILTER(CONTAINS(LCASE(STR(?t)),"general data protection regulation")) FILTER(STRSTARTS(STR(?c),"02016R0679")) }' https://publications.europa.eu/webapi/rdf/sparql
+grep -i '<title>[^<]*Barrierefreiheit' toc.xml
 curl -s -o /dev/null -w '%{http_code}\n' https://raw.githubusercontent.com/OWASP/ASVS/v5.0.0_release/README.md
 ```
 
-The commands print status 200 (the BSI range read 200 or 206) and the
-identifiers in the table. Run them in an empty scratch directory.
+The commands print status 200 and the identifiers in the table; the BSI PDF
+probe prints 200 and curl stops at the cap. The SPARQL title query prints
+`02016R0679-20160504` and the `gii-toc.xml` grep prints the BFSG titles: they
+show how discovery by title works on each index. Run them in an empty scratch
+directory.
 
 ## Limits
 
@@ -147,7 +157,6 @@ identifiers in the table. Run them in an empty scratch directory.
   deployer role, sector assignment, high-risk AI classification, transfers
   outside the EU, minors, employee data, any claim of compliance made to third
   parties.
-- Voluntary standards are never reported as required.
 
 ## Output
 
@@ -166,9 +175,9 @@ and `file:line` the missing or failing evidence. Report, in order:
 10. suspected and unproven;
 11. the register text for the head to write.
 
-Severity examples: `HIGH` a required duty already applicable with no evidence
-and no owner; `MEDIUM` a duty applicable within the next two application dates
-with no owner; `LOW` a recommended duty missing.
+Severity examples: `HIGH` a required duty that applies within 12 months with no
+owner, or that already applies with `0 %`; `MEDIUM` a required, applicable duty
+with gaps but an owner; `LOW` a recommended duty missing.
 
 Prevention check: name which fact change should trigger a re-run (a new AI
 feature, a new cookie or third-party request, a first paying consumer, a

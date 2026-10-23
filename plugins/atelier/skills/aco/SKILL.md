@@ -7,13 +7,13 @@ description: Operate aco (agent claims, the work board, landing) in any reposito
 
 This skill says the order and the traps of one lane. aco owns the facts: flags,
 outputs, and refusal sentences are in the installed `aco <command> --help` (the
-local owner) and in `README.md` and `specs/<command>.spec.md` of the
-agent-coordination repository (github.com/overnightworks/agent-coordination; a
-local checkout may carry another directory name, so find it with
-`git -C <candidate> remote get-url origin`, and read the spec on the forge
-when none exists). Read the spec of a command before using it the first time;
-this file copies none of it. The global contract's section "How to coordinate"
-says *that* a lane is claimed, reviewed and landed; this says *how*.
+local owner) and in `README.md` and `specs/<command>.spec.md` of the aco
+repository (github.com/overnightworks/aco; a local checkout may carry another
+directory name, so find it with `git -C <candidate> remote get-url origin`, and
+read the spec on the forge when none exists). Read the spec of a command before
+using it the first time; this file copies none of it. The global contract's
+section "How to coordinate" says *that* a lane is claimed, reviewed and landed;
+this says *how*.
 
 ## Session start
 
@@ -23,7 +23,7 @@ says *that* a lane is claimed, reviewed and landed; this says *how*.
    an item with unruled expectations is refined first, not dispatched
    (`specs/next.spec.md`).
 3. `aco board --json` reads the whole board, read-only (bare `aco board` refuses);
-   the browser view for deciding expectation lines is `aco-board serve`.
+   the browser view for deciding expectation lines is `aco serve` (`specs/serve.spec.md`).
 
 ## Start a lane
 
@@ -88,6 +88,12 @@ contract and this skill.
   GitHub issue, sets its issue type and parent, and refuses a possible twin (a
   similar open or recently closed title) unless `--not-a-twin` is given
   (`specs/item.spec.md`). A bare `gh issue create` leaves type and parent unset.
+  `--parent N` retypes an open Task parent to Container and refuses any other
+  non-container (ITEM-29, ITEM-45). A sub-issue linked by hand under a parent
+  that has no type makes `aco check` refuse `has parent <ref> of kind <kind>,
+  which is not a container; only a container holds children` (LAND-27,
+  `specs/landing-grammar.spec.md`); set the parent's type with `gh api -X PATCH
+  repos/<owner>/<repo>/issues/<parent> -f type=Container`.
 - Pulling an idea is a decision, not an idle step: remove the board's
   idea label and replace the body with a work-item body (the fenced `aco`
   block); `aco claim` refuses an idea whose body still lacks the
@@ -102,8 +108,8 @@ contract and this skill.
   repos/<owner>/<repo>/issues/<n>/dependencies/blocked_by -F issue_id=<id>`, where
   `<id>` is `gh api repos/<owner>/<repo>/issues/<m> --jq .id` of the blocker; a
   blocker in another repository works the same way.
-- Pipe the new body through `aco body --check` before writing it; it reports defects
-  in the fenced `aco` block (`specs/body.spec.md`, `specs/body-block.spec.md`).
+- Pipe the new body through `aco check -` before writing it; it reports defects
+  in the fenced `aco` block (`specs/check.spec.md`, `specs/body-block.spec.md`).
 - `aco check <issue>` judges a written issue body's contract.
 - A slice becomes an item with `aco cut` (`specs/cut.spec.md`); expectation lines go
   through `aco ask` and `aco rule` (`specs/ask.spec.md`, `specs/rule.spec.md`), the
@@ -149,7 +155,7 @@ Code's auto mode denies.
    the landed main; in marketplace that checkout is the installed contract for
    every agent.
 3. The landing agent reports the follow-up lines `aco land` prints (`freed:`,
-   `next:`, in agent-coordination also `reinstall:`) to the head and runs none of
+   `next:`, in aco also `reinstall:`) to the head and runs none of
    them. The head acts on them as the contract's "How to coordinate" says, then
    runs `aco next`.
 4. Close bundled non-lead cards with the PR link.
@@ -161,7 +167,7 @@ Abandoned: `aco release <n> --abandoned REASON`; the item stays open.
 ## Friction
 
 A refusal this skill did not predict is a defect in the skill or in aco. Resolve it
-from the spec first, then open one item in overnightworks/agent-coordination
+from the spec first, then open one item in overnightworks/aco
 (search it first) naming the command, the refusal sentence and the wish with its
 reason (not a finished solution), and extend this skill only where the answer is
 a *how*, not a copied fact.

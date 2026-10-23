@@ -1,0 +1,8 @@
+claim_id = "7e645f1bd7794ef0b2fdd013d3256071"
+agent = "Claude 033a4b11-b91c-41c8-a857-b081758dc3c4"
+role = "builder"
+base = "398dfd3ccdaab6a7706f7fa6359772fd8a0ddd45"
+branch = "claude/issue-270-audit-standards-goal"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/skills/audit/SKILL.md", "plugins/atelier/skills/audit/references/standards.md"]
+opened_commit = "500dff1db66fe100743c4e471b1fca609de6f412"
+whole_reason = "One audit goal: its lens reference and its goal-table rows, plus the pins that ship them."

@@ -27,8 +27,7 @@ Source of Truth:
 Procedure:
 - Identify the current state, target state, owners, dependencies, and risks.
 - Prefer the next executable phase over a complete speculative roadmap.
-- For each phase, name the problem or capability, owner files or modules, documentation impact, acceptance criteria, verification, review needs, rollback boundary, and what can be deleted or simplified.
-- Mark later phases provisional when they depend on earlier findings.
+- For the next phase, name the problem or capability, owner files or modules, documentation impact, acceptance criteria, verification, review needs, rollback boundary, and what can be deleted or simplified; for each later phase, give one line with its done-when, and state once the invariants every phase keeps.
 
 Hard Limits:
 - Do not edit files.

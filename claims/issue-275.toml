@@ -1,0 +1,8 @@
+claim_id = "0fa527c474fd4864b19753dc49546c1c"
+agent = "Claude 033a4b11-b91c-41c8-a857-b081758dc3c4"
+role = "builder"
+base = "4ed832d6f88360dd338b6962b04dcf0ced803f7b"
+branch = "claude/issue-275-epic-cut-at-pull"
+scope = [".claude-plugin/marketplace.json", "instructions/AGENTS.md", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/.codex/agents/phase-planner.toml", "plugins/atelier/.codex/agents/plan-reviewer.toml", "plugins/atelier/agents/phase-planner.md", "plugins/atelier/agents/plan-reviewer.md", "plugins/atelier/skills/plan-review/SKILL.md"]
+opened_commit = "88b07e98c1e868f6189102d95dedf769440ea71e"
+whole_reason = "One rule told by its four owners (contract, skill, two agents), with the generated twins and the pins that ship them."

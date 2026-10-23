@@ -1,0 +1,8 @@
+claim_id = "7fbb3064b700402dbc1c5089d7666306"
+agent = "Claude 033a4b11-b91c-41c8-a857-b081758dc3c4"
+role = "builder"
+base = "68ae4f33f27a4db2a52a9f2bc894755cc063dd1b"
+branch = "claude/issue-282-routing-line-hook"
+scope = [".claude-plugin/marketplace.json", "README.md", "instructions/AGENTS.md", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/hooks/hooks.json", "plugins/atelier/hooks/pre_commit_gate.sh", "plugins/atelier/skills/aco/SKILL.md", "plugins/atelier/workflows/lane.js", "tests/lane_workflow.test.mjs", "tests/test_pre_commit_gate.py"]
+opened_commit = "8f46321342da4fcdde645f2e1e6c7b1ee3eb966b"
+whole_reason = "Three small cards from one review distributor (#279): the ruled routing line, the lane.js Codex brief, and removing a hook that fires nowhere."

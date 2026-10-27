@@ -1,8 +1,0 @@
-claim_id = "c12cb13d410a43a69f21d2560ab11a70"
-agent = "Claude b5de3560-4db0-4dfe-be9f-fe26ef53140a"
-role = "builder"
-base = "cdcdb153e7605bd18829ee19ee57edb5855a12b3"
-branch = "claude/issue-294-aco-skill-option-cards"
-scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/skills/aco/SKILL.md"]
-opened_commit = "591171d5bbc2d64cdb1a40bf260b0b2f3380292a"
-whole_reason = "One skill paragraph plus the three version pins every atelier release moves together."

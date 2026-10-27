@@ -901,7 +901,7 @@ test('two Sonar findings listed by the CI agent reach the fixer as two findings,
   }
 })
 
-test('#290 a material resume with fixFirst and no deltaFrom has the review and the gate judge the whole lane, whatever path the fixer touched', async () => {
+test('#290 defect:#290 a material resume with fixFirst and no deltaFrom has the review and the gate judge the whole lane, whatever path the fixer touched', async () => {
   const answers = { 'fix-1': { ...resumeFix, regression: [] }, 'r1-review': APPROVE, 'r1-gate': { ...APPROVE, codexExit: 0 }, ...reachesTheEnd }
   const { launchedAgents, agentCalls } = await runLane({ ...resumeArgs, risk: 'material', fixFirst: [defectWithoutDraft] }, answers)
   assert.ok(launchedAgents.includes('r1-review') && launchedAgents.includes('r1-gate'), launchedAgents.join(','))
@@ -918,7 +918,7 @@ const wholeLaneRounds = [
   ['normal, fixFirst, no deltaFrom', { fixFirst: [defectWithoutDraft] }, { 'fix-1': { ...resumeFix, regression: [] } }, ['r1-review'], 'git diff origin/main...HEAD'],
 ]
 for (const [what, args, answers, labels, diffCommand] of wholeLaneRounds) {
-  test(`#290 resume round (${what}) launches ${labels.join(' and ')} on ${diffCommand}`, async () => {
+  test(`#290 defect:#290 resume round (${what}) launches ${labels.join(' and ')} on ${diffCommand}`, async () => {
     const { launchedAgents, agentCalls } = await runLane({ ...resumeArgs, ...args }, { ...wholeLaneGateAnswers, ...answers })
     for (const label of labels) {
       assert.ok(launchedAgents.includes(label), `${label} missing in ${launchedAgents.join(',')}`)
@@ -934,7 +934,7 @@ const reviewPromptsByDeltaFrom = [
   ['with deltaFrom', { deltaFrom: resumeTip }, false],
 ]
 for (const [what, args, namesWholeLane] of reviewPromptsByDeltaFrom) {
-  test(`#290 the review prompt ${what} lists each carried-over finding once and ${namesWholeLane ? 'asks for the whole lane, not only the fixer delta' : 'stays a delta'}`, async () => {
+  test(`#290 defect:#290 the review prompt ${what} lists each carried-over finding once and ${namesWholeLane ? 'asks for the whole lane, not only the fixer delta' : 'stays a delta'}`, async () => {
     const { agentCalls } = await runLane({ ...resumeArgs, ...args, fixFirst: [defectWithoutDraft] }, { 'fix-1': { ...resumeFix, regression: [] }, ...reachesTheEnd })
     const prompt = agentCalls['r1-review'].prompt
     assert.equal(prompt.split(defectWithoutDraft.text).length - 1, 1)
@@ -942,14 +942,14 @@ for (const [what, args, namesWholeLane] of reviewPromptsByDeltaFrom) {
   })
 }
 
-test('#290 a second fixer after a claim-scope bounce: the whole-lane review carries the bounce delta', async () => {
+test('#290 defect:#290 a second fixer after a claim-scope bounce: the whole-lane review carries the bounce delta', async () => {
   const { agentCalls } = await runLane({ ...resumeArgs, fixFirst: [defectWithoutDraft] }, { ...claimScopeAnswers(['board.py']), 'r2-review': APPROVE, ...reachesTheEnd })
   const prompt = agentCalls['r2-review'].prompt
   assert.ok(prompt.includes('git diff origin/main...HEAD'))
   assert.ok(prompt.includes(`git diff ${resumeFixedTip}..${bouncedTip}`))
 })
 
-test('#290 a REVISE in the whole-lane round has the raiser re-check only the fixer delta', async () => {
+test('#290 defect:#290 a REVISE in the whole-lane round has the raiser re-check only the fixer delta', async () => {
   const answers = {
     'fix-1': { ...resumeFix, regression: [] },
     'r1-review': { verdict: 'REVISE', blocking: [{ ...finding('y.py:2', 'a defect'), kind: 'docs' }], followups: [] },

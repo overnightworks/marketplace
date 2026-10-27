@@ -1,7 +1,7 @@
 // Drives the atelier lane workflow script through the sync, push, claim scope and rescope rules with a stub agent runner.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { runLane, resumedLane, APPROVE, PASS, greenCi, finding, webauthReplay, answersWith, resumeTip, resumeFixedTip, defectWithoutDraft, resumeFix, resumeArgs, bouncedTip, bounceFix, built, mergedOnlyTip, conflictsWithMain, mergeOnlyFix, reachesTheEnd } from './lane_workflow_harness.mjs'
+import { runLane, resumedLane, APPROVE, PASS, greenCi, finding, agentProvidersReplay, tidy, satisfied, unchangedFix, webauthReplay, answersWith, resumeTip, resumeFixedTip, defectWithoutDraft, resumeFix, resumeArgs, bouncedTip, bounceFix, built, mergedOnlyTip, conflictsWithMain, mergeOnlyFix, reachesTheEnd } from './lane_workflow_harness.mjs'
 
 const builtLane = { ...resumedLane, pr: undefined, tip: undefined, build: 'b' }
 
@@ -305,4 +305,72 @@ test('#267 AC-sync-tip-adopted: a moved branch with merged false names both tips
   const { result } = await runLane(resumeArgs, { ...reachesTheEndAt(syncedTip), sync: { merged: false, tip: syncedTip, stoppedOnConflict: false } })
   const moved = result.history.find(entry => entry.by === 'sync')
   assert.deepEqual([moved.from, moved.tip], [resumeTip, syncedTip])
+})
+
+const generated = { 'quality/baseline.toml': 'uv run quality baseline write .' }
+const generatedSentence = /A conflict in a generated file is not resolved by hand: take either side, resolve the other conflicts, then run its command from the worktree on the merged tree, `git add` its path, and commit the merge once\./
+
+for (const [what, generatedArg] of [['an array', ['quality/baseline.toml']], ['an empty command', { 'quality/baseline.toml': '' }], ['a non-string command', { 'quality/baseline.toml': 7 }]]) {
+  test(`#298 generated-input: generated given as ${what} fails at input`, async () => {
+    const { result, launchedAgents } = await runLane({ ...resumeArgs, generated: generatedArg })
+    assert.deepEqual([result.status, result.stage], ['failed', 'input'])
+    assert.deepEqual(launchedAgents, [])
+  })
+}
+
+test('#298 generated-sync: the sync prompt tells the agent to regenerate a generated file on the merged tree and keeps -C on every git command', async () => {
+  const { agentCalls } = await runLane({ ...resumeArgs, generated })
+  const prompt = agentCalls.sync.prompt
+  assert.match(prompt, generatedSentence)
+  assert.ok(prompt.includes('quality/baseline.toml: uv run quality baseline write .'), prompt)
+  assert.doesNotMatch(prompt.slice(prompt.indexOf('Bring the lane up to date')), /\bgit (?!-C '\/w' )/)
+})
+
+test('#298 generated-facts: the builder and the fixer prompts carry the generated sentence and the command', async () => {
+  const { agentCalls: builderCalls } = await runLane({ ...builtLane, generated }, { build: built })
+  const { agentCalls: fixerCalls } = await runLane({ ...resumeArgs, generated, fixFirst: [defectWithoutDraft] }, { 'fix-1': resumeFix })
+  for (const prompt of [builderCalls.build.prompt, fixerCalls['fix-1'].prompt]) {
+    assert.match(prompt, generatedSentence)
+    assert.ok(prompt.includes('uv run quality baseline write .'), prompt)
+  }
+})
+
+test('#298 generated-failure: the sync prompt tells the agent to abort and return stoppedOnConflict when the command fails, and that answer escalates at sync', async () => {
+  const note = 'uv run quality baseline write . exited 1: boom'
+  const { agentCalls, result } = await runLane({ ...resumeArgs, generated }, { sync: { merged: false, tip: resumeTip, stoppedOnConflict: true, note } })
+  assert.match(agentCalls.sync.prompt, /command fails or leaves its path dirty or unmerged[^.]*merge --abort[^.]*stoppedOnConflict true[^.]*output/)
+  assert.deepEqual([result.status, result.stage, result.reason], ['escalated', 'sync', note])
+})
+
+test('#298 generated-absent: without generated no prompt mentions generated files', async () => {
+  const { agentCalls } = await runLane(resumeArgs)
+  assert.doesNotMatch(agentCalls.sync.prompt, /generated/)
+})
+
+test('#298 resume-wording: a fixer rescope stop names a new run with pr and tip, not a resume', async () => {
+  const { result } = await runLane({ ...resumeArgs, fixFirst: [defectWithoutDraft] }, { 'fix-1': { ...resumeFix, rescope: rescopeRequest } })
+  assert.match(result.reason, /new run with pr and tip and fixFirst/)
+  assert.doesNotMatch(result.reason, /resume with/)
+})
+
+test('#298 reread-report-path: a re-read that fails again still names the report path the review carried', async () => {
+  const reportPath = '/scratch/r0-gate-out.json'
+  const contradictoryCourier = { verdict: 'failed', blocking: [], followups: [], codexExit: 0, note: 'Verdict was REVISE, not failed' }
+  const { result } = await runLane(agentProvidersReplay.args, { ...agentProvidersReplay.answers, 'r0-gate': { ...contradictoryCourier, reportPath }, 'r0-gate-reread': contradictoryCourier })
+  assert.deepEqual([result.status, result.stage], ['failed', 'review'])
+  assert.ok(result.reason.includes(reportPath), result.reason)
+})
+
+test('#298 resume-wording: the shared-red stop names a new run with pr and tip, not a resume', async () => {
+  const check = (name, bucket) => ({ name, bucket })
+  const sharedRed = 'quality / hygiene'
+  const red = {
+    head: resumeTip, green: false, requiredChecks: ['quality / verdict'],
+    checks: [check('quality / verdict', 'pass'), check(sharedRed, 'fail')],
+    failing: [{ where: sharedRed, kind: 'defect', text: `${sharedRed} fails`, rule: `CI check ${sharedRed}`, evidence: 'boom' }],
+    baseChecks: [{ name: sharedRed, status: 'completed', conclusion: 'failure' }],
+  }
+  const { result } = await runLane({ ...resumeArgs, foldIn: [tidy] }, { 'fix-1': { ...unchangedFix, resolved: [satisfied(tidy)] }, 'r1-review': APPROVE, 'e2e-0': PASS, 'ci-0': red })
+  assert.match(result.reason, /new run with pr and tip and fixFirst/)
+  assert.doesNotMatch(result.reason, /resume with/)
 })

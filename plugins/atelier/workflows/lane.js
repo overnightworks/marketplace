@@ -1,7 +1,7 @@
 export const meta = {
   name: 'lane',
   description: 'One claimed lane to ready-to-land: build, a fresh Sonnet review (plus a Codex gpt-6-astra gate on material risk), fresh fixers with evidence-bearing findings and a delta re-check by whoever raised them, then the explorative end-to-end test and CI in parallel on one tip.',
-  whenToUse: 'In any repository that coordinates with aco, after the head ran `aco start <item>` (worktree, branch and claim exist). Landing stays with the head; the result lists requiredHeadActions. Required args: item (the work item number), worktree (the lane\'s isolated worktree path), branch (the lane branch), contract (the item\'s ruled sentences every reviewer and the tester judge against), e2e (what the explorative tester drives through the real entry point), scratch (a directory for briefs, Codex output and test evidence). Start with build (a builder brief) for a new lane, or with pr and tip (an open pull request and its head sha) to resume one. Optional args and their defaults: risk "normal" (or "material": adds a Codex gpt-6-astra final gate); reviewer "claude" (a fresh Sonnet reviewer; "codex" routes the ordinary review to Codex gpt-6-astra); routing none (per-role overrides {role: {model, effort}} of the table at the top of the script, for build, fix, test, review, gate and mechanical; a fix batch whose blocking findings are all docs and that carries no fold-ins runs as mechanical; effort never above high, the gate always on another provider than the builder); builderProvider "claude" (the only accepted value, because the gate runs on Codex); repo none (every gh call then targets the worktree\'s own repository; pass owner/name when the head runs elsewhere); productionPaths ["src/", "pyproject.toml", "uv.lock"], a default that fits a src-layout Python repository (path prefixes whose change re-opens the gate on a material lane and re-runs the end-to-end test); ledgers [], a default that fits a repository without append-only ledgers (files whose merge conflicts keep both sides, main\'s lines first); budgets {review: 5, test: 2, ci: 3, total: 8} (fix rounds per phase and in total; partial objects override single keys); deltaFrom none (a sha: review only the commits since it, after the head settled an awaiting-head result; without it, a resume with fixFirst or foldIn reviews the whole lane, with the gate on a material lane); answers none (what those commits answer); fixFirst none (Finding[]: blocking findings a fresh fixer answers before anything else); foldIn none (Followup[]: follow-ups for that fixer, each handed over whatever its owner or wording; given alone it still starts the fixer).',
+  whenToUse: 'In any repository that coordinates with aco, after the head ran `aco start <item>` (worktree, branch and claim exist). Landing stays with the head; the result lists requiredHeadActions. Required args: item (the work item number), worktree (the lane\'s isolated worktree path), branch (the lane branch), contract (the item\'s ruled sentences every reviewer and the tester judge against), e2e (what the explorative tester drives through the real entry point), scratch (a directory for briefs, Codex output and test evidence). Start with build (a builder brief) for a new lane, or with pr and tip (an open pull request and its head sha) to continue one. Optional args and their defaults: risk "normal" (or "material": adds a Codex gpt-6-astra final gate); reviewer "claude" (a fresh Sonnet reviewer; "codex" routes the ordinary review to Codex gpt-6-astra); routing none (per-role overrides {role: {model, effort}} of the table at the top of the script, for build, fix, test, review, gate and mechanical; a fix batch whose blocking findings are all docs and that carries no fold-ins runs as mechanical; effort never above high, the gate always on another provider than the builder); builderProvider "claude" (the only accepted value, because the gate runs on Codex); repo none (every gh call then targets the worktree\'s own repository; pass owner/name when the head runs elsewhere); productionPaths ["src/", "pyproject.toml", "uv.lock"], a default that fits a src-layout Python repository (path prefixes whose change re-opens the gate on a material lane and re-runs the end-to-end test); ledgers [], a default that fits a repository without append-only ledgers (files whose merge conflicts keep both sides, main\'s lines first); generated {}, a map from a generated file\'s path to the command that regenerates it (a merge conflict confined to such files and ledgers is resolved by running the command on the merged tree, not escalated); budgets {review: 5, test: 2, ci: 3, total: 8} (fix rounds per phase and in total; partial objects override single keys); deltaFrom none (a sha: review only the commits since it, after the head settled an awaiting-head result; without it, a new run with pr and tip and fixFirst or foldIn reviews the whole lane, with the gate on a material lane); answers none (what those commits answer); fixFirst none (Finding[]: blocking findings a fresh fixer answers before anything else); foldIn none (Followup[]: follow-ups for that fixer, each handed over whatever its owner or wording; given alone it still starts the fixer).',
   phases: [
     { title: 'Build' },
     { title: 'Sync' },
@@ -17,14 +17,16 @@ const need = ['item', 'worktree', 'branch', 'contract', 'e2e', 'scratch']
 const missing = need.filter(k => !A[k])
 if (missing.length) return { status: 'failed', stage: 'input', reason: `missing args: ${missing.join(', ')}` }
 if (A.pr && !A.tip) return { status: 'failed', stage: 'input', reason: 'with pr, pass tip (the PR head sha) so the first delta range is right' }
-if (A.build && (A.pr || A.tip)) return { status: 'failed', stage: 'input', reason: 'build starts a lane and pr + tip resume one; pass one of them' }
+if (A.build && (A.pr || A.tip)) return { status: 'failed', stage: 'input', reason: 'build starts a lane and pr + tip start a new run on an open pull request; pass one of them' }
 if (!A.pr && !A.build) return { status: 'failed', stage: 'input', reason: 'pass build (a brief) or pr + tip' }
 if (A.builderProvider && A.builderProvider !== 'claude') {
   return { status: 'failed', stage: 'input', reason: 'the gate runs on Codex; a Codex-built lane needs a gate from another provider, which this workflow does not provide' }
 }
+const isCommandMap = (value) => value !== null && typeof value === 'object' && !Array.isArray(value) && Object.entries(value).every(([path, command]) => path.length > 0 && typeof command === 'string' && command.length > 0)
 const isPathList = (value) => Array.isArray(value) && value.every(path => typeof path === 'string' && path.length > 0)
 if (A.productionPaths !== undefined && !isPathList(A.productionPaths)) return { status: 'failed', stage: 'input', reason: 'productionPaths must be a list of path prefixes' }
 if (A.ledgers !== undefined && !isPathList(A.ledgers)) return { status: 'failed', stage: 'input', reason: 'ledgers must be a list of file paths' }
+if (A.generated !== undefined && !isCommandMap(A.generated)) return { status: 'failed', stage: 'input', reason: 'generated must map file paths to regenerate commands' }
 // A misspelled choice must never fall back to its default: a misspelled risk would silently drop the material lane's final gate.
 if (A.risk !== undefined && !['normal', 'material'].includes(A.risk)) return { status: 'failed', stage: 'input', reason: 'risk must be "normal" or "material"' }
 if (A.reviewer !== undefined && !['claude', 'codex'].includes(A.reviewer)) return { status: 'failed', stage: 'input', reason: 'reviewer must be "claude" or "codex"' }
@@ -40,6 +42,7 @@ const PRODUCTION = A.productionPaths || ['src/', 'pyproject.toml', 'uv.lock']
 // Separate budgets per phase plus one total: review usually needs 2-4 rounds, a tester or CI rarely more than 2.
 const B = { review: 5, test: 2, ci: 3, total: 8, ...A.budgets }
 const LEDGERS = A.ledgers || []
+const GENERATED = Object.entries(A.generated || {})
 // The one table of every role's model and effort (instructions/AGENTS.md, "Model routing"). Effort is medium unless the
 // row says otherwise; high is the ceiling. Nothing else in this script names a model.
 const MODEL_PROVIDER = { haiku: 'claude', sonnet: 'claude', opus: 'claude', fable: 'claude', 'gpt-6-astra': 'codex' }
@@ -215,12 +218,14 @@ const E2E = {
 }
 
 // ------------------------------------------------------ shared sentences
+const generatedCommands = GENERATED.map(([path, command]) => `${path}: ${command}`).join('; ')
 const laneFacts =
   `Work item #${A.item}${IN_REPO}. Worktree ${A.worktree}, branch ${A.branch}; run every command from inside that worktree (cd there first). The head holds the claim: never claim, release, rescope, merge a pull request or land. ` +
   `Never use git stash and never touch the main checkout. Read the item body first (gh issue view ${A.item}${R} --json body --jq .body) and ` +
   `\`aco brief ${A.item} --step <step>\` for the repository's RULES and CHECKS. Local runs stay targeted under PYTEST_XDIST_AUTO_NUM_WORKERS=4; ` +
   `read the 1-minute load average before any test run and wait while it is above 1.5 × cores. CI is the gate. ` +
   (LEDGERS.length ? `When you merge origin/main, a conflict in the append-only ledgers (${LEDGERS.join(' and ')}) keeps both sides, main's lines first. ` : '') +
+  (GENERATED.length ? `A conflict in a generated file is not resolved by hand: take either side, resolve the other conflicts, then run its command from the worktree on the merged tree, \`git add\` its path, and commit the merge once. Generated files and commands: ${generatedCommands}. ` : '') +
   `You are one step of a workflow the head session runs: a message from the operator that reaches you and is not about this step is addressed to the head — ` +
   `finish this step, and quote the message in your report so the head sees it.`
 
@@ -288,11 +293,13 @@ const STRUCTURED_OUTPUT_ONLY_LINE = `Your only final action is the StructuredOut
 function rereadContradictoryCourier(answer, label, base) {
   const emptyRevise = answer?.verdict === 'REVISE' && (answer.blocking || []).length === 0
   if (!((answer?.verdict === 'failed' || emptyRevise) && answer.codexExit === 0)) return answer
-  return safeAgent(
+  const rereading = safeAgent(
     `You are a courier re-reading a finished Codex review. Do not start Codex, do not review anything yourself and do not edit anything.\n` +
     `Read ${base}-out.json.exit and ${base}-out.json. If the exit status is 0 and the file is valid JSON, copy its verdict, blocking and followups verbatim into the StructuredOutput call, with reportPath ${base}-out.json and codexExit 0. ` +
     `Otherwise return verdict failed with the exit status in codexExit (-1 when there is no marker) and the reason in note.\n${STRUCTURED_OUTPUT_ONLY_LINE}`,
     { label: `${label}-reread`, phase: 'Review', schema: COURIER_VERDICT, ...MECHANICAL })
+  // A re-read that fails again still points at the report the first courier named.
+  return rereading.then(v => (v?.verdict === 'failed' && !v.reportPath && answer.reportPath) ? { ...v, reportPath: answer.reportPath } : v)
 }
 
 function codexReview(label, routing, role, range) {
@@ -325,7 +332,10 @@ const reviewBy = (r, label, range) => r.provider === 'codex' ? codexReview(label
 function classify(results, expected) {
   const got = results.filter(Boolean)
   if (got.length !== expected) return { state: 'failed', reason: `${expected - got.length} review(s) returned nothing` }
-  if (got.some(v => v.verdict === 'failed')) return { state: 'failed', reason: got.map(v => v.note || '').join(' | ') }
+  if (got.some(v => v.verdict === 'failed')) {
+    const reportPaths = got.filter(v => v.verdict === 'failed' && v.reportPath).map(v => v.reportPath)
+    return { state: 'failed', reason: got.map(v => v.note || '').join(' | ') + (reportPaths.length ? '; read the report ' + reportPaths.join(' and ') : '') }
+  }
   if (got.some(v => v.verdict === 'architectural')) return { state: 'architectural' }
   // An evidenced blocking finding outranks its label (APPROVE with a finding counts as REVISE). A REVISE with nothing
   // to fix stays broken: that is how a courier's placeholder was caught.
@@ -380,10 +390,13 @@ if (A.build) {
 } else {
   phase('Sync')
   const git = `git -C '${A.worktree}'`
+  const andGeneratedFiles = GENERATED.length ? ' and the generated files' : ''
   const synced = await safeAgent(
     `${laneFacts}\nBring the lane up to date with main and change nothing else. Run each command exactly as written, with its -C option. ${git} fetch origin; if ${git} merge-base --is-ancestor origin/main HEAD succeeds, change nothing. ` +
     `Otherwise ${git} merge origin/main; when it merges cleanly, ${git} push. ` +
-    (LEDGERS.length ? `Conflicts only in the append-only ledgers: resolve them as the lane facts say, commit the merge, ${git} push. Any other conflict: ` : `Any conflict: `) +
+    (LEDGERS.length || GENERATED.length ? `Conflicts only in the append-only ledgers${andGeneratedFiles}: resolve them as the lane facts say, commit the merge, ${git} push. ` : '') +
+    (GENERATED.length ? `When a generated file's command fails or leaves its path dirty or unmerged, run ${git} merge --abort and return stoppedOnConflict true with the command and its output in note. ` : '') +
+    (LEDGERS.length || GENERATED.length ? `Any other conflict: ` : `Any conflict: `) +
     `run ${git} merge --abort, confirm \`${git} status --porcelain\` is empty, push nothing, and return stoppedOnConflict true with the conflicting paths in note. Return merged true only when you made and pushed a merge commit, and tip as the output of \`${git} rev-parse HEAD\` — a sha, no words.`,
     { label: 'sync', phase: 'Sync', schema: SYNC, ...MECHANICAL })
   if (!synced) return openResult('failed', 'sync')
@@ -556,13 +569,13 @@ async function fixBatch(blocking, source, budgetKey) {
     `Otherwise one commit per finding. Push, patch the PR body only where it became false (REST PATCH with --input, never gh pr edit --body-file), run \`aco check ${pr}\` from the worktree. ` +
     `Return the new tip and files: git diff --name-only from mergedBase (from oldTip when mergeResolvedLaneConflict) to the new tip.`,
     { label: `fix-${spent.total}`, phase: 'Fix', schema: FIX, agentType: 'atelier:code-fixer', ...claudeRole(fixerRole(blocking, foldIn)) })
-  if (!fixed) return { stop: openResult('failed', 'fix', { reason: `the fixer returned no result; inspect ${A.worktree} for commits past ${tip} and uncommitted work, then resume this run`, lastBlocking: blocking }) }
+  if (!fixed) return { stop: openResult('failed', 'fix', { reason: `the fixer returned no result; inspect ${A.worktree} for commits past ${tip} and uncommitted work, then start a new run with pr and tip (and fixFirst for what is left)`, lastBlocking: blocking }) }
   if (![fixed.oldTip, fixed.mergedBase, fixed.tip].every(t => SHA.test(t || ''))) return { stop: openResult('failed', 'fix', { reason: 'the fixer returned a tip that is not a sha' }) }
   // What the fixer says it found already done is only reported to the head: an unaccepted fix folds nothing in.
   const unaccepted = (result) => ({ stop: (fixed.resolved || []).length ? { ...result, resolved: fixed.resolved } : result })
   if ((fixed.rescope || []).length) {
     const committed = adoptFixerTip(fixed)
-    return unaccepted(awaitRescope('fix', fixed.rescope, committed ? ' The returned tip carries fix commits no reviewer has seen; resume with deltaFrom.' : '', { lastBlocking: blocking }))
+    return unaccepted(awaitRescope('fix', fixed.rescope, committed ? ' The returned tip carries fix commits no reviewer has seen; the new run takes deltaFrom.' : '', { lastBlocking: blocking }))
   }
   if (fixed.blocked) return unaccepted(openResult('escalated', 'fix', { reason: fixed.blockedReason }))
   if ((fixed.disputed || []).length) return unaccepted(awaitHeadOnDispute(fixed, blocking))
@@ -745,7 +758,7 @@ while (true) {
   const shared = sharedReds(ci)
   if (shared.length && testBlocking.length === 0) {
     const checkList = shared.map(name => `"${name}"`).join(', ')
-    return openResult('awaiting-head', 'ci', { reason: `the CI check(s) ${checkList} are red on the base branch tip too: the red is shared with main and is fixed there, so no fixer was launched. If this lane's item is that repair, resume with fixFirst.` })
+    return openResult('awaiting-head', 'ci', { reason: `the CI check(s) ${checkList} are red on the base branch tip too: the red is shared with main and is fixed there, so no fixer was launched. If this lane's item is that repair, start a new run with pr and tip and fixFirst.` })
   }
   const ciBlocking = ci.green || shared.length ? [] : (ci.failing || [])
   const budgetKey = testBlocking.length ? 'test' : 'ci'

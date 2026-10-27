@@ -95,9 +95,11 @@ names the call and its reason.
   source's address) names the edition or measurement it was taken on and one way
   to re-check it. An anchor whose edition changed, or a source that refuses, is
   reported with its status line and as friction to marketplace; never fall back
-  silently. Checks that need the network (`gh`, `curl`) run on a Claude
-  auditor; on Codex, whose read-only sandbox has no network, report them as
-  not reached.
+  silently. Checks that need the network (`gh`, `curl`) run where the
+  auditor's own environment reaches the network, never beyond what it already
+  allows. Before the first one, try one read-only call (for example
+  `gh auth status`); where it fails, report those checks as not reached, with
+  the failing status line.
 - **Suspected, unproven and examined, kept.** A lead without proof goes into
   the report's suspected-unproven section, never into the findings. Report
   refuted suspicions ("tried to break X and could not", with what was tried)

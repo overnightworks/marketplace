@@ -182,7 +182,9 @@ Code's auto mode denies.
 
 If the merge worked but a step failed, `aco land` prints `follow-up incomplete`
 and the re-run command; re-run it, which resumes and never merges twice.
-Abandoned: `aco release <n> --abandoned REASON`; the item stays open.
+Abandoned: `aco release <n> --abandoned REASON`; the item stays open. The head
+puts the lane's `Routing:` line, in the form of a PR body, into the reason;
+where the lane has an open pull request, the line goes into that body as usual.
 
 ## Friction
 

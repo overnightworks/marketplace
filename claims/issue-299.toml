@@ -1,8 +1,0 @@
-claim_id = "01b6a468a4e74181ad4748875aafe00e"
-agent = "Claude b5de3560-4db0-4dfe-be9f-fe26ef53140a"
-role = "builder"
-base = "0782462efb2a8fad371abf861aca8e9dd237ad47"
-branch = "claude/issue-299-aco-check-enforces-card-rule"
-scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/skills/aco/SKILL.md"]
-opened_commit = "536f16f06593dae5a7a9bb71ff2544b160b352d1"
-whole_reason = "One skill sentence plus the three version pins every atelier release moves together."

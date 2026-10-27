@@ -1,7 +1,7 @@
 // Drives the atelier lane workflow script through the sync, push, claim scope and rescope rules with a stub agent runner.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { runLane, resumedLane, APPROVE, PASS, greenCi, finding, webauthReplay, answersWith, resumeTip, resumeFixedTip, defectWithoutDraft, resumeFix, resumeArgs, bouncedTip, bounceFix, built, mergedOnlyTip, conflictsWithMain, mergeOnlyFix } from './lane_workflow_harness.mjs'
+import { runLane, resumedLane, APPROVE, PASS, greenCi, finding, webauthReplay, answersWith, resumeTip, resumeFixedTip, defectWithoutDraft, resumeFix, resumeArgs, bouncedTip, bounceFix, built, mergedOnlyTip, conflictsWithMain, mergeOnlyFix, reachesTheEnd } from './lane_workflow_harness.mjs'
 
 const builtLane = { ...resumedLane, pr: undefined, tip: undefined, build: 'b' }
 
@@ -264,4 +264,27 @@ for (const [step, args, answers, scopeLabel, stepTip] of stepsThatMustPush) {
 test('#103 AC-scratch-and-load: the sync prompt does not carry the drive facts', async () => {
   const { agentCalls } = await runLane({ ...resumeArgs, scratch: '/drive-scratch' })
   assert.doesNotMatch(agentCalls.sync.prompt, /drive-scratch/)
+})
+
+const syncedTip = 'd0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0'
+const reachesTheEndAt = (tip) => ({ ...reachesTheEnd, 'r0-review': APPROVE, 'ci-0': greenCi(tip) })
+
+for (const merged of [false, true]) {
+  test(`#267 AC-sync-tip-adopted: a resume whose sync answers merged ${merged} with another tip reviews and reports that tip`, async () => {
+    const answers = { ...reachesTheEndAt(syncedTip), sync: { merged, tip: syncedTip, stoppedOnConflict: false } }
+    const { result, launchedAgents } = await runLane(resumeArgs, answers)
+    assert.ok(launchedAgents.includes('r0-review'), launchedAgents.join())
+    assert.equal(result.tip, syncedTip)
+  })
+}
+
+test('#267 AC-sync-tip-adopted: a sync tip that is not a sha fails the lane at sync', async () => {
+  const { result } = await runLane(resumeArgs, { sync: { merged: false, tip: 'not a sha', stoppedOnConflict: false } })
+  assert.deepEqual([result.status, result.stage], ['failed', 'sync'])
+})
+
+test('#267 AC-sync-tip-adopted: a moved branch with merged false names both tips in the history', async () => {
+  const { result } = await runLane(resumeArgs, { ...reachesTheEndAt(syncedTip), sync: { merged: false, tip: syncedTip, stoppedOnConflict: false } })
+  const moved = result.history.find(entry => entry.by === 'sync')
+  assert.deepEqual([moved.from, moved.tip], [resumeTip, syncedTip])
 })

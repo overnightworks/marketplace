@@ -1,7 +1,7 @@
 // Drives the atelier lane workflow script through the sync, push, claim scope and rescope rules with a stub agent runner.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { runLane, resumedLane, APPROVE, PASS, greenCi, finding, webauthReplay, answersWith, resumeTip, resumeFixedTip, defectWithoutDraft, resumeFix, resumeArgs, bouncedTip, bounceFix, built, mergedOnlyTip, conflictsWithMain, mergeOnlyFix, reachesTheEnd } from './lane_workflow_harness.mjs'
+import { runLane, resumedLane, APPROVE, PASS, greenCi, finding, agentProvidersReplay, tidy, satisfied, unchangedFix, webauthReplay, answersWith, resumeTip, resumeFixedTip, defectWithoutDraft, resumeFix, resumeArgs, bouncedTip, bounceFix, built, mergedOnlyTip, conflictsWithMain, mergeOnlyFix, reachesTheEnd } from './lane_workflow_harness.mjs'
 
 const builtLane = { ...resumedLane, pr: undefined, tip: undefined, build: 'b' }
 
@@ -349,6 +349,28 @@ test('#298 generated-absent: without generated no prompt mentions generated file
 
 test('#298 resume-wording: a fixer rescope stop names a new run with pr and tip, not a resume', async () => {
   const { result } = await runLane({ ...resumeArgs, fixFirst: [defectWithoutDraft] }, { 'fix-1': { ...resumeFix, rescope: rescopeRequest } })
+  assert.match(result.reason, /new run with pr and tip and fixFirst/)
+  assert.doesNotMatch(result.reason, /resume with/)
+})
+
+test('#298 reread-report-path: a re-read that fails again still names the report path the review carried', async () => {
+  const reportPath = '/scratch/r0-gate-out.json'
+  const contradictoryCourier = { verdict: 'failed', blocking: [], followups: [], codexExit: 0, note: 'Verdict was REVISE, not failed' }
+  const { result } = await runLane(agentProvidersReplay.args, { ...agentProvidersReplay.answers, 'r0-gate': { ...contradictoryCourier, reportPath }, 'r0-gate-reread': contradictoryCourier })
+  assert.deepEqual([result.status, result.stage], ['failed', 'review'])
+  assert.ok(result.reason.includes(reportPath), result.reason)
+})
+
+test('#298 resume-wording: the shared-red stop names a new run with pr and tip, not a resume', async () => {
+  const check = (name, bucket) => ({ name, bucket })
+  const sharedRed = 'quality / hygiene'
+  const red = {
+    head: resumeTip, green: false, requiredChecks: ['quality / verdict'],
+    checks: [check('quality / verdict', 'pass'), check(sharedRed, 'fail')],
+    failing: [{ where: sharedRed, kind: 'defect', text: `${sharedRed} fails`, rule: `CI check ${sharedRed}`, evidence: 'boom' }],
+    baseChecks: [{ name: sharedRed, status: 'completed', conclusion: 'failure' }],
+  }
+  const { result } = await runLane({ ...resumeArgs, foldIn: [tidy] }, { 'fix-1': { ...unchangedFix, resolved: [satisfied(tidy)] }, 'r1-review': APPROVE, 'e2e-0': PASS, 'ci-0': red })
   assert.match(result.reason, /new run with pr and tip and fixFirst/)
   assert.doesNotMatch(result.reason, /resume with/)
 })

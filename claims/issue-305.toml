@@ -1,0 +1,8 @@
+claim_id = "d969abc2e9e747aa9badc9256aa5ba16"
+agent = "Claude b5de3560-4db0-4dfe-be9f-fe26ef53140a"
+role = "builder"
+base = "cfe70f09eead26094524a6af7d566075442cb28a"
+branch = "claude/issue-305-aco-skill-after-k1a"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/skills/aco/SKILL.md"]
+opened_commit = "be07ed8860d705617bb9006061b5824952cd3ec2"
+whole_reason = "Three skill bullets plus the three version pins every atelier release moves together."

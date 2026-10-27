@@ -1,0 +1,8 @@
+claim_id = "d5bcd7bc414947f5af540e859810c903"
+agent = "Claude b5de3560-4db0-4dfe-be9f-fe26ef53140a"
+role = "builder"
+base = "314fb3d95233c9624dd2e733e17aa3c7fc1c9813"
+branch = "claude/issue-323-scope-answer-all-fields"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/workflows/lane.js", "tests/lane_workflow_harness.mjs", "tests/lane_workflow_scope.test.mjs"]
+opened_commit = "f6a0179213cdd6f3edb73a15da7fba0ac8598f08"
+whole_reason = "One schema change, its harness check and the version bump; they only prove together."

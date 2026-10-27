@@ -1,7 +1,0 @@
-claim_id = "eb5619907c05402689a450562929c848"
-agent = "Claude b5de3560-4db0-4dfe-be9f-fe26ef53140a"
-role = "builder"
-base = "d43ad4e49c126dd204d17a6a848e50bebb313f1a"
-branch = "claude/issue-301-install-claude-first-skip-app-server"
-scope = ["README.md", "scripts/install.py", "tests/test_install.py"]
-opened_commit = "5c0e43f1a1226e4f0f027d1788a32550cb78c1e1"

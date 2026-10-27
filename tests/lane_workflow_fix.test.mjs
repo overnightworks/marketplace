@@ -258,7 +258,7 @@ const proofsByNumber = [
 ]
 
 for (const [behaviour, fixFirst, regression, rejectedFor] of proofsByNumber) {
-  test(`#103 proof guard: ${behaviour}`, async () => {
+  test(`#103 #284 defect:#284 proof guard: ${behaviour}`, async () => {
     const { result, launchedAgents } = await runLane({ ...resumeArgs, fixFirst }, { 'fix-1': { ...resumeFix, regression } })
     if (rejectedFor) {
       assert.deepEqual([result.status, result.stage], ['failed', 'fix'])
@@ -269,7 +269,7 @@ for (const [behaviour, fixFirst, regression, rejectedFor] of proofsByNumber) {
   })
 }
 
-test('#284 a fold-in proof numbered 1 does not prove blocking finding 1, and the fixer sees the fold-ins unnumbered', async () => {
+test('#284 defect:#284 a proof numbered 1 is judged as blocking finding 1 whatever it covers, and the fixer sees the fold-ins unnumbered', async () => {
   const { result, agentCalls } = await runLane({ ...resumeArgs, fixFirst: [testGap], foldIn: [tidy] }, { 'fix-1': { ...resumeFix, regression: [proofOf(1, { test: 'the fold-in test', passesAfter: false })] } })
   assert.deepEqual([result.status, result.stage], ['failed', 'fix'])
   assert.deepEqual(result.lastBlocking.map(f => f.where), [testGap.where])
@@ -280,7 +280,7 @@ test('#284 a fold-in proof numbered 1 does not prove blocking finding 1, and the
   assert.match(prompt, /a follow-up needs no regression entry/)
 })
 
-test('#284 the numbers in the fixer prompt are the ones a proof is judged by, on a CI fix as on the first fix', async () => {
+test('#284 defect:#284 the numbers in the fixer prompt are the ones a proof is judged by, on a CI fix as on the first fix', async () => {
   const { agentCalls: first } = await runLane({ ...resumeArgs, fixFirst: [defectWithoutDraft, testGap] }, { 'fix-1': { ...resumeFix, regression: [proofOf(2, { mutation: 'drop the guard' })] } })
   assert.match(first['fix-1'].prompt, /^2\. t\.py:1 — a behaviour has no test$/m)
   const ci = { head: resumeTip, green: false, failing: [defectWithoutDraft, testGap] }
@@ -289,7 +289,7 @@ test('#284 the numbers in the fixer prompt are the ones a proof is judged by, on
   assert.equal(result.status, 'ready-to-land', result.reason)
 })
 
-test('#284 the fixer schema takes the finding as an integer from 1 and carries no kind', async () => {
+test('#284 defect:#284 the fixer schema takes the finding as an integer from 1 and carries no kind', async () => {
   const { agentCalls } = await runLane({ ...resumeArgs, fixFirst: [testGap] }, { 'fix-1': { ...resumeFix, regression: [proofOf(1, { mutation: 'm' })] } })
   const proofItem = agentCalls['fix-1'].options.schema.properties.regression.items
   assert.deepEqual([proofItem.properties.finding.type, proofItem.properties.finding.minimum], ['integer', 1])

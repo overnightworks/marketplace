@@ -1,8 +1,0 @@
-claim_id = "794e867030f04d47a10452236c3ffef1"
-agent = "Claude b5de3560-4db0-4dfe-be9f-fe26ef53140a"
-role = "builder"
-base = "2fe217331d7ae2bb0158b67f28878c3e8c81ea97"
-branch = "claude/issue-311-lane-ci-child-workflow"
-scope = [".claude-plugin/marketplace.json", "README.md", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/workflows/lane-ci.js", "plugins/atelier/workflows/lane.js", "sonar-project.properties", "tests/lane_workflow_ci.test.mjs", "tests/lane_workflow_harness.mjs"]
-opened_commit = "8f859c09e7b81f7a3e1714aeb86ca9fd0b4335ca"
-whole_reason = "One behaviour-neutral extraction of the CI watcher into a child workflow with its protocol handshake and harness stub, the README start-by-name sentence, the coverage exclusion, and the three version pins."

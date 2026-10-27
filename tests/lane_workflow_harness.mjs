@@ -1,13 +1,18 @@
 // Drives the atelier lane workflow script with a stub agent runner; shared by the lane workflow tests.
 import fs from 'node:fs'
 
-const LANE_SCRIPT = new URL('../plugins/atelier/workflows/lane.js', import.meta.url)
+const workflowSource = (file) => fs.readFileSync(new URL(`../plugins/atelier/workflows/${file}`, import.meta.url), 'utf8').replace(/^export const meta/m, 'const meta')
+// The plugin workflows a workflow can start by name, as the Workflow runtime resolves them.
+const CHILD_WORKFLOWS = { 'atelier:lane-ci': 'lane-ci.js' }
 const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor
 
 // answers holds each agent's result by its label; an agent without one ends without a result. Without answers only
 // the sync step answers (an up-to-date lane), so a run gets as far as starting its first review round.
-export async function runLane(args, answers = {}) {
-  const source = fs.readFileSync(LANE_SCRIPT, 'utf8').replace(/^export const meta/m, 'const meta')
+// options.transformChild rewrites a child's source and options.alterChildArgs the args a child receives, so a test can
+// break the parent-child contract; launchedByChild lists the agent labels each child workflow launched.
+export async function runLane(args, answers = {}, options = {}) {
+  const source = workflowSource('lane.js')
+  const launchedByChild = {}
   const launchedAgents = []
   const agentCalls = {}
   const cleanSync = { merged: false, tip: args.tip, stoppedOnConflict: false }
@@ -22,12 +27,21 @@ export async function runLane(args, answers = {}) {
     if (answer?.tip && /^(build|fix-|sync)/.test(label)) newestTip = answer.tip
     return label.startsWith('scope-') && answer && pushPrintedSomething(answer) ? { remote_tip: newestTip, ...answer } : answer
   }
-  const agent = async (prompt, options = {}) => { launchedAgents.push(options.label); agentCalls[options.label] = { prompt, options }; return answerFor(options.label) }
-  const parallel = async thunks => Promise.all(thunks.map(thunk => thunk()))
+  const agent = async (prompt, agentOptions = {}) => { launchedAgents.push(agentOptions.label); agentCalls[agentOptions.label] = { prompt, options: agentOptions }; return answerFor(agentOptions.label) }
+  // A thunk that throws resolves to null, as in the Workflow runtime.
+  const parallel = async thunks => Promise.all(thunks.map(thunk => thunk().catch(() => null)))
   const ignore = () => {}
-  const run = new AsyncFunction('args', 'agent', 'parallel', 'pipeline', 'phase', 'log', source)
-  const result = await run(args, agent, parallel, async () => [], ignore, ignore)
-  return { result, launchedAgents, agentCalls }
+  const compile = (body) => new AsyncFunction('args', 'agent', 'parallel', 'pipeline', 'phase', 'log', 'workflow', body)
+  const startWorkflow = async (name, childArgs) => {
+    if (!Object.hasOwn(CHILD_WORKFLOWS, name)) throw new Error(`unknown workflow ${name}`)
+    const childSource = options.transformChild ? options.transformChild(workflowSource(CHILD_WORKFLOWS[name])) : workflowSource(CHILD_WORKFLOWS[name])
+    const childLabels = launchedByChild[name] ||= []
+    const childAgent = (prompt, agentOptions) => { childLabels.push(agentOptions?.label); return agent(prompt, agentOptions) }
+    const nested = () => { throw new Error('a child workflow cannot start another workflow') }
+    return compile(childSource)(options.alterChildArgs ? options.alterChildArgs(childArgs) : childArgs, childAgent, parallel, async () => [], ignore, ignore, nested)
+  }
+  const result = await compile(source)(args, agent, parallel, async () => [], ignore, ignore, startWorkflow)
+  return { result, launchedAgents, agentCalls, launchedByChild }
 }
 
 export const resumedLane = { item: 1, worktree: '/w', branch: 'b', contract: 'c', e2e: 'e', scratch: '/s', pr: 1, tip: 'abcdef0' }

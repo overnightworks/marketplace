@@ -18,11 +18,11 @@ Licensed under the [MIT License](LICENSE).
 - `.agents/plugins/marketplace.json` and `.claude-plugin/marketplace.json` are
   the Codex and Claude Code marketplace catalogs.
 - `instructions/AGENTS.md` is the operator's contract and code policy.
-- A head starts the `lane` workflow by path:
-  `Workflow({scriptPath: "<plugin dir>/workflows/lane.js", args: {...}})`, where
-  `<plugin dir>` is the installed copy at
-  `~/.claude/plugins/cache/atelier/atelier/<version>/` or `plugins/atelier/` in a
-  checkout.
+- A head starts the lane by its name, `atelier:lane`, with the Workflow tool.
+  The name resolves to the installed plugin, so a run from a checkout first
+  installs the checkout with `python3 scripts/install.py --from-checkout`;
+  without that flag the published copy runs. `lane-ci` is internal to `lane`
+  and is never started by a head.
 
 ## Install And Update
 

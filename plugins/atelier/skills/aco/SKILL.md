@@ -118,7 +118,9 @@ contract and this skill.
   `gh issue edit` under `storage = "github"` or `aco item edit` under state-ref.
 - Outside an option's `contract`, a card carries no issue numbers, paths, file names,
   backticks, code names or flags; the problem is at most 20 words and an option name
-  2 to 5 words (overnightworks/aco#13 line 14). `aco check` does not enforce this yet.
+  2 to 5 words (overnightworks/aco#13 line 14). `aco check -` refuses an open or
+  returned option line that breaks this (BODY-96..BODY-98 in `specs/body-block.spec.md`),
+  and the item then drops off `aco next`, the claim and the board until the body is fixed.
 - Transcribe a chat answer with `aco rule <n> --line <k> --option <letter> --via chat
   --card-hash <hash>`, the hash being the line's `card_hash` in `aco rulings --json`;
   an answer that fits no option uses `--other "<the operator's words>"` instead of

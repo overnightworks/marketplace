@@ -1,8 +1,0 @@
-claim_id = "8554ba2b3b84445781d81c7739cd90f6"
-agent = "Claude b5de3560-4db0-4dfe-be9f-fe26ef53140a"
-role = "builder"
-base = "bbcb0f47155caba7ca3ca387c097305e126ab262"
-branch = "claude/issue-267-sync-tip-adoption"
-scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/workflows/lane.js", "tests/lane_workflow_harness.mjs", "tests/lane_workflow_scope.test.mjs"]
-opened_commit = "c2b7f6ccd2e6a39c7b89b4efe712fbb2dad2c01c"
-whole_reason = "One tip-adoption rule in lane.js with its tests, plus the three version pins every atelier release moves together."

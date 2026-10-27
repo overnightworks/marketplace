@@ -499,7 +499,10 @@ function fixRejection(fixed, blocking, foldIn) {
     .filter(checked => checked.gap)
   if (gaps.length) return { reason: [...new Set(gaps.map(checked => checked.gap))].join('; '), regression: gaps.map(checked => checked.proof), lastBlocking: gaps.map(checked => checked.finding) }
   const unproven = blocking.map((finding, index) => ({ finding, index })).filter(({ finding, index }) => needsProof(finding) && !proofs.some(r => proves(r, index)))
-  if (unproven.length) return { reason: `a test-gap finding or a defect with a test draft got no regression test: ${unproven.map(({ finding, index }) => `${index + 1}. ${finding.where}`).join(', ')}`, lastBlocking: unproven.map(({ finding }) => finding) }
+  if (unproven.length) {
+    const unprovenList = unproven.map(({ finding, index }) => (index + 1) + '. ' + finding.where).join(', ')
+    return { reason: `a test-gap finding or a defect with a test draft got no regression test: ${unprovenList}`, lastBlocking: unproven.map(({ finding }) => finding) }
+  }
   // Whether main moved or not, satisfied fold-ins leave the lane exactly at the merge: anything past it is unasked work.
   const nothingPastTheMerge = everyFoldInSatisfied(fixed, blocking, foldIn) && sameCommit(fixed.tip, fixed.mergedBase)
   if (sameCommit(fixed.tip, fixed.oldTip)) return nothingPastTheMerge ? null : { reason: 'the fixer changed nothing', lastBlocking: blocking }

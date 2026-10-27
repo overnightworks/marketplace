@@ -20,10 +20,11 @@ const unproven = [
   ['a cancelled check', [check(required, 'pass'), check('b', 'cancel')], /b/],
   ['a required check missing from the listing', [check('Python: tests', 'pass')], /quality \/ verdict/],
   ['a required check listed as pending', [check(required, 'pending')], /quality \/ verdict/],
+  ['a required check listed as skipping', [check(required, 'skipping')], /quality \/ verdict/],
   ['an empty listing', [], /no checks/i],
 ]
 for (const [what, checks, reason] of unproven) {
-  test(`${what} fails the lane at ci although the agent says green`, async () => {
+  test(`#266 AC-ci-listing-proof: ${what} fails the lane at ci although the agent says green`, async () => {
     const { result, launchedAgents } = await driveCi(ciAnswer(checks))
     assert.deepEqual([result.status, result.stage], ['failed', 'ci'])
     assert.match(result.reason, reason)
@@ -33,7 +34,7 @@ for (const [what, checks, reason] of unproven) {
   })
 }
 
-test('a required check error fails the lane at ci naming the error and launches no fixer', async () => {
+test('#266 AC-ci-listing-proof: a required check error fails the lane at ci naming the error and launches no fixer', async () => {
   const { result, launchedAgents } = await driveCi(ciAnswer([check(required, 'pass')], { requiredChecksError: 'HTTP 403: forbidden' }))
   assert.deepEqual([result.status, result.stage], ['failed', 'ci'])
   assert.match(result.reason, /HTTP 403: forbidden/)
@@ -45,32 +46,32 @@ const proven = [
   ['a skipping check', [check(required, 'pass'), check('a', 'skipping')]],
 ]
 for (const [what, checks] of proven) {
-  test(`${what} reaches ready-to-land`, async () => {
+  test(`#266 AC-ci-listing-proof: ${what} reaches ready-to-land`, async () => {
     const { result } = await driveCi(ciAnswer(checks))
     assert.equal(result.status, 'ready-to-land', result.reason)
     assert.equal(result.history.at(-1).verdict, 'GREEN')
   })
 }
 
-test('a conflicting pull request answered with empty arrays and green false still goes to a fixer', async () => {
+test('#266 AC-ci-listing-proof: a conflicting pull request answered with empty arrays and green false still goes to a fixer', async () => {
   const failing = [{ where: 'mergeable', kind: 'defect', text: 'conflicts', rule: 'GitHub runs no CI on a conflicting pull request', evidence: 'CONFLICTING' }]
   const { launchedAgents } = await driveCi({ head: tip, green: false, failing, checks: [], requiredChecks: [] })
   assert.ok(launchedAgents.includes('fix-2'))
 })
 
-test('green false with a failing finding still goes to a fixer', async () => {
+test('#266 AC-ci-listing-proof: green false with a failing finding still goes to a fixer', async () => {
   const failing = [{ where: 'Python: tests', kind: 'defect', text: 'fails', rule: 'CI check Python: tests', evidence: 'boom' }]
   const { launchedAgents } = await driveCi(ciAnswer([check('Python: tests', 'fail')], { green: false, failing }))
   assert.ok(launchedAgents.includes('fix-2'))
 })
 
-test('green false with all checks passing does not become ready-to-land', async () => {
+test('#266 AC-ci-listing-proof: green false with all checks passing does not become ready-to-land', async () => {
   const { result } = await driveCi(ciAnswer([check(required, 'pass')], { green: false }))
   assert.notEqual(result.status, 'ready-to-land')
   assert.equal(result.history.at(-1).verdict, 'RED')
 })
 
-test('with repo set the CI brief names the repository and the worktree cd is gone', async () => {
+test('#266 AC-ci-listing-proof: with repo set the CI brief names the repository and the worktree cd is gone', async () => {
   const { agentCalls } = await driveCi(ciAnswer([check(required, 'pass')]), { ...lane, repo: 'o/n' })
   const brief = agentCalls['ci-0'].prompt
   assert.match(brief, /repos\/o\/n\/rules\/branches/)
@@ -78,12 +79,12 @@ test('with repo set the CI brief names the repository and the worktree cd is gon
   assert.doesNotMatch(brief, /cd '\/w'/)
 })
 
-test('without repo the CI brief runs the listing and rules commands in the worktree', async () => {
+test('#266 AC-ci-listing-proof: without repo the CI brief runs the listing and rules commands in the worktree', async () => {
   const { agentCalls } = await driveCi(ciAnswer([check(required, 'pass')]))
   assert.match(agentCalls['ci-0'].prompt, /cd '\/w' && gh api repos\/\{owner\}\/\{repo\}\/rules\/branches/)
 })
 
-test('the CI brief carries the API-error rule, the conflicting-PR empty arrays and the re-watch rule', async () => {
+test('#266 AC-ci-listing-proof: the CI brief carries the API-error rule, the conflicting-PR empty arrays and the re-watch rule', async () => {
   const { agentCalls } = await driveCi(ciAnswer([check(required, 'pass')]))
   const brief = agentCalls['ci-0'].prompt
   assert.match(brief, /requiredChecksError/)

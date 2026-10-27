@@ -718,8 +718,11 @@ function unprovenGreen(ci) {
   const notAccepted = checks.find(c => !ACCEPTED_CI_BUCKETS.includes(c.bucket))
   if (notAccepted) return `check "${notAccepted.name}" is ${notAccepted.bucket}, not ${ACCEPTED_CI_BUCKETS.join(' or ')}`
   const listed = new Map(checks.map(c => [c.name, c.bucket]))
-  const missing = (ci.requiredChecks || []).find(name => !listed.has(name))
-  return missing === undefined ? null : `required check "${missing}" is missing from the listing`
+  for (const name of ci.requiredChecks || []) {
+    if (!listed.has(name)) return `required check "${name}" is missing from the listing`
+    if (listed.get(name) !== 'pass') return `required check "${name}" is ${listed.get(name)}, not pass`
+  }
+  return null
 }
 
 function testVerdict(e2e, testBlocking) {

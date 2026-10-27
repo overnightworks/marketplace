@@ -19,13 +19,14 @@ export async function runLane(args, answers = {}, options = {}) {
   const coveredByClaim = { outside_claim: '[]' }
   const defaultAnswerFor = (label) => label === 'sync' ? cleanSync : label.startsWith('scope-') ? coveredByClaim : null
   // The remote branch carries the newest tip a builder or fixer returned, unless a test says what the push printed
-  // or the answer carries the error of a failed push.
+  // or the answer carries the error of a failed push. Absent fields are "" as the schema now demands.
   let newestTip = args.tip
   const pushPrintedSomething = (answer) => !answer.command_error || 'remote_tip' in answer
   const answerFor = (label) => {
     const answer = label in answers ? structuredClone(answers[label]) : defaultAnswerFor(label)
     if (answer?.tip && /^(build|fix-|sync)/.test(label)) newestTip = answer.tip
-    return label.startsWith('scope-') && answer && pushPrintedSomething(answer) ? { remote_tip: newestTip, ...answer } : answer
+    if (!label.startsWith('scope-') || !answer) return answer
+    return { remote_tip: pushPrintedSomething(answer) ? newestTip : '', outside_claim: '', command_error: '', ...answer }
   }
   const agent = async (prompt, agentOptions = {}) => { launchedAgents.push(agentOptions.label); agentCalls[agentOptions.label] = { prompt, options: agentOptions }; return answerFor(agentOptions.label) }
   // A thunk that throws resolves to null, as in the Workflow runtime.

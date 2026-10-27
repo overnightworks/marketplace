@@ -149,16 +149,16 @@ const SYNC = {
 }
 // The agent copies aco's outside_claim as JSON text; the script parses it, so no field is derived by the model.
 // The pattern admits exactly aco's two printed forms (null, or a list of strings), so a copying slip fails the schema
-// and the agent answers again; a failed command is reported in command_error, never in a scope answer.
+// and the agent answers again; all three fields are required, and "" means "does not apply".
 const JSON_STRING = String.raw`"([^"\\]|\\.)*"`
-const OUTSIDE_CLAIM_PATTERN = String.raw`^\s*(null|\[\s*(${JSON_STRING}(\s*,\s*${JSON_STRING})*)?\s*\])\s*$`
+const OUTSIDE_CLAIM_PATTERN = String.raw`^(|\s*(null|\[\s*(${JSON_STRING}(\s*,\s*${JSON_STRING})*)?\s*\])\s*)$`
 const PUSH_AND_SCOPE_CHECK = {
   type: 'object',
-  required: [],
+  required: ['remote_tip', 'outside_claim', 'command_error'],
   properties: {
-    remote_tip: { type: 'string', description: 'the last printed line of the first command line, unchanged; leave it out when that command failed' },
-    outside_claim: { type: 'string', pattern: OUTSIDE_CLAIM_PATTERN, description: 'the printed line of the second command line, unchanged; leave it out when either command failed' },
-    command_error: { type: 'string', description: 'the error output of the command line that failed or printed nothing; leave it out when both succeeded' },
+    remote_tip: { type: 'string', description: 'the last printed line of the first command line, unchanged; answer "" when that command failed' },
+    outside_claim: { type: 'string', pattern: OUTSIDE_CLAIM_PATTERN, description: 'the printed line of the second command line, unchanged; answer "" when either command failed' },
+    command_error: { type: 'string', description: 'the error output of the command line that failed or printed nothing; answer "" when both succeeded' },
   },
 }
 // Language models copy a 40-character hash unreliably (a sync step once dropped one character). A commit is
@@ -614,8 +614,8 @@ async function pushAndCheckScope(label, origin) {
   const scopeLine = `cd '${A.worktree}' && aco brief ${A.item} --json | python3 -c 'import json,sys; print(json.dumps(json.load(sys.stdin)["outside_claim"]))'`
   const checked = await safeAgent(
     `${laneFacts}\nChange nothing in the files. Run these two command lines in this order, each exactly as written, without changing it or its directory. ` +
-    `The first pushes the lane branch: return its last printed line unchanged as remote_tip; when it fails, return its error output as command_error, leave remote_tip and outside_claim out, and skip the second command line. ` +
-    `Otherwise return the one line the second prints unchanged as outside_claim; when it prints nothing or fails, return its error output as command_error and leave outside_claim out:\n${pushLine}\n${scopeLine}`,
+    `The first pushes the lane branch: return its last printed line unchanged as remote_tip; when it fails, return its error output as command_error, answer "" for remote_tip and outside_claim, and skip the second command line. ` +
+    `Otherwise return the one line the second prints unchanged as outside_claim; when it prints nothing or fails, return its error output as command_error and answer "" for outside_claim; answer "" for command_error when both succeed:\n${pushLine}\n${scopeLine}`,
     { label, phase: 'Scope', schema: PUSH_AND_SCOPE_CHECK, ...MECHANICAL })
   if (!checked) return { stop: openResult('failed', 'scope', { reason: 'the push and claim-scope check returned no result' }) }
   if (!sameCommit((checked.remote_tip || '').trim(), tip)) {
@@ -623,7 +623,7 @@ async function pushAndCheckScope(label, origin) {
     return { stop: openResult('failed', 'push', { reason: `the remote branch ${A.branch} does not carry the lane tip ${tip}; the push printed: ${printed}` }) }
   }
   if (checked.command_error) return { stop: openResult('failed', 'scope', { reason: `aco brief ${A.item} --json failed or printed nothing: ${checked.command_error}` }) }
-  if (checked.outside_claim === undefined) return { stop: openResult('failed', 'scope', { reason: `the push succeeded but the scope agent returned no outside_claim and no command_error for aco brief ${A.item} --json` }) }
+  if (!checked.outside_claim) return { stop: openResult('failed', 'scope', { reason: `the push succeeded but the scope agent returned no outside_claim and no command_error for aco brief ${A.item} --json` }) }
   let paths
   try { paths = JSON.parse(checked.outside_claim) } catch { paths = undefined }
   if (paths === null) return { stop: openResult('failed', 'scope', { reason: 'the lane holds no live claim (outside_claim is null); a lane without a claim does not reach review' }) }

@@ -1,0 +1,8 @@
+claim_id = "bcbc25dd2f934e36852ce4b4365b1828"
+agent = "Claude b5de3560-4db0-4dfe-be9f-fe26ef53140a"
+role = "builder"
+base = "2bf780772cfe4a320910988966033c0482348de8"
+branch = "claude/issue-320-audit-network-by-environment"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/skills/aco/SKILL.md", "plugins/atelier/skills/audit/SKILL.md"]
+opened_commit = "a694e5690eb0e43e6ef2d3ec1881e4aeea5434e7"
+whole_reason = "Two one-sentence skill cards (#320, #321) bundled under one version bump."

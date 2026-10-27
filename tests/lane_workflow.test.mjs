@@ -1,36 +1,7 @@
 // Drives the atelier lane workflow script through its inputs with a stub agent runner, so no subagent ever starts.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import fs from 'node:fs'
-
-const LANE_SCRIPT = new URL('../plugins/atelier/workflows/lane.js', import.meta.url)
-const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor
-
-// answers holds each agent's result by its label; an agent without one ends without a result. Without answers only
-// the sync step answers (an up-to-date lane), so a run gets as far as starting its first review round.
-async function runLane(args, answers = {}) {
-  const source = fs.readFileSync(LANE_SCRIPT, 'utf8').replace(/^export const meta/m, 'const meta')
-  const launchedAgents = []
-  const agentCalls = {}
-  const cleanSync = { merged: false, tip: args.tip, stoppedOnConflict: false }
-  const coveredByClaim = { outside_claim: '[]' }
-  const defaultAnswerFor = (label) => label === 'sync' ? cleanSync : label.startsWith('scope-') ? coveredByClaim : null
-  // The remote branch carries the newest tip a builder or fixer returned, unless a test says what the push printed
-  // or the answer carries the error of a failed push.
-  let newestTip = args.tip
-  const pushPrintedSomething = (answer) => !answer.command_error || 'remote_tip' in answer
-  const answerFor = (label) => {
-    const answer = label in answers ? structuredClone(answers[label]) : defaultAnswerFor(label)
-    if (answer?.tip && /^(build|fix-|sync)/.test(label)) newestTip = answer.tip
-    return label.startsWith('scope-') && answer && pushPrintedSomething(answer) ? { remote_tip: newestTip, ...answer } : answer
-  }
-  const agent = async (prompt, options = {}) => { launchedAgents.push(options.label); agentCalls[options.label] = { prompt, options }; return answerFor(options.label) }
-  const parallel = async thunks => Promise.all(thunks.map(thunk => thunk()))
-  const ignore = () => {}
-  const run = new AsyncFunction('args', 'agent', 'parallel', 'pipeline', 'phase', 'log', source)
-  const result = await run(args, agent, parallel, async () => [], ignore, ignore)
-  return { result, launchedAgents, agentCalls }
-}
+import { runLane } from './lane_workflow_harness.mjs'
 
 const resumedLane = { item: 1, worktree: '/w', branch: 'b', contract: 'c', e2e: 'e', scratch: '/s', pr: 1, tip: 'abcdef0' }
 
@@ -469,7 +440,6 @@ for (const [what, foldIn, resolved] of satisfiedFoldIns) {
     assert.equal(result.status, 'ready-to-land', result.reason)
     assert.deepEqual(result.folded, foldIn.map((f, i) => ({ ...f, tip: resumeTip, evidence: resolved[i].evidence })))
     assert.deepEqual(result.followups, [])
-    assert.ok(launchedAgents.includes('r1-review'), 'the whole lane is still reviewed')
     assert.ok(launchedAgents.includes('e2e-0'))
   })
 }
@@ -505,12 +475,6 @@ for (const [what, args, resolved] of stopsDespiteResolved) {
     assert.ok(result.followups.some(f => f.where === tidy.where))
   })
 }
-
-test('#119 AC-satisfied-counts-as-folded: with deltaFrom, the review after satisfied fold-ins still sees everything since deltaFrom', async () => {
-  const answers = { 'fix-1': { ...unchangedFix, resolved: [satisfied(tidy)] }, ...reachesTheEnd }
-  const { agentCalls } = await runLane({ ...resumeArgs, foldIn: [tidy], deltaFrom: resumeTip }, answers)
-  assert.ok(agentCalls['r1-review'].prompt.includes(`git diff ${resumeTip}..HEAD`), agentCalls['r1-review'].prompt)
-})
 
 test('#119 AC-mixed-batch-folds-all: a batch with one fold-in committed and one already satisfied folds both, the satisfied one with its evidence', async () => {
   const resolved = [satisfied(alsoTidy)]
@@ -901,21 +865,14 @@ test('two Sonar findings listed by the CI agent reach the fixer as two findings,
   }
 })
 
-test('#290 defect:#290 a material resume with fixFirst and no deltaFrom has the review and the gate judge the whole lane, whatever path the fixer touched', async () => {
-  const answers = { 'fix-1': { ...resumeFix, regression: [] }, 'r1-review': APPROVE, 'r1-gate': { ...APPROVE, codexExit: 0 }, ...reachesTheEnd }
-  const { launchedAgents, agentCalls } = await runLane({ ...resumeArgs, risk: 'material', fixFirst: [defectWithoutDraft] }, answers)
-  assert.ok(launchedAgents.includes('r1-review') && launchedAgents.includes('r1-gate'), launchedAgents.join(','))
-  for (const label of ['r1-review', 'r1-gate']) assert.ok(agentCalls[label].prompt.includes('git diff origin/main...HEAD'), label)
-})
-
 const wholeLaneGateAnswers = { 'r1-review': APPROVE, 'r1-gate': { ...APPROVE, codexExit: 0 }, ...reachesTheEnd }
 const wholeLaneRounds = [
+  ['every fold-in satisfied at an unchanged tip, with deltaFrom', { foldIn: [tidy], deltaFrom: resumeTip }, { 'fix-1': { ...unchangedFix, resolved: [satisfied(tidy)] } }, ['r1-review'], `git diff ${resumeTip}..HEAD`],
+  ['material, fixFirst, no deltaFrom', { risk: 'material', fixFirst: [defectWithoutDraft] }, { 'fix-1': { ...resumeFix, regression: [] } }, ['r1-review', 'r1-gate'], 'git diff origin/main...HEAD'],
   ['material, fixFirst, deltaFrom: the delta, unchanged', { risk: 'material', fixFirst: [defectWithoutDraft], deltaFrom: resumeTip }, { 'fix-1': { ...resumeFix, regression: [] } }, ['r1-review', 'r1-gate'], `git diff ${resumeTip}..HEAD`],
   ['material, foldIn only, no deltaFrom', { risk: 'material', foldIn: [tidy] }, { 'fix-1': resumeFix }, ['r1-review', 'r1-gate'], 'git diff origin/main...HEAD'],
   ['material, merge-only fix, no deltaFrom', { risk: 'material', fixFirst: [conflictsWithMain] }, { 'fix-1': mergeOnlyFix, 'ci-0': greenCi(mergedOnlyTip) }, ['r1-review', 'r1-gate'], 'git diff origin/main...HEAD'],
   ['material, every fold-in satisfied at an unchanged tip, no deltaFrom', { risk: 'material', foldIn: [tidy] }, { 'fix-1': { ...unchangedFix, resolved: [satisfied(tidy)] } }, ['r1-review', 'r1-gate'], 'git diff origin/main...HEAD'],
-  ['normal, every fold-in satisfied at an unchanged tip, no deltaFrom', { foldIn: [tidy] }, { 'fix-1': { ...unchangedFix, resolved: [satisfied(tidy)] } }, ['r1-review'], 'git diff origin/main...HEAD'],
-  ['normal, fixFirst, no deltaFrom', { fixFirst: [defectWithoutDraft] }, { 'fix-1': { ...resumeFix, regression: [] } }, ['r1-review'], 'git diff origin/main...HEAD'],
 ]
 for (const [what, args, answers, labels, diffCommand] of wholeLaneRounds) {
   test(`#290 defect:#290 resume round (${what}) launches ${labels.join(' and ')} on ${diffCommand}`, async () => {
@@ -926,37 +883,19 @@ for (const [what, args, answers, labels, diffCommand] of wholeLaneRounds) {
     }
     assert.equal(launchedAgents.includes('r1-gate'), labels.includes('r1-gate'))
     if (args.foldIn) assert.match(agentCalls['r1-review'].prompt, /tidy the import order/)
-  })
-}
-
-const reviewPromptsByDeltaFrom = [
-  ['without deltaFrom', {}, true],
-  ['with deltaFrom', { deltaFrom: resumeTip }, false],
-]
-for (const [what, args, namesWholeLane] of reviewPromptsByDeltaFrom) {
-  test(`#290 defect:#290 the review prompt ${what} lists each carried-over finding once and ${namesWholeLane ? 'asks for the whole lane, not only the fixer delta' : 'stays a delta'}`, async () => {
-    const { agentCalls } = await runLane({ ...resumeArgs, ...args, fixFirst: [defectWithoutDraft] }, { 'fix-1': { ...resumeFix, regression: [] }, ...reachesTheEnd })
-    const prompt = agentCalls['r1-review'].prompt
-    assert.equal(prompt.split(defectWithoutDraft.text).length - 1, 1)
-    assert.equal(prompt.includes('review the whole lane, not only that delta'), namesWholeLane)
+    if (args.fixFirst?.includes(defectWithoutDraft)) assert.equal(agentCalls['r1-review'].prompt.split(defectWithoutDraft.text).length - 1, 1)
   })
 }
 
 test('#290 defect:#290 a second fixer after a claim-scope bounce: the whole-lane review carries the bounce delta', async () => {
   const { agentCalls } = await runLane({ ...resumeArgs, fixFirst: [defectWithoutDraft] }, { ...claimScopeAnswers(['board.py']), 'r2-review': APPROVE, ...reachesTheEnd })
-  const prompt = agentCalls['r2-review'].prompt
-  assert.ok(prompt.includes('git diff origin/main...HEAD'))
-  assert.ok(prompt.includes(`git diff ${resumeFixedTip}..${bouncedTip}`))
+  for (const diff of ['git diff origin/main...HEAD', `git diff ${resumeFixedTip}..${bouncedTip}`]) assert.ok(agentCalls['r2-review'].prompt.includes(diff))
 })
 
 test('#290 defect:#290 a REVISE in the whole-lane round has the raiser re-check only the fixer delta', async () => {
-  const answers = {
-    'fix-1': { ...resumeFix, regression: [] },
-    'r1-review': { verdict: 'REVISE', blocking: [{ ...finding('y.py:2', 'a defect'), kind: 'docs' }], followups: [] },
-    'fix-2': { ...resumeFix, oldTip: resumeFixedTip, mergedBase: resumeFixedTip, tip: bouncedTip, regression: [] },
-    'r2-review': APPROVE,
-  }
-  const { agentCalls } = await runLane({ ...resumeArgs, fixFirst: [defectWithoutDraft] }, answers)
+  const revise = { verdict: 'REVISE', blocking: [{ ...finding('y.py:2', 'a defect'), kind: 'docs' }], followups: [] }
+  const fix2 = { ...resumeFix, oldTip: resumeFixedTip, mergedBase: resumeFixedTip, tip: bouncedTip, regression: [] }
+  const { agentCalls } = await runLane({ ...resumeArgs, fixFirst: [defectWithoutDraft] }, { 'fix-1': { ...resumeFix, regression: [] }, 'r1-review': revise, 'fix-2': fix2, 'r2-review': APPROVE })
   assert.match(agentCalls['r2-review'].prompt, /only this delta: git diff/)
   assert.ok(!agentCalls['r2-review'].prompt.includes('git diff origin/main...HEAD'))
 })

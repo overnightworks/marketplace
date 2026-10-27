@@ -160,6 +160,13 @@ test('an empty REVISE that stays empty after the re-read fails naming the report
   assert.ok(result.reason.includes(emptyRevise.reportPath))
 })
 
+test('#298 reread-report-path: a re-read that fails again still names the report path the review carried', async () => {
+  const withReport = { ...contradictoryCourier, reportPath: emptyRevise.reportPath }
+  const { result } = await runLane(agentProvidersReplay.args, { ...agentProvidersReplay.answers, 'r0-gate': withReport, 'r0-gate-reread': contradictoryCourier })
+  assert.deepEqual([result.status, result.stage], ['failed', 'review'])
+  assert.ok(result.reason.includes(emptyRevise.reportPath), result.reason)
+})
+
 test('#128 AC-courier-final-action: the courier and its re-read name StructuredOutput as their only final action', async () => {
   const { agentCalls } = await runLane(agentProvidersReplay.args, { ...agentProvidersReplay.answers, 'r0-gate': contradictoryCourier, 'r0-gate-reread': { ...gateRevise, codexExit: 0 } })
   const copySentenceByLabel = { 'r0-gate': /verbatim from the out\.json into the StructuredOutput call/, 'r0-gate-reread': /verbatim into the StructuredOutput call/ }

@@ -288,11 +288,13 @@ const STRUCTURED_OUTPUT_ONLY_LINE = `Your only final action is the StructuredOut
 function rereadContradictoryCourier(answer, label, base) {
   const emptyRevise = answer?.verdict === 'REVISE' && (answer.blocking || []).length === 0
   if (!((answer?.verdict === 'failed' || emptyRevise) && answer.codexExit === 0)) return answer
-  return safeAgent(
+  const rereading = safeAgent(
     `You are a courier re-reading a finished Codex review. Do not start Codex, do not review anything yourself and do not edit anything.\n` +
     `Read ${base}-out.json.exit and ${base}-out.json. If the exit status is 0 and the file is valid JSON, copy its verdict, blocking and followups verbatim into the StructuredOutput call, with reportPath ${base}-out.json and codexExit 0. ` +
     `Otherwise return verdict failed with the exit status in codexExit (-1 when there is no marker) and the reason in note.\n${STRUCTURED_OUTPUT_ONLY_LINE}`,
     { label: `${label}-reread`, phase: 'Review', schema: COURIER_VERDICT, ...MECHANICAL })
+  // A re-read that fails again still points at the report the first courier named.
+  return rereading.then(v => (v && v.verdict === 'failed' && !v.reportPath && answer.reportPath) ? { ...v, reportPath: answer.reportPath } : v)
 }
 
 function codexReview(label, routing, role, range) {
@@ -325,7 +327,10 @@ const reviewBy = (r, label, range) => r.provider === 'codex' ? codexReview(label
 function classify(results, expected) {
   const got = results.filter(Boolean)
   if (got.length !== expected) return { state: 'failed', reason: `${expected - got.length} review(s) returned nothing` }
-  if (got.some(v => v.verdict === 'failed')) return { state: 'failed', reason: got.map(v => v.note || '').join(' | ') }
+  if (got.some(v => v.verdict === 'failed')) {
+    const reportPaths = got.filter(v => v.verdict === 'failed' && v.reportPath).map(v => v.reportPath)
+    return { state: 'failed', reason: got.map(v => v.note || '').join(' | ') + (reportPaths.length ? '; read the report ' + reportPaths.join(' and ') : '') }
+  }
   if (got.some(v => v.verdict === 'architectural')) return { state: 'architectural' }
   // An evidenced blocking finding outranks its label (APPROVE with a finding counts as REVISE). A REVISE with nothing
   // to fix stays broken: that is how a courier's placeholder was caught.
@@ -562,7 +567,7 @@ async function fixBatch(blocking, source, budgetKey) {
   const unaccepted = (result) => ({ stop: (fixed.resolved || []).length ? { ...result, resolved: fixed.resolved } : result })
   if ((fixed.rescope || []).length) {
     const committed = adoptFixerTip(fixed)
-    return unaccepted(awaitRescope('fix', fixed.rescope, committed ? ' The returned tip carries fix commits no reviewer has seen; resume with deltaFrom.' : '', { lastBlocking: blocking }))
+    return unaccepted(awaitRescope('fix', fixed.rescope, committed ? ' The returned tip carries fix commits no reviewer has seen; the new run takes deltaFrom.' : '', { lastBlocking: blocking }))
   }
   if (fixed.blocked) return unaccepted(openResult('escalated', 'fix', { reason: fixed.blockedReason }))
   if ((fixed.disputed || []).length) return unaccepted(awaitHeadOnDispute(fixed, blocking))
@@ -745,7 +750,7 @@ while (true) {
   const shared = sharedReds(ci)
   if (shared.length && testBlocking.length === 0) {
     const checkList = shared.map(name => `"${name}"`).join(', ')
-    return openResult('awaiting-head', 'ci', { reason: `the CI check(s) ${checkList} are red on the base branch tip too: the red is shared with main and is fixed there, so no fixer was launched. If this lane's item is that repair, resume with fixFirst.` })
+    return openResult('awaiting-head', 'ci', { reason: `the CI check(s) ${checkList} are red on the base branch tip too: the red is shared with main and is fixed there, so no fixer was launched. If this lane's item is that repair, start a new run with pr and tip and fixFirst.` })
   }
   const ciBlocking = ci.green || shared.length ? [] : (ci.failing || [])
   const budgetKey = testBlocking.length ? 'test' : 'ci'

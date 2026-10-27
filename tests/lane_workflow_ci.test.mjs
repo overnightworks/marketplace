@@ -197,3 +197,9 @@ test('#311 lane-ci-protocol: the refusal shows each protocol value with its type
   const { result } = await drivePassingCi({ alterChildArgs: (args) => ({ ...args, protocol: '1' }) })
   assert.match(result.reason, /"1"/)
 })
+
+test('#298 resume-wording: the shared-red stop names a new run with pr and tip, not a resume', async () => {
+  const { result } = await driveCi(redCi(['quality / hygiene'], [run('quality / hygiene', 'failure')]))
+  assert.match(result.reason, /new run with pr and tip and fixFirst/)
+  assert.doesNotMatch(result.reason, /resume with/)
+})

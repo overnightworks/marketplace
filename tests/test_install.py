@@ -195,7 +195,7 @@ def test_stops_with_the_provider_exit_status_when_a_provider_command_fails(machi
 
     assert install.main([]) == 7
 
-    assert not any(command.startswith("claude") for command in machine.commands())
+    assert "claude plugin update atelier@atelier" in machine.commands()
     assert "exited with status 7" in capsys.readouterr().err
 
 
@@ -285,6 +285,47 @@ def test_counts_only_processes_named_codex(tmp_path):
     (tmp_path / "14" / "comm").mkdir()  # reading fails like a process that just ended
 
     assert install.count_codex_jobs(tmp_path) == 2
+
+
+def write_process(process_root: Path, pid: str, name: str, *arguments: str) -> None:
+    (process_root / pid).mkdir()
+    (process_root / pid / "comm").write_text(f"{name}\n")
+    (process_root / pid / "cmdline").write_bytes(b"".join(f"{part}\0".encode() for part in (name, *arguments)))
+
+
+def test_does_not_count_the_codex_app_server_daemon_as_a_job(tmp_path):
+    write_process(tmp_path, "21", "codex", "app-server", "--listen", "stdio://")
+    write_process(tmp_path, "22", "codex", "app-server", "daemon", "pid-update-loop")
+    write_process(tmp_path, "23", "codex", "exec", "task")
+
+    assert install.count_codex_jobs(tmp_path) == 1
+
+
+def test_finds_no_job_when_only_the_app_server_daemon_runs(tmp_path):
+    write_process(tmp_path, "21", "codex", "app-server", "--listen", "stdio://")
+
+    assert install.count_codex_jobs(tmp_path) == 0
+
+
+def test_counts_a_codex_process_whose_command_line_cannot_be_read(tmp_path):
+    write_process(tmp_path, "21", "codex", "app-server")
+    (tmp_path / "21" / "cmdline").unlink()
+    (tmp_path / "21" / "cmdline").mkdir()
+
+    assert install.count_codex_jobs(tmp_path) == 1
+
+
+def test_updates_claude_before_waiting_for_a_gap_between_codex_jobs(machine, codex_jobs, monkeypatch):
+    machine.install_provider("codex", CODEX_FROM_LOCAL)
+    machine.install_provider("claude", CLAUDE_PRESENT)
+    codex_jobs.counts = [2, 0]
+    commands_at_first_wait: list[list[str]] = []
+    monkeypatch.setattr(install, "pause", lambda seconds: commands_at_first_wait.append(machine.commands()))
+
+    assert install.main([]) == 0
+
+    assert commands_at_first_wait[0][-1] == "claude plugin update atelier@atelier"
+    assert not any(command.startswith("codex") for command in commands_at_first_wait[0])
 
 
 def test_pause_sleeps_for_the_given_seconds(monkeypatch):

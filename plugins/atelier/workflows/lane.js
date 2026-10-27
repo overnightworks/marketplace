@@ -716,14 +716,15 @@ function watchCi(n) {
 function unprovenGreen(ci) {
   const checks = ci.checks || []
   if (checks.length === 0) return 'no checks are listed for the pull request head'
-  const notAccepted = checks.find(c => !ACCEPTED_CI_BUCKETS.includes(c.bucket))
-  if (notAccepted) return `check "${notAccepted.name}" is ${notAccepted.bucket}, not ${ACCEPTED_CI_BUCKETS.join(' or ')}`
+  const problems = checks
+    .filter(c => !ACCEPTED_CI_BUCKETS.includes(c.bucket))
+    .map(c => `check "${c.name}" is ${c.bucket}, not ${ACCEPTED_CI_BUCKETS.join(' or ')}`)
   const listed = new Map(checks.map(c => [c.name, c.bucket]))
   for (const name of ci.requiredChecks || []) {
-    if (!listed.has(name)) return `required check "${name}" is missing from the listing`
-    if (listed.get(name) !== 'pass') return `required check "${name}" is ${listed.get(name)}, not pass`
+    if (!listed.has(name)) problems.push(`required check "${name}" is missing from the listing`)
+    else if (listed.get(name) !== 'pass') problems.push(`required check "${name}" is ${listed.get(name)}, not pass`)
   }
-  return null
+  return problems.length ? problems.join('; ') : null
 }
 
 function testVerdict(e2e, testBlocking) {
@@ -757,7 +758,7 @@ while (true) {
   const unproven = ci.green ? unprovenGreen(ci) : null
   history.push(
     { after: spent.total, by: `e2e-${n - 1}`, verdict: testVerdict(e2e, testBlocking), blocking: testBlocking.map(f => f.where), reportPath: e2e.evidencePath || '' },
-    { after: spent.total, by: `ci-${n - 1}`, verdict: ci.green && !unproven ? 'GREEN' : 'RED', blocking: (ci.failing || []).map(f => f.where) },
+    { after: spent.total, by: `ci-${n - 1}`, verdict: ci.green && !unproven && !ci.requiredChecksError ? 'GREEN' : 'RED', blocking: (ci.failing || []).map(f => f.where) },
   )
   followups.push(...(e2e.followups || []).map(f => ({ ...f, tip })))
   if (ci.requiredChecksError) return openResult('failed', 'ci', { reason: `the required checks of the base branch could not be read: ${ci.requiredChecksError}` })

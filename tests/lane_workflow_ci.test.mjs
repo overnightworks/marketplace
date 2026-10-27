@@ -21,6 +21,8 @@ const unproven = [
   ['a required check missing from the listing', [check('Python: tests', 'pass')], /quality \/ verdict/],
   ['a required check listed as pending', [check(required, 'pending')], /quality \/ verdict/],
   ['a required check listed as skipping', [check(required, 'skipping')], /quality \/ verdict/],
+  ['a red check and a required check missing', [check('Python: tests', 'fail')], /Python: tests[\s\S]*quality \/ verdict/],
+  ['a red check and a required check pending', [check('b', 'fail'), check(required, 'pending')], /"b"[\s\S]*quality \/ verdict/],
   ['an empty listing', [], /no checks/i],
 ]
 for (const [what, checks, reason] of unproven) {
@@ -38,6 +40,8 @@ test('#266 AC-ci-listing-proof: a required check error fails the lane at ci nami
   const { result, launchedAgents } = await driveCi(ciAnswer([check(required, 'pass')], { requiredChecksError: 'HTTP 403: forbidden' }))
   assert.deepEqual([result.status, result.stage], ['failed', 'ci'])
   assert.match(result.reason, /HTTP 403: forbidden/)
+  assert.equal(result.history.at(-1).by, 'ci-0')
+  assert.equal(result.history.at(-1).verdict, 'RED')
   assert.ok(!launchedAgents.includes('fix-2'))
 })
 

@@ -60,7 +60,7 @@ for (const [what, checks] of proven) {
 
 test('#266 AC-ci-listing-proof: a conflicting pull request answered with empty arrays and green false still goes to a fixer', async () => {
   const failing = [{ where: 'mergeable', kind: 'defect', text: 'conflicts', rule: 'GitHub runs no CI on a conflicting pull request', evidence: 'CONFLICTING' }]
-  const { launchedAgents } = await driveCi({ head: tip, green: false, failing, checks: [], requiredChecks: [] })
+  const { launchedAgents } = await driveCi({ head: tip, green: false, failing, checks: [], requiredChecks: [], baseChecks: [] })
   assert.ok(launchedAgents.includes('fix-2'))
 })
 
@@ -94,7 +94,7 @@ test('#266 AC-ci-listing-proof: the CI brief carries the API-error rule, the con
   const brief = agentCalls['ci-0'].prompt
   assert.match(brief, /requiredChecksError/)
   assert.match(brief, /never `\[\]`/)
-  assert.match(brief, /checks: \[\] and requiredChecks: \[\]/)
+  assert.match(brief, /checks: \[\] and requiredChecks: \[\] and baseChecks: \[\]/)
   assert.match(brief, /watch again before you copy the listing/)
   assert.match(brief, /--json name,bucket/)
 })
@@ -132,4 +132,68 @@ test('#311 lane-ci-protocol: the ci agent is launched by the lane-ci child, not 
   const { launchedByChild, launchedAgents } = await drivePassingCi({})
   assert.deepEqual(launchedByChild['atelier:lane-ci'], ['ci-0'])
   assert.ok(launchedAgents.includes('ci-0'))
+})
+
+const redOnHead = (name) => ({ where: name, kind: 'defect', text: `${name} fails`, rule: `CI check ${name}`, evidence: 'boom' })
+const run = (name, conclusion) => ({ name, status: conclusion ? 'completed' : 'in_progress', conclusion })
+const redCi = (names, baseChecks) => ciAnswer([check(required, 'pass'), ...names.map(name => check(name, 'fail'))], { green: false, failing: names.map(redOnHead), ...(baseChecks ? { baseChecks } : {}) })
+
+test('#286 ci-shared-red: a check red on head and on the base launches no fixer and goes to the head naming it', async () => {
+  const { result, launchedAgents } = await driveCi(redCi(['quality / hygiene'], [run('quality / hygiene', 'failure')]))
+  assert.deepEqual([result.status, result.stage], ['awaiting-head', 'ci'])
+  assert.match(result.reason, /quality \/ hygiene/)
+  assert.match(result.reason, /fixFirst/)
+  assert.ok(!launchedAgents.includes('fix-2'))
+})
+
+test('#286 ci-shared-red: a check red on head but green on the base still gets its fixer', async () => {
+  const { launchedAgents } = await driveCi(redCi(['quality / hygiene'], [run('quality / hygiene', 'success')]))
+  assert.ok(launchedAgents.includes('fix-2'))
+})
+
+test('#286 ci-shared-red: a shared red together with a red of the lane own goes to the head, naming the shared one', async () => {
+  const { result, launchedAgents } = await driveCi(redCi(['quality / hygiene', 'Python: tests'], [run('quality / hygiene', 'failure'), run('Python: tests', 'success')]))
+  assert.deepEqual([result.status, result.stage], ['awaiting-head', 'ci'])
+  assert.match(result.reason, /quality \/ hygiene/)
+  assert.ok(!launchedAgents.includes('fix-2'))
+})
+
+for (const [what, baseChecks] of [['an empty baseChecks', []], ['no baseChecks', undefined], ['a base run of the same name still pending', [run('quality / hygiene', null)]], ['a name missing on the base', [run('other', 'failure')]]]) {
+  test(`#286 ci-shared-red: ${what} runs CI fixing as before`, async () => {
+    const { launchedAgents } = await driveCi(redCi(['quality / hygiene'], baseChecks))
+    assert.ok(launchedAgents.includes('fix-2'))
+  })
+}
+
+test('#286 ci-shared-red: a rerun on the base with one failure counts as shared', async () => {
+  const { result, launchedAgents } = await driveCi(redCi(['quality / hygiene'], [run('quality / hygiene', 'success'), run('quality / hygiene', 'failure')]))
+  assert.equal(result.status, 'awaiting-head')
+  assert.ok(!launchedAgents.includes('fix-2'))
+})
+
+test('#286 ci-shared-red: a shared red with a blocking end-to-end finding gives the fixer only the end-to-end finding', async () => {
+  const e2eFinding = { where: 'flow.py:3', kind: 'defect', text: 'the flow loses data', rule: 'no data loss', evidence: 'repro' }
+  const answers = { ...reachesCi, 'e2e-0': { verdict: 'FAIL', blocking: [e2eFinding], followups: [] }, 'ci-0': redCi(['quality / hygiene'], [run('quality / hygiene', 'failure')]) }
+  const { agentCalls } = await runLane({ ...lane, foldIn: [tidy] }, answers)
+  const brief = agentCalls['fix-2'].prompt
+  assert.match(brief, /flow\.py:3/)
+  assert.doesNotMatch(brief, /quality \/ hygiene/)
+})
+
+test('#286 ci-shared-red: the CI brief asks the watcher for the base check runs before the conflicting-path sentence', async () => {
+  const { agentCalls } = await driveCi(ciAnswer([check(required, 'pass')]))
+  const brief = agentCalls['ci-0'].prompt
+  assert.ok(brief.indexOf('baseChecks') > 0 && brief.indexOf('baseChecks') < brief.indexOf('On the conflicting pull request path'))
+  assert.match(brief, /check-runs --paginate/)
+})
+
+test('#311 lane-ci-protocol: an answer without a head sha fails the lane at ci naming what came back', async () => {
+  const { result } = await driveCi({})
+  assert.deepEqual([result.status, result.stage], ['failed', 'ci'])
+  assert.match(result.reason, /without a head sha: \{/)
+})
+
+test('#311 lane-ci-protocol: the refusal shows each protocol value with its type', async () => {
+  const { result } = await drivePassingCi({ alterChildArgs: (args) => ({ ...args, protocol: '1' }) })
+  assert.match(result.reason, /"1"/)
 })

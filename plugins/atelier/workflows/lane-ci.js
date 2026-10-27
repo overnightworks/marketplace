@@ -4,19 +4,19 @@ export const meta = {
 }
 
 // Both copies of this number (here and in lane.js) change together in any commit that changes the args or the return shape.
-const LANE_CI_PROTOCOL = 1
+const LANE_CI_PROTOCOL = 2
 const A = args || {}
 const need = ['protocol', 'pr', 'n', 'worktree', 'finding', 'watcher']
 const missing = need.filter(key => A[key] === undefined || A[key] === null || A[key] === '')
 if (missing.length) return { refused: `missing args: ${missing.join(', ')}` }
-if (A.protocol !== LANE_CI_PROTOCOL) return { refused: `lane-ci speaks protocol ${LANE_CI_PROTOCOL}, but the lane that started it speaks protocol ${A.protocol}; the installed atelier differs from the running lane` }
+if (A.protocol !== LANE_CI_PROTOCOL) return { refused: `lane-ci speaks protocol ${JSON.stringify(LANE_CI_PROTOCOL)}, but the lane that started it speaks protocol ${JSON.stringify(A.protocol)}; the installed atelier differs from the running lane` }
 const { pr } = A
 const R = A.repo ? ` -R ${A.repo}` : ''
 const IN_REPO = A.repo ? ` in ${A.repo}` : ''
 const WATCHER = A.watcher
 
 // agent() with a schema throws when the subagent ends without a result; an end without one is a null the lane reports.
-async function safeAgent(prompt, opts) {
+async function agentOrNull(prompt, opts) {
   try {
     return await agent(prompt, opts)
   } catch (error) {
@@ -34,6 +34,7 @@ const CI = {
     head: { type: 'string', pattern: '^[0-9a-f]{7,40}$', description: 'a commit sha from git rev-parse, nothing else' }, green: { type: 'boolean' }, failing: { type: 'array', items: A.finding },
     checks: { type: 'array', description: 'the gh pr checks --json name,bucket listing, copied unchanged', items: { type: 'object', required: ['name', 'bucket'], properties: { name: { type: 'string' }, bucket: { enum: CI_BUCKETS } } } },
     requiredChecks: { type: 'array', items: { type: 'string' }, description: 'the required status check contexts of the base branch' },
+    baseChecks: { type: 'array', description: 'the check runs of the base branch tip, copied unchanged; a run still pending has a null conclusion', items: { type: 'object', required: ['name', 'status', 'conclusion'], properties: { name: { type: 'string' }, status: { type: 'string' }, conclusion: { type: ['string', 'null'] } } } },
     requiredChecksError: { type: 'string', description: 'the error of the gh api call that reads the required contexts' },
   },
 }
@@ -41,7 +42,7 @@ const CI = {
 function watchCi() {
   const inWorktree = A.repo ? '' : `cd '${A.worktree}' && `
   const rulesRepoPath = A.repo ? `repos/${A.repo}` : 'repos/{owner}/{repo}'
-  return safeAgent(
+  return agentOrNull(
     `Report CI for pull request #${pr}${IN_REPO}; change nothing in the repository. Return the PR head sha as head (\`${inWorktree}gh pr view ${pr}${R} --json headRefOid --jq .headRefOid\`). ` +
     `If \`${inWorktree}gh pr view ${pr}${R} --json mergeable --jq .mergeable\` says CONFLICTING, return green false with one failing entry: where "mergeable", kind "defect", text "the pull request conflicts with main", ` +
     `rule "GitHub runs no CI on a conflicting pull request", evidence the mergeable value. Otherwise wait in the foreground — you cannot be woken later: run \`${inWorktree}timeout 540 gh pr checks ${pr}${R} --watch --interval 90\` (Bash timeout 600000 ms) and repeat it until it exits on its own rather than by the timeout, at most 7 times. If a check fails, ` +
@@ -59,7 +60,8 @@ function watchCi() {
     `Copy the required contexts of the base branch into requiredChecks from \`${inWorktree}gh api ${rulesRepoPath}/rules/branches/<base> --jq '[.[]|select(.type=="required_status_checks")|.parameters.required_status_checks[].context]'\`; ` +
     `the base is \`${inWorktree}gh pr view ${pr}${R} --json baseRefName --jq .baseRefName\`. Only a successful, empty response means []. A non-zero gh api exit is never \`[]\`: put the error into requiredChecksError and leave it out of failing, because no fixer can repair an API or permission error. ` +
     `If a required context is missing from the listing, or a check is still pending after the watch, watch again before you copy the listing; re-watching shares the cap of 7 watches and the 540 s timeout per watch. Once the cap is spent, copy the listing as it stands. ` +
-    `On the conflicting pull request path return checks: [] and requiredChecks: [].`,
+    `Copy the check runs of the base branch tip into baseChecks from \`${inWorktree}gh api ${rulesRepoPath}/commits/<base>/check-runs --paginate --jq '.check_runs[]|{name,status,conclusion}'\`, unchanged; do not judge them. ` +
+    `On the conflicting pull request path return checks: [] and requiredChecks: [] and baseChecks: [].`,
     { label: `ci-${A.n}`, phase: 'Test and CI', schema: CI, ...WATCHER })
 }
 

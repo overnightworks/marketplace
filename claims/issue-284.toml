@@ -1,8 +1,0 @@
-claim_id = "eaf854d39cb4428e837939c126b6a3cc"
-agent = "Claude b5de3560-4db0-4dfe-be9f-fe26ef53140a"
-role = "builder"
-base = "c36599ef8fbc46b23c08d715726918249a0b732a"
-branch = "claude/issue-284-proof-by-list-number"
-scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/workflows/lane.js", "tests/lane_workflow_ci.test.mjs", "tests/lane_workflow_fix.test.mjs", "tests/lane_workflow_harness.mjs"]
-opened_commit = "ff77257e60152de159fc9aa1147379477b632506"
-whole_reason = "One proof-matching rule in lane.js with its tests, plus the three version pins every atelier release moves together."

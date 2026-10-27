@@ -212,10 +212,17 @@ const E2E = {
     lockBusy: { type: 'boolean', description: 'true when /tmp/probe-stack.lock stayed held by someone else and the live part could not run' },
   },
 }
+const CI_BUCKETS = ['pass', 'fail', 'pending', 'skipping', 'cancel']
+const ACCEPTED_CI_BUCKETS = ['pass', 'skipping']
 const CI = {
   type: 'object',
-  required: ['head', 'green', 'failing'],
-  properties: { head: { type: 'string', pattern: '^[0-9a-f]{7,40}$', description: 'a commit sha from git rev-parse, nothing else' }, green: { type: 'boolean' }, failing: { type: 'array', items: FINDING } },
+  required: ['head', 'green', 'failing', 'checks', 'requiredChecks'],
+  properties: {
+    head: { type: 'string', pattern: '^[0-9a-f]{7,40}$', description: 'a commit sha from git rev-parse, nothing else' }, green: { type: 'boolean' }, failing: { type: 'array', items: FINDING },
+    checks: { type: 'array', description: 'the gh pr checks --json name,bucket listing, copied unchanged', items: { type: 'object', required: ['name', 'bucket'], properties: { name: { type: 'string' }, bucket: { enum: CI_BUCKETS } } } },
+    requiredChecks: { type: 'array', items: { type: 'string' }, description: 'the required status check contexts of the base branch' },
+    requiredChecksError: { type: 'string', description: 'the error of the gh api call that reads the required contexts' },
+  },
 }
 
 // ------------------------------------------------------ shared sentences
@@ -695,8 +702,24 @@ function watchCi(n) {
     `When those lines list findings as path:line plus a rule id (such as \`sonar tests/x.py:498 - python:S5778: text\`), return one failing entry per listed finding instead: where = path:line, kind = "defect", ` +
     `text = the finding's text, rule = its rule id, evidence = that line; a \`Fix:\` line belongs to the finding above it, and the list's header count (\`N open finding(s)\`) must equal your entries. A red check without such a list stays one entry under its check name with the quoted lines as evidence. ` +
     `If the last printed line is not an ##[error] line, the job did not fail in its own steps: make one entry under its check name with the check's state and link as evidence and say the log held no error line. ` +
-    `A check whose log only reports that a job it needs failed (such as \`gate job "sonar" result failure\`) is derived: leave it out when another failing entry already covers that job. Never guess a cause such as flakiness; quote what the log shows.`,
+    `A check whose log only reports that a job it needs failed (such as \`gate job "sonar" result failure\`) is derived: leave it out when another failing entry already covers that job. Never guess a cause such as flakiness; quote what the log shows. ` +
+    `Proof the script judges, not you: after the watch exits on its own, and after any rerun, copy \`${inWorktree}gh pr checks ${pr}${R} --json name,bucket\` unchanged into checks. ` +
+    `Copy the required contexts of the base branch into requiredChecks from \`${inWorktree}gh api ${A.repo ? `repos/${A.repo}` : 'repos/{owner}/{repo}'}/rules/branches/<base> --jq '[.[]|select(.type=="required_status_checks")|.parameters.required_status_checks[].context]'\`; ` +
+    `the base is \`${inWorktree}gh pr view ${pr}${R} --json baseRefName --jq .baseRefName\`. Only a successful, empty response means []. A non-zero gh api exit is never \`[]\`: put the error into requiredChecksError and leave it out of failing, because no fixer can repair an API or permission error. ` +
+    `If a required context is missing from the listing, or a check is still pending after the watch, watch again before you copy the listing; re-watching shares the cap of 7 watches and the 540 s timeout per watch. Once the cap is spent, copy the listing as it stands. ` +
+    `On the conflicting pull request path return checks: [] and requiredChecks: [].`,
     { label: `ci-${n}`, phase: 'Test and CI', schema: CI, ...WATCHER })
+}
+
+// The listing the agent copied, not its conclusion, decides whether CI counts as green; null means the listing proves it.
+function unprovenGreen(ci) {
+  const checks = ci.checks || []
+  if (checks.length === 0) return 'no checks are listed for the pull request head'
+  const notAccepted = checks.find(c => !ACCEPTED_CI_BUCKETS.includes(c.bucket))
+  if (notAccepted) return `check "${notAccepted.name}" is ${notAccepted.bucket}, not ${ACCEPTED_CI_BUCKETS.join(' or ')}`
+  const listed = new Map(checks.map(c => [c.name, c.bucket]))
+  const missing = (ci.requiredChecks || []).find(name => !listed.has(name))
+  return missing === undefined ? null : `required check "${missing}" is missing from the listing`
 }
 
 function testVerdict(e2e, testBlocking) {
@@ -727,11 +750,14 @@ while (true) {
   if (e2e.verdict === 'FAIL' && testBlocking.length === 0) return openResult('failed', 'test', { reason: 'a FAIL verdict came without any blocking finding' })
   // A blocking finding outranks a PASS label, as in the review classifier.
   if (!sameCommit(ci.head, tip)) return openResult('failed', 'ci', { reason: `the pull request head ${ci.head} is not the lane tip ${tip}` })
+  const unproven = ci.green ? unprovenGreen(ci) : null
   history.push(
     { after: spent.total, by: `e2e-${n - 1}`, verdict: testVerdict(e2e, testBlocking), blocking: testBlocking.map(f => f.where), reportPath: e2e.evidencePath || '' },
-    { after: spent.total, by: `ci-${n - 1}`, verdict: ci.green ? 'GREEN' : 'RED', blocking: (ci.failing || []).map(f => f.where) },
+    { after: spent.total, by: `ci-${n - 1}`, verdict: ci.green && !unproven ? 'GREEN' : 'RED', blocking: (ci.failing || []).map(f => f.where) },
   )
   followups.push(...(e2e.followups || []).map(f => ({ ...f, tip })))
+  if (ci.requiredChecksError) return openResult('failed', 'ci', { reason: `the required checks of the base branch could not be read: ${ci.requiredChecksError}` })
+  if (unproven) return openResult('failed', 'ci', { reason: `CI reported green, but the check listing does not prove it: ${unproven}` })
   if (testBlocking.length === 0 && ci.green) break
 
   const ciBlocking = ci.green ? [] : (ci.failing || [])

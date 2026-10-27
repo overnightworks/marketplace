@@ -123,7 +123,7 @@ for (const [risk, reviewers] of firstReviewRoundByRisk) {
 // Each fixer proved an honest test-gap finding with a mutation it reported only in prose, so the guard stopped the run.
 const APPROVE = { verdict: 'APPROVE', blocking: [], followups: [] }
 const PASS = { verdict: 'PASS', blocking: [], followups: [] }
-const greenCi = (head) => ({ head, green: true, failing: [] })
+const greenCi = (head) => ({ head, green: true, failing: [], checks: [{ name: 'quality / verdict', bucket: 'pass' }], requiredChecks: ['quality / verdict'] })
 const finding = (where, text) => ({ where, text, rule: 'recorded rule', evidence: 'recorded evidence' })
 const followup = (where, text, owner) => ({ where, text, owner })
 

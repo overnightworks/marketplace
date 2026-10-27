@@ -100,7 +100,8 @@ test('#90 AC-reviewer-stopgap: a reviewer brief carries the stopgap refusals and
   const { agentCalls } = await runLane(resumedLane)
   const brief = agentCalls['r0-review'].prompt
   assert.match(brief, /800 lines or more/)
-  assert.match(brief, /criterion ID or `defect:#n`/)
+  assert.doesNotMatch(brief, /defect:#n/)
+  assert.match(brief, /a new test whose name does not state the behaviour it pins/)
   assert.match(brief, /a behaviour has no test/)
   assert.match(brief, /Hygiene in test code .* is a \*\*defect\*\* whose proof is the diff/)
 })
@@ -128,6 +129,8 @@ const gateRevise = agentProvidersReplay.answers['r0-gate']
 
 const contradictoryCourier = { verdict: 'failed', blocking: [], followups: [], codexExit: 0, note: 'Verdict was REVISE, not failed' }
 
+const emptyRevise = { verdict: 'REVISE', blocking: [], followups: [], codexExit: 0, reportPath: '/scratch/r0-gate-out.json' }
+
 const courierAnswersByExit = [
   ['a REVISE with a clean Codex exit goes to a fixer', { ...gateRevise, codexExit: 0 }, undefined, ['ready-to-land', undefined], true, 0],
   ['a REVISE without a clean Codex exit stops the lane', { ...gateRevise, codexExit: 1 }, undefined, ['failed', 'review'], false, 0],
@@ -135,6 +138,9 @@ const courierAnswersByExit = [
   ['a failed courier with a clean exit is re-read once and the re-read REVISE goes to a fixer', contradictoryCourier, { ...gateRevise, codexExit: 0 }, ['ready-to-land', undefined], true, 1],
   ['a failed courier whose re-read returns a verdict without a clean exit stops the lane', contradictoryCourier, { ...gateRevise, codexExit: 1 }, ['failed', 'review'], false, 1],
   ['a failed courier with a clean exit whose re-read fails again stops the lane', contradictoryCourier, contradictoryCourier, ['failed', 'review'], false, 1],
+  ['an empty REVISE with a clean exit is re-read once and the re-read REVISE with findings goes to a fixer', emptyRevise, { ...gateRevise, codexExit: 0 }, ['ready-to-land', undefined], true, 1],
+  ['an empty REVISE followed by an empty REVISE stops the lane', emptyRevise, emptyRevise, ['failed', 'review'], false, 1],
+  ['an empty REVISE without a clean exit gets no re-read', { ...emptyRevise, codexExit: 1 }, undefined, ['failed', 'review'], false, 0],
 ]
 
 for (const [what, gateAnswer, rereadAnswer, outcome, reachesFixer, rereads] of courierAnswersByExit) {
@@ -146,6 +152,13 @@ for (const [what, gateAnswer, rereadAnswer, outcome, reachesFixer, rereads] of c
     assert.equal(launchedAgents.filter(label => label.startsWith('r0-gate-reread')).length, rereads)
   })
 }
+
+test('an empty REVISE that stays empty after the re-read fails naming the report path', async () => {
+  const answers = { ...agentProvidersReplay.answers, 'r0-gate': emptyRevise, 'r0-gate-reread': emptyRevise }
+  const { result } = await runLane(agentProvidersReplay.args, answers)
+  assert.match(result.reason, /without any blocking finding/)
+  assert.ok(result.reason.includes(emptyRevise.reportPath))
+})
 
 test('#128 AC-courier-final-action: the courier and its re-read name StructuredOutput as their only final action', async () => {
   const { agentCalls } = await runLane(agentProvidersReplay.args, { ...agentProvidersReplay.answers, 'r0-gate': contradictoryCourier, 'r0-gate-reread': { ...gateRevise, codexExit: 0 } })

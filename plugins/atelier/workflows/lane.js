@@ -17,6 +17,7 @@ const need = ['item', 'worktree', 'branch', 'contract', 'e2e', 'scratch']
 const missing = need.filter(k => !A[k])
 if (missing.length) return { status: 'failed', stage: 'input', reason: `missing args: ${missing.join(', ')}` }
 if (A.pr && !A.tip) return { status: 'failed', stage: 'input', reason: 'with pr, pass tip (the PR head sha) so the first delta range is right' }
+if (A.build && (A.pr || A.tip)) return { status: 'failed', stage: 'input', reason: 'build starts a lane and pr + tip resume one; pass one of them' }
 if (!A.pr && !A.build) return { status: 'failed', stage: 'input', reason: 'pass build (a brief) or pr + tip' }
 if (A.builderProvider && A.builderProvider !== 'claude') {
   return { status: 'failed', stage: 'input', reason: 'the gate runs on Codex; a Codex-built lane needs a gate from another provider, which this workflow does not provide' }
@@ -237,11 +238,11 @@ const BLOCKING_LINE =
   `a finding you cannot back with evidence is not blocking. Every blocking finding names its kind: **defect** when the code breaks a rule or ` +
   `does not do what the contract, its docs or its own text promise — a mismatch between promise and code is defect unless the contract says the code is right, ` +
   `and then it is **docs**, as is any finding where only documentation or a comment is wrong; **test-gap** when the code already does what the contract says ` +
-  `and a behaviour has no test that pins it. Hygiene in test code (a needless monkeypatch, a test without a criterion ID) is a **defect** whose proof is the diff, not a mutation.`
+  `and a behaviour has no test that pins it. Hygiene in test code (a needless monkeypatch, a new test whose name does not state the behaviour it pins) is a **defect** whose proof is the diff, not a mutation.`
 
 // The reviewer stopgap of the fleet roadmap (#80, Q0): the reviewer is the only brake until a ratchet checks these.
 const STOPGAP_LINE =
-  `Refuse (blocking defect) a new file of 800 lines or more; a new test without a criterion ID or \`defect:#n\`; ` +
+  `Refuse (blocking defect) a new file of 800 lines or more; a new test whose name does not state the behaviour it pins; ` +
   `and a new patch or monkeypatch at an import location or on a private attribute where a fake on PATH or an injected port works.`
 
 const CODEX_SCHEMA = JSON.stringify({
@@ -283,9 +284,10 @@ function claudeReview(label, role, range) {
 
 const STRUCTURED_OUTPUT_ONLY_LINE = `Your only final action is the StructuredOutput call; never write a text answer first.`
 
-// A courier that reports failed beside a clean Codex exit contradicts itself; one read-only courier reads the same files again.
+// A courier that reports failed, or a REVISE without a finding, beside a clean Codex exit contradicts itself; one read-only courier reads the same files again.
 function rereadContradictoryCourier(answer, label, base) {
-  if (!(answer?.verdict === 'failed' && answer.codexExit === 0)) return answer
+  const emptyRevise = answer?.verdict === 'REVISE' && (answer.blocking || []).length === 0
+  if (!((answer?.verdict === 'failed' || emptyRevise) && answer.codexExit === 0)) return answer
   return safeAgent(
     `You are a courier re-reading a finished Codex review. Do not start Codex, do not review anything yourself and do not edit anything.\n` +
     `Read ${base}-out.json.exit and ${base}-out.json. If the exit status is 0 and the file is valid JSON, copy its verdict, blocking and followups verbatim into the StructuredOutput call, with reportPath ${base}-out.json and codexExit 0. ` +
@@ -327,7 +329,11 @@ function classify(results, expected) {
   if (got.some(v => v.verdict === 'architectural')) return { state: 'architectural' }
   // An evidenced blocking finding outranks its label (APPROVE with a finding counts as REVISE). A REVISE with nothing
   // to fix stays broken: that is how a courier's placeholder was caught.
-  if (got.some(v => v.verdict === 'REVISE' && (v.blocking || []).length === 0)) return { state: 'failed', reason: 'a REVISE verdict came without any blocking finding' }
+  const emptyRevise = got.find(v => v.verdict === 'REVISE' && (v.blocking || []).length === 0)
+  if (emptyRevise) {
+    const readHint = emptyRevise.reportPath ? '; read the report ' + emptyRevise.reportPath : ''
+    return { state: 'failed', reason: 'a REVISE verdict came without any blocking finding' + readHint }
+  }
   return { state: got.some(v => (v.blocking || []).length > 0) ? 'revise' : 'approve' }
 }
 
@@ -352,8 +358,8 @@ function openFollowups() {
 }
 const raisedBeforeTip = (open) => open.filter(f => f.tip && !sameCommit(f.tip, tip))
 // A builder or fixer that needs a path outside the claim hands the head a rescope request; the scope stage stays the backstop.
-const awaitRescope = (stage, rescope, reason = '', extra = {}) =>
-  openResult('awaiting-head', stage, { reason: `the work needs paths outside the claim scope; run aco rescope for them and resume with fixFirst carrying the rescope entries as findings (path to where, change to text, reason to evidence, kind defect), so a fixer makes the change.${reason}`, rescope, ...extra })
+const awaitRescope = (stage, rescope, reason = '', extra = {}, newRun = 'with pr and tip and fixFirst carrying the rescope entries as findings (path to where, change to text, reason to evidence, kind defect), so a fixer makes the change') =>
+  openResult('awaiting-head', stage, { reason: `the work needs paths outside the claim scope; run aco rescope for them and start a new run ${newRun}.${reason}`, rescope, ...extra })
 const openResult = (status, stage, extra) =>
   ({ status, stage, pr, tip, spent, routing: ROUTING, history, followups: openFollowups(), raisedBeforeTip: raisedBeforeTip(openFollowups()), folded: [...folded.values()], disputed, ...extra })
 
@@ -368,7 +374,8 @@ if (A.build) {
   if (!(built.rescope || []).length && built.blocked) return openResult('escalated', 'build', { reason: built.blockedReason })
   if (!SHA.test(built.tip || '')) return openResult('failed', 'build', { reason: `the builder returned a tip that is not a sha: ${String(built.tip).slice(0, 80)}` })
   pr = built.pr; tip = built.tip
-  if ((built.rescope || []).length) return awaitRescope('build', built.rescope, ` The returned tip is the whole build and no reviewer has seen it; resume with fixFirst and deltaFrom set to the output of \`git -C '${A.worktree}' merge-base origin/main ${tip}\` after \`git -C '${A.worktree}' fetch origin\`.`)
+  if ((built.rescope || []).length && !pr) return awaitRescope('build', built.rescope, ' No reviewer has seen the build.', {}, 'with build: the original brief plus your decision, since the worktree keeps the uncommitted edits')
+  if ((built.rescope || []).length) return awaitRescope('build', built.rescope, ` The returned tip is the whole build and no reviewer has seen it; the new run takes deltaFrom set to the output of \`git -C '${A.worktree}' merge-base origin/main ${tip}\` after \`git -C '${A.worktree}' fetch origin\`.`)
   log(`built PR #${pr} at ${tip}`)
 } else {
   phase('Sync')

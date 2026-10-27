@@ -22,15 +22,16 @@ CONTRACT_LINKS = (Path(".claude") / "CLAUDE.md", Path(".codex") / "AGENTS.md")
 
 RELOAD_STEP = "Reload: run /reload-plugins in Claude Code, and start a new Codex thread."
 CODEX_PROCESS_NAME = "codex"
+CODEX_DAEMON_ARGUMENT = "app-server"
 CODEX_POLL_SECONDS = 30
-CODEX_WAIT_NOTE = "Codex removes the installed version directory on update, so the update waits for a gap between Codex jobs."
+CODEX_WAIT_NOTE = "Codex removes the installed version directory on update, so the update waits for a gap between Codex jobs; the always-on app-server does not count as a job."
 
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     try:
         link_contract(Path.home())
-        for provider in (install_codex, install_claude):
+        for provider in (install_claude, install_codex):
             provider(from_checkout=args.from_checkout)
     except InstallError as error:
         print(f"install.py: {error}", file=sys.stderr)
@@ -107,6 +108,7 @@ def count_codex_jobs(process_root: Path = Path("/proc")) -> int:
         1
         for name_file in process_root.glob("[0-9]*/comm")
         if read_process_name(name_file) == CODEX_PROCESS_NAME
+        and not is_app_server(name_file.with_name("cmdline"))
     )
 
 
@@ -115,6 +117,15 @@ def read_process_name(name_file: Path) -> str | None:
         return name_file.read_text().strip()
     except OSError:  # the process ended between listing and reading
         return None
+
+
+def is_app_server(command_line_file: Path) -> bool:
+    """The always-on daemon serves threads and never ends; an unreadable command line counts as a job."""
+    try:
+        arguments = command_line_file.read_bytes().split(b"\0")
+    except OSError:
+        return False
+    return arguments[1:2] == [CODEX_DAEMON_ARGUMENT.encode()]
 
 
 def pause(seconds: float) -> None:

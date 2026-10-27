@@ -17,6 +17,7 @@ const need = ['item', 'worktree', 'branch', 'contract', 'e2e', 'scratch']
 const missing = need.filter(k => !A[k])
 if (missing.length) return { status: 'failed', stage: 'input', reason: `missing args: ${missing.join(', ')}` }
 if (A.pr && !A.tip) return { status: 'failed', stage: 'input', reason: 'with pr, pass tip (the PR head sha) so the first delta range is right' }
+if (A.build && (A.pr || A.tip)) return { status: 'failed', stage: 'input', reason: 'build starts a lane and pr + tip resume one; pass one of them' }
 if (!A.pr && !A.build) return { status: 'failed', stage: 'input', reason: 'pass build (a brief) or pr + tip' }
 if (A.builderProvider && A.builderProvider !== 'claude') {
   return { status: 'failed', stage: 'input', reason: 'the gate runs on Codex; a Codex-built lane needs a gate from another provider, which this workflow does not provide' }
@@ -354,8 +355,8 @@ function openFollowups() {
 }
 const raisedBeforeTip = (open) => open.filter(f => f.tip && !sameCommit(f.tip, tip))
 // A builder or fixer that needs a path outside the claim hands the head a rescope request; the scope stage stays the backstop.
-const awaitRescope = (stage, rescope, reason = '', extra = {}) =>
-  openResult('awaiting-head', stage, { reason: `the work needs paths outside the claim scope; run aco rescope for them and resume with fixFirst carrying the rescope entries as findings (path to where, change to text, reason to evidence, kind defect), so a fixer makes the change.${reason}`, rescope, ...extra })
+const awaitRescope = (stage, rescope, reason = '', extra = {}, newRun = 'with pr and tip and fixFirst carrying the rescope entries as findings (path to where, change to text, reason to evidence, kind defect), so a fixer makes the change') =>
+  openResult('awaiting-head', stage, { reason: `the work needs paths outside the claim scope; run aco rescope for them and start a new run ${newRun}.${reason}`, rescope, ...extra })
 const openResult = (status, stage, extra) =>
   ({ status, stage, pr, tip, spent, routing: ROUTING, history, followups: openFollowups(), raisedBeforeTip: raisedBeforeTip(openFollowups()), folded: [...folded.values()], disputed, ...extra })
 
@@ -370,7 +371,8 @@ if (A.build) {
   if (!(built.rescope || []).length && built.blocked) return openResult('escalated', 'build', { reason: built.blockedReason })
   if (!SHA.test(built.tip || '')) return openResult('failed', 'build', { reason: `the builder returned a tip that is not a sha: ${String(built.tip).slice(0, 80)}` })
   pr = built.pr; tip = built.tip
-  if ((built.rescope || []).length) return awaitRescope('build', built.rescope, ` The returned tip is the whole build and no reviewer has seen it; resume with fixFirst and deltaFrom set to the output of \`git -C '${A.worktree}' merge-base origin/main ${tip}\` after \`git -C '${A.worktree}' fetch origin\`.`)
+  if ((built.rescope || []).length && !pr) return awaitRescope('build', built.rescope, ' No reviewer has seen the build.', {}, 'with build: the original brief plus your decision, since the worktree keeps the uncommitted edits')
+  if ((built.rescope || []).length) return awaitRescope('build', built.rescope, ` The returned tip is the whole build and no reviewer has seen it; the new run takes deltaFrom set to the output of \`git -C '${A.worktree}' merge-base origin/main ${tip}\` after \`git -C '${A.worktree}' fetch origin\`.`)
   log(`built PR #${pr} at ${tip}`)
 } else {
   phase('Sync')

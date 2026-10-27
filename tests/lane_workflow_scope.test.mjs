@@ -105,6 +105,24 @@ test('#131 AC-build-rescope-names-the-base: the build hand-back names the merge-
   assert.ok(result.reason.includes("git -C '/w' fetch origin"), result.reason)
 })
 
+test('a build together with pr and tip is refused at input', async () => {
+  const { result, launchedAgents } = await runLane({ ...builtLane, pr: 2, tip: resumeTip })
+  assert.deepEqual([result.status, result.stage], ['failed', 'input'])
+  assert.deepEqual(launchedAgents, [])
+})
+
+test('a build rescope stop without a pull request names a new run with build and not resumeFromRunId', async () => {
+  const { result } = await runLane(builtLane, { build: { ...built, pr: 0, rescope: rescopeRequest } })
+  assert.match(result.reason, /new run with build/)
+  assert.doesNotMatch(result.reason, /resume/i)
+})
+
+test('a build rescope stop with a pull request names a new run with pr and tip', async () => {
+  const { result } = await runLane(builtLane, { build: { ...built, rescope: rescopeRequest } })
+  assert.match(result.reason, /new run with pr and tip and fixFirst/)
+  assert.doesNotMatch(result.reason, /resume/i)
+})
+
 test('#131 AC-build-rescope-resume-reviews-the-build: resuming a build hand-back as its sentence says has the review and the gate judge deltaFrom..HEAD', async () => {
   const mergeBase = 'a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1'
   const fixFirst = rescopeRequest.map(({ path, change, reason }) => ({ ...finding(path, change), evidence: reason, kind: 'defect' }))

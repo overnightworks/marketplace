@@ -689,6 +689,7 @@ function explore(n) {
 
 function watchCi(n) {
   const inWorktree = A.repo ? '' : `cd '${A.worktree}' && `
+  const rulesRepoPath = A.repo ? `repos/${A.repo}` : 'repos/{owner}/{repo}'
   return safeAgent(
     `Report CI for pull request #${pr}${IN_REPO}; change nothing in the repository. Return the PR head sha as head (\`${inWorktree}gh pr view ${pr}${R} --json headRefOid --jq .headRefOid\`). ` +
     `If \`${inWorktree}gh pr view ${pr}${R} --json mergeable --jq .mergeable\` says CONFLICTING, return green false with one failing entry: where "mergeable", kind "defect", text "the pull request conflicts with main", ` +
@@ -704,7 +705,7 @@ function watchCi(n) {
     `If the last printed line is not an ##[error] line, the job did not fail in its own steps: make one entry under its check name with the check's state and link as evidence and say the log held no error line. ` +
     `A check whose log only reports that a job it needs failed (such as \`gate job "sonar" result failure\`) is derived: leave it out when another failing entry already covers that job. Never guess a cause such as flakiness; quote what the log shows. ` +
     `Proof the script judges, not you: after the watch exits on its own, and after any rerun, copy \`${inWorktree}gh pr checks ${pr}${R} --json name,bucket\` unchanged into checks. ` +
-    `Copy the required contexts of the base branch into requiredChecks from \`${inWorktree}gh api ${A.repo ? `repos/${A.repo}` : 'repos/{owner}/{repo}'}/rules/branches/<base> --jq '[.[]|select(.type=="required_status_checks")|.parameters.required_status_checks[].context]'\`; ` +
+    `Copy the required contexts of the base branch into requiredChecks from \`${inWorktree}gh api ${rulesRepoPath}/rules/branches/<base> --jq '[.[]|select(.type=="required_status_checks")|.parameters.required_status_checks[].context]'\`; ` +
     `the base is \`${inWorktree}gh pr view ${pr}${R} --json baseRefName --jq .baseRefName\`. Only a successful, empty response means []. A non-zero gh api exit is never \`[]\`: put the error into requiredChecksError and leave it out of failing, because no fixer can repair an API or permission error. ` +
     `If a required context is missing from the listing, or a check is still pending after the watch, watch again before you copy the listing; re-watching shares the cap of 7 watches and the 540 s timeout per watch. Once the cap is spent, copy the listing as it stands. ` +
     `On the conflicting pull request path return checks: [] and requiredChecks: [].`,

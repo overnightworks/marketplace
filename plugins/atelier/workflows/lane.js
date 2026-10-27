@@ -283,9 +283,10 @@ function claudeReview(label, role, range) {
 
 const STRUCTURED_OUTPUT_ONLY_LINE = `Your only final action is the StructuredOutput call; never write a text answer first.`
 
-// A courier that reports failed beside a clean Codex exit contradicts itself; one read-only courier reads the same files again.
+// A courier that reports failed, or a REVISE without a finding, beside a clean Codex exit contradicts itself; one read-only courier reads the same files again.
 function rereadContradictoryCourier(answer, label, base) {
-  if (!(answer?.verdict === 'failed' && answer.codexExit === 0)) return answer
+  const emptyRevise = answer?.verdict === 'REVISE' && (answer.blocking || []).length === 0
+  if (!((answer?.verdict === 'failed' || emptyRevise) && answer.codexExit === 0)) return answer
   return safeAgent(
     `You are a courier re-reading a finished Codex review. Do not start Codex, do not review anything yourself and do not edit anything.\n` +
     `Read ${base}-out.json.exit and ${base}-out.json. If the exit status is 0 and the file is valid JSON, copy its verdict, blocking and followups verbatim into the StructuredOutput call, with reportPath ${base}-out.json and codexExit 0. ` +
@@ -327,7 +328,8 @@ function classify(results, expected) {
   if (got.some(v => v.verdict === 'architectural')) return { state: 'architectural' }
   // An evidenced blocking finding outranks its label (APPROVE with a finding counts as REVISE). A REVISE with nothing
   // to fix stays broken: that is how a courier's placeholder was caught.
-  if (got.some(v => v.verdict === 'REVISE' && (v.blocking || []).length === 0)) return { state: 'failed', reason: 'a REVISE verdict came without any blocking finding' }
+  const emptyRevise = got.find(v => v.verdict === 'REVISE' && (v.blocking || []).length === 0)
+  if (emptyRevise) return { state: 'failed', reason: `a REVISE verdict came without any blocking finding${emptyRevise.reportPath ? `; read the report ${emptyRevise.reportPath}` : ''}` }
   return { state: got.some(v => (v.blocking || []).length > 0) ? 'revise' : 'approve' }
 }
 

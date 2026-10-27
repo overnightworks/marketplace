@@ -1,8 +1,0 @@
-claim_id = "60f290e2e62741cf90f2f241c3237d29"
-agent = "Claude b5de3560-4db0-4dfe-be9f-fe26ef53140a"
-role = "builder"
-base = "2bbdb9e19a832bc90df5f3cf7422bfd3b572edec"
-branch = "claude/issue-308-split-lane-workflow-tests"
-scope = ["quality/baseline.toml", "tests/lane_workflow.test.mjs", "tests/lane_workflow_ci.test.mjs", "tests/lane_workflow_fix.test.mjs", "tests/lane_workflow_harness.mjs", "tests/lane_workflow_scope.test.mjs"]
-opened_commit = "0a1dfa2ac272a538ffbf561920e88145282af219"
-whole_reason = "One behaviour-neutral move of existing tests into three files sharing one harness, with the size baseline it lowers."

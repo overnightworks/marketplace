@@ -393,10 +393,9 @@ if (A.build) {
     { label: 'sync', phase: 'Sync', schema: SYNC, ...MECHANICAL })
   if (!synced) return openResult('failed', 'sync')
   if (synced.stoppedOnConflict) return openResult('escalated', 'sync', { reason: synced.note || 'merge conflict in lane files; the worktree was left clean' })
-  if (synced.merged) {
-    if (!SHA.test(synced.tip || '')) return openResult('failed', 'sync', { reason: `sync merged but returned a tip that is not a sha: ${String(synced.tip).slice(0, 80)}` })
-    tip = synced.tip
-  }
+  if (!SHA.test(synced.tip || '')) return openResult('failed', 'sync', { reason: `sync returned a tip that is not a sha: ${String(synced.tip).slice(0, 80)}` })
+  if (!synced.merged && !sameCommit(synced.tip, tip)) history.push({ after: 0, by: 'sync', from: tip, tip: synced.tip })
+  tip = synced.tip
 }
 
 // ------------------------------------------------------- review / fix

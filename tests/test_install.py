@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import sys
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
@@ -83,6 +84,12 @@ class CodexJobs:
     def __init__(self) -> None:
         self.counts = [0]
         self.pauses: list[float] = []
+        self.commands_at_pause: list[list[str]] = []
+        self.read_commands: Callable[[], list[str]] = list
+
+    def pause(self, seconds: float) -> None:
+        self.pauses.append(seconds)
+        self.commands_at_pause.append(self.read_commands())
 
     def count(self) -> int:
         return self.counts.pop(0) if len(self.counts) > 1 else self.counts[0]
@@ -92,13 +99,15 @@ class CodexJobs:
 def codex_jobs(monkeypatch: pytest.MonkeyPatch) -> CodexJobs:
     jobs = CodexJobs()
     monkeypatch.setattr(install, "count_codex_jobs", jobs.count)
-    monkeypatch.setattr(install, "pause", jobs.pauses.append)
+    monkeypatch.setattr(install, "pause", jobs.pause)
     return jobs
 
 
 @pytest.fixture
 def machine(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, codex_jobs) -> Machine:
-    return Machine(tmp_path, monkeypatch)
+    environment = Machine(tmp_path, monkeypatch)
+    codex_jobs.read_commands = environment.commands
+    return environment
 
 
 @pytest.mark.parametrize(
@@ -315,17 +324,15 @@ def test_counts_a_codex_process_whose_command_line_cannot_be_read(tmp_path):
     assert install.count_codex_jobs(tmp_path) == 1
 
 
-def test_updates_claude_before_waiting_for_a_gap_between_codex_jobs(machine, codex_jobs, monkeypatch):
+def test_updates_claude_before_waiting_for_a_gap_between_codex_jobs(machine, codex_jobs):
     machine.install_provider("codex", CODEX_FROM_LOCAL)
     machine.install_provider("claude", CLAUDE_PRESENT)
     codex_jobs.counts = [2, 0]
-    commands_at_first_wait: list[list[str]] = []
-    monkeypatch.setattr(install, "pause", lambda seconds: commands_at_first_wait.append(machine.commands()))
 
     assert install.main([]) == 0
 
-    assert commands_at_first_wait[0][-1] == "claude plugin update atelier@atelier"
-    assert not any(command.startswith("codex") for command in commands_at_first_wait[0])
+    assert codex_jobs.commands_at_pause[0][-1] == "claude plugin update atelier@atelier"
+    assert not any(command.startswith("codex") for command in codex_jobs.commands_at_pause[0])
 
 
 def test_pause_sleeps_for_the_given_seconds(monkeypatch):

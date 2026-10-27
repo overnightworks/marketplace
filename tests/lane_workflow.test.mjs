@@ -1,7 +1,7 @@
 // Drives the atelier lane workflow script through its inputs with a stub agent runner, so no subagent ever starts.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { runLane, resumedLane, APPROVE, greenCi, finding, webauthTips, webauthReplay, agentProvidersReplay, answersWith, resumeTip, tidy, defectWithoutDraft, resumeFix, resumeArgs, unchangedFix, satisfied, reachesTheEnd, bounceFix, mergedOnlyTip, conflictsWithMain, mergeOnlyFix } from './lane_workflow_harness.mjs'
+import { runLane, resumedLane, APPROVE, greenCi, finding, webauthTips, webauthReplay, agentProvidersReplay, answersWith, resumeTip, tidy, defectWithoutDraft, resumeFix, resumeArgs, unchangedFix, satisfied, reachesTheEnd, secondFix, mergedOnlyTip, conflictsWithMain, mergeOnlyFix } from './lane_workflow_harness.mjs'
 
 const misspelledChoices = [
   ['risk', 'Material'], ['risk', 'MATERIAL'], ['risk', 'high'],
@@ -243,7 +243,7 @@ for (const [what, args, answers] of wholeLaneRounds) {
 
 test('#290 defect:#290 a REVISE in the whole-lane round has the raiser re-check only the fixer delta', async () => {
   const revise = { verdict: 'REVISE', blocking: [{ ...finding('y.py:2', 'a defect'), kind: 'docs' }], followups: [] }
-  const { agentCalls } = await runLane({ ...resumeArgs, fixFirst: [defectWithoutDraft] }, { 'fix-1': { ...resumeFix, regression: [] }, 'r1-review': revise, 'fix-2': bounceFix, 'r2-review': APPROVE })
+  const { agentCalls } = await runLane({ ...resumeArgs, fixFirst: [defectWithoutDraft] }, { 'fix-1': { ...resumeFix, regression: [] }, 'r1-review': revise, 'fix-2': secondFix, 'r2-review': APPROVE })
   assert.match(agentCalls['r2-review'].prompt, /only this delta: git diff/)
   assert.ok(!agentCalls['r2-review'].prompt.includes('git diff origin/main...HEAD'))
 })

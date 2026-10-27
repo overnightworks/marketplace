@@ -1,0 +1,8 @@
+claim_id = "c0a7631da25a42cf9cf3cc22646ec52a"
+agent = "Claude b5de3560-4db0-4dfe-be9f-fe26ef53140a"
+role = "builder"
+base = "96513819e5a9df17918308286677f29c2286a3bd"
+branch = "claude/issue-286-shared-red-goes-to-head"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/workflows/lane-ci.js", "plugins/atelier/workflows/lane.js", "tests/lane_workflow_ci.test.mjs", "tests/lane_workflow_harness.mjs"]
+opened_commit = "97c189d22e45f28a2a5838db57d7aa193f4cd119"
+whole_reason = "One CI rule split as #311 cuts it, the watcher field in lane-ci.js and the routing in lane.js, with its tests and harness fixture, plus the three version pins every atelier release moves together."

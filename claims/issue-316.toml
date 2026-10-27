@@ -1,0 +1,8 @@
+claim_id = "25730ff350ba4280a1f903ab1535c397"
+agent = "Claude b5de3560-4db0-4dfe-be9f-fe26ef53140a"
+role = "builder"
+base = "cc5b892077100bd68f7427c36f28d601a01d25e0"
+branch = "claude/issue-316-scope-stop-not-bounce"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/workflows/lane.js", "tests/lane_workflow.test.mjs", "tests/lane_workflow_fix.test.mjs", "tests/lane_workflow_harness.mjs", "tests/lane_workflow_scope.test.mjs"]
+opened_commit = "7d347f19d26606228dc822ec9fea547b68db8c24"
+whole_reason = "One rule change in lane.js's claim-scope check with the bounce tests rewritten and their fixtures removed, plus the three version pins one atelier release moves together."

@@ -29,3 +29,188 @@ export async function runLane(args, answers = {}) {
   const result = await run(args, agent, parallel, async () => [], ignore, ignore)
   return { result, launchedAgents, agentCalls }
 }
+
+export const resumedLane = { item: 1, worktree: '/w', branch: 'b', contract: 'c', e2e: 'e', scratch: '/s', pr: 1, tip: 'abcdef0' }
+
+export const APPROVE = { verdict: 'APPROVE', blocking: [], followups: [] }
+
+export const PASS = { verdict: 'PASS', blocking: [], followups: [] }
+
+export const greenCi = (head) => ({ head, green: true, failing: [], checks: [{ name: 'quality / verdict', bucket: 'pass' }], requiredChecks: ['quality / verdict'] })
+
+export const finding = (where, text) => ({ where, text, rule: 'recorded rule', evidence: 'recorded evidence' })
+
+export const followup = (where, text, owner) => ({ where, text, owner })
+
+export const webauthTips = { built: '7ac1653ab10c05e6b41a393d47a586a2bacb9640', firstFix: 'd7e50a7509ea87793fed5bdbabcf7df3955bc893', secondFix: '307742391d346d4579400c733ef7adbdeea5ef79' }
+
+export const webauthC1Finding = 'src/webauth/jwt_verification.py:65 (_URL_CONTROL_OR_SPACE) via is_https_url, reached through OidcClientConfig.__post_init__ (src/webauth/oidc.py:73-92)'
+
+export const webauthReplay = {
+  name: 'webauth#57',
+  args: { item: 57, worktree: '/w', branch: 'b', contract: 'c', e2e: 'e', scratch: '/s', build: 'recorded', risk: 'material' },
+  testGap: { raisedBy: 'r1-gate', fixedBy: 'fix-2', where: 'tests/test_oidc.py:479', mutation: 'drop quote_plus from the client-ID part of the Basic authorization only' },
+  nextReview: 'r2-review',
+  // The fix-in-place follow-ups by the fix that carried them, and how many follow-ups the head still routes when the lane is ready.
+  foldIns: {
+    accepted: {
+      folded: [['src/webauth/oidc.py:130-133 (TokenEndpointAnswer)', webauthTips.firstFix], ['README.md:433-434 (OpenID Connect login paragraph)', webauthTips.firstFix], ['src/webauth/jwt_verification.py:365-372 (is_https_url)', webauthTips.secondFix]],
+      open: [],
+    },
+    stopped: {
+      folded: [['src/webauth/oidc.py:130-133 (TokenEndpointAnswer)', webauthTips.firstFix], ['README.md:433-434 (OpenID Connect login paragraph)', webauthTips.firstFix]],
+      open: ['src/webauth/jwt_verification.py:365-372 (is_https_url)'],
+    },
+  },
+  followupsToRoute: 3,
+  answers: {
+    build: { pr: 58, tip: webauthTips.built, blocked: false },
+    'r0-review': {
+      verdict: 'REVISE',
+      blocking: [
+        finding('src/webauth/oidc.py:340-356 (_is_same_secret, _callback_parameters) via OidcRelyingParty.complete_login', 'complete_login raises UnicodeEncodeError on a hostile callback'),
+        finding('tests/test_oidc.py:70-72, 463-476 (token request test) and 230-291 (_CALLBACK_REFUSALS)', 'Two behaviours this diff implements have no test that pins them'),
+      ],
+      followups: [
+        followup('src/webauth/oidc.py:130-133 (TokenEndpointAnswer)', 'Follow-up (fix in place): the default repr prints the whole token body', '#57'),
+        followup('README.md:433-434 (OpenID Connect login paragraph)', 'Follow-up (fix in place): the README leaves out that any azp must name the client', '#57'),
+        followup("CLAUDE.md 'Code patterns'", 'The guidance names only one of the two arrangement modules', 'distributor'),
+        followup('AGENTS.md:35-38 / .importlinter', 'The import claims are not enforced', '#49'),
+      ],
+    },
+    'r0-gate': { verdict: 'REVISE', blocking: [finding('src/webauth/oidc.py:315', 'OidcClientConfig accepts endpoint URLs containing control characters')], followups: [], codexExit: 0 },
+    'fix-1': {
+      oldTip: webauthTips.built, mergedBase: '1a0864b704b6717b660951357191f1562af7802e', tip: webauthTips.firstFix, mergeResolvedLaneConflict: true, disputed: [], blocked: false,
+      files: ['README.md', 'pyproject.toml', 'src/webauth/__init__.py', 'src/webauth/config.py', 'src/webauth/jwt_verification.py', 'src/webauth/liveness.py', 'src/webauth/oidc.py', 'tests/test_jwt_verification.py', 'tests/test_liveness.py', 'tests/test_oidc.py', 'tests/test_web_auth_config.py', 'uv.lock'],
+      regression: [
+        { finding: 'src/webauth/oidc.py:340-356 (_is_same_secret, _callback_parameters) via OidcRelyingParty.complete_login', kind: 'defect', test: 'tests/test_oidc.py [lone-surrogate-not-percent-encoded]', failedBefore: true, passesAfter: true },
+        { finding: 'tests/test_oidc.py:70-72, 463-476 (token request test) and 230-291 (_CALLBACK_REFUSALS)', kind: 'test-gap', test: 'tests/test_oidc.py [secret-form-encoded-before-basic-encoding]', failedBefore: true, passesAfter: true },
+        { finding: 'src/webauth/oidc.py:315', kind: 'defect', test: 'tests/test_oidc.py [redirect-uri-with-a-carriage-return-in-its-path]', failedBefore: true, passesAfter: true },
+      ],
+    },
+    'r1-review': {
+      verdict: 'REVISE',
+      blocking: [finding(webauthC1Finding, 'C1 control characters are still accepted and stored')],
+      followups: [
+        followup('src/webauth/jwt_verification.py:365-372 (is_https_url)', 'follow-up (fix in place). A non-str argument now raises a bare TypeError', '#57'),
+        followup('overnightworks/webauth#57 body, claim-scope line for src/webauth/jwt_verification.py', 'The body says this lane only renames the function', '#57'),
+      ],
+    },
+    'r1-gate': {
+      verdict: 'REVISE', codexExit: 0, followups: [],
+      blocking: [
+        finding('src/webauth/jwt_verification.py:65', 'Endpoint validation still accepts C1 controls U+0080–U+009F'),
+        finding('tests/test_oidc.py:479', 'The Basic-auth regression test does not pin the form-encoding of client_id'),
+      ],
+    },
+    'fix-2': {
+      oldTip: webauthTips.firstFix, mergedBase: webauthTips.firstFix, tip: webauthTips.secondFix, mergeResolvedLaneConflict: false, disputed: [], blocked: false,
+      files: ['src/webauth/jwt_verification.py', 'src/webauth/oidc.py', 'tests/test_jwt_verification.py', 'tests/test_oidc.py'],
+      regression: [
+        { finding: webauthC1Finding, kind: 'defect', test: 'tests/test_oidc.py [redirect-uri-with-a-c1-control-character]', failedBefore: true, passesAfter: true },
+        { finding: 'src/webauth/jwt_verification.py:65', kind: 'defect', test: 'tests/test_oidc.py [redirect-uri-with-a-c1-control-character]', failedBefore: true, passesAfter: true },
+        { finding: 'tests/test_oidc.py:479', kind: 'test-gap', test: 'tests/test_oidc.py [client-id-form-encoded-before-basic-encoding]', failedBefore: false, passesAfter: true },
+        { finding: 'src/webauth/jwt_verification.py:365-372 (is_https_url) follow-up', kind: 'defect', test: 'tests/test_jwt_verification.py [key-set-url-not-a-string]', failedBefore: true, passesAfter: true },
+      ],
+    },
+    'r2-review': APPROVE,
+    'r2-gate': { ...APPROVE, codexExit: 0 },
+    'e2e-0': PASS,
+    'ci-0': greenCi(webauthTips.secondFix),
+  },
+}
+
+export const agentProvidersTips = { built: 'adfb04bc5b1f543f6060709047570d92550f905d', fix: '7c543ba55440b4d743eecf18aa9a1520aadeda55' }
+
+export const agentProvidersReplay = {
+  name: 'agent-providers#25',
+  args: { item: 25, worktree: '/w', branch: 'b', contract: 'c', e2e: 'e', scratch: '/s', build: 'recorded', risk: 'material' },
+  testGap: { raisedBy: 'r0-gate', fixedBy: 'fix-1', where: 'tests/test_sse_codec.py:58', mutation: 'encode_event writes the event line before the id line' },
+  nextReview: 'r1-gate',
+  foldIns: {
+    accepted: {
+      folded: [['packages/agent-client/src/agent_client/wire.py:92 and :100 (ToolCall.tool_use_id, ToolResult.tool_use_id)', agentProvidersTips.fix], ['docs/decisions/0001-agent-service.md:238-246 (ruling f)', agentProvidersTips.fix]],
+      open: [],
+    },
+    stopped: {
+      folded: [],
+      open: ['packages/agent-client/src/agent_client/wire.py:92 and :100 (ToolCall.tool_use_id, ToolResult.tool_use_id)', 'docs/decisions/0001-agent-service.md:238-246 (ruling f)'],
+    },
+  },
+  followupsToRoute: 4,
+  answers: {
+    build: { pr: 26, tip: agentProvidersTips.built, blocked: false },
+    'r0-review': {
+      verdict: 'APPROVE', blocking: [],
+      followups: [
+        followup('packages/agent-client/src/agent_client/wire.py:92 and :100 (ToolCall.tool_use_id, ToolResult.tool_use_id)', 'follow-up (fix in place). The valid tool_use_id rule is declared twice', 'follow-up (fix in place)'),
+        followup('docs/decisions/0001-agent-service.md:238-246 (ruling f)', 'follow-up (fix in place). Ruling (f) names only "any other field" as malformed_frame', 'follow-up (fix in place)'),
+        followup('packages/agent-client/src/agent_client/run_stream.py:96-104 (_violation_from)', 'Pre-existing. Violation details copy unbounded text', 'distributor'),
+        followup('packages/agent-client/src/agent_client/sse.py:45 (encode_event)', 'Pre-existing model laxity the encoder makes visible', '#18'),
+        followup('packages/agent-client/src/agent_client/run_stream.py:144-162 and :209-224', 'Ownership note (pre-existing): one rule lives in two places', 'distributor'),
+        followup('tests/test_sse_codec.py:35-60 vs tests/test_wire_protocol.py:67-297', 'The test helpers are copied rather than shared', 'distributor'),
+      ],
+    },
+    'r0-gate': { verdict: 'REVISE', blocking: [finding('tests/test_sse_codec.py:58', 'Add a literal expected-bytes assertion for a representative non-ASCII event')], followups: [], codexExit: 0 },
+    'fix-1': {
+      oldTip: agentProvidersTips.built, mergedBase: agentProvidersTips.built, tip: agentProvidersTips.fix, mergeResolvedLaneConflict: false, disputed: [], blocked: false,
+      files: ['docs/decisions/0001-agent-service.md', 'packages/agent-client/src/agent_client/wire.py', 'tests/test_sse_codec.py'],
+      regression: [{ finding: 'tests/test_sse_codec.py:58', kind: 'test-gap', test: 'tests/test_sse_codec.py::test_an_event_travels_as_one_frame_of_compact_utf8_json', failedBefore: false, passesAfter: true }],
+    },
+    'r1-gate': { ...APPROVE, codexExit: 0 },
+    'e2e-0': PASS,
+    'ci-0': greenCi(agentProvidersTips.fix),
+  },
+}
+
+export const replays = [webauthReplay, agentProvidersReplay]
+
+export function answersWith(replay, { kind, mutation, testDraft = false, passesAfter = true, proof = 'exact', strayProof = false, proofKind, failedBefore }) {
+  const answers = structuredClone(replay.answers)
+  const { raisedBy, fixedBy, where } = replay.testGap
+  const testGap = answers[raisedBy].blocking.find(f => f.where === where)
+  if (kind) testGap.kind = kind
+  if (testDraft) testGap.testDraft = '/s/draft_test.py'
+  const regression = answers[fixedBy].regression
+  const testGapProof = regression.find(recorded => recorded.finding === where)
+  testGapProof.kind = proofKind || testGap.kind || 'defect'
+  if (mutation) testGapProof.mutation = replay.testGap.mutation
+  testGapProof.passesAfter = passesAfter
+  if (failedBefore !== undefined) testGapProof.failedBefore = failedBefore
+  if (proof === 'near-match') testGapProof.finding = `${where} (test)`
+  if (proof === 'omitted') regression.splice(regression.indexOf(testGapProof), 1)
+  if (strayProof) regression.push({ finding: replay.foldIns.accepted.folded.at(-1)[0], test: 'fold-in test', failedBefore: false, passesAfter: false })
+  return answers
+}
+
+export const resumeTip = 'c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0'
+
+export const resumeFixedTip = 'd1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1'
+
+export const tidy = followup('x.py:1', 'tidy the import order', 'follow-up (fix in place)')
+
+export const defectWithoutDraft = { ...finding('t.py:1', 'the code breaks the rule'), kind: 'defect' }
+
+export const resumeFix = { oldTip: resumeTip, mergedBase: resumeTip, tip: resumeFixedTip, mergeResolvedLaneConflict: false, files: ['x.py'], disputed: [], blocked: false }
+
+export const resumeArgs = { ...resumedLane, tip: resumeTip }
+
+export const unchangedFix = { ...resumeFix, tip: resumeTip, files: [], regression: [] }
+
+export const satisfied = (item, evidence = 'tests/x_test.py already pins it') => ({ where: item.where, text: item.text, evidence })
+
+export const reachesTheEnd = { 'r1-review': APPROVE, 'e2e-0': PASS, 'ci-0': greenCi(resumeTip) }
+
+export const testGap = { ...finding('t.py:1', 'a behaviour has no test'), kind: 'test-gap' }
+
+export const bouncedTip = 'e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2'
+
+export const bounceFix = { ...resumeFix, oldTip: resumeFixedTip, mergedBase: resumeFixedTip, tip: bouncedTip, files: ['x.py'], regression: [] }
+
+export const built = { pr: 2, tip: resumeTip, blocked: false }
+
+export const mergedOnlyTip = 'e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2'
+
+export const conflictsWithMain = { where: 'mergeable', kind: 'defect', text: 'the pull request conflicts with main', rule: 'r', evidence: 'CONFLICTING' }
+
+export const mergeOnlyFix = { ...resumeFix, mergedBase: mergedOnlyTip, tip: mergedOnlyTip, files: [], regression: [] }

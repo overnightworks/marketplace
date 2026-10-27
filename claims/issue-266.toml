@@ -1,0 +1,8 @@
+claim_id = "a29537c7d99f4e4386682f88281ca745"
+agent = "Claude b5de3560-4db0-4dfe-be9f-fe26ef53140a"
+role = "builder"
+base = "d43ad4e49c126dd204d17a6a848e50bebb313f1a"
+branch = "claude/issue-266-ci-green-from-check-listing"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/workflows/lane.js", "tests/lane_workflow.test.mjs", "tests/lane_workflow_ci.test.mjs"]
+opened_commit = "6689e9f9daf5a756df99ef6edeee9f02d980aad0"
+whole_reason = "One CI-verdict check in lane.js with its own test file and the one shared test helper, plus the three version pins every atelier release moves together."

@@ -1,0 +1,8 @@
+claim_id = "7af5f9546636410187f9bd363c7547cb"
+agent = "Claude b5de3560-4db0-4dfe-be9f-fe26ef53140a"
+role = "builder"
+base = "afb0ea5a67381b1ca0f9366802a2aa28771e73da"
+branch = "claude/issue-298-regenerate-generated-on-merge"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/workflows/lane.js", "tests/lane_workflow_scope.test.mjs"]
+opened_commit = "a2c2ca1688d365550e7dd5f41ad714ca5be80f34"
+whole_reason = "One merge rule for generated files in lane.js with its tests, plus the three version pins one atelier release moves together."

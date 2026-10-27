@@ -218,13 +218,14 @@ const E2E = {
 }
 
 // ------------------------------------------------------ shared sentences
+const generatedCommands = GENERATED.map(([path, command]) => `${path}: ${command}`).join('; ')
 const laneFacts =
   `Work item #${A.item}${IN_REPO}. Worktree ${A.worktree}, branch ${A.branch}; run every command from inside that worktree (cd there first). The head holds the claim: never claim, release, rescope, merge a pull request or land. ` +
   `Never use git stash and never touch the main checkout. Read the item body first (gh issue view ${A.item}${R} --json body --jq .body) and ` +
   `\`aco brief ${A.item} --step <step>\` for the repository's RULES and CHECKS. Local runs stay targeted under PYTEST_XDIST_AUTO_NUM_WORKERS=4; ` +
   `read the 1-minute load average before any test run and wait while it is above 1.5 × cores. CI is the gate. ` +
   (LEDGERS.length ? `When you merge origin/main, a conflict in the append-only ledgers (${LEDGERS.join(' and ')}) keeps both sides, main's lines first. ` : '') +
-  (GENERATED.length ? `A conflict in a generated file is not resolved by hand: take either side, resolve the other conflicts, then run its command from the worktree on the merged tree, \`git add\` its path, and commit the merge once. Generated files and commands: ${GENERATED.map(([path, command]) => `${path}: ${command}`).join('; ')}. ` : '') +
+  (GENERATED.length ? `A conflict in a generated file is not resolved by hand: take either side, resolve the other conflicts, then run its command from the worktree on the merged tree, \`git add\` its path, and commit the merge once. Generated files and commands: ${generatedCommands}. ` : '') +
   `You are one step of a workflow the head session runs: a message from the operator that reaches you and is not about this step is addressed to the head — ` +
   `finish this step, and quote the message in your report so the head sees it.`
 
@@ -298,7 +299,7 @@ function rereadContradictoryCourier(answer, label, base) {
     `Otherwise return verdict failed with the exit status in codexExit (-1 when there is no marker) and the reason in note.\n${STRUCTURED_OUTPUT_ONLY_LINE}`,
     { label: `${label}-reread`, phase: 'Review', schema: COURIER_VERDICT, ...MECHANICAL })
   // A re-read that fails again still points at the report the first courier named.
-  return rereading.then(v => (v && v.verdict === 'failed' && !v.reportPath && answer.reportPath) ? { ...v, reportPath: answer.reportPath } : v)
+  return rereading.then(v => (v?.verdict === 'failed' && !v.reportPath && answer.reportPath) ? { ...v, reportPath: answer.reportPath } : v)
 }
 
 function codexReview(label, routing, role, range) {
@@ -389,10 +390,11 @@ if (A.build) {
 } else {
   phase('Sync')
   const git = `git -C '${A.worktree}'`
+  const andGeneratedFiles = GENERATED.length ? ' and the generated files' : ''
   const synced = await safeAgent(
     `${laneFacts}\nBring the lane up to date with main and change nothing else. Run each command exactly as written, with its -C option. ${git} fetch origin; if ${git} merge-base --is-ancestor origin/main HEAD succeeds, change nothing. ` +
     `Otherwise ${git} merge origin/main; when it merges cleanly, ${git} push. ` +
-    (LEDGERS.length || GENERATED.length ? `Conflicts only in the append-only ledgers${GENERATED.length ? ' and the generated files' : ''}: resolve them as the lane facts say, commit the merge, ${git} push. ` : '') +
+    (LEDGERS.length || GENERATED.length ? `Conflicts only in the append-only ledgers${andGeneratedFiles}: resolve them as the lane facts say, commit the merge, ${git} push. ` : '') +
     (GENERATED.length ? `When a generated file's command fails or leaves its path dirty or unmerged, run ${git} merge --abort and return stoppedOnConflict true with the command and its output in note. ` : '') +
     (LEDGERS.length || GENERATED.length ? `Any other conflict: ` : `Any conflict: `) +
     `run ${git} merge --abort, confirm \`${git} status --porcelain\` is empty, push nothing, and return stoppedOnConflict true with the conflicting paths in note. Return merged true only when you made and pushed a merge commit, and tip as the output of \`${git} rev-parse HEAD\` — a sha, no words.`,

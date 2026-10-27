@@ -679,14 +679,22 @@ function explore(n) {
 
 // The CI watcher is the lane-ci child. A throw inside parallel() would reach the loop as a bare null, so a refusal or a
 // crash comes back as {failure} with its reason.
-const LANE_CI_PROTOCOL = 1
+const LANE_CI_PROTOCOL = 2
 async function watchCi(n) {
   try {
     const answer = await workflow('atelier:lane-ci', { protocol: LANE_CI_PROTOCOL, pr, n, repo: A.repo, worktree: A.worktree, finding: FINDING, watcher: WATCHER })
-    return answer?.refused ? { failure: `lane-ci refused: ${answer.refused}` } : answer
+    if (answer?.refused) return { failure: `lane-ci refused: ${answer.refused}` }
+    if (answer && !SHA.test(answer.head || '')) return { failure: `lane-ci answered without a head sha: ${JSON.stringify(answer).slice(0, 200)}` }
+    return answer
   } catch (error) {
     return { failure: `lane-ci failed: ${String(error).slice(0, 300)}` }
   }
+}
+
+// A check red on this head and failed on the base tip is main's to repair; the watcher copied both listings, the script compares them.
+function sharedReds(ci) {
+  const failedOnBase = new Set((ci.baseChecks || []).filter(run => run.conclusion === 'failure').map(run => run.name))
+  return (ci.checks || []).filter(c => c.bucket === 'fail' && failedOnBase.has(c.name)).map(c => c.name)
 }
 
 function testVerdict(e2e, testBlocking) {
@@ -727,7 +735,12 @@ while (true) {
   if (unproven) return openResult('failed', 'ci', { reason: `CI reported green, but the check listing does not prove it: ${unproven}` })
   if (testBlocking.length === 0 && ci.green) break
 
-  const ciBlocking = ci.green ? [] : (ci.failing || [])
+  const shared = sharedReds(ci)
+  if (shared.length && testBlocking.length === 0) {
+    const checkList = shared.map(name => `"${name}"`).join(', ')
+    return openResult('awaiting-head', 'ci', { reason: `the CI check(s) ${checkList} are red on the base branch tip too: the red is shared with main and is fixed there, so no fixer was launched. If this lane's item is that repair, resume with fixFirst.` })
+  }
+  const ciBlocking = ci.green || shared.length ? [] : (ci.failing || [])
   const budgetKey = testBlocking.length ? 'test' : 'ci'
   const f = await fixBatch(testBlocking.concat(ciBlocking), testBlocking.length ? 'the end-to-end test and CI' : 'CI', budgetKey)
   if (f.stop) return f.stop

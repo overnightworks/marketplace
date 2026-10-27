@@ -330,7 +330,10 @@ function classify(results, expected) {
   // An evidenced blocking finding outranks its label (APPROVE with a finding counts as REVISE). A REVISE with nothing
   // to fix stays broken: that is how a courier's placeholder was caught.
   const emptyRevise = got.find(v => v.verdict === 'REVISE' && (v.blocking || []).length === 0)
-  if (emptyRevise) return { state: 'failed', reason: `a REVISE verdict came without any blocking finding${emptyRevise.reportPath ? `; read the report ${emptyRevise.reportPath}` : ''}` }
+  if (emptyRevise) {
+    const readHint = emptyRevise.reportPath ? '; read the report ' + emptyRevise.reportPath : ''
+    return { state: 'failed', reason: 'a REVISE verdict came without any blocking finding' + readHint }
+  }
   return { state: got.some(v => (v.blocking || []).length > 0) ? 'revise' : 'approve' }
 }
 

@@ -238,11 +238,11 @@ const BLOCKING_LINE =
   `a finding you cannot back with evidence is not blocking. Every blocking finding names its kind: **defect** when the code breaks a rule or ` +
   `does not do what the contract, its docs or its own text promise — a mismatch between promise and code is defect unless the contract says the code is right, ` +
   `and then it is **docs**, as is any finding where only documentation or a comment is wrong; **test-gap** when the code already does what the contract says ` +
-  `and a behaviour has no test that pins it. Hygiene in test code (a needless monkeypatch, a test without a criterion ID) is a **defect** whose proof is the diff, not a mutation.`
+  `and a behaviour has no test that pins it. Hygiene in test code (a needless monkeypatch, a new test whose name does not state the behaviour it pins) is a **defect** whose proof is the diff, not a mutation.`
 
 // The reviewer stopgap of the fleet roadmap (#80, Q0): the reviewer is the only brake until a ratchet checks these.
 const STOPGAP_LINE =
-  `Refuse (blocking defect) a new file of 800 lines or more; a new test without a criterion ID or \`defect:#n\`; ` +
+  `Refuse (blocking defect) a new file of 800 lines or more; a new test whose name does not state the behaviour it pins; ` +
   `and a new patch or monkeypatch at an import location or on a private attribute where a fake on PATH or an injected port works.`
 
 const CODEX_SCHEMA = JSON.stringify({

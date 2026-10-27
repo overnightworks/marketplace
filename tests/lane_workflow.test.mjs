@@ -100,7 +100,8 @@ test('#90 AC-reviewer-stopgap: a reviewer brief carries the stopgap refusals and
   const { agentCalls } = await runLane(resumedLane)
   const brief = agentCalls['r0-review'].prompt
   assert.match(brief, /800 lines or more/)
-  assert.match(brief, /criterion ID or `defect:#n`/)
+  assert.doesNotMatch(brief, /defect:#n/)
+  assert.match(brief, /a new test whose name does not state the behaviour it pins/)
   assert.match(brief, /a behaviour has no test/)
   assert.match(brief, /Hygiene in test code .* is a \*\*defect\*\* whose proof is the diff/)
 })

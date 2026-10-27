@@ -650,11 +650,12 @@ if (carriedOver.length || A.foldIn?.length) {
   const f = await fixBatch(carriedOver, 'the head (carried over from the previous run)', 'test')
   if (f.stop) return f.stop
   // Without deltaFrom the head has not said what reviewers saw, so the round covers the whole lane.
+  const wholeLane = f.range
+    ? `${firstRange}. It includes the fixer's commits for the head's carried-over findings, described next as a delta to look at closely; review the whole lane, not only that delta:\n${f.range}`
+    : `${firstRange}${foldInsInRange(f.foldIn)}`
   const range = A.deltaFrom
     ? `only this delta: git diff ${A.deltaFrom}..HEAD — fixes no reviewer has seen yet. They answer:\n${A.answers || ''}\n${listFindings(carriedOver)}${foldInsInRange(f.foldIn)}`
-    : f.range
-      ? `${firstRange}. It includes the fixer's commits for the head's carried-over findings, described next as a delta to look at closely; review the whole lane, not only that delta:\n${f.range}`
-      : `${firstRange}${foldInsInRange(f.foldIn)}`
+    : wholeLane
   const stop = await reviewUntilClean(ALL, range)
   if (stop) return stop
 } else {

@@ -600,7 +600,8 @@ async function fixBatch(blocking, source, budgetKey, carried = false) {
 // origin says where the hit came from: a note, and the tip the new run reviews from, when the lane knows one.
 function scopeStop(paths, origin) {
   const listed = paths.join(', ')
-  const newRun = `a new run with pr and tip${origin.deltaFrom ? ` and deltaFrom ${origin.deltaFrom}` : ''}`
+  const deltaClause = origin.deltaFrom ? ` and deltaFrom ${origin.deltaFrom}` : ''
+  const newRun = `a new run with pr and tip${deltaClause}`
   history.push({ by: 'scope', outside: paths, tip })
   return { stop: openResult('awaiting-head', 'scope', { outside: paths, reason:
     `Outside the claim scope: ${listed}. No fixer was launched. ${origin.note} Either run aco rescope for them and start ${newRun}, ` +
@@ -660,9 +661,12 @@ async function settleReview(rr) {
 const carriedOver = A.fixFirst || []
 const carriesBatch = carriedOver.length || A.foldIn?.length
 const mergeBaseAfterFetch = `the output of \`git -C '${A.worktree}' merge-base origin/main ${tip}\` after \`git -C '${A.worktree}' fetch origin\``
-const firstScopeCheck = carriesBatch ? null : A.build
-  ? await pushAndCheckScope(`scope-${spent.total}`, { note: 'No reviewer has seen the build.', deltaFrom: mergeBaseAfterFetch })
-  : await pushAndCheckScope('scope-resume', { note: 'The commits came from an earlier run.' })
+let firstScopeCheck = null
+if (!carriesBatch && A.build) {
+  firstScopeCheck = await pushAndCheckScope(`scope-${spent.total}`, { note: 'No reviewer has seen the build.', deltaFrom: mergeBaseAfterFetch })
+} else if (!carriesBatch) {
+  firstScopeCheck = await pushAndCheckScope('scope-resume', { note: 'The commits came from an earlier run.' })
+}
 if (firstScopeCheck?.stop) return firstScopeCheck.stop
 
 // Re-entry after the head settled an awaiting-head result: review only the fix commits no reviewer has seen yet.

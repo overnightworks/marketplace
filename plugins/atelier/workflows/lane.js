@@ -195,8 +195,8 @@ const FIX = {
     },
     regression: {
       type: 'array',
-      description: "every test you add for a finding, under that finding's exact where",
-      items: { type: 'object', required: ['finding', 'kind', 'test', 'failedBefore', 'passesAfter'], properties: { finding: { type: 'string', description: 'the where of the finding it proves' }, kind: { type: 'string', enum: FINDING_KINDS, description: "the kind of that finding, so a proof is judged by its own finding's bar" }, resolution: { type: 'string', enum: ['removed-vacuous'], description: 'for a test-gap finding whose test pins no behaviour: the fix removed that test instead of adding one' }, diff: { type: 'string', description: 'for removed-vacuous: the removal diff' }, test: { type: 'string' }, failedBefore: { type: 'boolean' }, passesAfter: { type: 'boolean' }, mutation: { type: 'string', description: 'for a test-gap finding: the production change, made and reverted, under which the test fails' } } },
+      description: "every test you add, strengthen or keep for a blocking finding, and every probe cell you run for it, under that finding's number in the blocking list you were given",
+      items: { type: 'object', required: ['finding', 'test', 'failedBefore', 'passesAfter'], properties: { finding: { type: 'integer', minimum: 1, description: 'the number of the blocking finding in the list you were given' }, resolution: { type: 'string', enum: ['removed-vacuous'], description: 'for a test-gap finding whose test pins no behaviour: the fix removed that test instead of adding one' }, diff: { type: 'string', description: 'for removed-vacuous: the removal diff' }, test: { type: 'string' }, failedBefore: { type: 'boolean' }, passesAfter: { type: 'boolean' }, mutation: { type: 'string', description: 'for a test-gap finding: the production change, made and reverted, under which the test fails' } } },
     },
     summary: { type: 'string' }, blocked: { type: 'boolean' }, blockedReason: { type: 'string' }, rescope: RESCOPE,
   },
@@ -442,7 +442,7 @@ function fixRoundStop(blocking, budgetKey) {
 // The head named the items it passes as foldIn, so the wording filter does not second-guess them.
 const namedByHead = new Set((A.foldIn || []).map(findingKey))
 const inPlaceFollowups = () => openFollowups().filter(f => namedByHead.has(findingKey(f)) || /fix in place/i.test(`${f.owner} ${f.text}`))
-const listFoldIns = (foldIn) => foldIn.map((f, i) => `${i + 1}. ${f.where} — ${f.text}`).join('\n')
+const listFoldIns = (foldIn) => foldIn.map(f => `- ${f.where} — ${f.text}`).join('\n')
 function foldInBrief(foldIn) {
   if (!foldIn.length) return ''
   return `\n\nAlso fold in these follow-ups, only because each sits in a file this lane already changed and cannot change behaviour; one commit for all of them. ` +
@@ -487,19 +487,22 @@ function proofGap(proof, finding) {
 const needsProof = (finding) => kindOf(finding) === 'test-gap' || (kindOf(finding) === 'defect' && Boolean(finding.testDraft))
 
 // Why a fixer's answer does not count as a fix, or null when it does. A proof counts only for the blocking finding
-// whose where and kind it names exactly; a proof for anything else (a fold-in, say) is not checked.
-const proves = (proof, finding) => proof.finding === finding.where && proof.kind === kindOf(finding)
+// whose list number it names; any other number (a fold-in's, say) is not checked.
+const proves = (proof, index) => Number.isInteger(proof.finding) && proof.finding === index + 1
 // The evidence the fixer gave for a fold-in it found already done, or undefined without any.
 const satisfiedEvidence = (fixed, foldIn) => (fixed.resolved || []).find(r => r.where === foldIn.where && (r.evidence || '').trim())?.evidence
 // An unchanged tip is a fix only when there are no blocking findings and every fold-in is proven already satisfied.
 const everyFoldInSatisfied = (fixed, blocking, foldIn) => !blocking.length && foldIn.length > 0 && foldIn.every(f => satisfiedEvidence(fixed, f))
 function fixRejection(fixed, blocking, foldIn) {
   const proofs = fixed.regression || []
-  const gaps = proofs.flatMap(proof => blocking.filter(f => proves(proof, f)).map(finding => ({ proof, finding, gap: proofGap(proof, finding) })))
+  const gaps = proofs.flatMap(proof => blocking.map((finding, index) => ({ proof, finding, index })).filter(({ index }) => proves(proof, index)).map(({ finding }) => ({ proof, finding, gap: proofGap(proof, finding) })))
     .filter(checked => checked.gap)
   if (gaps.length) return { reason: [...new Set(gaps.map(checked => checked.gap))].join('; '), regression: gaps.map(checked => checked.proof), lastBlocking: gaps.map(checked => checked.finding) }
-  const unproven = blocking.filter(f => needsProof(f) && !proofs.some(r => proves(r, f)))
-  if (unproven.length) return { reason: 'a test-gap finding or a defect with a test draft got no regression test', lastBlocking: unproven }
+  const unproven = blocking.map((finding, index) => ({ finding, index })).filter(({ finding, index }) => needsProof(finding) && !proofs.some(r => proves(r, index)))
+  if (unproven.length) {
+    const unprovenList = unproven.map(({ finding, index }) => (index + 1) + '. ' + finding.where).join(', ')
+    return { reason: `a test-gap finding or a defect with a test draft got no regression test: ${unprovenList}`, lastBlocking: unproven.map(({ finding }) => finding) }
+  }
   // Whether main moved or not, satisfied fold-ins leave the lane exactly at the merge: anything past it is unasked work.
   const nothingPastTheMerge = everyFoldInSatisfied(fixed, blocking, foldIn) && sameCommit(fixed.tip, fixed.mergedBase)
   if (sameCommit(fixed.tip, fixed.oldTip)) return nothingPastTheMerge ? null : { reason: 'the fixer changed nothing', lastBlocking: blocking }
@@ -512,9 +515,9 @@ function fixRejection(fixed, blocking, foldIn) {
 const worktreeRelative = (files) => files.map(f => f.startsWith(`${A.worktree}/`) ? f.slice(A.worktree.length + 1) : f.replace(/^\.\//, ''))
 
 // A removal answers a test-gap only if the reviewer agrees the removed test pinned nothing; a defect proof is judged by the defect bar.
-const answersTestGap = (proof, blocking) => blocking.some(f => kindOf(f) === 'test-gap' && proves(proof, f))
-const removalsInRange = (fixed, blocking) => (fixed.regression || []).filter(proof => proof.resolution === 'removed-vacuous' && answersTestGap(proof, blocking))
-  .map(proof => `\nThe fixer answered ${proof.finding} by removing a vacuous test instead of adding one; judge whether the removed test pinned no behaviour:\n${proof.diff}`).join('')
+const testGapAnswered = (proof, blocking) => blocking.find((f, index) => kindOf(f) === 'test-gap' && proves(proof, index))
+const removalsInRange = (fixed, blocking) => (fixed.regression || []).filter(proof => proof.resolution === 'removed-vacuous' && testGapAnswered(proof, blocking))
+  .map(proof => `\nThe fixer answered ${testGapAnswered(proof, blocking).where} by removing a vacuous test instead of adding one; judge whether the removed test pinned no behaviour:\n${proof.diff}`).join('')
 
 // Takes the fixer's tip and names the delta the reviewers see next, or none when a clean merge of main was the whole fix.
 function acceptFix(fixed, blocking, foldIn) {
@@ -553,7 +556,7 @@ async function fixBatch(blocking, source, budgetKey) {
     `resolve other conflicts only when you can do so without changing behaviour, and set mergeResolvedLaneConflict true when files this lane changed needed resolution). ` +
     `Return the tip after that merge as mergedBase (oldTip when main had not moved). If the worktree already carries commits or uncommitted changes past that tip from an earlier fixer that ran out of turns, judge them, keep what is right, and continue from there. Commit each finding as soon as it is green; if you run short of turns, commit what is green and return what is left in blockedReason with blocked true. ${fixerTask}${foldInBrief(foldIn)}\n\n` +
     `Each finding names the rule it breaks and its evidence. Check the evidence yourself first. If it does not hold — the rule is not broken, or the evidence is wrong — ` +
-    `do not change code for it: list it in disputed with your counter-evidence. Report every test you add for a finding in regression under that finding's exact where and its kind. ` +
+    `do not change code for it: list it in disputed with your counter-evidence. Report every test you add, strengthen or keep for a blocking finding, and every probe cell you run for it, in regression under that finding's number in the list above; the number counts only for the blocking list, a follow-up needs no regression entry. Run the mutation you name, do not reason about it. ` +
     `A defect's test fails before your fix and passes after it; a defect with a test draft needs one. A defect in test code (hygiene) needs no regression test: the diff is its proof. A test-gap finding means a behaviour has no test, the code is already right, and it always needs a test: it passes before and after, ` +
     `so name in mutation the production change, made and reverted, under which the test fails; a test that fails on the pre-fix code counts as such a mutation (failedBefore true). When a test-gap's cell pins no behaviour at all, you may remove it instead: report resolution removed-vacuous with the removal diff in diff. A docs finding needs no test. When the only finding is that the pull request conflicts with main, the merge is the whole fix. ` +
     `Otherwise one commit per finding. Push, patch the PR body only where it became false (REST PATCH with --input, never gh pr edit --body-file), run \`aco check ${pr}\` from the worktree. ` +

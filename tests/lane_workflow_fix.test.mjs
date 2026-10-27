@@ -1,19 +1,19 @@
 // Drives the atelier lane workflow script through the fixer, fold-in, proof and removal rules with a stub agent runner.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { runLane, APPROVE, PASS, greenCi, finding, followup, webauthTips, webauthReplay, agentProvidersReplay, replays, answersWith, resumeTip, resumeFixedTip, tidy, defectWithoutDraft, resumeFix, resumeArgs, unchangedFix, satisfied, reachesTheEnd, testGap, built } from './lane_workflow_harness.mjs'
+import { runLane, APPROVE, PASS, greenCi, finding, followup, webauthTips, webauthReplay, agentProvidersReplay, replays, answersWith, outOfRange, resumeTip, resumeFixedTip, tidy, defectWithoutDraft, resumeFix, resumeArgs, unchangedFix, satisfied, reachesTheEnd, testGap, built } from './lane_workflow_harness.mjs'
 
 const proofsByKind = [
   ['a resumed run whose findings carry no kind stops at the fix as before', { kind: undefined, testDraft: true, mutation: true }, false],
   ['#103 AC-proof-matches-its-finding: a defect with a test draft whose test did not fail before stops at the fix', { kind: 'defect', testDraft: true, mutation: true }, false],
-  ['#103 AC-proof-matches-its-finding: a test-gap whose only proof names another kind stops at the fix', { kind: 'test-gap', mutation: true, proofKind: 'defect' }, false],
+  ['#284 a test-gap whose only proof is numbered for a neighbouring finding stops at the fix', { kind: 'test-gap', mutation: true, proofNumber: 2 }, false],
   ['#103 AC-pre-fix-mutation: a test-gap whose test failed on the pre-fix code needs no named mutation and moves past the fix', { kind: 'test-gap', mutation: false, failedBefore: true }, true],
   ['a test-gap without a named mutation stops at the fix', { kind: 'test-gap', mutation: false }, false],
   ['a test-gap whose test does not pass after the fix stops at the fix', { kind: 'test-gap', mutation: true, passesAfter: false }, false],
   ['a test-gap without any proof stops at the fix', { kind: 'test-gap', proof: 'omitted' }, false],
-  ['a test-gap whose proof names only a near match of its where stops at the fix', { kind: 'test-gap', mutation: true, proof: 'near-match' }, false],
+  ['#284 a test-gap whose proof is numbered one past the list stops at the fix', { kind: 'test-gap', mutation: true, proofNumber: outOfRange }, false],
   ['a test-gap proven by a named mutation moves past the fix', { kind: 'test-gap', mutation: true }, true],
-  ['a failing proof for a where no blocking finding has is ignored and the run moves past the fix', { kind: 'test-gap', mutation: true, strayProof: true }, true],
+  ['a failing proof numbered past the blocking list is ignored and the run moves past the fix', { kind: 'test-gap', mutation: true, strayProof: true }, true],
   ['#90 AC-hygiene-defect: a hygiene defect proven by the diff needs no mutation and moves past the fix', { kind: 'defect', mutation: false, proof: 'omitted' }, true],
   ['a docs finding needs no test and moves past the fix', { kind: 'docs', mutation: false }, true],
   ['a docs finding with a test draft needs no test either and moves past the fix', { kind: 'docs', testDraft: true, proof: 'omitted' }, true],
@@ -236,24 +236,29 @@ test('a follow-up carries the tip it was raised at, and the result lists those r
 
 const defectWithDraft = { ...finding('t.py:1', 'the code breaks the rule'), kind: 'defect', testDraft: '/s/draft_test.py' }
 
-const proofOf = (kind, overrides) => ({ finding: 't.py:1', kind, test: 't.py [case]', failedBefore: false, passesAfter: true, ...overrides })
+const proofOf = (finding, overrides) => ({ finding, test: 't.py [case]', failedBefore: false, passesAfter: true, ...overrides })
 
 const removalDiff = '-    def test_case_that_asserts_nothing(): pass'
 
-const proofsAtOneWhere = [
-  ['a defect and a test-gap at one where, each with its own proof, are each accepted', [defectWithDraft, testGap], [proofOf('defect', { failedBefore: true }), proofOf('test-gap', { mutation: 'drop the guard' })], null],
-  ['one proof for the defect does not satisfy the test-gap at the same where', [defectWithDraft, testGap], [proofOf('defect', { failedBefore: true })], /test-gap finding or a defect with a test draft got no regression test/],
-  ['a test-gap test that failed before the fix needs no mutation', [testGap], [proofOf('test-gap', { failedBefore: true })], null],
-  ['a test-gap test without a mutation that did not fail before is rejected naming its where and the mutation', [testGap], [proofOf('test-gap')], /t\.py:1.*no mutation/],
-  ['a test-gap test with a mutation that does not pass after is rejected as not passing', [testGap], [proofOf('test-gap', { mutation: 'drop the guard', passesAfter: false })], /t\.py:1.*did not pass/],
-  ['a defect without a test draft needs no failing-before test', [defectWithoutDraft], [proofOf('defect')], null],
-  ['a defect with a test draft still needs its test to fail before', [defectWithDraft], [proofOf('defect')], /did not fail before/],
-  ['a removed vacuous test with its diff answers a test-gap', [testGap], [proofOf('test-gap', { resolution: 'removed-vacuous', diff: removalDiff })], null],
-  ['a removed vacuous test without a diff is rejected', [testGap], [proofOf('test-gap', { resolution: 'removed-vacuous' })], /t\.py:1.*no diff/],
+const rejectedForNoProof = /test-gap finding or a defect with a test draft got no regression test/
+
+const proofsByNumber = [
+  ['a defect and a test-gap at one where, each with its own number, are each accepted', [defectWithDraft, testGap], [proofOf(1, { failedBefore: true }), proofOf(2, { mutation: 'drop the guard' })], null],
+  ['a proof numbered for the neighbouring finding does not prove this one', [defectWithDraft, testGap], [proofOf(1, { failedBefore: true })], rejectedForNoProof],
+  ['a test-gap test that failed before the fix needs no mutation', [testGap], [proofOf(1, { failedBefore: true })], null],
+  ['a test-gap test without a mutation that did not fail before is rejected naming its where and the mutation', [testGap], [proofOf(1)], /t\.py:1.*no mutation/],
+  ['a test-gap test with a mutation that does not pass after is rejected as not passing', [testGap], [proofOf(1, { mutation: 'drop the guard', passesAfter: false })], /t\.py:1.*did not pass/],
+  ['a defect without a test draft needs no failing-before test', [defectWithoutDraft], [proofOf(1)], null],
+  ['a defect with a test draft still needs its test to fail before', [defectWithDraft], [proofOf(1)], /did not fail before/],
+  ['a removed vacuous test with its diff answers a test-gap', [testGap], [proofOf(1, { resolution: 'removed-vacuous', diff: removalDiff })], null],
+  ['a removed vacuous test without a diff is rejected', [testGap], [proofOf(1, { resolution: 'removed-vacuous' })], /t\.py:1.*no diff/],
+  ['a number pointing at a docs finding adds no pass for the test-gap behind it', [docsFinding, testGap], [proofOf(1)], rejectedForNoProof],
+  ['two proofs for one number, one of them bad, are still rejected', [testGap], [proofOf(1, { mutation: 'drop the guard' }), proofOf(1, { mutation: 'drop the guard', passesAfter: false })], /did not pass/],
+  ...[0, 1.5, '1', 2].map(number => [`a proof numbered ${JSON.stringify(number)} is ignored and the test-gap stays unproven`, [testGap], [proofOf(number, { mutation: 'drop the guard' })], rejectedForNoProof]),
 ]
 
-for (const [behaviour, fixFirst, regression, rejectedFor] of proofsAtOneWhere) {
-  test(`#103 proof guard: ${behaviour}`, async () => {
+for (const [behaviour, fixFirst, regression, rejectedFor] of proofsByNumber) {
+  test(`#103 #284 defect:#284 proof guard: ${behaviour}`, async () => {
     const { result, launchedAgents } = await runLane({ ...resumeArgs, fixFirst }, { 'fix-1': { ...resumeFix, regression } })
     if (rejectedFor) {
       assert.deepEqual([result.status, result.stage], ['failed', 'fix'])
@@ -264,6 +269,34 @@ for (const [behaviour, fixFirst, regression, rejectedFor] of proofsAtOneWhere) {
   })
 }
 
+test('#284 defect:#284 a proof numbered 1 is judged as blocking finding 1 whatever it covers, and the fixer sees the fold-ins unnumbered', async () => {
+  const { result, agentCalls } = await runLane({ ...resumeArgs, fixFirst: [testGap], foldIn: [tidy] }, { 'fix-1': { ...resumeFix, regression: [proofOf(1, { test: 'the fold-in test', passesAfter: false })] } })
+  assert.deepEqual([result.status, result.stage], ['failed', 'fix'])
+  assert.deepEqual(result.lastBlocking.map(f => f.where), [testGap.where])
+  const { prompt } = agentCalls['fix-1']
+  assert.match(prompt, /^1\. t\.py:1 — a behaviour has no test$/m)
+  assert.match(prompt, /^- x\.py:1 — tidy the import order$/m)
+  assert.doesNotMatch(prompt, /^\d+\. x\.py:1/m)
+  assert.match(prompt, /a follow-up needs no regression entry/)
+})
+
+test('#284 defect:#284 the numbers in the fixer prompt are the ones a proof is judged by, on a CI fix as on the first fix', async () => {
+  const { agentCalls: first } = await runLane({ ...resumeArgs, fixFirst: [defectWithoutDraft, testGap] }, { 'fix-1': { ...resumeFix, regression: [proofOf(2, { mutation: 'drop the guard' })] } })
+  assert.match(first['fix-1'].prompt, /^2\. t\.py:1 — a behaviour has no test$/m)
+  const ci = { head: resumeTip, green: false, failing: [defectWithoutDraft, testGap] }
+  const { agentCalls: viaCi, result } = await runLane(resumeArgs, { 'r0-review': APPROVE, 'e2e-0': PASS, 'ci-0': ci, 'r1-review': APPROVE, 'fix-1': { ...resumeFix, regression: [proofOf(2, { mutation: 'drop the guard' })] }, 'ci-1': greenCi(resumeFixedTip) })
+  assert.match(viaCi['fix-1'].prompt, /^2\. t\.py:1 — a behaviour has no test$/m)
+  assert.equal(result.status, 'ready-to-land', result.reason)
+})
+
+test('#284 defect:#284 the fixer schema takes the finding as an integer from 1 and carries no kind', async () => {
+  const { agentCalls } = await runLane({ ...resumeArgs, fixFirst: [testGap] }, { 'fix-1': { ...resumeFix, regression: [proofOf(1, { mutation: 'm' })] } })
+  const proofItem = agentCalls['fix-1'].options.schema.properties.regression.items
+  assert.deepEqual([proofItem.properties.finding.type, proofItem.properties.finding.minimum], ['integer', 1])
+  assert.equal(proofItem.properties.kind, undefined)
+  assert.ok(!proofItem.required.includes('kind'))
+})
+
 const removalsByFindingKind = [
   ['#103 AC-removed-vacuous: the review after a removal answering a test-gap asks the reviewer to judge the removed test', testGap, true],
   ['#71 AC-removal-answers-test-gap: a defect proof marked removed-vacuous is judged by the defect bar and shows no removal', defectWithoutDraft, false],
@@ -271,10 +304,11 @@ const removalsByFindingKind = [
 
 for (const [behaviour, answered, shownAsRemoval] of removalsByFindingKind) {
   test(behaviour, async () => {
-    const regression = [proofOf(answered.kind, { resolution: 'removed-vacuous', diff: removalDiff, failedBefore: true })]
+    const regression = [proofOf(1, { resolution: 'removed-vacuous', diff: removalDiff, failedBefore: true })]
     const { agentCalls } = await runLane({ ...resumeArgs, fixFirst: [answered] }, { 'fix-1': { ...resumeFix, regression } })
     const prompt = agentCalls['r1-review'].prompt
     assert.equal(/removing a vacuous test.*judge whether the removed test pinned no behaviour/.test(prompt), shownAsRemoval)
     assert.equal(prompt.includes(removalDiff), shownAsRemoval)
+    assert.equal(prompt.includes(`answered ${answered.where} by removing`), shownAsRemoval)
   })
 }

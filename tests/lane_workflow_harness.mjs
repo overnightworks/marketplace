@@ -49,7 +49,7 @@ export const webauthC1Finding = 'src/webauth/jwt_verification.py:65 (_URL_CONTRO
 export const webauthReplay = {
   name: 'webauth#57',
   args: { item: 57, worktree: '/w', branch: 'b', contract: 'c', e2e: 'e', scratch: '/s', build: 'recorded', risk: 'material' },
-  testGap: { raisedBy: 'r1-gate', fixedBy: 'fix-2', where: 'tests/test_oidc.py:479', mutation: 'drop quote_plus from the client-ID part of the Basic authorization only' },
+  testGap: { raisedBy: 'r1-gate', fixedBy: 'fix-2', number: 3, where: 'tests/test_oidc.py:479', mutation: 'drop quote_plus from the client-ID part of the Basic authorization only' },
   nextReview: 'r2-review',
   // The fix-in-place follow-ups by the fix that carried them, and how many follow-ups the head still routes when the lane is ready.
   foldIns: {
@@ -83,9 +83,9 @@ export const webauthReplay = {
       oldTip: webauthTips.built, mergedBase: '1a0864b704b6717b660951357191f1562af7802e', tip: webauthTips.firstFix, mergeResolvedLaneConflict: true, disputed: [], blocked: false,
       files: ['README.md', 'pyproject.toml', 'src/webauth/__init__.py', 'src/webauth/config.py', 'src/webauth/jwt_verification.py', 'src/webauth/liveness.py', 'src/webauth/oidc.py', 'tests/test_jwt_verification.py', 'tests/test_liveness.py', 'tests/test_oidc.py', 'tests/test_web_auth_config.py', 'uv.lock'],
       regression: [
-        { finding: 'src/webauth/oidc.py:340-356 (_is_same_secret, _callback_parameters) via OidcRelyingParty.complete_login', kind: 'defect', test: 'tests/test_oidc.py [lone-surrogate-not-percent-encoded]', failedBefore: true, passesAfter: true },
-        { finding: 'tests/test_oidc.py:70-72, 463-476 (token request test) and 230-291 (_CALLBACK_REFUSALS)', kind: 'test-gap', test: 'tests/test_oidc.py [secret-form-encoded-before-basic-encoding]', failedBefore: true, passesAfter: true },
-        { finding: 'src/webauth/oidc.py:315', kind: 'defect', test: 'tests/test_oidc.py [redirect-uri-with-a-carriage-return-in-its-path]', failedBefore: true, passesAfter: true },
+        { finding: 1, test: 'tests/test_oidc.py [lone-surrogate-not-percent-encoded]', failedBefore: true, passesAfter: true },
+        { finding: 2, test: 'tests/test_oidc.py [secret-form-encoded-before-basic-encoding]', failedBefore: true, passesAfter: true },
+        { finding: 3, test: 'tests/test_oidc.py [redirect-uri-with-a-carriage-return-in-its-path]', failedBefore: true, passesAfter: true },
       ],
     },
     'r1-review': {
@@ -107,10 +107,10 @@ export const webauthReplay = {
       oldTip: webauthTips.firstFix, mergedBase: webauthTips.firstFix, tip: webauthTips.secondFix, mergeResolvedLaneConflict: false, disputed: [], blocked: false,
       files: ['src/webauth/jwt_verification.py', 'src/webauth/oidc.py', 'tests/test_jwt_verification.py', 'tests/test_oidc.py'],
       regression: [
-        { finding: webauthC1Finding, kind: 'defect', test: 'tests/test_oidc.py [redirect-uri-with-a-c1-control-character]', failedBefore: true, passesAfter: true },
-        { finding: 'src/webauth/jwt_verification.py:65', kind: 'defect', test: 'tests/test_oidc.py [redirect-uri-with-a-c1-control-character]', failedBefore: true, passesAfter: true },
-        { finding: 'tests/test_oidc.py:479', kind: 'test-gap', test: 'tests/test_oidc.py [client-id-form-encoded-before-basic-encoding]', failedBefore: false, passesAfter: true },
-        { finding: 'src/webauth/jwt_verification.py:365-372 (is_https_url) follow-up', kind: 'defect', test: 'tests/test_jwt_verification.py [key-set-url-not-a-string]', failedBefore: true, passesAfter: true },
+        { finding: 1, test: 'tests/test_oidc.py [redirect-uri-with-a-c1-control-character]', failedBefore: true, passesAfter: true },
+        { finding: 2, test: 'tests/test_oidc.py [redirect-uri-with-a-c1-control-character]', failedBefore: true, passesAfter: true },
+        { finding: 3, test: 'tests/test_oidc.py [client-id-form-encoded-before-basic-encoding]', failedBefore: false, passesAfter: true },
+        { finding: 4, test: 'tests/test_jwt_verification.py [key-set-url-not-a-string]', failedBefore: true, passesAfter: true },
       ],
     },
     'r2-review': APPROVE,
@@ -125,7 +125,7 @@ export const agentProvidersTips = { built: 'adfb04bc5b1f543f6060709047570d92550f
 export const agentProvidersReplay = {
   name: 'agent-providers#25',
   args: { item: 25, worktree: '/w', branch: 'b', contract: 'c', e2e: 'e', scratch: '/s', build: 'recorded', risk: 'material' },
-  testGap: { raisedBy: 'r0-gate', fixedBy: 'fix-1', where: 'tests/test_sse_codec.py:58', mutation: 'encode_event writes the event line before the id line' },
+  testGap: { raisedBy: 'r0-gate', fixedBy: 'fix-1', number: 1, where: 'tests/test_sse_codec.py:58', mutation: 'encode_event writes the event line before the id line' },
   nextReview: 'r1-gate',
   foldIns: {
     accepted: {
@@ -155,7 +155,7 @@ export const agentProvidersReplay = {
     'fix-1': {
       oldTip: agentProvidersTips.built, mergedBase: agentProvidersTips.built, tip: agentProvidersTips.fix, mergeResolvedLaneConflict: false, disputed: [], blocked: false,
       files: ['docs/decisions/0001-agent-service.md', 'packages/agent-client/src/agent_client/wire.py', 'tests/test_sse_codec.py'],
-      regression: [{ finding: 'tests/test_sse_codec.py:58', kind: 'test-gap', test: 'tests/test_sse_codec.py::test_an_event_travels_as_one_frame_of_compact_utf8_json', failedBefore: false, passesAfter: true }],
+      regression: [{ finding: 1, test: 'tests/test_sse_codec.py::test_an_event_travels_as_one_frame_of_compact_utf8_json', failedBefore: false, passesAfter: true }],
     },
     'r1-gate': { ...APPROVE, codexExit: 0 },
     'e2e-0': PASS,
@@ -165,21 +165,23 @@ export const agentProvidersReplay = {
 
 export const replays = [webauthReplay, agentProvidersReplay]
 
-export function answersWith(replay, { kind, mutation, testDraft = false, passesAfter = true, proof = 'exact', strayProof = false, proofKind, failedBefore }) {
+// One past every blocking list a replay hands a fixer.
+export const outOfRange = 9
+
+export function answersWith(replay, { kind, mutation, testDraft = false, passesAfter = true, proof = 'exact', proofNumber, strayProof = false, failedBefore }) {
   const answers = structuredClone(replay.answers)
-  const { raisedBy, fixedBy, where } = replay.testGap
+  const { raisedBy, fixedBy, number, where } = replay.testGap
   const testGap = answers[raisedBy].blocking.find(f => f.where === where)
   if (kind) testGap.kind = kind
   if (testDraft) testGap.testDraft = '/s/draft_test.py'
   const regression = answers[fixedBy].regression
-  const testGapProof = regression.find(recorded => recorded.finding === where)
-  testGapProof.kind = proofKind || testGap.kind || 'defect'
+  const testGapProof = regression.find(recorded => recorded.finding === number)
   if (mutation) testGapProof.mutation = replay.testGap.mutation
   testGapProof.passesAfter = passesAfter
   if (failedBefore !== undefined) testGapProof.failedBefore = failedBefore
-  if (proof === 'near-match') testGapProof.finding = `${where} (test)`
+  if (proofNumber !== undefined) testGapProof.finding = proofNumber
   if (proof === 'omitted') regression.splice(regression.indexOf(testGapProof), 1)
-  if (strayProof) regression.push({ finding: replay.foldIns.accepted.folded.at(-1)[0], test: 'fold-in test', failedBefore: false, passesAfter: false })
+  if (strayProof) regression.push({ finding: outOfRange, test: 'fold-in test', failedBefore: false, passesAfter: false })
   return answers
 }
 

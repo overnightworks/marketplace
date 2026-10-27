@@ -170,8 +170,8 @@ test('#108 AC-sync-in-worktree: the sync prompt separates the no-op sentence fro
 })
 
 const textsThatAreNotAcoAnswers = ['"claimed"', '{"a":1}', '[1]', 'true', 'not json', 'ERROR: no claim store']
-test('#118 AC-answer-not-aco: a push that succeeded but an answer without outside_claim stops at scope naming the omission', async () => {
-  const { result, launchedAgents } = await runLane(builtLane, { build: built, 'scope-0': { remote_tip: built.tip } })
+test('#118 AC-answer-not-aco: a push that succeeded but an empty outside_claim stops at scope naming the omission', async () => {
+  const { result, launchedAgents } = await runLane(builtLane, { build: built, 'scope-0': { remote_tip: built.tip, outside_claim: '' } })
   assert.deepEqual([result.status, result.stage], ['failed', 'scope'])
   assert.match(result.reason, /no outside_claim/)
   assert.doesNotMatch(result.reason, /undefined/)
@@ -203,9 +203,9 @@ test('#108 AC-scope-error-named: the scope agent is told to return the error out
 const scopeSchemaOf = async () => (await runLane(builtLane, { build: built })).agentCalls['scope-0'].options.schema
 // json.dumps prints non-ASCII as \uXXXX and escapes a quote with a backslash
 
-const acoPrints = ['null', '[]', '["a.py"]', '["a.py", "dir/b c.py"]', '["caf\\u00e9/\\u3042.py"]', '["a\\"b.py"]']
+const acoPrints = ['', 'null', '[]', '["a.py"]', '["a.py", "dir/b c.py"]', '["caf\\u00e9/\\u3042.py"]', '["a\\"b.py"]']
 
-const slipsAndForeignText = ['', '"claimed"', '{"a":1}', '[1]', '["a.py", 2]', 'true', 'not json', 'ERROR: no claim store', 'null null', '[] []']
+const slipsAndForeignText = [' ', '"claimed"', '{"a":1}', '[1]', '["a.py", 2]', 'true', 'not json', 'ERROR: no claim store', 'null null', '[] []']
 
 for (const [printed, admitted] of [...acoPrints.map(text => [text, true]), ...slipsAndForeignText.map(text => [text, false])]) {
   test(`#118 AC-schema-admits-aco-only: the scope agent's schema ${admitted ? 'admits' : 'refuses'} ${JSON.stringify(printed)} as outside_claim`, async () => {
@@ -215,10 +215,11 @@ for (const [printed, admitted] of [...acoPrints.map(text => [text, true]), ...sl
   })
 }
 
-test('#118 AC-failed-command-own-field: the schema lets a failed command be answered by its error output alone', async () => {
+test('#323 AC-failed-command-own-field: the schema requires all three fields, so a failed command is answered with empty strings for the others', async () => {
   const schema = await scopeSchemaOf()
   assert.equal(schema.properties.command_error.type, 'string')
-  assert.deepEqual(schema.required.filter(field => field === 'outside_claim' || field === 'remote_tip'), [])
+  assert.deepEqual([...schema.required].sort(), ['command_error', 'outside_claim', 'remote_tip'])
+  assert.ok(new RegExp(schema.properties.outside_claim.pattern).test(''))
 })
 
 const failedCommands = [

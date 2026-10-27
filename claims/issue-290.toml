@@ -1,0 +1,8 @@
+claim_id = "302a6ea59f3b439bb02150443908136c"
+agent = "Claude b5de3560-4db0-4dfe-be9f-fe26ef53140a"
+role = "builder"
+base = "0782462efb2a8fad371abf861aca8e9dd237ad47"
+branch = "claude/issue-290-resume-reviews-whole-lane"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/workflows/lane.js", "tests/lane_workflow.test.mjs"]
+opened_commit = "371109b0d50ec669857e4703744a58ad9699f3be"
+whole_reason = "One resume block in lane.js with its tests, plus the three version pins every atelier release moves together."

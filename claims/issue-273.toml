@@ -1,0 +1,8 @@
+claim_id = "8bbaf3ddb0894954a819b1ede1c1cee2"
+agent = "Claude b5de3560-4db0-4dfe-be9f-fe26ef53140a"
+role = "builder"
+base = "5b282c14c484eae071f88fc71f4c9908c0f79ff1"
+branch = "claude/issue-273-courier-reread-and-small-cards"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/workflows/lane.js", "tests/lane_workflow.test.mjs", "tests/lane_workflow_scope.test.mjs"]
+opened_commit = "df8c5ce8aef708955a8a976fba75dd97befc33e1"
+whole_reason = "Three small lane.js cards bundled under the lead #273, each with its own tests, plus the three version pins one atelier release moves together."

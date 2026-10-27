@@ -111,10 +111,22 @@ contract and this skill.
 - Pipe the new body through `aco check -` before writing it; it reports defects
   in the fenced `aco` block (`specs/check.spec.md`, `specs/body-block.spec.md`).
 - `aco check <issue>` judges a written issue body's contract.
-- A slice becomes an item with `aco cut` (`specs/cut.spec.md`); expectation lines go
-  through `aco ask` and `aco rule` (`specs/ask.spec.md`, `specs/rule.spec.md`), the
-  latter only transcribing the operator's word; `aco rulings` prints the line index
-  that `aco rule --line N` takes.
+- A slice becomes an item with `aco cut` (`specs/cut.spec.md`).
+- An operator question is written only as an option line in the item body (shape:
+  `specs/body-block.spec.md`, "Option lines"), never through `aco ask` and never as a
+  yes/no line. Pipe the new body through `aco check -` first, then write it with
+  `gh issue edit` under `storage = "github"` or `aco item edit` under state-ref.
+- Outside an option's `contract`, a card carries no issue numbers, paths, file names,
+  backticks, code names or flags; the problem is at most 20 words and an option name
+  2 to 5 words (overnightworks/aco#13 line 14). `aco check` does not enforce this yet.
+- Transcribe a chat answer with `aco rule <n> --line <k> --option <letter> --via chat
+  --card-hash <hash>`, the hash being the line's `card_hash` in `aco rulings --json`;
+  an answer that fits no option uses `--other "<the operator's words>"` instead of
+  `--option` (`specs/rule.spec.md`). `aco rule` only transcribes the operator's word;
+  `aco rulings` prints the line index `--line` takes.
+- A GitHub body has no compare-and-swap: re-read it right before writing, diff old
+  against new so only your own lines differ, and afterwards check with `aco rulings`
+  that every other line kept its state.
 
 ## Pull request body
 

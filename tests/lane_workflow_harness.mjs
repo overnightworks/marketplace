@@ -219,9 +219,7 @@ export const reachesTheEnd = { 'r1-review': APPROVE, 'e2e-0': PASS, 'ci-0': gree
 
 export const testGap = { ...finding('t.py:1', 'a behaviour has no test'), kind: 'test-gap' }
 
-export const bouncedTip = 'e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2'
-
-export const bounceFix = { ...resumeFix, oldTip: resumeFixedTip, mergedBase: resumeFixedTip, tip: bouncedTip, files: ['x.py'], regression: [] }
+export const secondFix = { ...resumeFix, oldTip: resumeFixedTip, mergedBase: resumeFixedTip, tip: 'e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3', files: ['x.py'], regression: [] }
 
 export const built = { pr: 2, tip: resumeTip, blocked: false }
 

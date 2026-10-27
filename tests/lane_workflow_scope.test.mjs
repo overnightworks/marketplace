@@ -1,66 +1,63 @@
 // Drives the atelier lane workflow script through the sync, push, claim scope and rescope rules with a stub agent runner.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { runLane, resumedLane, APPROVE, PASS, greenCi, finding, agentProvidersReplay, tidy, satisfied, unchangedFix, webauthReplay, answersWith, resumeTip, resumeFixedTip, defectWithoutDraft, resumeFix, resumeArgs, bouncedTip, bounceFix, built, mergedOnlyTip, conflictsWithMain, mergeOnlyFix, reachesTheEnd } from './lane_workflow_harness.mjs'
+import { runLane, resumedLane, APPROVE, PASS, greenCi, finding, agentProvidersReplay, tidy, satisfied, unchangedFix, webauthReplay, answersWith, resumeTip, resumeFixedTip, defectWithoutDraft, resumeFix, resumeArgs, built, mergedOnlyTip, conflictsWithMain, mergeOnlyFix, reachesTheEnd } from './lane_workflow_harness.mjs'
 
 const builtLane = { ...resumedLane, pr: undefined, tip: undefined, build: 'b' }
 
-const claimScopeAnswers = (outsideClaim) => ({ 'fix-1': { ...resumeFix, regression: [] }, 'scope-1': { outside_claim: JSON.stringify(outsideClaim) }, 'fix-2': bounceFix })
+const outsideClaim = (paths) => ({ outside_claim: JSON.stringify(paths) })
+const newRunWithBothChoices = /aco rescope[\s\S]*new run with pr and tip[\s\S]*fixFirst[\s\S]*revert[\s\S]*git log origin\/main\.\.\w+ -- board\.py/
+const reviseOnce = { verdict: 'REVISE', blocking: [{ ...defectWithoutDraft, kind: 'docs' }], followups: [] }
+const redCi = { head: resumeFixedTip, green: false, failing: [{ ...finding('ci', 'quality / verdict is red'), kind: 'defect' }], checks: [{ name: 'quality / verdict', bucket: 'fail' }], requiredChecks: ['quality / verdict'] }
+const aFixFor = { ...resumeFix, regression: [] }
 
-const bouncesAfterAFixer = [
-  ['#71 AC-bounce-outside-claim: a fixer that changed board.py outside the claim is bounced to a fresh fixer naming it, before review', ['board.py'], ['fix-1', 'scope-1', 'fix-2', 'scope-2', 'r2-review']],
-  ['#71 AC-bounce-outside-claim: outside_claim [] goes to review unchanged', [], ['fix-1', 'scope-1', 'r1-review']],
+const scopeStops = [
+  ['#316 AC-scope-stop-not-bounce: a review fixer that changed board.py ends awaiting-head at scope and names the tip before its fix as deltaFrom',
+    resumeArgs, { 'r0-review': reviseOnce, 'fix-1': aFixFor, 'scope-1': outsideClaim(['board.py']) }, ['r0-review', 'fix-1', 'scope-1'], resumeFixedTip, [`deltaFrom ${resumeTip}`, /no reviewer has seen/]],
+  ['#316 AC-scope-stop-not-bounce: a CI fix outside the claim ends at scope with no fixer after it and names the unreviewed fix commits and the tip before the fix',
+    resumeArgs, { 'r0-review': APPROVE, 'e2e-0': PASS, 'ci-0': { ...redCi, head: resumeTip }, 'fix-1': aFixFor, 'scope-1': outsideClaim(['board.py']) }, ['e2e-0', 'ci-0', 'fix-1', 'scope-1'], resumeFixedTip, [`deltaFrom ${resumeTip}`, /fix commits no reviewer has seen/]],
+  ['#316 AC-scope-stop-not-bounce: a resume whose inherited commits are outside the claim ends at scope and names no deltaFrom',
+    resumeArgs, { 'scope-resume': outsideClaim(['board.py']) }, ['sync', 'scope-resume'], resumeTip, [/earlier run/]],
+  ['#316 AC-scope-stop-not-bounce: a resume with deltaFrom alone whose inherited commits are outside the claim names no deltaFrom',
+    { ...resumeArgs, deltaFrom: resumeTip }, { 'scope-resume': outsideClaim(['board.py']) }, ['sync', 'scope-resume'], resumeTip, [/earlier run/]],
+  ['#316 AC-scope-stop-not-bounce: a builder that left the claim scope ends at scope and names the merge-base as deltaFrom',
+    builtLane, { build: built, 'scope-0': outsideClaim(['board.py']) }, ['build', 'scope-0'], resumeTip, ['deltaFrom the output of', /merge-base origin\/main/, /No reviewer has seen the build/]],
+  ['#316 AC-scope-stop-not-bounce: a carried batch that ends outside the claim says the paths may come from earlier commits and names no deltaFrom',
+    { ...resumeArgs, fixFirst: [defectWithoutDraft] }, { 'fix-1': aFixFor, 'scope-1': outsideClaim(['board.py']) }, ['sync', 'fix-1', 'scope-1'], resumeFixedTip, [/earlier commits/]],
+  ['#316 AC-scope-stop-not-bounce: a carried batch with deltaFrom that ends outside the claim names the deltaFrom the run was given',
+    { ...resumeArgs, fixFirst: [defectWithoutDraft], deltaFrom: resumeTip }, { 'fix-1': aFixFor, 'scope-1': outsideClaim(['board.py']) }, ['sync', 'fix-1', 'scope-1'], resumeFixedTip, [`deltaFrom ${resumeTip}`, /earlier commits/]],
 ]
 
-for (const [behaviour, outsideClaim, expectedAgents] of bouncesAfterAFixer) {
+for (const [behaviour, args, answers, expectedAgents, expectedTip, reasonParts] of scopeStops) {
   test(behaviour, async () => {
-    const { launchedAgents, agentCalls } = await runLane({ ...resumeArgs, fixFirst: [defectWithoutDraft] }, claimScopeAnswers(outsideClaim))
-    assert.deepEqual(launchedAgents.slice(2, 2 + expectedAgents.length), expectedAgents)
-    if (outsideClaim.length) {
-      assert.match(agentCalls['fix-2'].prompt, /board\.py/)
-      assert.match(agentCalls['fix-2'].prompt, /move the change back inside the claim scope or revert it/)
-      const reviewPrompt = agentCalls['r2-review'].prompt
-      assert.ok(reviewPrompt.includes(`git diff ${resumeTip}..${resumeFixedTip}`), 'the review still sees the first fix')
-      assert.ok(reviewPrompt.includes(`git diff ${resumeFixedTip}..${bouncedTip}`), 'the review sees the bounce')
-      assert.ok(reviewPrompt.includes('git diff origin/main...HEAD'), 'the review sees the whole lane')
-    }
+    const { result, launchedAgents } = await runLane(args, answers)
+    assert.deepEqual(launchedAgents.slice(-expectedAgents.length), expectedAgents)
+    assert.ok(!launchedAgents.some(label => /^(fix-[2-9])$/.test(label)), 'no fixer follows the scope check')
+    assert.deepEqual([result.status, result.stage, result.outside, result.tip], ['awaiting-head', 'scope', ['board.py'], expectedTip])
+    assert.match(result.reason, newRunWithBothChoices)
+    assert.doesNotMatch(result.reason, /resume/i)
+    for (const part of reasonParts) assert.ok(typeof part === 'string' ? result.reason.includes(part) : part.test(result.reason), `${part}: ${result.reason}`)
+    if (!reasonParts.some(part => typeof part === 'string')) assert.doesNotMatch(result.reason, /deltaFrom/)
+    assert.deepEqual(result.history.at(-1), { by: 'scope', outside: ['board.py'], tip: expectedTip })
   })
 }
 
-const stopsWhileFixersStayOutside = [
-  ['the second fixer leaves the same paths again', { budgets: { test: 3 } }, ['fix-1', 'scope-1', 'fix-2', 'scope-2'], /left the claim scope again at board\.py/],
-  ['the fix budget is spent', { budgets: { test: 1 } }, ['fix-1', 'scope-1'], /test budget spent/],
-]
+test('#316 AC-scope-stop-not-bounce: outside_claim [] after a fixer goes to review unchanged', async () => {
+  const { launchedAgents } = await runLane({ ...resumeArgs, fixFirst: [defectWithoutDraft] }, { 'fix-1': aFixFor })
+  assert.deepEqual(launchedAgents.slice(1, 4), ['fix-1', 'scope-1', 'r1-review'])
+})
 
-for (const [behaviour, extraArgs, expectedAgents, reason] of stopsWhileFixersStayOutside) {
-  test(`#71 AC-bounce-outside-claim: a lane stops when ${behaviour}, before any review`, async () => {
-    const answers = { ...claimScopeAnswers(['board.py']), 'scope-2': { outside_claim: '["board.py"]' } }
-    const { result, launchedAgents } = await runLane({ ...resumeArgs, ...extraArgs, fixFirst: [defectWithoutDraft] }, answers)
-    assert.equal(result.status, 'unresolved')
-    assert.match(result.reason, reason)
-    assert.deepEqual(launchedAgents.slice(2), expectedAgents)
-  })
-}
+test('#316 AC-carried-batch-checked-after: a resume carrying fixFirst over inherited outside commits runs no scope check before the batch, and the check after it decides', async () => {
+  const { result, launchedAgents } = await runLane({ ...resumeArgs, fixFirst: [defectWithoutDraft] }, { 'scope-resume': outsideClaim(['board.py']), 'fix-1': aFixFor, 'scope-1': outsideClaim([]), ...reachesTheEnd, 'ci-0': greenCi(resumeFixedTip) })
+  assert.ok(!launchedAgents.includes('scope-resume'))
+  assert.deepEqual(launchedAgents.slice(0, 4), ['sync', 'fix-1', 'scope-1', 'r1-review'])
+  assert.equal(result.status, 'ready-to-land', result.reason)
+})
 
-const resumesOutsideTheClaim = [
-  ['deltaFrom alone', { deltaFrom: resumeTip }],
-  ['pr and tip alone', {}],
-]
-
-for (const [handedOver, args] of resumesOutsideTheClaim) {
-  test(`#71 AC-bounce-outside-claim: a resume with ${handedOver} whose range left the claim scope is bounced before its first review`, async () => {
-    const { launchedAgents, agentCalls } = await runLane({ ...resumeArgs, ...args }, { 'scope-resume': { outside_claim: '["board.py"]' }, 'fix-1': { ...resumeFix, regression: [] } })
-    assert.deepEqual(launchedAgents.slice(0, 4), ['sync', 'scope-resume', 'fix-1', 'scope-1'])
-    assert.match(agentCalls['fix-1'].prompt, /board\.py/)
-    assert.ok(launchedAgents.findIndex(label => label.endsWith('-review')) > launchedAgents.indexOf('scope-1'))
-  })
-}
-
-test('#71 AC-bounce-outside-claim: a builder that left the claim scope is bounced before the first review', async () => {
-  const { launchedAgents, agentCalls } = await runLane(builtLane, { build: built, 'scope-0': { outside_claim: '["board.py"]' }, 'fix-1': { ...resumeFix, regression: [] } })
-  assert.deepEqual(launchedAgents.slice(0, 4), ['build', 'scope-0', 'fix-1', 'scope-1'])
-  assert.match(agentCalls['fix-1'].prompt, /board\.py/)
-  assert.ok(launchedAgents.findIndex(label => label.endsWith('-review')) > launchedAgents.indexOf('scope-1'))
+test('#316 AC-scope-stop-folds-nothing: a scope stop after a batch with fold-ins reports none of them as folded', async () => {
+  const { result } = await runLane({ ...resumeArgs, foldIn: [tidy] }, { 'fix-1': aFixFor, 'scope-1': outsideClaim(['board.py']) })
+  assert.equal(result.stage, 'scope')
+  assert.deepEqual(result.folded, [])
 })
 
 const stopsWithoutClaim = [

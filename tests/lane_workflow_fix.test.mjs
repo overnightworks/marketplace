@@ -104,8 +104,8 @@ for (const [batch, handedOver, model, effort] of fixBatchRouting) {
 }
 
 const resumesByHandedOver = [
-  ['foldIn alone', { foldIn: [tidy] }, ['sync', 'scope-resume', 'fix-1', 'scope-1', 'r1-review']],
-  ['foldIn alone with deltaFrom', { foldIn: [tidy], deltaFrom: resumeTip }, ['sync', 'scope-resume', 'fix-1', 'scope-1', 'r1-review']],
+  ['foldIn alone', { foldIn: [tidy] }, ['sync', 'fix-1', 'scope-1', 'r1-review']],
+  ['foldIn alone with deltaFrom', { foldIn: [tidy], deltaFrom: resumeTip }, ['sync', 'fix-1', 'scope-1', 'r1-review']],
   ['neither foldIn nor fixFirst', {}, ['sync', 'scope-resume', 'r0-review']],
 ]
 

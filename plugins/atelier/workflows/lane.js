@@ -161,7 +161,6 @@ const PUSH_AND_SCOPE_CHECK = {
     command_error: { type: 'string', description: 'the error output of the command line that failed or printed nothing; leave it out when both succeeded' },
   },
 }
-const CLAIM_SCOPE_RULE = 'a lane edits only inside its claim scope'
 // Language models copy a 40-character hash unreliably (a sync step once dropped one character). A commit is
 // accepted as 7 to 40 hex characters — git resolves an unambiguous prefix, and fixers often answer with the short form.
 const SHA = /^[0-9a-f]{7,40}$/
@@ -437,9 +436,7 @@ function fixRoundStop(blocking, budgetKey) {
   }
   const repeated = noProgress(blocking)
   if (repeated.length) {
-    const leftScope = repeated.filter(f => f.rule === CLAIM_SCOPE_RULE)
-    const reason = leftScope.length ? `a fixer left the claim scope again at ${leftScope.map(f => f.where).join(', ')}` : 'a finding came back unchanged after its fix'
-    return openResult('unresolved', budgetKey, { reason, lastBlocking: repeated })
+    return openResult('unresolved', budgetKey, { reason: 'a finding came back unchanged after its fix', lastBlocking: repeated })
   }
   return null
 }
@@ -549,7 +546,8 @@ function acceptFix(fixed, blocking, foldIn) {
 // Only a docs finding is provably behaviour-neutral; whether a defect changes behaviour needs judgement.
 const fixerRole = (blocking, foldIn) => blocking.length > 0 && blocking.every(f => f.kind === 'docs') && !foldIn.length ? 'mechanical' : 'fix'
 
-async function fixBatch(blocking, source, budgetKey) {
+async function fixBatch(blocking, source, budgetKey, carried = false) {
+  const tipBeforeFix = tip
   const stop = fixRoundStop(blocking, budgetKey)
   if (stop) return { stop }
   spent[budgetKey]++; spent.total++
@@ -583,24 +581,34 @@ async function fixBatch(blocking, source, budgetKey) {
   if (rejection) return unaccepted(openResult('failed', 'fix', rejection))
   const accepted = acceptFix(fixed, blocking, foldIn)
   if (accepted.stop) return unaccepted(accepted.stop)
+  const scopeStop = await pushAndCheckScope(`scope-${spent.total}`, carried
+    ? { note: 'The batch was carried over from an earlier run, so the paths may come from earlier commits rather than its fixer; the git log shows which.', deltaFrom: A.deltaFrom }
+    : { note: 'The tip carries fix commits no reviewer has seen.', deltaFrom: tipBeforeFix })
+  if (scopeStop) return unaccepted(scopeStop.stop)
   // A clean merge of main alone carries no lane change, so it cannot carry a fold-in either; an unchanged tip carries
-  // them only when the fixer proved each already satisfied.
+  // them only when the fixer proved each already satisfied. A scope stop folds nothing in.
   if (accepted.range || everyFoldInSatisfied(fixed, blocking, foldIn)) {
     foldIn.forEach(f => folded.set(findingKey(f), { ...f, tip: fixed.tip, ...(satisfiedEvidence(fixed, f) && { evidence: satisfiedEvidence(fixed, f) }) }))
   }
-  const bounced = await pushAndCheckScope(`scope-${spent.total}`, budgetKey)
-  if (bounced?.stop) return unaccepted(bounced.stop)
-  if (!bounced?.range) return { ...accepted, foldIn }
-  return {
-    range: accepted.range ? `${accepted.range}\nA second fixer then answered the claim-scope check; this delta follows:\n${bounced.range}` : bounced.range,
-    gateAgain: accepted.gateAgain || bounced.gateAgain, touchesProduction: accepted.touchesProduction || bounced.touchesProduction, foldIn,
-  }
+  return { ...accepted, foldIn }
 }
 
 // The script, not the builder or fixer, makes sure the remote branch carries the lane tip, before the claim-scope check
 // and every review. Never a force push: a rejected push stops the lane.
 // aco decides what the claim covers; the lane only asks.
-async function pushAndCheckScope(label, budgetKey) {
+// A stray path is the head's choice, never a fixer's: a fixer can only revert it, and the change may be needed.
+// origin says where the hit came from: a note, and the tip the new run reviews from, when the lane knows one.
+function scopeStop(paths, origin) {
+  const listed = paths.join(', ')
+  const deltaClause = origin.deltaFrom ? ` and deltaFrom ${origin.deltaFrom}` : ''
+  const newRun = `a new run with pr and tip${deltaClause}`
+  history.push({ by: 'scope', outside: paths, tip })
+  return { stop: openResult('awaiting-head', 'scope', { outside: paths, reason:
+    `Outside the claim scope: ${listed}. No fixer was launched. ${origin.note} Either run aco rescope for them and start ${newRun}, ` +
+    `or start ${newRun} and fixFirst asking a fixer to revert them. Find the commits with git log origin/main..${tip} -- ${listed}.` }) }
+}
+
+async function pushAndCheckScope(label, origin) {
   phase('Scope')
   const pushLine = `cd '${A.worktree}' && git push origin '${A.branch}' && git rev-parse 'origin/${A.branch}'`
   const scopeLine = `cd '${A.worktree}' && aco brief ${A.item} --json | python3 -c 'import json,sys; print(json.dumps(json.load(sys.stdin)["outside_claim"]))'`
@@ -621,8 +629,7 @@ async function pushAndCheckScope(label, budgetKey) {
   if (paths === null) return { stop: openResult('failed', 'scope', { reason: 'the lane holds no live claim (outside_claim is null); a lane without a claim does not reach review' }) }
   if (!Array.isArray(paths) || !paths.every(path => typeof path === 'string')) return { stop: openResult('failed', 'scope', { reason: `the claim-scope check returned text that is not aco's outside_claim (null or a list of paths): ${checked.outside_claim}` }) }
   if (!paths.length) return null
-  const outside = { where: paths.join(', '), kind: 'defect', text: 'These paths are outside the claim scope; move the change back inside the claim scope or revert it.', rule: CLAIM_SCOPE_RULE, evidence: `aco brief ${A.item} --json lists them in outside_claim` }
-  return fixBatch([outside], 'the claim-scope check', budgetKey)
+  return scopeStop(paths, origin)
 }
 
 // Review until clean. After every fix the delta goes back to whoever raised a finding, and the gate returns on a
@@ -650,8 +657,16 @@ async function settleReview(rr) {
 }
 
 // A builder's work, and the commits a resumed run inherits, are checked against the claim before the first review, like every fixer's.
-const inheritedFromEarlierRun = !A.build
-const firstScopeCheck = await pushAndCheckScope(inheritedFromEarlierRun ? 'scope-resume' : `scope-${spent.total}`, 'review')
+// A carried batch is checked after it instead: that check is branch-wide, and a fixer must be able to revert what the head names.
+const carriedOver = A.fixFirst || []
+const carriesBatch = carriedOver.length || A.foldIn?.length
+const mergeBaseAfterFetch = `the output of \`git -C '${A.worktree}' merge-base origin/main ${tip}\` after \`git -C '${A.worktree}' fetch origin\``
+let firstScopeCheck = null
+if (!carriesBatch && A.build) {
+  firstScopeCheck = await pushAndCheckScope(`scope-${spent.total}`, { note: 'No reviewer has seen the build.', deltaFrom: mergeBaseAfterFetch })
+} else if (!carriesBatch) {
+  firstScopeCheck = await pushAndCheckScope('scope-resume', { note: 'The commits came from an earlier run.' })
+}
 if (firstScopeCheck?.stop) return firstScopeCheck.stop
 
 // Re-entry after the head settled an awaiting-head result: review only the fix commits no reviewer has seen yet.
@@ -661,10 +676,9 @@ const firstRange = A.deltaFrom
   : 'the whole lane: git diff origin/main...HEAD'
 // Re-entry at the fix: the head hands over blocking findings from an earlier run (for example the tester's), and
 // in-place follow-ups to fold in. The delta the fixer makes is reviewed before the test and CI run again.
-const carriedOver = A.fixFirst || []
-if (carriedOver.length || A.foldIn?.length) {
+if (carriesBatch) {
   followups.push(...(A.foldIn || []))
-  const f = await fixBatch(carriedOver, 'the head (carried over from the previous run)', 'test')
+  const f = await fixBatch(carriedOver, 'the head (carried over from the previous run)', 'test', true)
   if (f.stop) return f.stop
   // Without deltaFrom the head has not said what reviewers saw, so the round covers the whole lane.
   const wholeLane = f.range

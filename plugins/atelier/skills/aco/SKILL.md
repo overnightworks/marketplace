@@ -60,12 +60,13 @@ this says *how*.
   not read, is started with `ACO_AGENT` in its environment (`ACO_AGENT=<name no other
   running head uses> codex`), so every command and agent it starts carries it; a prefix
   on single commands does not reach its delegated agents. A Codex session already
-  running without it prefixes every aco command with `ACO_AGENT=<name>`, never
-  `--agent`: the name is the holder of its existing claims when they share one
-  (`aco status` shows it), otherwise one new name, and each old claim is landed or
-  released under its own holder. Every brief names the same prefix for every aco
-  command the agent runs, because native Codex subagents do not inherit it. A missing
-  identity refuses before the named command starts (`specs/output.spec.md`, OUT-05).
+  running without it prefixes every aco command with `ACO_AGENT=<name>` rather than
+  `--agent`, so there is one form everywhere and Claude's auto mode does not trip: the
+  name is the holder of its existing claims when they share one (`aco status` shows it),
+  otherwise one new name, and each old claim is landed or released under its own holder.
+  Every brief names the same prefix for every aco command the agent runs, because native
+  Codex subagents do not inherit it. A missing identity refuses before the named command
+  starts (`specs/output.spec.md`, OUT-05).
 - An open pull request without a claim (a dependency bot's, a fixer's): `aco adopt <pr>
   --no-item deps|fix|docs` makes it a claimed lane on its own branch; `deps` needs
   `dependency_paths` in `.aco/board.toml`. Then land as usual (`specs/adopt.spec.md`).

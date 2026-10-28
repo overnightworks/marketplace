@@ -1,0 +1,7 @@
+claim_id = "4c83cf07a5f34a9e942cc6d74b71d7bd"
+agent = "Claude c03dc9a6-7387-437d-bd0a-eb5bcf1d35da"
+role = "builder"
+base = "4175311d31b8d1830570bb772306dbc333d546b6"
+branch = "claude/issue-332-heads-talk"
+scope = ["instructions/AGENTS.md"]
+opened_commit = "ada1f1acc7e7238eff6936dccf114b51ee59b3c7"

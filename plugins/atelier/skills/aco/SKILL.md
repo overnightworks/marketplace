@@ -64,7 +64,8 @@ this says *how*.
   `--agent`: the name is the holder of its existing claims when they share one
   (`aco status` shows it), otherwise one new name, and each old claim is landed or
   released under its own holder. Every brief names the same prefix for every aco
-  command the agent runs, because native Codex subagents do not inherit it.
+  command the agent runs, because native Codex subagents do not inherit it. A missing
+  identity refuses before the named command starts (`specs/output.spec.md`, OUT-05).
 - An open pull request without a claim (a dependency bot's, a fixer's): `aco adopt <pr>
   --no-item deps|fix|docs` makes it a claimed lane on its own branch; `deps` needs
   `dependency_paths` in `.aco/board.toml`. Then land as usual (`specs/adopt.spec.md`).

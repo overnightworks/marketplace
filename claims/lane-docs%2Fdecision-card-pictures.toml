@@ -1,8 +1,0 @@
-claim_id = "bc0fa8adb1b349a18937a5d6128c6fa7"
-agent = "Claude b5de3560-4db0-4dfe-be9f-fe26ef53140a"
-role = "builder"
-base = "663394338ec26f11ace110f4129745d9f679bb6d"
-branch = "docs/decision-card-pictures"
-scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/skills/aco/references/decision-cards.md"]
-opened_commit = "82879b9ea71692fb7909943cf38f1a8e3c4f7bb9"
-whole_reason = "One docs fix to the decision-card pictures section plus the three atelier version pins it bumps."

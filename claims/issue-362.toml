@@ -1,0 +1,7 @@
+claim_id = "53abfc48b94a4622a7d09843326fe282"
+agent = "Claude b5de3560-4db0-4dfe-be9f-fe26ef53140a"
+role = "builder"
+base = "0c9057f39b303b7fe5d4ccf79e094b9e6e2ca376"
+branch = "claude/issue-362-operator-config-is-deliberate"
+scope = ["instructions/AGENTS.md"]
+opened_commit = "92f090ea99caca6c790481816b51079a4436d2ac"

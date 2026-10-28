@@ -1,0 +1,8 @@
+claim_id = "aee73042520c43e0b13c7471e016fe11"
+agent = "Claude b5de3560-4db0-4dfe-be9f-fe26ef53140a"
+role = "builder"
+base = "04c657becf0612c731083fc4536d9ce2c26f5ef8"
+branch = "claude/issue-350-lane-relay-child"
+scope = [".claude-plugin/marketplace.json", "README.md", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/workflows/lane-relay.js", "plugins/atelier/workflows/lane.js", "sonar-project.properties", "tests/lane_workflow_ci.test.mjs", "tests/lane_workflow_codex.test.mjs", "tests/lane_workflow_harness.mjs", "tests/lane_workflow_relay.test.mjs"]
+opened_commit = "61e5ae83336b99ed1bcba427bfe3b9b882775398"
+whole_reason = "One behaviour-neutral move: the relay printer, CRC and reader into a lane-relay child with its protocol rows, the harness scoping its child transforms, the two child-name mentions, and the three version pins."

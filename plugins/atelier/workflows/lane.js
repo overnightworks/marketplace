@@ -351,7 +351,7 @@ if (A.build) {
   if (!SHA.test(built.tip || '')) return openResult('failed', 'build', { reason: `the builder returned a tip that is not a sha: ${String(built.tip).slice(0, 80)}` })
   pr = built.pr; tip = built.tip
   if ((built.rescope || []).length && !pr) return awaitRescope('build', built.rescope, ' No reviewer has seen the build.', {}, 'with build: the original brief plus your decision, since the worktree keeps the uncommitted edits')
-  if ((built.rescope || []).length) return awaitRescope('build', built.rescope, ` The returned tip is the whole build and no reviewer has seen it; the new run takes deltaFrom set to the output of \`git -C '${A.worktree}' merge-base origin/main ${tip}\` after \`git -C '${A.worktree}' fetch origin\`.`)
+  if ((built.rescope || []).length) return awaitRescope('build', built.rescope, ` The returned tip is the whole build and no reviewer has seen it; the new run takes no deltaFrom, so its first review covers the whole lane.`)
   log(`built PR #${pr} at ${tip}`)
 } else {
   phase('Sync')
@@ -639,10 +639,9 @@ async function settleReview(rr) {
 // A carried batch is checked after it instead: that check is branch-wide, and a fixer must be able to revert what the head names.
 const carriedOver = A.fixFirst || []
 const carriesBatch = carriedOver.length || A.foldIn?.length
-const mergeBaseAfterFetch = `the output of \`git -C '${A.worktree}' merge-base origin/main ${tip}\` after \`git -C '${A.worktree}' fetch origin\``
 let firstScopeCheck = null
 if (!carriesBatch && A.build) {
-  firstScopeCheck = await pushAndCheckScope(`scope-${spent.total}`, { note: 'No reviewer has seen the build.', deltaFrom: mergeBaseAfterFetch })
+  firstScopeCheck = await pushAndCheckScope(`scope-${spent.total}`, { note: 'No reviewer has seen the build, so the new run reviews the whole lane.' })
 } else if (!carriesBatch) {
   firstScopeCheck = await pushAndCheckScope('scope-resume', { note: 'The commits came from an earlier run.' })
 }

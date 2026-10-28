@@ -164,6 +164,17 @@ unless the operator has ruled it for them; each dependent's head still owns its
 own upgrade. A head asks about a decision at hand; wishes gathered without one
 are inventory (operator ruling 20.10.2026).
 
+Heads talk to each other (operator ruling 28.10.2026). A head that has something
+another repository's head needs — a release, a fix, a changed contract — or
+needs something from it, tells that head: live when this session can reach it,
+and always on that repository's board, so a head that starts later still finds
+it. A release reaches each dependent that pins the released package as one work
+item on the dependent's board, opened by the releasing head (not an idea: the
+release is its caller); it names the version, its migration section and what the
+dependent must change. A dependent's head pulls such an item before new feature
+work and builds the new version in, unless a blocker stops it; then the item
+names that blocker.
+
 A rule change is itself a change under review (operator ruling 31.08.2026):
 before the head anchors a new or altered standing rule — in this contract, a
 doctrine document, or the coordination process — it writes the problem, the

@@ -1,8 +1,0 @@
-claim_id = "f90823212a4f4e32af1152fed01445b1"
-agent = "Claude b5de3560-4db0-4dfe-be9f-fe26ef53140a"
-role = "builder"
-base = "04c657becf0612c731083fc4536d9ce2c26f5ef8"
-branch = "claude/issue-329-ci-registration-wait"
-scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/workflows/lane-ci.js", "tests/lane_workflow_ci.test.mjs"]
-opened_commit = "e6411c3c110aea427198e9fca64a3d2ea720f8f7"
-whole_reason = "One bounded wait for CI to register on the pushed head, in the lane-ci watcher brief, with its tests and the three version pins."

@@ -47,7 +47,7 @@ codex exec -s read-only -C "$WT" -m "$MODEL" -c model_reasoning_effort="$EFFORT"
 
 The prompt comes on stdin from `$BRIEF`; the answer lands in `$OUT`. Run it in
 the foreground, or detached with its exit status written to a marker file as
-`codexReview` in `plugins/atelier/workflows/lane.js` does. A reviewer never gets
+`codexReview` in `plugins/atelier/workflows/lane-codex.js` does. A reviewer never gets
 the writer's permission profile.
 
 A read-only reviewer runs no tests: `uv` cannot write its cache lock on the

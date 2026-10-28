@@ -3,7 +3,7 @@ import fs from 'node:fs'
 
 const workflowSource = (file) => fs.readFileSync(new URL(`../plugins/atelier/workflows/${file}`, import.meta.url), 'utf8').replace(/^export const meta/m, 'const meta')
 // The plugin workflows a workflow can start by name, as the Workflow runtime resolves them.
-const CHILD_WORKFLOWS = { 'atelier:lane-ci': 'lane-ci.js' }
+const CHILD_WORKFLOWS = { 'atelier:lane-ci': 'lane-ci.js', 'atelier:lane-codex': 'lane-codex.js' }
 const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor
 
 // answers holds each agent's result by its label; an agent without one ends without a result. Without answers only

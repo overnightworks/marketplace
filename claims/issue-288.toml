@@ -1,8 +1,0 @@
-claim_id = "5448a41cea194e92bf07d222bc6a3583"
-agent = "Claude b5de3560-4db0-4dfe-be9f-fe26ef53140a"
-role = "builder"
-base = "80852bbb3e475396875a5c7ceaea38cf59e5afe5"
-branch = "claude/issue-288-decision-card-guidance"
-scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/skills/aco/SKILL.md", "plugins/atelier/skills/aco/references/decision-cards.md"]
-opened_commit = "14aaf15d920aec433aa6a338fbfe694c5547bec7"
-whole_reason = "A three-card bundle in the aco skill (#288 lead, #325, #287) under one version bump."

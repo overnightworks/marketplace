@@ -1,8 +1,0 @@
-claim_id = "6da2c55e81024dd19842321f93fd0fdb"
-agent = "Claude b5de3560-4db0-4dfe-be9f-fe26ef53140a"
-role = "builder"
-base = "0c9057f39b303b7fe5d4ccf79e094b9e6e2ca376"
-branch = "claude/issue-363-lane-scope-lane-shared"
-scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/workflows/lane-relay.js", "plugins/atelier/workflows/lane.js", "tests/lane_workflow_harness.mjs", "tests/lane_workflow_relay.test.mjs", "tests/lane_workflow_scope.test.mjs"]
-opened_commit = "4a5b65d8f6f01b1d93900b31dc266397658f5735"
-whole_reason = "One scope rule across the relay printer and the lane briefs, with its test rows and the three version pins every atelier change bumps."

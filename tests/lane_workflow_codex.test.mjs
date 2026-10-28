@@ -6,7 +6,7 @@ import { runLane, resumedLane, APPROVE } from './lane_workflow_harness.mjs'
 
 const readWorkflow = (name) => fs.readFileSync(new URL(`../plugins/atelier/workflows/${name}.js`, import.meta.url), 'utf8')
 const protocolOf = (source) => Number(source.match(/^const LANE_CODEX_PROTOCOL = (\d+)$/m)?.[1])
-const driveGate = (options) => runLane({ ...resumedLane, risk: 'material' }, { 'r0-review': APPROVE }, options)
+const driveGate = (options) => runLane({ ...resumedLane, risk: 'material' }, { 'r0-review': APPROVE }, { ...options, child: 'atelier:lane-codex' })
 
 test('#340 lane-codex-protocol: a child with another protocol number fails the lane at review naming both numbers', async () => {
   const parentNumber = protocolOf(readWorkflow('lane'))

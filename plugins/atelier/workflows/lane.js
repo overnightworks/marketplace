@@ -617,7 +617,7 @@ async function pushAndCheckScope(label, origin) {
     { label, phase: 'Scope', schema: RELAYED, ...MECHANICAL })
   if (!checked) return { stop: openResult('failed', 'scope', { reason: 'the push and claim-scope check returned no result' }) }
   const fail = (stage, reason) => ({ stop: openResult('failed', stage, { reason: `${reason}; the printed line: ${checked.printed}` }) })
-  const { values, problem } = readRelay(checked.printed, nonce)
+  const { values, problem } = readRelay(checked.printed, nonce, ['push', 'remote', 'head', 'brief'])
   if (problem) return fail('scope', `the push and claim-scope check ${problem}`)
   const { push, remote, head, brief } = values
   if (push.code !== 0 || !sameCommit(remote.out, tip)) {

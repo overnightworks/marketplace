@@ -265,6 +265,13 @@ for (const [difference, labelPart, tipPart] of nonceMismatches) {
   })
 }
 
+test('#345 AC-scope-relay: a line the sync printer printed for the scope nonce fails at scope and quotes the line', async () => {
+  const { result, launchedAgents } = await aBuiltLaneWith({ printerMode: 'sync' })
+  stopsBeforeAnyReview(result, launchedAgents, 'scope')
+  assert.match(result.reason, /lacks the push entry/)
+  assert.match(result.reason, /the printed line: \{"crc"/)
+})
+
 const linesThatAreNotRelayLines = [
   ['an empty answer', ''],
   ['aco error output', 'ERROR: no claim store'],

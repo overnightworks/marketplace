@@ -45,7 +45,7 @@ export async function runLane(args, answers = {}, options = {}) {
   const defaultAnswerFor = (label) => isRelayed(label) ? {} : null
   // The branch carries the newest tip a builder, fixer or sync returned. A scope or sync step's answer says what the fake
   // git and aco print (scope: push_error, remote_tip, brief_error, outside_claim; sync: head, parents, head_code,
-  // main_code) and how the agent mishandled the printed line (nonce, edit, printed); the line itself always comes from
+  // main_code) and how the agent mishandled the printed line (nonce, edit, printed, printerMode: the printer mode it ran instead); the line itself always comes from
   // running the real printer the prompt carries. Without answers a sync leaves an up-to-date lane as it is.
   let newestTip = args.tip
   let fakeBin
@@ -66,7 +66,8 @@ export async function runLane(args, answers = {}, options = {}) {
       FAKE_PUSH_ERROR: scenario.push_error ?? '', FAKE_BRIEF_ERROR: scenario.brief_error ?? '',
       FAKE_BRIEF_OUTPUT: JSON.stringify({ outside_claim: 'outside_claim' in scenario ? scenario.outside_claim : [] }),
     }
-    const printed = runCommandLine(scenario.nonce ? line.replace(/'[^']*'$/, `'${scenario.nonce}'`) : line, { cwd: os.tmpdir(), env })
+    const asked = scenario.printerMode ? line.replace(/' scope .* ('[^']*')$/, `' ${scenario.printerMode} $1`) : line
+    const printed = runCommandLine(scenario.nonce ? asked.replace(/'[^']*'$/, `'${scenario.nonce}'`) : asked, { cwd: os.tmpdir(), env })
     return scenario.edit ? scenario.edit(printed) : printed
   }
   const answerFor = (label, prompt) => {

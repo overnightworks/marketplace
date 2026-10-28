@@ -11,8 +11,9 @@ matter).
 
 ## 1. Question
 
-One plain sentence about the person's outcome, in the operator's language. It asks what
-the person gets or loses, never which mechanism to pick. Test: a reader who knows nothing of the repository can say what a "yes" changes
+One plain sentence about the person's outcome, in the operator's language, short enough
+to read in one breath. It asks what the person gets or loses, never which mechanism to
+pick. Test: a reader who knows nothing of the repository can say what a "yes" changes
 for them.
 
 Not: "Soll der Resolver Zeilen über den Revisions-Hash binden?"

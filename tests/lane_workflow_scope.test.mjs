@@ -87,7 +87,7 @@ for (const [step, args, answers, stage, resumeFrom] of rescopeHandbacks) {
     const { result, launchedAgents } = await runLane(args, answers)
     assert.deepEqual([result.status, result.stage, result.rescope], ['awaiting-head', stage, rescopeRequest])
     assert.deepEqual([result.pr, result.tip], [resumeFrom.pr, resumeFrom.tip])
-    assert.match(result.reason, /path to where, change to text, reason to evidence, kind defect/)
+    assert.match(result.reason, /an entry path becomes where, its change becomes text, its reason becomes evidence, rule the item sentence the change serves, kind defect/)
     assert.deepEqual(result.lastBlocking, resumeFrom.lastBlocking)
     assert.equal(/no reviewer has seen/.test(result.reason), resumeFrom.unreviewed)
     if (stage === 'fix') assert.ok(result.history.some(entry => entry.tip === resumeFixedTip && !entry.reviewed))

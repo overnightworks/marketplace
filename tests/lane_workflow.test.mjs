@@ -244,6 +244,6 @@ for (const [what, args, answers] of wholeLaneRounds) {
 test('#290 defect:#290 a REVISE in the whole-lane round has the raiser re-check only the fixer delta', async () => {
   const revise = { verdict: 'REVISE', blocking: [{ ...finding('y.py:2', 'a defect'), kind: 'docs' }], followups: [] }
   const { agentCalls } = await runLane({ ...resumeArgs, fixFirst: [defectWithoutDraft] }, { 'fix-1': { ...resumeFix, regression: [] }, 'r1-review': revise, 'fix-2': secondFix, 'r2-review': APPROVE })
-  assert.match(agentCalls['r2-review'].prompt, /only this delta: git diff/)
+  assert.match(agentCalls['r2-review'].prompt, /only this delta, the fixer's own commits: git log -p --first-parent --remerge-diff/)
   assert.ok(!agentCalls['r2-review'].prompt.includes('git diff origin/main...HEAD'))
 })

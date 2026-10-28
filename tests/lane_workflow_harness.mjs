@@ -41,11 +41,12 @@ export async function runLane(args, answers = {}, options = {}) {
   const launchedByChild = {}
   const launchedAgents = []
   const agentCalls = {}
-  const isRelayed = (label) => label === 'sync' || label.startsWith('scope-')
-  const defaultAnswerFor = (label) => isRelayed(label) ? {} : null
-  // The branch carries the newest tip a builder, fixer or sync returned. A scope or sync step's answer says what the fake
-  // git and aco print (scope: push_error, remote_tip, brief_error, outside_claim; sync: head, parents, head_code,
-  // main_code) and how the agent mishandled the printed line (nonce, edit, printed, printerMode: the printer mode it ran instead); the line itself always comes from
+  const isFixer = (label) => label.startsWith('fix-')
+  const isRelayed = (label) => label === 'sync' || label.startsWith('scope-') || isFixer(label)
+  const defaultAnswerFor = (label) => isRelayed(label) && !isFixer(label) ? {} : null
+  // The branch carries the newest tip a builder, fixer or sync returned. A scope, sync or fixer answer says what the fake
+  // git and aco print (scope: push_error, remote_tip, brief_error, outside_claim; sync and fixer: head, parents, head_code,
+  // main_code; a fixer's answer also holds its own report, which is returned with the printed line) and how the agent mishandled the printed line (nonce, edit, printed, printerMode: the printer mode it ran instead); the line itself always comes from
   // running the real printer the prompt carries. Without answers a sync leaves an up-to-date lane as it is.
   let newestTip = args.tip
   let fakeBin
@@ -74,11 +75,12 @@ export async function runLane(args, answers = {}, options = {}) {
     const given = label in answers ? answers[label] : defaultAnswerFor(label)
     if (typeof given === 'function') return given(prompt)
     const answer = isRelayed(label) && given ? { ...given } : structuredClone(given)
-    if (answer?.tip && /^(build|fix-)/.test(label)) newestTip = answer.tip
+    if (answer?.tip && label === 'build') newestTip = answer.tip
     if (!isRelayed(label) || !answer) return answer
     const printed = printedBy(prompt, answer)
-    if (label === 'sync' && answer.head) newestTip = answer.head
-    return { ...(answer.note && { note: answer.note }), printed }
+    if (answer.head && !label.startsWith('scope-')) newestTip = answer.head
+    const { head: _head, parents: _parents, head_code: _headCode, main_code: _mainCode, nonce: _nonce, edit: _edit, printerMode: _printerMode, push_error: _pushError, remote_tip: _remoteTip, brief_error: _briefError, outside_claim: _outsideClaim, printed: _printed, ...report } = answer
+    return { ...report, printed }
   }
   const agent = async (prompt, agentOptions = {}) => { launchedAgents.push(agentOptions.label); agentCalls[agentOptions.label] = { prompt, options: agentOptions }; return answerFor(agentOptions.label, prompt) }
   // A thunk that throws resolves to null, as in the Workflow runtime.
@@ -151,7 +153,7 @@ export const webauthReplay = {
     },
     'r0-gate': { verdict: 'REVISE', blocking: [finding('src/webauth/oidc.py:315', 'OidcClientConfig accepts endpoint URLs containing control characters')], followups: [], codexExit: 0 },
     'fix-1': {
-      oldTip: webauthTips.built, mergedBase: '1a0864b704b6717b660951357191f1562af7802e', tip: webauthTips.firstFix, mergeResolvedLaneConflict: true, disputed: [], blocked: false,
+      head: webauthTips.firstFix, mergeResolvedLaneConflict: true, disputed: [], blocked: false,
       files: ['README.md', 'pyproject.toml', 'src/webauth/__init__.py', 'src/webauth/config.py', 'src/webauth/jwt_verification.py', 'src/webauth/liveness.py', 'src/webauth/oidc.py', 'tests/test_jwt_verification.py', 'tests/test_liveness.py', 'tests/test_oidc.py', 'tests/test_web_auth_config.py', 'uv.lock'],
       regression: [
         { finding: 1, test: 'tests/test_oidc.py [lone-surrogate-not-percent-encoded]', failedBefore: true, passesAfter: true },
@@ -175,7 +177,7 @@ export const webauthReplay = {
       ],
     },
     'fix-2': {
-      oldTip: webauthTips.firstFix, mergedBase: webauthTips.firstFix, tip: webauthTips.secondFix, mergeResolvedLaneConflict: false, disputed: [], blocked: false,
+      head: webauthTips.secondFix, mergeResolvedLaneConflict: false, disputed: [], blocked: false,
       files: ['src/webauth/jwt_verification.py', 'src/webauth/oidc.py', 'tests/test_jwt_verification.py', 'tests/test_oidc.py'],
       regression: [
         { finding: 1, test: 'tests/test_oidc.py [redirect-uri-with-a-c1-control-character]', failedBefore: true, passesAfter: true },
@@ -224,7 +226,7 @@ export const agentProvidersReplay = {
     },
     'r0-gate': { verdict: 'REVISE', blocking: [finding('tests/test_sse_codec.py:58', 'Add a literal expected-bytes assertion for a representative non-ASCII event')], followups: [], codexExit: 0 },
     'fix-1': {
-      oldTip: agentProvidersTips.built, mergedBase: agentProvidersTips.built, tip: agentProvidersTips.fix, mergeResolvedLaneConflict: false, disputed: [], blocked: false,
+      head: agentProvidersTips.fix, mergeResolvedLaneConflict: false, disputed: [], blocked: false,
       files: ['docs/decisions/0001-agent-service.md', 'packages/agent-client/src/agent_client/wire.py', 'tests/test_sse_codec.py'],
       regression: [{ finding: 1, test: 'tests/test_sse_codec.py::test_an_event_travels_as_one_frame_of_compact_utf8_json', failedBefore: false, passesAfter: true }],
     },
@@ -264,11 +266,11 @@ export const tidy = followup('x.py:1', 'tidy the import order', 'follow-up (fix 
 
 export const defectWithoutDraft = { ...finding('t.py:1', 'the code breaks the rule'), kind: 'defect' }
 
-export const resumeFix = { oldTip: resumeTip, mergedBase: resumeTip, tip: resumeFixedTip, mergeResolvedLaneConflict: false, files: ['x.py'], disputed: [], blocked: false }
+export const resumeFix = { head: resumeFixedTip, mergeResolvedLaneConflict: false, files: ['x.py'], disputed: [], blocked: false }
 
 export const resumeArgs = { ...resumedLane, tip: resumeTip }
 
-export const unchangedFix = { ...resumeFix, tip: resumeTip, files: [], regression: [] }
+export const unchangedFix = { ...resumeFix, head: resumeTip, files: [], regression: [] }
 
 export const satisfied = (item, evidence = 'tests/x_test.py already pins it') => ({ where: item.where, text: item.text, evidence })
 
@@ -276,12 +278,14 @@ export const reachesTheEnd = { 'r1-review': APPROVE, 'e2e-0': PASS, 'ci-0': gree
 
 export const testGap = { ...finding('t.py:1', 'a behaviour has no test'), kind: 'test-gap' }
 
-export const secondFix = { ...resumeFix, oldTip: resumeFixedTip, mergedBase: resumeFixedTip, tip: 'e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3', files: ['x.py'], regression: [] }
+export const secondFix = { ...resumeFix, head: 'e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3', parents: [resumeFixedTip], files: ['x.py'], regression: [] }
 
 export const built = { pr: 2, tip: resumeTip, blocked: false }
+
+export const mainMovedTip = 'f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3'
 
 export const mergedOnlyTip = 'e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2'
 
 export const conflictsWithMain = { where: 'mergeable', kind: 'defect', text: 'the pull request conflicts with main', rule: 'r', evidence: 'CONFLICTING' }
 
-export const mergeOnlyFix = { ...resumeFix, mergedBase: mergedOnlyTip, tip: mergedOnlyTip, files: [], regression: [] }
+export const mergeOnlyFix = { ...resumeFix, head: mergedOnlyTip, parents: [resumeTip, mainMovedTip], files: [], regression: [] }

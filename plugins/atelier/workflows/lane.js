@@ -144,11 +144,11 @@ const BUILD = {
 }
 // A value a command prints reaches a decision only through the line the lane-relay child reads back and checks. A refusal
 // or a crash is a problem the caller stops on, at the stage of its own step, like an unreadable line.
-const LANE_RELAY_PROTOCOL = 1
-const SYNC_NOTE = 'what stopped the merge: the conflicting paths, or the failed command and its output'
+const LANE_RELAY_PROTOCOL = 2
+const SYNC_ANSWER = { properties: { note: { type: 'string', description: 'what stopped the merge: the conflicting paths, or the failed command and its output' } } }
 async function relay(request) {
   try {
-    const answer = await workflow('atelier:lane-relay', { protocol: LANE_RELAY_PROTOCOL, worktree: A.worktree, mechanical: MECHANICAL, ...request })
+    const answer = await workflow('atelier:lane-relay', { protocol: LANE_RELAY_PROTOCOL, worktree: A.worktree, agentOptions: MECHANICAL, ...request })
     return answer?.refused ? { problem: `was refused by lane-relay: ${answer.refused}` } : answer
   } catch (error) {
     return { problem: `ended in lane-relay with ${String(error).slice(0, 300)}` }
@@ -161,6 +161,12 @@ const printedLine = (relayed) => relayed.printed === undefined ? '' : `; the pri
 const SHA = /^[0-9a-f]{7,40}$/
 // Two spellings name the same commit when the shorter is a prefix of the longer (git's own abbreviation rule).
 const sameCommit = (a, b) => SHA.test(a || '') && SHA.test(b || '') && (a.startsWith(b) || b.startsWith(a))
+// Whether the relayed HEAD is a merge whose first parent is base, and whether the relayed git commands failed.
+function mergedOnto(values, base) {
+  const [firstParent, mergedIn] = values.parents.out.split('\n')
+  return Boolean(mergedIn) && sameCommit(firstParent, base)
+}
+const failedCommand = (values) => values.head.code !== 0 || ![0, 1].includes(values.main.code)
 const VERDICT = {
   type: 'object',
   required: ['verdict', 'blocking', 'followups'],
@@ -176,9 +182,8 @@ const VERDICT = {
 const COURIER_VERDICT = { ...VERDICT, required: [...VERDICT.required, 'codexExit'] }
 const FIX = {
   type: 'object',
-  required: ['oldTip', 'mergedBase', 'tip', 'mergeResolvedLaneConflict', 'files', 'disputed', 'blocked'],
+  required: ['mergeResolvedLaneConflict', 'files', 'disputed', 'blocked'],
   properties: {
-    oldTip: { type: 'string', pattern: '^[0-9a-f]{7,40}$', description: 'a commit sha from git rev-parse, nothing else' }, mergedBase: { type: 'string', pattern: '^[0-9a-f]{7,40}$', description: 'a commit sha from git rev-parse, nothing else' }, tip: { type: 'string', pattern: '^[0-9a-f]{7,40}$', description: 'a commit sha from git rev-parse, nothing else' },
     mergeResolvedLaneConflict: { type: 'boolean' },
     files: { type: 'array', items: { type: 'string' } },
     disputed: {
@@ -350,7 +355,7 @@ if (A.build) {
   const andGeneratedFiles = GENERATED.length ? ' and the generated files' : ''
   const nonce = `sync-${tip}`
   const quotedNonce = `'${nonce}'`
-  const synced = await relay({ label: 'sync', phase: 'Sync', step: 'sync', relayArgs: [quotedNonce], nonce, requiredKeys: ['head', 'parents', 'main'], note: SYNC_NOTE, brief:
+  const synced = await relay({ label: 'sync', phase: 'Sync', step: 'sync', relayArgs: [quotedNonce], nonce, requiredKeys: ['head', 'parents', 'main'], answerSchema: SYNC_ANSWER, brief:
     `${laneFacts}\nBring the lane up to date with main and change nothing else. Run each command exactly as written, with its -C option. ${git} fetch origin; if ${git} merge-base --is-ancestor origin/main HEAD succeeds, change nothing. ` +
     `Otherwise ${git} merge origin/main; when it merges cleanly, ${git} push. ` +
     (LEDGERS.length || GENERATED.length ? `Conflicts only in the append-only ledgers${andGeneratedFiles}: resolve them as the lane facts say, commit the merge, ${git} push. ` : '') +
@@ -360,11 +365,9 @@ if (A.build) {
   })
   if (!synced) return openResult('failed', 'sync')
   const { values, problem } = synced
-  const failedCommand = values && (values.head.code !== 0 || ![0, 1].includes(values.main.code))
-  if (problem || failedCommand) return openResult('failed', 'sync', { reason: `the sync's relay line ${problem || 'reports a failed git command'}${printedLine(synced)}` })
+  if (problem || failedCommand(values)) return openResult('failed', 'sync', { reason: `the sync's relay line ${problem || 'reports a failed git command'}${printedLine(synced)}` })
   if (values.main.code === 1) return openResult('escalated', 'sync', { reason: synced.note || `the lane tip ${values.head.out} does not contain origin/main, and the sync named no cause` })
-  const [firstParent, mergedIn] = values.parents.out.split('\n')
-  if (!sameCommit(values.head.out, tip) && !(mergedIn && sameCommit(firstParent, tip))) history.push({ after: 0, by: 'sync', from: tip, tip: values.head.out })
+  if (!sameCommit(values.head.out, tip) && !mergedOnto(values, tip)) history.push({ after: 0, by: 'sync', from: tip, tip: values.head.out })
   tip = values.head.out
 }
 
@@ -425,7 +428,7 @@ const foldInsInRange = (foldIn) => foldIn.length ? `\nThe fixer was also given t
 // The fixer's returned tip becomes the lane tip; it is unreviewed when the fixer committed anything. Returns whether it did.
 function adoptFixerTip(fixed) {
   tip = fixed.tip
-  const committed = !sameCommit(fixed.tip, fixed.oldTip)
+  const committed = !fixed.unchanged
   history.push({ after: spent.total, by: 'fix', tip: fixed.tip, reviewed: !committed })
   return committed
 }
@@ -472,11 +475,11 @@ function fixRejection(fixed, blocking, foldIn) {
     const unprovenList = unproven.map(({ finding, index }) => (index + 1) + '. ' + finding.where).join(', ')
     return { reason: `a test-gap finding or a defect with a test draft got no regression test: ${unprovenList}`, lastBlocking: unproven.map(({ finding }) => finding) }
   }
-  // Whether main moved or not, satisfied fold-ins leave the lane exactly at the merge: anything past it is unasked work.
-  const nothingPastTheMerge = everyFoldInSatisfied(fixed, blocking, foldIn) && sameCommit(fixed.tip, fixed.mergedBase)
-  if (sameCommit(fixed.tip, fixed.oldTip)) return nothingPastTheMerge ? null : { reason: 'the fixer changed nothing', lastBlocking: blocking }
+  // Satisfied fold-ins leave the lane at the held tip, or at a merge of main onto it: anything past that is unasked work.
+  const foldInsOnly = everyFoldInSatisfied(fixed, blocking, foldIn)
+  if (fixed.unchanged) return foldInsOnly && fixed.containsMain ? null : { reason: 'the fixer changed nothing', lastBlocking: blocking }
   const mergeWasTheFinding = blocking.length === 1 && blocking[0].where === 'mergeable'
-  if (sameCommit(fixed.tip, fixed.mergedBase) && !mergeWasTheFinding && !nothingPastTheMerge) return { reason: 'the fixer only merged main and fixed nothing', lastBlocking: blocking }
+  if (fixed.mergeOnly && !mergeWasTheFinding && !foldInsOnly) return { reason: 'the fixer only merged main and fixed nothing', lastBlocking: blocking }
   return null
 }
 
@@ -490,21 +493,21 @@ const removalsInRange = (fixed, blocking) => (fixed.regression || []).filter(pro
 
 // Takes the fixer's tip and names the delta the reviewers see next, or none when a clean merge of main was the whole fix.
 function acceptFix(fixed, blocking, foldIn) {
-  const from = fixed.mergeResolvedLaneConflict ? fixed.oldTip : fixed.mergedBase
   const relative = worktreeRelative(fixed.files || [])
   const outside = relative.filter(f => f.startsWith('/'))
   if (outside.length) return { stop: openResult('failed', 'fix', { reason: `the fixer reported paths outside the worktree: ${outside.join(', ')}` }) }
   const touchesProduction = fixed.mergeResolvedLaneConflict || relative.some(f => PRODUCTION.some(prefix => f.startsWith(prefix)))
   tip = fixed.tip
   if (touchesProduction) productionSinceTest = true
-  if (sameCommit(from, fixed.tip)) {  // a clean merge of main answered the mergeable finding: nothing of the lane changed to review
-    log(`fix ${spent.total}: merged main cleanly, no lane change to review`)
+  if (fixed.unchanged || (fixed.mergeOnly && !fixed.mergeResolvedLaneConflict)) {  // nothing of the lane changed to review: a clean merge of main answered the mergeable finding
+    log(`fix ${spent.total}: no lane change to review`)
     return { range: null, gateAgain: false, touchesProduction: false }
   }
-  const range = `only this delta: git diff ${from}..${fixed.tip}` +
-    (fixed.mergeResolvedLaneConflict ? ' (it includes a merge of main whose conflicts in this lane\'s files were resolved by hand)' : ' (the merge of main before it is not this lane\'s work)') +
+  const range = (fixed.mergeResolvedLaneConflict
+    ? `only this delta: git diff ${fixed.heldTip}..${fixed.tip} (it includes a merge of main whose conflicts in this lane's files were resolved by hand)`
+    : `only this delta, the fixer's own commits: git log -p --first-parent --remerge-diff ${fixed.heldTip}..${fixed.tip} (main's clean changes are not shown; a lane edit inside a merge of main is)`) +
     `. It answers these findings:\n${listFindings(blocking)}${removalsInRange(fixed, blocking)}${foldInsInRange(foldIn)}`
-  log(`fix ${spent.total}: ${from.slice(0, 7)}..${tip.slice(0, 7)}`)
+  log(`fix ${spent.total}: ${fixed.heldTip.slice(0, 7)}..${tip.slice(0, 7)}`)
   return { range, gateAgain: MATERIAL && touchesProduction, touchesProduction }
 }
 
@@ -521,26 +524,29 @@ async function fixBatch(blocking, source, budgetKey, carried = false) {
     ? `Then answer exactly these blocking findings from ${source}, and nothing else:\n${listFindings(blocking)}`
     : 'There are no blocking findings; your whole task is the follow-ups below:'
   phase('Fix')
-  const fixed = await safeAgent(
-    `${laneFacts} ${driveFacts} ${rescopeFacts}\nYou are a fresh fixer for PR #${pr} (lane tip ${tip}). Return that tip as oldTip. First merge origin/main if it moved (a merge commit; ` +
-    `resolve other conflicts only when you can do so without changing behaviour, and set mergeResolvedLaneConflict true when files this lane changed needed resolution). ` +
-    `Return the tip after that merge as mergedBase (oldTip when main had not moved). If the worktree already carries commits or uncommitted changes past that tip from an earlier fixer that ran out of turns, judge them, keep what is right, and continue from there. Commit each finding as soon as it is green; if you run short of turns, commit what is green and return what is left in blockedReason with blocked true. ${fixerTask}${foldInBrief(foldIn)}\n\n` +
+  const git = `git -C '${A.worktree}'`
+  const nonce = `fix-${spent.total}-${tipBeforeFix}`
+  const answered = await relay({ label: `fix-${spent.total}`, phase: 'Fix', step: 'sync', relayArgs: [`'${nonce}'`], nonce, requiredKeys: ['head', 'parents', 'main'], answerSchema: FIX, agentOptions: { agentType: 'atelier:code-fixer', ...claudeRole(fixerRole(blocking, foldIn)) }, brief:
+    `${laneFacts} ${driveFacts} ${rescopeFacts}\nYou are a fresh fixer for PR #${pr} (lane tip ${tip}). Merge origin/main if it moved, before or after your fixes (a merge commit; ` +
+    `resolve other conflicts only when you can do so without changing behaviour, and set mergeResolvedLaneConflict true when files this lane changed needed resolution). If the worktree already carries commits or uncommitted changes past that tip from an earlier fixer that ran out of turns, judge them, keep what is right, and continue from there. Commit each finding as soon as it is green; if you run short of turns, commit what is green and return what is left in blockedReason with blocked true. ${fixerTask}${foldInBrief(foldIn)}\n\n` +
     `Each finding names the rule it breaks and its evidence. Check the evidence yourself first. If it does not hold — the rule is not broken, or the evidence is wrong — ` +
     `do not change code for it: list it in disputed with your counter-evidence. Report every test you add, strengthen or keep for a blocking finding, and every probe cell you run for it, in regression under that finding's number in the list above; the number counts only for the blocking list, a follow-up needs no regression entry. Run the mutation you name, do not reason about it. ` +
     `A defect's test fails before your fix and passes after it; a defect with a test draft needs one. A defect in test code (hygiene) needs no regression test: the diff is its proof. A test-gap finding means a behaviour has no test, the code is already right, and it always needs a test: it passes before and after, ` +
     `so name in mutation the production change, made and reverted, under which the test fails; a test that fails on the pre-fix code counts as such a mutation (failedBefore true). When a test-gap's cell pins no behaviour at all, you may remove it instead: report resolution removed-vacuous with the removal diff in diff. A docs finding needs no test. When the only finding is that the pull request conflicts with main, the merge is the whole fix. ` +
     `Otherwise one commit per finding. Push, patch the PR body only where it became false (REST PATCH with --input, never gh pr edit --body-file), run \`aco check ${pr}\` from the worktree. ` +
-    `Return the new tip and files: git diff --name-only from mergedBase (from oldTip when mergeResolvedLaneConflict) to the new tip.`,
-    { label: `fix-${spent.total}`, phase: 'Fix', schema: FIX, agentType: 'atelier:code-fixer', ...claudeRole(fixerRole(blocking, foldIn)) })
-  if (!fixed) return { stop: openResult('failed', 'fix', { reason: `the fixer returned no result; inspect ${A.worktree} for commits past ${tip} and uncommitted work, then start a new run with pr and tip (and fixFirst for what is left)`, lastBlocking: blocking }) }
-  if (![fixed.oldTip, fixed.mergedBase, fixed.tip].every(t => SHA.test(t || ''))) return { stop: openResult('failed', 'fix', { reason: 'the fixer returned a tip that is not a sha' }) }
+    `Return files: the output of \`${git} log --name-only --format= --first-parent --remerge-diff ${tipBeforeFix}..HEAD\` (of \`${git} diff --name-only ${tipBeforeFix}..HEAD\` when mergeResolvedLaneConflict is true). Last, whatever happened,` })
+  if (!answered) return { stop: openResult('failed', 'fix', { reason: `the fixer returned no result; inspect ${A.worktree} for commits past ${tip} and uncommitted work, then start a new run with pr and tip (and fixFirst for what is left)`, lastBlocking: blocking }) }
   // What the fixer says it found already done is only reported to the head: an unaccepted fix folds nothing in.
-  const unaccepted = (result) => ({ stop: (fixed.resolved || []).length ? { ...result, resolved: fixed.resolved } : result })
+  const unaccepted = (result) => ({ stop: (answered.resolved || []).length ? { ...result, resolved: answered.resolved } : result })
+  // A blocked fixer may have run out of turns before the relay line, and the blocked answer reads no tip.
+  if (!(answered.rescope || []).length && answered.blocked) return unaccepted(openResult('escalated', 'fix', { reason: answered.blockedReason }))
+  if (answered.problem || failedCommand(answered.values)) return { stop: openResult('failed', 'fix', { reason: `the fixer's relay line ${answered.problem || 'reports a failed git command'}${printedLine(answered)}` }) }
+  const { values } = answered
+  const fixed = { ...answered, tip: values.head.out, heldTip: tipBeforeFix, unchanged: sameCommit(values.head.out, tipBeforeFix), mergeOnly: mergedOnto(values, tipBeforeFix), containsMain: values.main.code === 0 }
   if ((fixed.rescope || []).length) {
     const committed = adoptFixerTip(fixed)
     return unaccepted(awaitRescope('fix', fixed.rescope, committed ? ' The returned tip carries fix commits no reviewer has seen; the new run takes deltaFrom.' : '', { lastBlocking: blocking }))
   }
-  if (fixed.blocked) return unaccepted(openResult('escalated', 'fix', { reason: fixed.blockedReason }))
   if ((fixed.disputed || []).length) return unaccepted(awaitHeadOnDispute(fixed, blocking))
   const rejection = fixRejection(fixed, blocking, foldIn)
   if (rejection) return unaccepted(openResult('failed', 'fix', rejection))

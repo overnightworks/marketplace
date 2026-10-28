@@ -1,18 +1,17 @@
 
 export const meta = {
   name: 'lane-relay',
-  description: 'Internal to the lane workflow, never started by a head: runs one printer command through an agent and returns the CRC-checked values of the line it relays.',
+  description: 'Internal to the lane workflow, never started by a head: runs one printer command through an agent and returns the answer of the agent together with the CRC-checked values of the line it relays.',
 }
 
 // Both copies of this number (here and in lane.js) change together in any commit that changes the args or the return shape.
-const LANE_RELAY_PROTOCOL = 1
+const LANE_RELAY_PROTOCOL = 2
 const A = args || {}
-const need = ['protocol', 'worktree', 'label', 'phase', 'brief', 'step', 'relayArgs', 'nonce', 'requiredKeys', 'mechanical']
+const need = ['protocol', 'worktree', 'label', 'phase', 'brief', 'step', 'relayArgs', 'nonce', 'requiredKeys', 'agentOptions']
 const missing = need.filter(key => A[key] === undefined || A[key] === null || A[key] === '')
 if (missing.length) return { refused: `missing args: ${missing.join(', ')}` }
 if (A.protocol !== LANE_RELAY_PROTOCOL) return { refused: `lane-relay speaks protocol ${JSON.stringify(LANE_RELAY_PROTOCOL)}, but the lane that started it speaks protocol ${JSON.stringify(A.protocol)}; the installed atelier differs from the running lane` }
-const { label, phase: phaseName, brief, step, relayArgs, nonce, requiredKeys, note } = A
-const MECHANICAL = A.mechanical
+const { label, phase: phaseName, brief, step, relayArgs, nonce, requiredKeys, agentOptions, answerSchema = {} } = A
 
 // agent() with a schema throws when the subagent ends without a result; an end without one is a null the lane reports.
 async function safeAgent(prompt, opts) {
@@ -53,11 +52,7 @@ const crc32 = (text) => {
   for (let i = 0; i < text.length; i++) crc = CRC_TABLE[(crc ^ text.codePointAt(i)) & 255] ^ (crc >>> 8)
   return ((crc ^ 0xffffffff) >>> 0).toString(16).padStart(8, '0')
 }
-const RELAYED = {
-  type: 'object',
-  required: ['printed'],
-  properties: { printed: { type: 'string', description: 'the one line the command printed, character for character as printed; when it printed no line, its error output' } },
-}
+const PRINTED = { type: 'string', description: 'the one line the command printed, character for character as printed; when it printed no line, its error output' }
 
 // The values of a relay line, or why the line cannot be trusted: checked as text first (shape, CRC32), parsed after.
 // A caller stops at the stage of the step that ran the printer, so an unreadable scope line stops at scope, because it
@@ -76,8 +71,8 @@ function readRelay(printed, nonce, requiredKeys = []) {
 
 const answer = await safeAgent(`${brief} ${RELAY_ASK}\n${relayCommand(step, ...relayArgs)}`, {
   label, phase: phaseName,
-  schema: note ? { ...RELAYED, properties: { ...RELAYED.properties, note: { type: 'string', description: note } } } : RELAYED,
-  ...MECHANICAL,
+  schema: { type: 'object', required: ['printed', ...(answerSchema.required || [])], properties: { printed: PRINTED, ...answerSchema.properties } },
+  ...agentOptions,
 })
 if (!answer) return null
-return { printed: answer.printed, ...(answer.note ? { note: answer.note } : {}), ...readRelay(answer.printed, nonce, requiredKeys) }
+return { ...answer, ...readRelay(answer.printed, nonce, requiredKeys) }

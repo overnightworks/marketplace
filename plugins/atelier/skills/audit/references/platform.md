@@ -54,8 +54,8 @@ BSI module list:
 
 An anchor whose edition changed, or a source that refuses, follows the
 drift route in `SKILL.md` External sources. The re-checks run once per standing
-run; a dispatched run reuses the last standing run's anchors unless an edition
-change is suspected.
+run; a dispatched run reuses the anchors named in the latest `Distributor:` item
+for the goal (found as `SKILL.md` says) unless an edition change is suspected.
 
 ## Areas
 
@@ -145,10 +145,7 @@ with its exact question; it is neither a pass nor a fail.
    - Retention or rotation is configured (config).
    - Time synchronisation is stated (runbook).
    - Logging code or config redacts secrets and personal data (config).
-   - Unverified (host): is the retention in effect on disk? The host fact wins
-     only when the auditor runs on the host; off the host, a repository claim
-     the host might contradict stays an `unverified (host)` question for the
-     operator, listed and not counted.
+   - Unverified (host): is the retention in effect on disk?
 10. **Incident response and recovery onto a new machine** (CIS 17; BSI DER.2.1,
     DER.4; CSF RS.MA, RS.MI, RC.RP; SRE ch. 13 to 15). Intent: a
     stranger could rebuild.
@@ -184,7 +181,7 @@ with its exact question; it is neither a pass nor a fail.
 ## Marks
 
 Marks are per repository and area; each area's row shows the lowest mark and
-how many repositories reach it, so the per-repository marks show where the
+how many repositories have it, so the per-repository marks show where the
 repositories differ and no finer scale exists.
 
 - `100 %`: every check passes, with evidence. The checks alone decide the
@@ -228,8 +225,7 @@ The finding record gains no field; `<lens>/<check>` is `platform/<area>` and
    delta against the last distributor;
 2. the area table: area, mark, one evidence line, owner as the
    `<owner>/<repo>#<n>` of the open item that owns the gap, or "no owner"; each
-   area shows the lowest mark with "N of M repositories" reaching it, followed
-   by the per-repository marks;
+   area row carries its marks as the Marks section says;
 3. findings in the finding record, ranked by severity;
 4. the `0 %` areas, on their own;
 5. the open host and operator questions;

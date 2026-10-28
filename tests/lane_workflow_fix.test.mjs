@@ -1,7 +1,7 @@
 // Drives the atelier lane workflow script through the fixer, fold-in, proof and removal rules with a stub agent runner.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { runLane, APPROVE, PASS, greenCi, finding, followup, webauthTips, webauthReplay, agentProvidersReplay, replays, answersWith, outOfRange, resumeTip, resumeFixedTip, tidy, defectWithoutDraft, resumeFix, resumeArgs, unchangedFix, satisfied, reachesTheEnd, testGap, built } from './lane_workflow_harness.mjs'
+import { runLane, APPROVE, PASS, greenCi, finding, followup, webauthTips, webauthReplay, agentProvidersReplay, replays, answersWith, outOfRange, mainMovedTip, mergedOnlyTip, resumeTip, resumeFixedTip, tidy, defectWithoutDraft, resumeFix, mergeOnlyFix, resumeArgs, unchangedFix, satisfied, reachesTheEnd, testGap, built } from './lane_workflow_harness.mjs'
 
 const proofsByKind = [
   ['a resumed run whose findings carry no kind stops at the fix as before', { kind: undefined, testDraft: true, mutation: true }, false],
@@ -69,7 +69,7 @@ test('a fix that only merged main folds nothing in, so the head still routes the
     'r0-gate': { ...APPROVE, codexExit: 0 },
     'e2e-0': PASS,
     'ci-0': { head: built, green: false, failing: [conflicting] },
-    'fix-1': { oldTip: built, mergedBase: merged, tip: merged, mergeResolvedLaneConflict: false, files: [], disputed: [], blocked: false },
+    'fix-1': { head: merged, parents: [built, 'e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4'], mergeResolvedLaneConflict: false, files: [], disputed: [], blocked: false },
     'ci-1': greenCi(merged),
   })
   assert.equal(result.status, 'ready-to-land')
@@ -146,11 +146,9 @@ for (const [what, foldIn, resolved] of satisfiedFoldIns) {
   })
 }
 
-const mainMovedTip = 'f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3'
-
 const satisfiedAcrossMovedMain = [
-  ['main moved and the lane has no change of its own past the merge', { mergedBase: mainMovedTip, tip: mainMovedTip }, true],
-  ['main moved but the returned tip is not the merge', { mergedBase: mainMovedTip, tip: resumeTip }, false],
+  ['main moved and the lane has no change of its own past the merge', { head: mainMovedTip, parents: [resumeTip, mergedOnlyTip] }, true],
+  ['main moved but the returned tip is not the merge', { head: resumeTip, main_code: 1 }, false],
 ]
 
 for (const [what, shape, goesOn] of satisfiedAcrossMovedMain) {
@@ -210,7 +208,7 @@ for (const [behaviour, followups, namesFoldIn] of deltaRangesByFoldIns) {
   test(`the re-checking reviewer's delta range ${behaviour}`, async () => {
     const { agentCalls } = await runLane(resumeArgs, reviewReviseAnswers(followups))
     const recheckPrompt = agentCalls['r1-review'].prompt
-    assert.match(recheckPrompt, /only this delta: git diff/)
+    assert.match(recheckPrompt, /only this delta, the fixer's own commits: git log -p --first-parent --remerge-diff/)
     assert.equal(/tidy the import order/.test(recheckPrompt), namesFoldIn)
     assert.equal(/these follow-ups to fold in/.test(recheckPrompt), namesFoldIn)
   })
@@ -316,7 +314,7 @@ for (const [behaviour, answered, shownAsRemoval] of removalsByFindingKind) {
 // The contract stops the fix loop at the final gate's third consecutive REVISE; the ordinary reviewer is bound by the budgets only.
 const tipAfter = (n) => String(n).repeat(40)
 const reviseWith = (where, extra = {}) => ({ verdict: 'REVISE', blocking: [finding(where, `defect at ${where}`)], followups: [], codexExit: 0, ...extra })
-const fixFrom = (from, to) => ({ ...resumeFix, oldTip: from, mergedBase: from, tip: to, regression: [], files: ['src/x.py'] })
+const fixFrom = (from, to) => ({ ...resumeFix, head: to, parents: [from], regression: [], files: ['src/x.py'] })
 const materialResume = { ...resumeArgs, risk: 'material' }
 
 test('#330 three consecutive gate REVISEs stop at review before the third fixer, handing the head the three findings', async () => {
@@ -379,4 +377,57 @@ test('#330 three consecutive reviewer REVISEs with different findings do not sto
   })
   assert.ok(launchedAgents.includes('fix-3'))
   assert.equal(result.gateRevisions, undefined)
+})
+
+// The fix step's tip and merge shape come only from the printer line the fixer runs last: HEAD and its parents.
+const fixerShapes = [
+  ['#331 edge#531: a fix commit followed by a merge of main', { head: mergedOnlyTip, parents: [resumeFixedTip, mainMovedTip] }],
+  ['#331 a merge of main followed by a fix commit', { head: resumeFixedTip, parents: [mergedOnlyTip] }],
+  ['#331 a fix commit with no merge of main', { head: resumeFixedTip }],
+]
+
+for (const [what, shape] of fixerShapes) {
+  test(`${what} reaches the delta review over the fixer's own commits from the held tip`, async () => {
+    const { result, agentCalls } = await runLane({ ...resumeArgs, fixFirst: [defectWithoutDraft] }, { 'fix-1': { ...resumeFix, ...shape, regression: [] }, ...reachesTheEnd, 'ci-0': greenCi(shape.head) })
+    assert.equal(result.status, 'ready-to-land')
+    assert.ok(agentCalls['r1-review'].prompt.includes(`git log -p --first-parent --remerge-diff ${resumeTip}..${shape.head}`), agentCalls['r1-review'].prompt)
+  })
+}
+
+test('#331 a fixer that only merged main fixes nothing when a review finding, not the merge, was the finding', async () => {
+  const { result, launchedAgents } = await runLane({ ...resumeArgs, fixFirst: [defectWithoutDraft] }, { 'fix-1': mergeOnlyFix })
+  assert.deepEqual([result.status, result.stage, result.reason], ['failed', 'fix', 'the fixer only merged main and fixed nothing'])
+  assert.ok(!launchedAgents.includes('r1-review'))
+})
+
+test('#331 the fixer is handed the sync relay line to run last and returns its report with it', async () => {
+  const { agentCalls } = await runLane({ ...resumeArgs, fixFirst: [defectWithoutDraft] }, { 'fix-1': resumeFix })
+  const { prompt, options } = agentCalls['fix-1']
+  assert.match(prompt, /Last, whatever happened, run this one command line exactly as written[^]*' sync 'fix-1-c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0'$/)
+  assert.deepEqual(options.schema.required.slice(0, 1), ['printed'])
+  assert.equal(options.agentType, 'atelier:code-fixer')
+  for (const gone of ['oldTip', 'mergedBase', 'tip']) assert.ok(!(gone in options.schema.properties), gone)
+})
+
+const fixRelayFailures = [
+  ['a CRC edit', { edit: (line) => line.replace(resumeFixedTip, resumeTip) }, /fails its CRC check/],
+  ['a foreign nonce', { nonce: 'fix-1-e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5' }, /carries the nonce fix-1-e5e5/],
+  ['no line', { printed: 'fatal: not a git repository' }, /is not a relay line/],
+  ['a failed rev-parse', { head_code: 128 }, /reports a failed git command/],
+  ['a failed merge-base', { main_code: 128 }, /reports a failed git command/],
+]
+
+for (const [what, shape, problem] of fixRelayFailures) {
+  test(`#331 a fix relay line with ${what} stops at fix quoting the printed line, and no review starts`, async () => {
+    const { result, launchedAgents } = await runLane({ ...resumeArgs, fixFirst: [defectWithoutDraft] }, { 'fix-1': { ...resumeFix, ...shape, regression: [] } })
+    assert.deepEqual([result.status, result.stage], ['failed', 'fix'])
+    assert.match(result.reason, problem)
+    assert.match(result.reason, /the printed line: /)
+    assert.ok(!launchedAgents.some(label => label.includes('review')))
+  })
+}
+
+test('#331 a blocked fixer that ran out of turns before the relay line stays escalated with its reason', async () => {
+  const { result } = await runLane({ ...resumeArgs, fixFirst: [defectWithoutDraft] }, { 'fix-1': { ...resumeFix, printed: '', blocked: true, blockedReason: 'out of turns' } })
+  assert.deepEqual([result.status, result.stage, result.reason], ['escalated', 'fix', 'out of turns'])
 })

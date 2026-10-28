@@ -5,7 +5,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { execFileSync, spawnSync } from 'node:child_process'
-import { runLane, runCommandLine, installFake, FAKE_ACO, resumedLane } from './lane_workflow_harness.mjs'
+import { runLane, runCommandLine, installFake, FAKE_ACO, resumedLane, resumeFix, defectWithoutDraft } from './lane_workflow_harness.mjs'
 
 const BRANCH = 'lane'
 const LONGEST_PATH_COMPONENT = 255
@@ -202,6 +202,64 @@ test('#345 AC-sync-relay-real-git: a scope printer line that carries the sync no
   assert.deepEqual(launchedAgents, ['sync'])
 })
 
+// The fixer does what its prompt says with real git, then runs the relay line it was handed last.
+const fixerAgentRunning = (lane, work) => (prompt) => {
+  work()
+  const printed = runCommandLine(prompt.split('\n').at(-1), { cwd: os.tmpdir(), env: lane.env })
+  return { mergeResolvedLaneConflict: false, files: ['fix-file'], disputed: [], blocked: false, regression: [], printed }
+}
+const mergeMain = (lane) => {
+  lane.git(lane.worktree, 'fetch', 'origin')
+  lane.git(lane.worktree, 'merge', 'origin/main', '-m', 'merge main')
+}
+const runFixStep = (lane, work) => runLane({ ...laneArgs(lane), fixFirst: [defectWithoutDraft] }, { sync: syncAgentRunning(lane), 'fix-1': fixerAgentRunning(lane, work), 'scope-1': agentRunning(lane, []) })
+// What the reviewers run to see the fixer's delta, taken from the prompt they were handed and run in the lane's worktree.
+const reviewedDelta = (lane, prompt) => lane.git(lane.worktree, ...prompt.match(/git (log -p --first-parent --remerge-diff [0-9a-f]+\.\.[0-9a-f]+)/)[1].split(' '))
+
+const fixThenMerge = (lane) => () => {
+  lane.commitIn(lane.worktree, 'fix-file')
+  lane.advanceMain('main-file')
+  mergeMain(lane)
+}
+const mergeThenFix = (lane) => () => {
+  lane.advanceMain('main-file')
+  mergeMain(lane)
+  lane.commitIn(lane.worktree, 'fix-file')
+}
+const mergeWithEvilEdit = (lane) => () => {
+  lane.commitIn(lane.worktree, 'fix-file')
+  lane.advanceMain('main-file')
+  lane.git(lane.worktree, 'fetch', 'origin')
+  lane.git(lane.worktree, 'merge', '--no-commit', '--no-ff', 'origin/main')
+  fs.writeFileSync(path.join(lane.worktree, 'lane-file'), 'evil lane edit')
+  lane.git(lane.worktree, 'add', 'lane-file')
+  lane.git(lane.worktree, 'commit', '-m', 'merge main')
+}
+
+const fixShapes = [
+  ['#331 edge#531 AC-fix-then-merge-real-git: a fix commit followed by a merge of main', fixThenMerge, /diff --git a\/fix-file/],
+  ['#331 AC-merge-then-fix-real-git: a merge of main followed by a fix commit', mergeThenFix, /diff --git a\/fix-file/],
+  ['#331 AC-evil-merge-real-git: a merge of main amended with an extra lane edit', mergeWithEvilEdit, /\+evil lane edit/],
+]
+
+for (const [what, workFor, shown] of fixShapes) {
+  test(`${what} reaches the delta review, which shows the lane's own change and never main's clean changes`, async (t) => {
+    const lane = laneRepository(t, { onMain: true })
+    const { agentCalls, launchedAgents } = await runFixStep(lane, workFor(lane))
+    assert.ok(launchedAgents.includes('r1-review'), launchedAgents.join())
+    const delta = reviewedDelta(lane, agentCalls['r1-review'].prompt)
+    assert.match(delta, shown)
+    assert.doesNotMatch(delta, /main-file/)
+  })
+}
+
+test('#331 AC-merge-only-real-git: a fixer that only merged main fixes nothing for a review finding, and no review starts', async (t) => {
+  const lane = laneRepository(t, { onMain: true })
+  const { result, launchedAgents } = await runFixStep(lane, () => { lane.advanceMain('main-file'); mergeMain(lane) })
+  assert.deepEqual([result.status, result.stage, result.reason], ['failed', 'fix', 'the fixer only merged main and fixed nothing'])
+  assert.ok(!launchedAgents.includes('r1-review'))
+})
+
 // The lane-relay child contract: the lane starts sync and scope through it, and any break of it stops the lane at the step that asked.
 const readWorkflow = (name) => fs.readFileSync(new URL(`../plugins/atelier/workflows/${name}.js`, import.meta.url), 'utf8')
 const protocolOf = (source) => Number(source.match(/^const LANE_RELAY_PROTOCOL = (\d+)$/m)?.[1])
@@ -247,4 +305,6 @@ test('#350 lane-relay-protocol: the sync and scope agents are launched by the la
   assert.deepEqual(built.launchedByChild['atelier:lane-relay'], ['scope-0'])
   const resumed = await driveRelayChild(resumedLane, {})
   assert.deepEqual(resumed.launchedByChild['atelier:lane-relay'], ['sync', 'scope-resume'])
+  const fixed = await driveRelayChild({ ...resumedLane, fixFirst: [defectWithoutDraft] }, {}, { 'fix-1': { ...resumeFix, regression: [] } })
+  assert.deepEqual(fixed.launchedByChild['atelier:lane-relay'], ['sync', 'fix-1', 'scope-1'])
 })

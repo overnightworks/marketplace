@@ -10,7 +10,7 @@ import { runLane } from './lane_workflow_harness.mjs'
 const tip = 'c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0'
 const lane = { item: 1, worktree: '/w', branch: 'b', contract: 'c', e2e: 'e', scratch: '/s', pr: 1, tip }
 const tidy = { where: 'x.py:1', text: 'tidy the import order', kind: 'follow-up (fix in place)' }
-const alreadySatisfied = { oldTip: tip, mergedBase: tip, tip, mergeResolvedLaneConflict: false, files: [], regression: [], disputed: [], blocked: false, resolved: [{ where: tidy.where, text: tidy.text, evidence: 'already pinned' }] }
+const alreadySatisfied = { head: tip, mergeResolvedLaneConflict: false, files: [], regression: [], disputed: [], blocked: false, resolved: [{ where: tidy.where, text: tidy.text, evidence: 'already pinned' }] }
 const reachesCi = { 'fix-1': alreadySatisfied, 'r1-review': { verdict: 'APPROVE', blocking: [], followups: [] }, 'e2e-0': { verdict: 'PASS', blocking: [], followups: [] } }
 const required = 'quality / verdict'
 const check = (name, bucket) => ({ name, bucket })

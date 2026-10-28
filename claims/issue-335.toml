@@ -1,8 +1,0 @@
-claim_id = "cf7a088e46cd471eb7dd3f5ef8c7e31d"
-agent = "Claude b5de3560-4db0-4dfe-be9f-fe26ef53140a"
-role = "builder"
-base = "80852bbb3e475396875a5c7ceaea38cf59e5afe5"
-branch = "claude/issue-335-expectation-lines-option-cards"
-scope = [".claude-plugin/marketplace.json", "instructions/AGENTS.md", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/.codex/agents/refine.toml", "plugins/atelier/agents/refine.md"]
-opened_commit = "cbbd4eead319d4657cfa46708a94c281d0b4b3fa"
-whole_reason = "One rule change: the contract sentence and the one agent that produces the same line form, with the version bump."

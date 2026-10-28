@@ -233,3 +233,20 @@ test('#329 ci-registration-wait: the loop stops after 20 tries with status 0 whe
   const { agentCalls } = await driveCi(ciAnswer([check(required, 'pass')]))
   assert.deepEqual(runRegistrationLoop(true, registrationLoopOf(agentCalls['ci-0'].prompt)), { status: 0, tries: 20 })
 })
+
+const lockBusy = { verdict: 'failed', lockBusy: true, blocking: [], followups: [] }
+const lockQueue = [
+  ['green', ciAnswer([check(required, 'pass')]), /green/],
+  ['red', redCi(['Python: tests']), /red[\s\S]*Python: tests/],
+  ['unreadable', { failure: 'lane-ci failed: boom' }, /not readable/],
+]
+for (const [what, ci, state] of lockQueue) {
+  test(`#357 lock-queue: two busy probe locks with CI ${what} go to the head at test and launch no fixer`, async () => {
+    const { result, launchedAgents } = await runLane({ ...lane, foldIn: [tidy] }, { ...reachesCi, 'e2e-0': lockBusy, 'e2e-1': lockBusy, 'ci-0': ci, 'ci-1': ci })
+    assert.deepEqual([result.status, result.stage], ['awaiting-head', 'test'])
+    assert.match(result.reason, /^lock queue:/)
+    assert.match(result.reason, state)
+    assert.match(result.reason, /pr and tip/)
+    assert.ok(!launchedAgents.some(agent => agent.startsWith('fix-2')))
+  })
+}

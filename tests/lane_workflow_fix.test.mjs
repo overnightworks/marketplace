@@ -431,3 +431,12 @@ test('#331 a blocked fixer that ran out of turns before the relay line stays esc
   const { result } = await runLane({ ...resumeArgs, fixFirst: [defectWithoutDraft] }, { 'fix-1': { ...resumeFix, printed: '', blocked: true, blockedReason: 'out of turns' } })
   assert.deepEqual([result.status, result.stage, result.reason], ['escalated', 'fix', 'out of turns'])
 })
+
+test('#358 the builder and the fixer are told to run the static checks before pushing, the reviewer is not', async () => {
+  const { agentCalls } = await runLane({ ...resumeArgs, fixFirst: [defectWithoutDraft] }, { 'fix-1': resumeFix })
+  const { agentCalls: buildCalls } = await runLane({ item: 358, worktree: '/w', branch: 'b', contract: 'c', e2e: 'e', scratch: '/s', build: 'recorded' }, { build: built })
+  const localChecks = /After your last merge of origin\/main and before you push, run the static checks your `aco brief` step names[^]*`quality hygiene \.`/
+  assert.match(buildCalls.build.prompt, localChecks)
+  assert.match(agentCalls['fix-1'].prompt, localChecks)
+  assert.doesNotMatch(agentCalls['r1-review'].prompt, localChecks)
+})

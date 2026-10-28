@@ -479,6 +479,14 @@ its own ladder:
 - Codex: Astra medium, Astra high;
 - the ladder ends at high.
 
+A finding is not a review miss when only a deterministic check caught it and its
+fix changes no behaviour. Those checks are: a size or baseline ratchet, a clone
+pair, lint, format, a coverage floor, a Sonar code-smell rule, and a missing ID
+marker. Such a finding moves no ladder and adds no reviewer, and the `Routing:`
+line names that check as its stage (operator ruling 28.10.2026). A failing test,
+a secret or advisory scan, and a scanner bug or vulnerability finding stay review
+misses.
+
 A further miss at the top of a ladder adds a second independent reviewer from
 another eligible provider to that role for the rest of the session, and the head
 names this in the next report to the operator.
@@ -583,7 +591,11 @@ builds are what overbook it, not the agents.
 
 Local runs are targeted; CI is the gate. A builder or reviewer runs locally
 only the tests that prove its own change — the named test modules, or `-k` on
-the behaviour — plus the static checks its brief names. Never a full suite, a
+the behaviour — plus the static checks its brief names. After its last merge of
+the default branch and before it pushes, a builder or fixer runs those static
+checks and, where the repository has the quality gate, `quality hygiene .` at
+the release that gate pins, and fixes what they report; they take seconds and
+spare a CI round (operator ruling 28.10.2026). Never a full suite, a
 coverage run, or a full E2E/Playwright suite on this machine unless the
 operator asked. Those run in CI on the pushed branch; the lane reads CI. A
 repository's `AGENTS.md` may name cheaper local commands for that repo; it may

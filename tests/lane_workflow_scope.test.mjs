@@ -20,8 +20,8 @@ const scopeStops = [
     resumeArgs, { 'scope-resume': outsideClaim(['board.py']) }, ['sync', 'scope-resume'], resumeTip, [/earlier run/]],
   ['#316 AC-scope-stop-not-bounce: a resume with deltaFrom alone whose inherited commits are outside the claim names no deltaFrom',
     { ...resumeArgs, deltaFrom: resumeTip }, { 'scope-resume': outsideClaim(['board.py']) }, ['sync', 'scope-resume'], resumeTip, [/earlier run/]],
-  ['#316 AC-scope-stop-not-bounce: a builder that left the claim scope ends at scope and names the merge-base as deltaFrom',
-    builtLane, { build: built, 'scope-0': outsideClaim(['board.py']) }, ['build', 'scope-0'], resumeTip, ['deltaFrom the output of', /merge-base origin\/main/, /No reviewer has seen the build/]],
+  ['#316 AC-scope-stop-not-bounce: a builder that left the claim scope ends at scope and names no deltaFrom, so the new run reviews the whole lane',
+    builtLane, { build: built, 'scope-0': outsideClaim(['board.py']) }, ['build', 'scope-0'], resumeTip, [/No reviewer has seen the build/, /whole lane/]],
   ['#316 AC-scope-stop-not-bounce: a carried batch that ends outside the claim says the paths may come from earlier commits and names no deltaFrom',
     { ...resumeArgs, fixFirst: [defectWithoutDraft] }, { 'fix-1': aFixFor, 'scope-1': outsideClaim(['board.py']) }, ['sync', 'fix-1', 'scope-1'], resumeFixedTip, [/earlier commits/]],
   ['#316 AC-scope-stop-not-bounce: a carried batch with deltaFrom that ends outside the claim names the deltaFrom the run was given',
@@ -96,10 +96,12 @@ for (const [step, args, answers, stage, resumeFrom] of rescopeHandbacks) {
   })
 }
 
-test('#131 AC-build-rescope-names-the-base: the build hand-back names the merge-base command with the worktree and the returned tip', async () => {
+test('#361 AC-build-rescope-names-no-base: the build hand-back names no deltaFrom and no merge-base, and says the new run reviews the whole lane', async () => {
   const { result } = await runLane(builtLane, { build: { ...built, rescope: rescopeRequest } })
-  assert.ok(result.reason.includes(`git -C '/w' merge-base origin/main ${resumeTip}`), result.reason)
-  assert.ok(result.reason.includes("git -C '/w' fetch origin"), result.reason)
+  assert.match(result.reason, /no reviewer has seen it/)
+  assert.match(result.reason, /takes no deltaFrom/)
+  assert.match(result.reason, /whole lane/)
+  assert.doesNotMatch(result.reason, /merge-base|deltaFrom set/)
 })
 
 test('a build together with pr and tip is refused at input', async () => {
@@ -120,13 +122,12 @@ test('a build rescope stop with a pull request names a new run with pr and tip',
   assert.doesNotMatch(result.reason, /resume/i)
 })
 
-test('#131 AC-build-rescope-resume-reviews-the-build: resuming a build hand-back as its sentence says has the review and the gate judge deltaFrom..HEAD', async () => {
-  const mergeBase = 'a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1'
+test('#361 AC-build-rescope-resume-reviews-the-whole-lane: resuming a build hand-back as its sentence says gives the review and the gate the whole lane', async () => {
   const fixFirst = rescopeRequest.map(({ path, change, reason }) => ({ ...finding(path, change), evidence: reason, kind: 'defect' }))
   const answers = { 'fix-1': { ...resumeFix, regression: [] }, 'r1-review': APPROVE, 'r1-gate': { ...APPROVE, codexExit: 0 }, 'e2e-0': PASS, 'ci-0': greenCi(resumeFixedTip) }
-  const { result, agentCalls } = await runLane({ ...resumeArgs, risk: 'material', fixFirst, deltaFrom: mergeBase }, answers)
+  const { result, agentCalls } = await runLane({ ...resumeArgs, risk: 'material', fixFirst }, answers)
   assert.equal(result.status, 'ready-to-land')
-  for (const label of ['r1-review', 'r1-gate']) assert.ok(agentCalls[label].prompt.includes(`git diff ${mergeBase}..HEAD`), label)
+  for (const label of ['r1-review', 'r1-gate']) assert.ok(agentCalls[label].prompt.includes('the whole lane: git diff origin/main...HEAD'), label)
 })
 
 test('#108 AC-sync-in-worktree: every git command the sync agent is handed carries the worktree', async () => {

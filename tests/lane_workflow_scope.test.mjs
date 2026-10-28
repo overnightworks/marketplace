@@ -5,7 +5,7 @@ import { runLane, resumedLane, APPROVE, PASS, greenCi, finding, agentProvidersRe
 
 const builtLane = { ...resumedLane, pr: undefined, tip: undefined, build: 'b' }
 
-const outsideClaim = (paths) => ({ outside_claim: JSON.stringify(paths) })
+const outsideClaim = (paths) => ({ outside_claim: paths })
 const newRunWithBothChoices = /aco rescope[\s\S]*new run with pr and tip[\s\S]*fixFirst[\s\S]*revert[\s\S]*git log origin\/main\.\.\w+ -- board\.py/
 const reviseOnce = { verdict: 'REVISE', blocking: [{ ...defectWithoutDraft, kind: 'docs' }], followups: [] }
 const redCi = { head: resumeFixedTip, green: false, failing: [{ ...finding('ci', 'quality / verdict is red'), kind: 'defect' }], checks: [{ name: 'quality / verdict', bucket: 'fail' }], requiredChecks: ['quality / verdict'] }
@@ -42,7 +42,7 @@ for (const [behaviour, args, answers, expectedAgents, expectedTip, reasonParts] 
   })
 }
 
-test('#316 AC-scope-stop-not-bounce: outside_claim [] after a fixer goes to review unchanged', async () => {
+test('#316 AC-scope-stop-not-bounce: an empty outside_claim after a fixer goes to review unchanged', async () => {
   const { launchedAgents } = await runLane({ ...resumeArgs, fixFirst: [defectWithoutDraft] }, { 'fix-1': aFixFor })
   assert.deepEqual(launchedAgents.slice(1, 4), ['fix-1', 'scope-1', 'r1-review'])
 })
@@ -61,12 +61,12 @@ test('#316 AC-scope-stop-folds-nothing: a scope stop after a batch with fold-ins
 })
 
 const stopsWithoutClaim = [
-  ['the builder', builtLane, { build: built, 'scope-0': { outside_claim: 'null' } }, 'scope-0'],
-  ['a fixer', { ...resumeArgs, fixFirst: [defectWithoutDraft] }, { 'fix-1': { ...resumeFix, regression: [] }, 'scope-1': { outside_claim: 'null' } }, 'scope-1'],
+  ['the builder', builtLane, { build: built, 'scope-0': { outside_claim: null } }, 'scope-0'],
+  ['a fixer', { ...resumeArgs, fixFirst: [defectWithoutDraft] }, { 'fix-1': { ...resumeFix, regression: [] }, 'scope-1': { outside_claim: null } }, 'scope-1'],
 ]
 
 for (const [step, args, answers, scopeLabel] of stopsWithoutClaim) {
-  test(`#71 AC-no-claim-no-pass: outside_claim null after ${step} stops the lane with a reason before any review`, async () => {
+  test(`#71 AC-no-claim-no-pass: a null outside_claim after ${step} stops the lane with a reason before any review`, async () => {
     const { result, launchedAgents } = await runLane(args, answers)
     assert.deepEqual([result.status, result.stage], ['failed', 'scope'])
     assert.match(result.reason, /no live claim/)
@@ -129,12 +129,6 @@ test('#131 AC-build-rescope-resume-reviews-the-build: resuming a build hand-back
   for (const label of ['r1-review', 'r1-gate']) assert.ok(agentCalls[label].prompt.includes(`git diff ${mergeBase}..HEAD`), label)
 })
 
-test('#71 AC-answer-not-aco: the scope agent gets one complete command line that enters the lane worktree first', async () => {
-  const { agentCalls } = await runLane(builtLane, { build: built })
-  const commandLine = `cd '/w' && aco brief 1 --json | python3 -c 'import json,sys; print(json.dumps(json.load(sys.stdin)["outside_claim"]))'`
-  assert.ok(agentCalls['scope-0'].prompt.includes(commandLine), agentCalls['scope-0'].prompt)
-})
-
 test('#108 AC-sync-in-worktree: every git command the sync agent is handed carries the worktree', async () => {
   const { agentCalls } = await runLane(resumeArgs)
   const prompt = agentCalls.sync.prompt.slice(agentCalls.sync.prompt.indexOf('Bring the lane up to date'))
@@ -169,24 +163,6 @@ test('#108 AC-sync-in-worktree: the sync prompt separates the no-op sentence fro
   assert.ok(agentCalls.sync.prompt.includes('change nothing. Otherwise'), agentCalls.sync.prompt)
 })
 
-const textsThatAreNotAcoAnswers = ['"claimed"', '{"a":1}', '[1]', 'true', 'not json', 'ERROR: no claim store']
-test('#118 AC-answer-not-aco: a push that succeeded but an empty outside_claim stops at scope naming the omission', async () => {
-  const { result, launchedAgents } = await runLane(builtLane, { build: built, 'scope-0': { remote_tip: built.tip, outside_claim: '' } })
-  assert.deepEqual([result.status, result.stage], ['failed', 'scope'])
-  assert.match(result.reason, /no outside_claim/)
-  assert.doesNotMatch(result.reason, /undefined/)
-  assert.deepEqual(launchedAgents, ['build', 'scope-0'])
-})
-
-for (const text of textsThatAreNotAcoAnswers) {
-  test(`#71 AC-answer-not-aco: the text ${text} stops the lane at scope naming it, before any review`, async () => {
-    const { result, launchedAgents } = await runLane(builtLane, { build: built, 'scope-0': { outside_claim: text } })
-    assert.deepEqual([result.status, result.stage], ['failed', 'scope'])
-    assert.ok(result.reason.includes(text), result.reason)
-    assert.deepEqual(launchedAgents, ['build', 'scope-0'])
-  })
-}
-
 test('#103 AC-scratch-and-load: the builder and fixer know the scratch path and the tester re-reads the load after the lock', async () => {
   const replay = webauthReplay
   const args = { ...replay.args, scratch: '/drive-scratch' }
@@ -195,78 +171,38 @@ test('#103 AC-scratch-and-load: the builder and fixer know the scratch path and 
   assert.match(agentCalls['e2e-0'].prompt, /Right after you acquire the lock, read the 1-minute load average again.*above 1\.5 × cores, release the lock and wait/)
 })
 
-test('#108 AC-scope-error-named: the scope agent is told to return the error output when the command prints nothing or fails', async () => {
-  const { agentCalls } = await runLane(builtLane, { build: built })
-  assert.match(agentCalls['scope-0'].prompt, /prints nothing or fails, return its error output/)
-})
-
-const scopeSchemaOf = async () => (await runLane(builtLane, { build: built })).agentCalls['scope-0'].options.schema
-// json.dumps prints non-ASCII as \uXXXX and escapes a quote with a backslash
-
-const acoPrints = ['', 'null', '[]', '["a.py"]', '["a.py", "dir/b c.py"]', '["caf\\u00e9/\\u3042.py"]', '["a\\"b.py"]']
-
-const slipsAndForeignText = [' ', '"claimed"', '{"a":1}', '[1]', '["a.py", 2]', 'true', 'not json', 'ERROR: no claim store', 'null null', '[] []']
-
-for (const [printed, admitted] of [...acoPrints.map(text => [text, true]), ...slipsAndForeignText.map(text => [text, false])]) {
-  test(`#118 AC-schema-admits-aco-only: the scope agent's schema ${admitted ? 'admits' : 'refuses'} ${JSON.stringify(printed)} as outside_claim`, async () => {
-    const { properties } = await scopeSchemaOf()
-    assert.equal(properties.outside_claim.type, 'string')
-    assert.equal(new RegExp(properties.outside_claim.pattern).test(printed), admitted)
-  })
-}
-
-test('#323 AC-failed-command-own-field: the schema requires all three fields, so a failed command is answered with empty strings for the others', async () => {
-  const schema = await scopeSchemaOf()
-  assert.equal(schema.properties.command_error.type, 'string')
-  assert.deepEqual([...schema.required].sort(), ['command_error', 'outside_claim', 'remote_tip'])
-  assert.ok(new RegExp(schema.properties.outside_claim.pattern).test(''))
-})
-
-const failedCommands = [
-  ['push', builtLane, { build: built }, 'scope-0', { command_error: "fatal: unable to access 'https://example.invalid/r.git'" }, 'push'],
-  ['aco brief', builtLane, { build: built }, 'scope-0', { remote_tip: built.tip, command_error: 'aco: no claim store here' }, 'scope'],
-  ['aco brief that also printed a valid answer', builtLane, { build: built }, 'scope-0', { remote_tip: built.tip, outside_claim: '[]', command_error: 'aco: warning, store locked' }, 'scope'],
-]
-
-for (const [command, args, answers, scopeLabel, answer, stage] of failedCommands) {
-  test(`#118 AC-failed-command-own-field: a failed ${command} stops the lane at ${stage} naming its error output, before any review`, async () => {
-    const { result, launchedAgents } = await runLane(args, { ...answers, [scopeLabel]: answer })
-    assert.deepEqual([result.status, result.stage], ['failed', stage])
-    assert.ok(result.reason.includes(answer.command_error), result.reason)
-    assert.ok(!launchedAgents.some(label => label.includes('review')))
-  })
-}
-
 const stepsThatMustPush = [
   ['the builder', builtLane, { build: built }, 'scope-0', resumeTip],
   ['an accepted fix batch', { ...resumeArgs, fixFirst: [defectWithoutDraft] }, { 'fix-1': { ...resumeFix, regression: [] } }, 'scope-1', resumeFixedTip],
   ['a fix batch that only merged main', { ...resumeArgs, fixFirst: [conflictsWithMain] }, { 'fix-1': mergeOnlyFix }, 'scope-1', mergedOnlyTip],
 ]
 
-const pushLine = (branch) => `git push origin '${branch}' && git rev-parse 'origin/${branch}'`
+const pushedByName = /^cd '\/w' && python3 -c '[^']*"git","push","origin",branch[^']*' 1 'b' '[\w-]+'$/
 
 for (const [step, args, answers, scopeLabel, stepTip] of stepsThatMustPush) {
-  test(`#115 AC-remote-carries-tip: after ${step} the scope agent is handed one command line that pushes the lane branch by name and prints the remote sha`, async () => {
+  test(`#115 AC-remote-carries-tip: after ${step} the scope agent is handed one command line whose printer pushes the lane branch by name, never by force`, async () => {
     const { agentCalls } = await runLane(args, answers)
-    assert.ok(agentCalls[scopeLabel].prompt.includes(`cd '/w' && ${pushLine('b')}`), agentCalls[scopeLabel].prompt)
-    assert.doesNotMatch(agentCalls[scopeLabel].prompt, /--force| -f\b|\bgit push origin '?\+/)
+    const prompt = agentCalls[scopeLabel].prompt
+    assert.match(prompt.split('\n').at(-1), pushedByName)
+    assert.ok(prompt.endsWith(` '${scopeLabel}-${stepTip}'`), prompt)
+    assert.doesNotMatch(prompt, /--force| -f\b|\bgit push origin '?\+/)
   })
 
-  for (const [spelling, remote] of [['the full tip', stepTip], ['an abbreviation of the tip', stepTip.slice(0, 7)], ['the tip with a trailing newline', `${stepTip}\n`]]) {
+  for (const [spelling, remote] of [['the full tip', stepTip], ['an abbreviation of the tip', stepTip.slice(0, 7)]]) {
     test(`#115 AC-remote-carries-tip: a remote that prints ${spelling} after ${step} goes on past the push unchanged`, async () => {
-      const { result, launchedAgents } = await runLane(args, { ...answers, [scopeLabel]: { outside_claim: '[]', remote_tip: remote } })
+      const { result, launchedAgents } = await runLane(args, { ...answers, [scopeLabel]: { remote_tip: remote } })
       assert.notEqual(result.stage, 'push')
       assert.ok(launchedAgents.indexOf(scopeLabel) < launchedAgents.length - 1, launchedAgents.join())
     })
   }
 
-  const remoteTextsThatCannotCarryTheTip = [
-    ['a rejected push', '! [rejected] b -> b (non-fast-forward)', { remote_tip: '! [rejected] b -> b (non-fast-forward)' }],
-    ['another commit', 'ffffffffffffffffffffffffffffffffffffffff', { remote_tip: 'ffffffffffffffffffffffffffffffffffffffff' }],
-    ['nothing at all', '', { remote_tip: '' }],
-    ['a push that failed with only its error output', "fatal: unable to access 'https://example.invalid/r.git'", { command_error: "fatal: unable to access 'https://example.invalid/r.git'" }],
+  const pushOutcomesThatCannotCarryTheTip = [
+    ['a rejected push', '! [rejected] b -> b (non-fast-forward)', { push_error: '! [rejected] b -> b (non-fast-forward)' }],
+    ['a push that failed with only its error output', "fatal: unable to access 'https://example.invalid/r.git'", { push_error: "fatal: unable to access 'https://example.invalid/r.git'" }],
+    ['another commit on the remote', 'ffffffffffffffffffffffffffffffffffffffff', { remote_tip: 'ffffffffffffffffffffffffffffffffffffffff' }],
+    ['nothing on the remote', '', { remote_tip: '' }],
   ]
-  for (const [outcome, printed, answer] of remoteTextsThatCannotCarryTheTip) {
+  for (const [outcome, printed, answer] of pushOutcomesThatCannotCarryTheTip) {
     test(`#115 AC-push-stops-loud: ${outcome} after ${step} stops the lane at push naming the tip and what came back, before any review`, async () => {
       const { result, launchedAgents } = await runLane(args, { ...answers, [scopeLabel]: answer })
       assert.deepEqual([result.status, result.stage], ['failed', 'push'])
@@ -276,6 +212,109 @@ for (const [step, args, answers, scopeLabel, stepTip] of stepsThatMustPush) {
     })
   }
 }
+
+const aBuiltLaneWith = (scopeAnswer) => runLane(builtLane, { build: built, 'scope-0': scopeAnswer })
+const stopsBeforeAnyReview = (result, launchedAgents, stage) => {
+  assert.deepEqual([result.status, result.stage], ['failed', stage])
+  assert.deepEqual(launchedAgents, ['build', 'scope-0'])
+}
+
+test('#323 AC-scope-relay: the scope agent returns one printed line and nothing the model derives', async () => {
+  const { agentCalls } = await runLane(builtLane, { build: built })
+  const schema = agentCalls['scope-0'].options.schema
+  assert.deepEqual([schema.required, Object.keys(schema.properties), schema.properties.printed.type], [['printed'], ['printed'], 'string'])
+})
+
+test('#323 AC-scope-relay: the scope agent runs the printer from inside the lane worktree', async () => {
+  const { agentCalls } = await runLane(builtLane, { build: built })
+  assert.match(agentCalls['scope-0'].prompt.split('\n').at(-1), /^cd '\/w' && python3 -c '/)
+})
+
+const outsideClaimWhenEdited = ['board.py', 'docs/a b.md']
+const editedLines = [
+  ['incident 1: the agent omitted the outside_claim value', line => line.replace(/"outside_claim":\[[^\]]*\],/, '')],
+  ['incident 2: the agent answered "" for a non-empty outside_claim', line => line.replace(/"outside_claim":\[[^\]]*\]/, '"outside_claim":""')],
+  ['incident 2: the agent answered [] for a non-empty outside_claim', line => line.replace(/"outside_claim":\[[^\]]*\]/, '"outside_claim":[]')],
+  ['a path of the outside_claim was dropped', line => line.replace('"board.py",', '')],
+  ['the exit status of the remote command was edited', line => line.replace('"remote":{"code":0', '"remote":{"code":1')],
+]
+
+for (const [edit, edited] of editedLines) {
+  test(`#323 AC-scope-relay: ${edit} fails the CRC check and quotes the line`, async () => {
+    let printed
+    const { result, launchedAgents } = await aBuiltLaneWith({ outside_claim: outsideClaimWhenEdited, edit: line => (printed = edited(line)) })
+    assert.notEqual(printed, undefined)
+    stopsBeforeAnyReview(result, launchedAgents, 'scope')
+    assert.match(result.reason, /CRC/)
+    assert.ok(result.reason.includes(printed), result.reason)
+  })
+}
+
+const nonceMismatches = [
+  ['another label', 'scope-resume-', ''],
+  ['another tip', 'scope-0-', 'ffffffffffffffffffffffffffffffffffffffff'],
+]
+
+for (const [difference, labelPart, tipPart] of nonceMismatches) {
+  test(`#323 AC-scope-relay: a well-formed line printed for ${difference} fails the nonce check and quotes the line`, async () => {
+    const nonce = `${labelPart}${tipPart || built.tip}`
+    const { result, launchedAgents } = await aBuiltLaneWith({ nonce })
+    stopsBeforeAnyReview(result, launchedAgents, 'scope')
+    assert.match(result.reason, /nonce/)
+    assert.ok(result.reason.includes(nonce), result.reason)
+  })
+}
+
+const linesThatAreNotRelayLines = [
+  ['an empty answer', ''],
+  ['aco error output', 'ERROR: no claim store'],
+  ['the old outside_claim text', '["board.py"]'],
+  ['a line with an uppercase crc', '{"crc":"ABCDEF01","v":{}}'],
+  ['a line with a short crc', '{"crc":"abcdef0","v":{}}'],
+]
+
+for (const [description, printed] of linesThatAreNotRelayLines) {
+  test(`#323 AC-scope-relay: ${description} stops the lane at scope before any review`, async () => {
+    const { result, launchedAgents } = await aBuiltLaneWith({ printed })
+    stopsBeforeAnyReview(result, launchedAgents, 'scope')
+    assert.match(result.reason, /relay line/)
+    assert.ok(result.reason.includes(printed), result.reason)
+  })
+}
+
+test('#323 AC-scope-relay: a scope step that returns no result stops the lane at scope', async () => {
+  const { result, launchedAgents } = await aBuiltLaneWith(null)
+  stopsBeforeAnyReview(result, launchedAgents, 'scope')
+  assert.match(result.reason, /returned no result/)
+})
+
+for (const text of ['claimed', { a: 1 }, [1], true]) {
+  test(`#71 AC-answer-not-aco: the value ${JSON.stringify(text)} is not aco's outside_claim and stops the lane at scope naming it`, async () => {
+    const { result, launchedAgents } = await aBuiltLaneWith({ outside_claim: text })
+    stopsBeforeAnyReview(result, launchedAgents, 'scope')
+    assert.ok(result.reason.includes(JSON.stringify(text)), result.reason)
+  })
+}
+
+const failedBriefs = [
+  ['aco brief that printed no answer', { brief_error: 'aco: no claim store here' }],
+  ['aco brief that also printed a valid answer', { brief_error: 'aco: warning, store locked', outside_claim: [] }],
+]
+
+for (const [command, answer] of failedBriefs) {
+  test(`#118 AC-failed-command-own-field: a failed ${command} stops the lane at scope naming its error output, before any review`, async () => {
+    const { result, launchedAgents } = await aBuiltLaneWith({ remote_tip: built.tip, ...answer })
+    stopsBeforeAnyReview(result, launchedAgents, 'scope')
+    assert.ok(result.reason.includes(answer.brief_error), result.reason)
+  })
+}
+
+test('#323 AC-scope-relay: a list longer than the printer cap names the paths it carries and how many more there are', async () => {
+  const paths = Array.from({ length: 53 }, (_, index) => `src/module-${String(index).padStart(2, '0')}.py`)
+  const { result } = await aBuiltLaneWith({ outside_claim: paths })
+  assert.deepEqual([result.status, result.stage, result.outside], ['awaiting-head', 'scope', paths.slice(0, 50)])
+  assert.match(result.reason, /and 3 more/)
+})
 
 test('#103 AC-scratch-and-load: the sync prompt does not carry the drive facts', async () => {
   const { agentCalls } = await runLane({ ...resumeArgs, scratch: '/drive-scratch' })

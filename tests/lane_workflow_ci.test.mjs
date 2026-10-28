@@ -1,5 +1,8 @@
 // The lane workflow reports CI green only from the copied check listing of the tip, never from the CI agent's word.
 import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
+import { spawnSync } from 'node:child_process'
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { runLane } from './lane_workflow_harness.mjs'
@@ -196,4 +199,37 @@ test('#311 lane-ci-protocol: an answer without a head sha fails the lane at ci n
 test('#311 lane-ci-protocol: the refusal shows each protocol value with its type', async () => {
   const { result } = await drivePassingCi({ alterChildArgs: (args) => ({ ...args, protocol: '1' }) })
   assert.match(result.reason, /"1"/)
+})
+
+const registrationLoopOf = (brief) => brief.match(/for i in \$\(seq 1 20\); do .*?; done/)[0]
+
+for (const [what, args, prefix] of [['without repo', lane, "cd '/w' && "], ['with repo', { ...lane, repo: 'o/n' }, '']]) {
+  test(`#329 ci-registration-wait: ${what} the registration wait stands after the conflicting-PR sentence and before the watch`, async () => {
+    const { agentCalls } = await driveCi(ciAnswer([check(required, 'pass')]), args)
+    const brief = agentCalls['ci-0'].prompt
+    const countCommand = `${prefix}for i in $(seq 1 20); do [ "$(gh pr checks 1${args.repo ? ' -R o/n' : ''} --json name --jq length 2>/dev/null)" -gt 0 ]`
+    const at = brief.indexOf(countCommand)
+    assert.ok(at > brief.indexOf('CONFLICTING'), 'the wait follows the conflicting-PR sentence')
+    assert.ok(at < brief.indexOf('--watch'), 'the wait precedes the watch')
+    assert.match(brief, /no CI checks ran on the head commit/)
+  })
+}
+
+const runRegistrationLoop = (neverRegisters, scratch) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'registration-loop-'))
+  const counter = path.join(dir, 'calls')
+  fs.writeFileSync(path.join(dir, 'gh'), `#!/bin/sh\necho x >> '${counter}'\n${neverRegisters ? 'echo 0' : `[ "$(wc -l < '${counter}')" -ge 3 ] && echo 2 || exit 1`}\n`, { mode: 0o755 })
+  fs.writeFileSync(path.join(dir, 'sleep'), '#!/bin/sh\nexit 0\n', { mode: 0o755 })
+  const result = spawnSync('bash', ['-c', scratch], { env: { ...process.env, PATH: `${dir}:${process.env.PATH}` }, encoding: 'utf8' })
+  return { status: result.status, tries: fs.readFileSync(counter, 'utf8').split('\n').filter(Boolean).length }
+}
+
+test('#329 ci-registration-wait: the loop ends at the first positive check count', async () => {
+  const { agentCalls } = await driveCi(ciAnswer([check(required, 'pass')]))
+  assert.deepEqual(runRegistrationLoop(false, registrationLoopOf(agentCalls['ci-0'].prompt)), { status: 0, tries: 3 })
+})
+
+test('#329 ci-registration-wait: the loop stops after 20 tries with status 0 when no check ever registers', async () => {
+  const { agentCalls } = await driveCi(ciAnswer([check(required, 'pass')]))
+  assert.deepEqual(runRegistrationLoop(true, registrationLoopOf(agentCalls['ci-0'].prompt)), { status: 0, tries: 20 })
 })

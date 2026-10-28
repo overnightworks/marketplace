@@ -181,8 +181,8 @@ with its exact question; it is neither a pass nor a fail.
 ## Marks
 
 Marks are per repository and area; the platform line shows the lowest mark and
-how many repositories reach it, so the per-repository marks show where edge and
-the apps differ and no finer scale exists.
+how many repositories reach it, so the per-repository marks show where the
+repositories differ and no finer scale exists.
 
 - `100 %`: every check passes, with evidence. The checks alone decide the
   mark; an area's Intent sentence says what its checks serve and is never
@@ -212,7 +212,7 @@ or not, carries "on repository evidence, N open".
 - **HIGH check:** before the report, re-read each `HIGH` on the owner's current
   default branch (`gh api repos/<owner>/<repo>/contents/<path>?ref=<default>`,
   or the commits API) and board, and mark one already landed or dispatched.
-  Example line: `gh api repos/overnightworks/edge/contents/ops/backup.sh?ref=master`
+  Example only: `gh api repos/<owner>/<repo>/contents/<path>?ref=<default>`
   returned 404, so the finding stands.
 
 ## Output
@@ -220,15 +220,17 @@ or not, carries "on repository evidence, N open".
 The finding record gains no field; `<lens>/<check>` is `platform/<area>` and
 `file:line` the failing or missing evidence. Report, in order:
 
-0. a summary of at most ten lines: marks per area, the `HIGH` findings and the
+1. a summary of at most ten lines: marks per area, the `HIGH` findings and the
    delta against the last distributor;
-1. the area table: area, mark, one evidence line, owner as the
-   `<owner>/<repo>#<n>` of the open item that owns the gap, or "no owner";
-2. findings in the finding record, ranked by severity;
-3. the `0 %` areas, on their own;
-4. the open host and operator questions;
-5. examined and kept;
-6. suspected and unproven.
+2. the area table: area, mark, one evidence line, owner as the
+   `<owner>/<repo>#<n>` of the open item that owns the gap, or "no owner"; each
+   area shows the lowest mark with "N of M repositories" reaching it, followed
+   by the per-repository marks;
+3. findings in the finding record, ranked by severity;
+4. the `0 %` areas, on their own;
+5. the open host and operator questions;
+6. examined and kept;
+7. suspected and unproven.
 
 Severity examples: `HIGH` a secret in git, an exposed admin port, a data store
 with no backup; `MEDIUM` a backup never restored, no alert path; `LOW` a stale

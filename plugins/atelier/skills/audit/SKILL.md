@@ -85,8 +85,7 @@ names the call and its reason.
   Never run against live operator state; copy stores into scratch. The one
   exception is these listings: `docker ps --format '{{.Names}} {{.Image}}'`,
   `docker image ls`, `systemctl --user list-timers` and
-  `systemctl list-timers --all` (system timers; #223's allowlist takes the
-  same entry). Every other container,
+  `systemctl list-timers --all` (system timers). Every other container,
   compose, host-service or remote-shell command is forbidden, as are a request
   to a live service's port, secret stores, backup stores, identity-provider
   admin APIs and live checkouts; `git`, `gh` and `curl` against remotes and
@@ -142,12 +141,15 @@ names the call and its reason.
   `aco board --json`) for an owner, sharpens it, and writes the item; no item
   per finding. A finding becomes an item only when dispatched. A run for a
   goal that has a latest `Distributor:` item runs as a delta against it: the
-  report says new, resolved and unchanged.
+  auditor finds it with `gh issue list --state all --search "Distributor: <goal>"`
+  in the repository that owns the audit's distributor, and the report says new,
+  resolved and unchanged.
 - **Standing audit.** Only the scheduled standing audit uses this anchor and
   cadence. The standing board item owns due-ness: its body holds a line naming
   the last run's commit (`last run at commit X`). Find the one whose title
   names the audit's subject with
-  `gh issue list --state open --search "Standing-Audit in:title"`. Count
+  `gh issue list --state open --search "Standing-Audit in:title"`. Read the default branch's
+  current tip with `gh api repos/<owner>/<repo>/commits/<default>` first, then count
   landings with `git log --oneline --first-parent X..origin/<default>`, or
   count the days. With no item, say it is the first run and tell the head to
   open the standing item. One item covering two audits shares its anchor: a

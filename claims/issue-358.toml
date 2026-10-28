@@ -1,0 +1,8 @@
+claim_id = "23cc3551e9b2475e92286e39791034eb"
+agent = "Claude b5de3560-4db0-4dfe-be9f-fe26ef53140a"
+role = "builder"
+base = "611aeb9ba951cf9d7b399207311b8b03bbd7c464"
+branch = "claude/issue-358-deterministic-miss-no-escalation"
+scope = [".claude-plugin/marketplace.json", "instructions/AGENTS.md", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/workflows/lane.js", "tests/lane_workflow_fix.test.mjs"]
+opened_commit = "91d32d99b8dd4f72e11646eb5b4070f5c165c3d4"
+whole_reason = "Two ruled contract sentences, their one pointer sentence in the lane briefs with its test row, and the three version pins every atelier change bumps."

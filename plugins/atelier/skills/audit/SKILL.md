@@ -24,11 +24,11 @@ item or executes a cut.** Pick the goal, run its lenses, return one report.
 
 The dispatching seat spawns one read-only `atelier:code-auditor` subagent per
 lens (per numbered lens inside `architecture.md`) and never audits alone. A lens
-subagent reads exactly this file's shared rules, its own reference and the
-references on that reference's `Hand-offs:` line (no line: none), and spawns
-nothing; a seat that is itself a lens subagent takes the lens or goal its
-parent names and reads the same way. A `Hand-offs:` line names where a lead
-goes, not a lens the goal must run; a lead from a lens the goal does not run
+subagent reads exactly this file's shared rules and its own reference, and
+spawns nothing; a seat that is itself a lens subagent takes the lens or goal
+its parent names and reads the same way. A `Hand-offs:` line names where a lead
+goes, not a lens the goal must run: a lens reads a reference on it only once a
+lead points there, and a lead from a lens the goal does not run
 goes to that lens's owner list or to "suspected and unproven". A threshold a
 lens words as judgement ("heavy", "well above") is a judgement call: the lens
 names the call and its reason.
@@ -42,8 +42,12 @@ names the call and its reason.
   only at its remote branch, with `git -C <repo> show origin/<branch>:<path>`,
   `git grep ... origin/<branch>` and `git log origin/<branch>`; one with no
   local clone is read with `gh api repos/<owner>/<repo>/contents/<path>?ref=<branch>`.
-  Never read a working tree, because other sessions edit it, and never
-  `git fetch`.
+  A dispatch name need not be the GitHub name: resolve each dispatched
+  directory with `git -C <dir> remote get-url origin`, and find the default
+  branch with `gh api repos/<owner>/<repo> --jq .default_branch`, never an
+  assumed `main`. Local `origin/*` refs may be stale, so a fact that must be
+  current is read with `gh api ...?ref=<default>`. Never read a working tree,
+  because other sessions edit it, and never `git fetch`.
 - **Guidance lookup.** Judge against the global contract's code policy
   (`~/.claude/CLAUDE.md`, `~/.codex/AGENTS.md` for Codex, or
   `instructions/AGENTS.md` "# Code policy" in the marketplace repository),
@@ -79,8 +83,9 @@ names the call and its reason.
 - **Evidence.** A finding carries `file:line` and a reproduction or proof
   (command, measurement, import graph, commit); every count cites its command.
   Never run against live operator state; copy stores into scratch. The one
-  exception is these three listings: `docker ps --format '{{.Names}} {{.Image}}'`,
-  `docker image ls` and `systemctl --user list-timers`. Every other container,
+  exception is these listings: `docker ps --format '{{.Names}} {{.Image}}'`,
+  `docker image ls`, `systemctl --user list-timers` and
+  `systemctl list-timers --all` (system timers). Every other container,
   compose, host-service or remote-shell command is forbidden, as are a request
   to a live service's port, secret stores, backup stores, identity-provider
   admin APIs and live checkouts; `git`, `gh` and `curl` against remotes and
@@ -134,14 +139,22 @@ names the call and its reason.
   numbered findings list with evidence, ready to paste. The head searches the
   board (`gh issue list --state all --search "<subject>"`, or
   `aco board --json`) for an owner, sharpens it, and writes the item; no item
-  per finding. A finding becomes an item only when dispatched.
+  per finding. A finding becomes an item only when dispatched. A run for a
+  goal that has a latest `Distributor:` item runs as a delta against it: the
+  auditor finds it in the repository where the audit's distributor items live
+  (that of the head that dispatched the audit) with a title search,
+  `gh issue list -R <that repository> --state all --limit 1 --search 'in:title "Distributor:" <goal> sort:created-desc'`,
+  which prints the newest created one, open or closed, and the report says
+  new, resolved and unchanged.
 - **Standing audit.** Only the scheduled standing audit uses this anchor and
   cadence. The standing board item owns due-ness: its body holds a line naming
   the last run's commit (`last run at commit X`). Find the one whose title
   names the audit's subject with
   `gh issue list --state open --search "Standing-Audit in:title"`. Count
-  landings with `git log --oneline --first-parent X..origin/<default>`, or
-  count the days. With no item, say it is the first run and tell the head to
+  landings since X as merged pull requests: read X's date with
+  `gh api repos/<owner>/<repo>/commits/X --jq .commit.committer.date`, then
+  `gh pr list -R <owner>/<repo> --state merged --base <default> --search "merged:>=<date>" --limit 500 --json number --jq length`,
+  or count the days. With no item, say it is the first run and tell the head to
   open the standing item. One item covering two audits shares its anchor: a
   run of either resets it, so the report names which ran. The head writes the
   new anchor; each lens gives its interval and subject.
@@ -196,9 +209,9 @@ ranked list of cuts and never executes them.
    moves a boundary or reshapes an interface is marked `needs plan review`,
    never `cut now`. Test cuts follow the Test size rules in
    `references/tests.md`.
-4. **Report** the distributor text. The head searches for an open item whose
-   title starts "Distributor:" and names the goal, or the standing-audit
-   anchor item; if none exists it opens a new distributor. Shape:
+4. **Report** the distributor text. The head finds the goal's latest
+   `Distributor:` item, open or closed, as the delta rule above says, or the
+   standing-audit anchor item; if none exists it opens a new distributor. Shape:
 
    ```text
    Measurements: <counts, counting rule, commands, growth per area>

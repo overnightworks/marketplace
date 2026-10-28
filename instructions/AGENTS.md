@@ -133,17 +133,18 @@ the same day.
 A change to a surface, or to behaviour a person relies on, starts from ruled
 sentences. The item carries an expectation list — proposed across fixed lenses
 (create/change/remove, identity, states, secrets and rights, undo, scale), each
-line in the operator's language with an example, a counterexample, and a default
-— and the operator has ruled every line. The head does not dispatch such an item
+line an option card in the operator's language: the problem, today's picture,
+the real options with what each brings and costs, and the head's recommendation
+(shape: aco's option lines) — and the operator has ruled every line. The head does not dispatch such an item
 before that, and a slice that neither proves a ruled line nor names it as
 deferred with its owner is unfinished. Internal machinery (isolation, flakes,
 refactors, adapters) needs a plan review instead; an expectation list there is
-noise. After the head presents a list with its own dissent, unanswered lines
-keep their default — except lines about secrets, money, deletion, or anything
+noise. After the head presents a list with its own dissent, an unanswered line
+keeps its recommended option — except lines about secrets, money, deletion, or anything
 irreversible, which always wait for a spoken ruling. Head-written wording is a
 proposal unless it records an existing ruling or has been accepted through the
 process above. The item identifies the source of its ruled sentences, including
-any applied default; authorship alone grants no authority. A second look may
+any applied recommendation; authorship alone grants no authority. A second look may
 revise a proposal, but changing ruled behaviour follows the same ruling process.
 
 Ruled sentences, specs and item bodies bind, but no agent takes them on faith

@@ -63,9 +63,8 @@ An explicit operator request wins. Without one:
    with that decision and binds once he has blessed it.
 2. Resume an unfinished lane you own. Otherwise run `aco next` and
    take the item it names; production/security/data loss and red CI still
-   come first. Claim a different item only with `--out-of-order REASON`; the
-   reason lands in the claim record. Prefer the smallest coherent item that
-   unlocks later work.
+   come first. Claim a different item only with `--out-of-order REASON`.
+   Prefer the smallest coherent item that unlocks later work.
 3. Run `aco status`. Before a writer's first edit, the head owns a full
    exact-scope claim from a clean isolated worktree; before its first aco
    write it loads the `aco` skill, which says how start, brief, the pull

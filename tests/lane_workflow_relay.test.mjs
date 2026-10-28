@@ -1,4 +1,4 @@
-// Drives the scope and sync steps' printer against real git and a temp bare remote, with a fake aco, through the lane's own checks.
+// Drives the scope and sync steps' printer against real git and a temp bare remote, with a fake aco, through the lane's own checks, and holds the lane-relay child contract.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
@@ -200,4 +200,47 @@ test('#345 AC-sync-relay-real-git: a scope printer line that carries the sync no
   assert.deepEqual([result.status, result.stage], ['failed', 'sync'])
   assert.match(result.reason, /the printed line: \{"crc":/)
   assert.deepEqual(launchedAgents, ['sync'])
+})
+
+// The lane-relay child contract: the lane starts sync and scope through it, and any break of it stops the lane at the step that asked.
+const readWorkflow = (name) => fs.readFileSync(new URL(`../plugins/atelier/workflows/${name}.js`, import.meta.url), 'utf8')
+const protocolOf = (source) => Number(source.match(/^const LANE_RELAY_PROTOCOL = (\d+)$/m)?.[1])
+const driveRelayChild = (args, options, answers = {}) => runLane(args, answers, { ...options, child: 'atelier:lane-relay' })
+const builtLane = { ...resumedLane, pr: undefined, tip: undefined, build: 'b' }
+const builtAnswer = { pr: 2, tip: 'abcdef1', blocked: false }
+
+test('#350 lane-relay-protocol: a child with another protocol number fails the lane at sync naming both numbers, and no sync agent starts', async () => {
+  const parentNumber = protocolOf(readWorkflow('lane'))
+  const { result, launchedAgents } = await driveRelayChild(resumedLane, { transformChild: (source) => source.replace(/^const LANE_RELAY_PROTOCOL = \d+$/m, `const LANE_RELAY_PROTOCOL = ${parentNumber + 1}`) })
+  assert.deepEqual([result.status, result.stage], ['failed', 'sync'])
+  assert.match(result.reason, new RegExp(`protocol ${parentNumber + 1}.*protocol ${parentNumber}`))
+  assert.deepEqual(launchedAgents, [])
+})
+
+test('#350 lane-relay-protocol: a child that misses args fails the lane at sync naming them', async () => {
+  const { result } = await driveRelayChild(resumedLane, { alterChildArgs: ({ worktree: _worktree, nonce: _nonce, ...rest }) => rest })
+  assert.deepEqual([result.status, result.stage], ['failed', 'sync'])
+  assert.match(result.reason, /missing args: .*worktree.*nonce/)
+})
+
+test('#350 lane-relay-protocol: a child that throws fails a resumed lane at sync and a built lane at scope, naming the error', async () => {
+  const throwing = { transformChild: () => "throw new Error('the child exploded')" }
+  const resumed = await driveRelayChild(resumedLane, throwing)
+  assert.deepEqual([resumed.result.status, resumed.result.stage], ['failed', 'sync'])
+  assert.match(resumed.result.reason, /the child exploded/)
+  const built = await driveRelayChild(builtLane, throwing, { build: builtAnswer })
+  assert.deepEqual([built.result.status, built.result.stage], ['failed', 'scope'])
+  assert.match(built.result.reason, /the child exploded/)
+})
+
+test('#350 lane-relay-protocol: lane.js and lane-relay.js hold the same protocol number', () => {
+  assert.ok(Number.isInteger(protocolOf(readWorkflow('lane'))))
+  assert.equal(protocolOf(readWorkflow('lane-relay')), protocolOf(readWorkflow('lane')))
+})
+
+test('#350 lane-relay-protocol: the sync and scope agents are launched by the lane-relay child, not by lane.js', async () => {
+  const built = await driveRelayChild(builtLane, {}, { build: builtAnswer, 'scope-0': { outside_claim: [] } })
+  assert.deepEqual(built.launchedByChild['atelier:lane-relay'], ['scope-0'])
+  const resumed = await driveRelayChild(resumedLane, {})
+  assert.deepEqual(resumed.launchedByChild['atelier:lane-relay'], ['sync', 'scope-resume'])
 })

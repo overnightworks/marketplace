@@ -142,41 +142,18 @@ const BUILD = {
   required: ['pr', 'tip', 'blocked'],
   properties: { pr: { type: 'number' }, tip: { type: 'string', pattern: '^[0-9a-f]{7,40}$', description: 'a commit sha from git rev-parse, nothing else' }, summary: { type: 'string' }, blocked: { type: 'boolean' }, blockedReason: { type: 'string' }, rescope: RESCOPE },
 }
-// A value a command prints reaches a decision only through one line the PRINTER wrote: the agent runs it and relays the
-// line unchanged, and a retyped or edited line fails its CRC32. The printer holds no single quote, so the shell passes
-// it as one argument. Its first argument names the step whose commands it runs; the scope step never forces a push and
-// relays at most 50 paths, and the sync step reports the lane tip, its parents and whether it contains origin/main.
-const PRINTER = [
-  'import json,shutil,subprocess,sys,zlib',
-  'step,*rest,nonce=sys.argv[1:]',
-  'run=lambda*c:subprocess.run(c,capture_output=True,text=True) if shutil.which(c[0]) else subprocess.CompletedProcess(c,127,"","not found: "+c[0])',
-  'steps=dict(scope=lambda item,branch:(("push",("git","push","origin",branch)),("remote",("git","rev-parse","origin/"+branch)),("head",("git","rev-parse","HEAD")),("brief",("aco","brief",item,"--json"))),sync=lambda:(("head",("git","rev-parse","HEAD")),("parents",("git","rev-parse","HEAD^@")),("main",("git","merge-base","--is-ancestor","origin/main","HEAD"))))',
-  'ran={n:run(*c) for n,c in steps[step](*rest)}',
-  'claim=json.loads(ran["brief"].stdout)["outside_claim"] if "brief" in ran and ran["brief"].returncode==0 else None',
-  'values={n:{"code":p.returncode,"err":" ".join(l for l in p.stderr.splitlines() if l[:5]!="hint:")[-300:],"out":p.stdout.strip()[:100]} for n,p in ran.items()}',
-  'values.update(nonce=nonce,**(dict(outside_claim=claim[:50] if isinstance(claim,list) else claim,count=len(claim) if isinstance(claim,list) else None) if "brief" in ran else {}))',
-  'payload=json.dumps(values,ensure_ascii=True,separators=(",",":"),sort_keys=True)',
-  'print("""{"crc":"%08x","v":%s}"""%(zlib.crc32(payload.encode()),payload))',
-].join(';')
-const relayCommand = (...relayArgs) => `cd '${A.worktree}' && python3 -c '${PRINTER}' ${relayArgs.join(' ')}`
-const RELAY_ASK = 'run this one command line exactly as written, without changing it or its directory, and return the line it prints unchanged as printed; when it prints no line, return its error output as printed:'
-const RELAY_LINE = /^\{"crc":"([0-9a-f]{8})","v":(.*)\}$/
-const CRC_TABLE = Array.from({ length: 256 }, (_, n) => {
-  let crc = n
-  for (let bit = 0; bit < 8; bit++) crc = crc & 1 ? 0xedb88320 ^ (crc >>> 1) : crc >>> 1
-  return crc >>> 0
-})
-const crc32 = (text) => {
-  let crc = 0xffffffff
-  for (let i = 0; i < text.length; i++) crc = CRC_TABLE[(crc ^ text.codePointAt(i)) & 255] ^ (crc >>> 8)
-  return ((crc ^ 0xffffffff) >>> 0).toString(16).padStart(8, '0')
+// A value a command prints reaches a decision only through the line the lane-relay child reads back and checks. A refusal
+// or a crash is a problem the caller stops on, at the stage of its own step, like an unreadable line.
+const LANE_RELAY_PROTOCOL = 1
+const SYNC_NOTE = 'what stopped the merge: the conflicting paths, or the failed command and its output'
+async function relay(request) {
+  try {
+    const answer = await workflow('atelier:lane-relay', { protocol: LANE_RELAY_PROTOCOL, worktree: A.worktree, mechanical: MECHANICAL, ...request })
+    return answer?.refused ? { problem: `was refused by lane-relay: ${answer.refused}` } : answer
+  } catch (error) {
+    return { problem: `ended in lane-relay with ${String(error).slice(0, 300)}` }
+  }
 }
-const RELAYED = {
-  type: 'object',
-  required: ['printed'],
-  properties: { printed: { type: 'string', description: 'the one line the command printed, character for character as printed; when it printed no line, its error output' } },
-}
-const SYNC = { ...RELAYED, properties: { ...RELAYED.properties, note: { type: 'string', description: 'what stopped the merge: the conflicting paths, or the failed command and its output' } } }
 // Language models copy a 40-character hash unreliably (a sync step once dropped one character). A commit is
 // accepted as 7 to 40 hex characters — git resolves an unambiguous prefix, and fixers often answer with the short form.
 const SHA = /^[0-9a-f]{7,40}$/
@@ -371,16 +348,16 @@ if (A.build) {
   const andGeneratedFiles = GENERATED.length ? ' and the generated files' : ''
   const nonce = `sync-${tip}`
   const quotedNonce = `'${nonce}'`
-  const synced = await safeAgent(
+  const synced = await relay({ label: 'sync', phase: 'Sync', step: 'sync', relayArgs: [quotedNonce], nonce, requiredKeys: ['head', 'parents', 'main'], note: SYNC_NOTE, brief:
     `${laneFacts}\nBring the lane up to date with main and change nothing else. Run each command exactly as written, with its -C option. ${git} fetch origin; if ${git} merge-base --is-ancestor origin/main HEAD succeeds, change nothing. ` +
     `Otherwise ${git} merge origin/main; when it merges cleanly, ${git} push. ` +
     (LEDGERS.length || GENERATED.length ? `Conflicts only in the append-only ledgers${andGeneratedFiles}: resolve them as the lane facts say, commit the merge, ${git} push. ` : '') +
     (GENERATED.length ? `When a generated file's command fails or leaves its path dirty or unmerged, run ${git} merge --abort and put the command and its output in note. ` : '') +
     (LEDGERS.length || GENERATED.length ? `Any other conflict: ` : `Any conflict: `) +
-    `run ${git} merge --abort, confirm \`${git} status --porcelain\` is empty, push nothing, and put the conflicting paths in note. Last, whatever happened, ${RELAY_ASK}\n${relayCommand('sync', quotedNonce)}`,
-    { label: 'sync', phase: 'Sync', schema: SYNC, ...MECHANICAL })
+    `run ${git} merge --abort, confirm \`${git} status --porcelain\` is empty, push nothing, and put the conflicting paths in note. Last, whatever happened,`
+  })
   if (!synced) return openResult('failed', 'sync')
-  const { values, problem } = readRelay(synced.printed, nonce, ['head', 'parents', 'main'])
+  const { values, problem } = synced
   const failedCommand = values && (values.head.code !== 0 || ![0, 1].includes(values.main.code))
   if (problem || failedCommand) return openResult('failed', 'sync', { reason: `the sync's relay line ${problem || 'reports a failed git command'}; the printed line: ${synced.printed}` })
   if (values.main.code === 1) return openResult('escalated', 'sync', { reason: synced.note || `the lane tip ${values.head.out} does not contain origin/main, and the sync named no cause` })
@@ -593,31 +570,15 @@ function scopeStop(paths, origin, total) {
     `or start ${newRun} and fixFirst asking a fixer to revert them. Find the commits with git log origin/main..${tip} -- ${listed}.` }) }
 }
 
-// The values of a relay line, or why the line cannot be trusted: checked as text first (shape, CRC32), parsed after.
-// A caller stops at the stage of the step that ran the printer, so an unreadable scope line stops at scope, because it
-// proves nothing about the push; push is only for a readable line that shows the push failed or the remote lacks the tip.
-function readRelay(printed, nonce, requiredKeys = []) {
-  const match = RELAY_LINE.exec((printed || '').trim())
-  if (!match) return { problem: 'is not a relay line' }
-  if (crc32(match[2]) !== match[1]) return { problem: 'fails its CRC check' }
-  let values
-  try { values = JSON.parse(match[2]) } catch { return { problem: 'does not hold JSON' } }
-  if (values?.nonce !== nonce) return { problem: `carries the nonce ${values?.nonce}, not ${nonce}` }
-  const missing = requiredKeys.find(key => !values[key])
-  if (missing) return { problem: `lacks the ${missing} entry` }
-  return { values }
-}
 
 async function pushAndCheckScope(label, origin) {
   phase('Scope')
   const nonce = `${label}-${tip}`
   const quotedArguments = [A.item, `'${A.branch}'`, `'${nonce}'`]
-  const checked = await safeAgent(
-    `${laneFacts}\nChange nothing in the files; ${RELAY_ASK}\n${relayCommand('scope', ...quotedArguments)}`,
-    { label, phase: 'Scope', schema: RELAYED, ...MECHANICAL })
+  const checked = await relay({ label, phase: 'Scope', step: 'scope', relayArgs: quotedArguments, nonce, requiredKeys: ['push', 'remote', 'head', 'brief'], brief: `${laneFacts}\nChange nothing in the files;` })
   if (!checked) return { stop: openResult('failed', 'scope', { reason: 'the push and claim-scope check returned no result' }) }
   const fail = (stage, reason) => ({ stop: openResult('failed', stage, { reason: `${reason}; the printed line: ${checked.printed}` }) })
-  const { values, problem } = readRelay(checked.printed, nonce, ['push', 'remote', 'head', 'brief'])
+  const { values, problem } = checked
   if (problem) return fail('scope', `the push and claim-scope check ${problem}`)
   const { push, remote, head, brief } = values
   if (push.code !== 0 || !sameCommit(remote.out, tip)) {

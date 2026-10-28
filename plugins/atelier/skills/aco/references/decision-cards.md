@@ -28,9 +28,9 @@ But: "Soll dein Song beim Sprung zum Ursprungs-Take offen bleiben?"
 
 ## 3. Pictures
 
-The TODAY `picture` shows today as it is, in one of the three forms `docs/board/mockup.html`
-draws: a screen with its rows, a flow of steps, or frames before and after. Describe the
-form in words; carry no SVG skeleton (aco keeps fixed picture templates for itself).
+The TODAY `picture` shows today as it is, in one of the forms the mockup draws
+([`docs/board/mockup.html` in overnightworks/aco](https://github.com/overnightworks/aco/blob/main/docs/board/mockup.html)).
+Describe the form in words; carry no SVG skeleton (aco keeps fixed picture templates for itself).
 
 - The `caption` says what the picture shows ("Der Browser springt selbst, dabei geht der
   Song verloren"), never only "Heute".

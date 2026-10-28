@@ -145,7 +145,10 @@ with its exact question; it is neither a pass nor a fail.
    - Retention or rotation is configured (config).
    - Time synchronisation is stated (runbook).
    - Logging code or config redacts secrets and personal data (config).
-   - Unverified (host): is the retention in effect on disk?
+   - Unverified (host): is the retention in effect on disk? The host fact wins
+     only when the auditor runs on the host; off the host, a repository claim
+     the host might contradict stays an `unverified (host)` question for the
+     operator, listed and not counted.
 10. **Incident response and recovery onto a new machine** (CIS 17; BSI DER.2.1,
     DER.4; CSF RS.MA, RS.MI, RC.RP; SRE ch. 13 to 15). Intent: a
     stranger could rebuild.
@@ -213,7 +216,8 @@ or not, carries "on repository evidence, N open".
   default branch (`gh api repos/<owner>/<repo>/contents/<path>?ref=<default>`,
   or the commits API) and board, and mark one already landed or dispatched.
   Example only: `gh api repos/<owner>/<repo>/contents/<path>?ref=<default>`
-  returned 404, so the finding stands.
+  still shows the offending line, so the finding stands; a result showing the
+  cause gone drops it.
 
 ## Output
 
@@ -236,4 +240,5 @@ Severity examples: `HIGH` a secret in git, an exposed admin port, a data store
 with no backup; `MEDIUM` a backup never restored, no alert path; `LOW` a stale
 runbook line. An operator ruling that bounds a risk leaves the severity as
 judged: the line names the ruling and the owning item, and the finding goes to
-that item, never a new one.
+that item, never a new one. When no open item owns the gap ("no owner"), the
+finding goes to this audit's distributor with the ruling named.

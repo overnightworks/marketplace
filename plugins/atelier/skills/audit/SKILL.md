@@ -141,17 +141,19 @@ names the call and its reason.
   `aco board --json`) for an owner, sharpens it, and writes the item; no item
   per finding. A finding becomes an item only when dispatched. A run for a
   goal that has a latest `Distributor:` item runs as a delta against it: the
-  auditor finds it with `gh issue list --state all --search "Distributor: <goal>"`
-  in the repository that owns the audit's distributor, and the report says new,
-  resolved and unchanged.
+  auditor finds it in the repository where the audit's distributor items live
+  (that of the head that dispatched the audit) with a title search,
+  `gh issue list --state all --search 'in:title "Distributor:" <goal>'`,
+  taking the newest created item (sorted newest first), and the report says
+  new, resolved and unchanged.
 - **Standing audit.** Only the scheduled standing audit uses this anchor and
   cadence. The standing board item owns due-ness: its body holds a line naming
   the last run's commit (`last run at commit X`). Find the one whose title
   names the audit's subject with
-  `gh issue list --state open --search "Standing-Audit in:title"`. Read the default branch's
-  current tip with `gh api repos/<owner>/<repo>/commits/<default>` first, then count
-  landings with `git log --oneline --first-parent X..origin/<default>`, or
-  count the days. With no item, say it is the first run and tell the head to
+  `gh issue list --state open --search "Standing-Audit in:title"`. Count
+  landings since X with
+  `gh api repos/<owner>/<repo>/compare/X...<default> --jq '.commits | length'`,
+  or count the days. With no item, say it is the first run and tell the head to
   open the standing item. One item covering two audits shares its anchor: a
   run of either resets it, so the report names which ran. The head writes the
   new anchor; each lens gives its interval and subject.

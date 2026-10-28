@@ -1,8 +1,0 @@
-claim_id = "7810358f1f3746179a3da55f2a1ccb76"
-agent = "Claude b5de3560-4db0-4dfe-be9f-fe26ef53140a"
-role = "builder"
-base = "ebe9a348a777386220a3a1c1d4505d2d47a86587"
-branch = "claude/issue-345-sync-relay"
-scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/workflows/lane.js", "tests/lane_workflow_harness.mjs", "tests/lane_workflow_relay.test.mjs", "tests/lane_workflow_scope.test.mjs"]
-opened_commit = "57ccf9976926683c96e4a7b5c468a01ec4d8d800"
-whole_reason = "One relay for the sync step: a sync mode on the printer, the sync decision from the relayed values, their stub and real-git tests, and the three version pins."

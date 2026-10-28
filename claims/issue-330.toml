@@ -1,0 +1,8 @@
+claim_id = "46d793e42cb94184b7833e8302b77b8a"
+agent = "Claude b5de3560-4db0-4dfe-be9f-fe26ef53140a"
+role = "builder"
+base = "a6c4534d26fb1613e39d83d7f4c189b0da8174a3"
+branch = "claude/issue-330-gate-revise-stop"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/workflows/lane.js", "tests/lane_workflow_fix.test.mjs", "tests/lane_workflow_relay.test.mjs"]
+opened_commit = "cb60dbc3c9e5eff62fd9443135d06b17cca7fe1e"
+whole_reason = "One stop for the gate's third consecutive REVISE with its three findings, the two relay-failure fold-ins, their tests, and the three version pins."

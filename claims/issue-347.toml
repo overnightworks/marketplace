@@ -1,7 +1,0 @@
-claim_id = "fe5fd27ac9cb46319028d6799cc22cc6"
-agent = "Claude b5de3560-4db0-4dfe-be9f-fe26ef53140a"
-role = "builder"
-base = "36539bc7e7dac65051020879b89569b3665aa9f3"
-branch = "claude/issue-347-install-names-codex-jobs"
-scope = ["scripts/install.py", "tests/test_install.py"]
-opened_commit = "2b5290b898d99a6d0ad4de33a511ad0b4e78250f"

@@ -59,7 +59,12 @@ this says *how*.
   and that identity ends with the session. A Codex head, whose session variable aco does
   not read, is started with `ACO_AGENT` in its environment (`ACO_AGENT=<name no other
   running head uses> codex`), so every command and agent it starts carries it; a prefix
-  on single commands does not reach its delegated agents.
+  on single commands does not reach its delegated agents. A Codex session already
+  running without it prefixes every aco command with `ACO_AGENT=<name>`, never
+  `--agent`: the name is the holder of its existing claims when they share one
+  (`aco status` shows it), otherwise one new name, and each old claim is landed or
+  released under its own holder. Every brief names the same prefix for every aco
+  command the agent runs, because native Codex subagents do not inherit it.
 - An open pull request without a claim (a dependency bot's, a fixer's): `aco adopt <pr>
   --no-item deps|fix|docs` makes it a claimed lane on its own branch; `deps` needs
   `dependency_paths` in `.aco/board.toml`. Then land as usual (`specs/adopt.spec.md`).
@@ -115,6 +120,8 @@ contract and this skill.
 - An operator question is written only as an option line in the item body (shape:
   `specs/body-block.spec.md`, "Option lines"), never as a yes/no line. Pipe the new body through `aco check -` first, then write it with
   `gh issue edit` under `storage = "github"` or `aco item edit` under state-ref.
+  Read `references/decision-cards.md` before writing or revising a card: it holds
+  the judgement `aco check` cannot make.
 - Outside an option's `contract`, a card carries no issue numbers, paths, file names,
   backticks, code names or flags; the problem is at most 20 words and an option name
   2 to 5 words (overnightworks/aco#13 line 14). `aco check -` refuses an open or
@@ -125,7 +132,9 @@ contract and this skill.
 - Transcribe a chat answer with `aco rule <n> --line <k> --option <letter> --via chat
   --card-hash <hash>`, the hash being the line's `card_hash` in `aco rulings --json`;
   an answer that fits no option uses `--other "<the operator's words>"` instead of
-  `--option` (`specs/rule.spec.md`). `aco rule` only transcribes the operator's word;
+  `--option`, and "unclear" uses `aco rule <n> --line <k> --unclear --card-hash <hash>
+  [--note "<the operator's words>"]` without `--via`: the line stays open and returns
+  to its head (`specs/rule.spec.md`). `aco rule` only transcribes the operator's word;
   `aco rulings` prints the line index `--line` takes. It takes no item argument and lists
   every item, so find item `<n>` in its output.
 - A GitHub body has no compare-and-swap: re-read it right before writing, diff old

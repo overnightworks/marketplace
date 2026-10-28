@@ -334,7 +334,7 @@ function openFollowups() {
 }
 const raisedBeforeTip = (open) => open.filter(f => f.tip && !sameCommit(f.tip, tip))
 // A builder or fixer that needs a path outside the claim hands the head a rescope request; the scope stage stays the backstop.
-const awaitRescope = (stage, rescope, reason = '', extra = {}, newRun = 'with pr and tip and fixFirst carrying the rescope entries as findings (an entry path becomes where, its change becomes text, its reason becomes evidence, kind defect), so a fixer makes the change') =>
+const awaitRescope = (stage, rescope, reason = '', extra = {}, newRun = 'with pr and tip and fixFirst carrying the rescope entries as findings (an entry path becomes where, its change becomes text, its reason becomes evidence, rule the item sentence the change serves, kind defect), so a fixer makes the change') =>
   openResult('awaiting-head', stage, { reason: `the work needs paths outside the claim scope; run aco rescope for them and start a new run ${newRun}.${reason}`, rescope, ...extra })
 const openResult = (status, stage, extra) =>
   ({ status, stage, pr, tip, spent, routing: ROUTING, history, followups: openFollowups(), raisedBeforeTip: raisedBeforeTip(openFollowups()), folded: [...folded.values()], disputed, ...extra })

@@ -3,10 +3,11 @@
 Grade how far each operational area of the operator's platform reaches across
 the repositories the dispatch names. A source audit of repositories and their
 remotes: the live host is not touched (`SKILL.md` Evidence), so what only the
-host or the operator can show is asked, never guessed. The three listings the
-shared rule allows (`docker ps`, `docker image ls`, `systemctl --user
-list-timers`) run only when the auditor itself runs on the platform host;
-otherwise their facts are `unverified (host)` questions.
+host or the operator can show is asked, never guessed. The listings the
+shared rule allows run only when the auditor itself runs on the platform host;
+otherwise their facts are `unverified (host)` questions. A listing that
+contradicts a repository claim wins: the host fact stands, and the contradicted
+claim is itself a finding (the repository says what is not true).
 
 Standing audit: every 90 days. Standing-item subject: platform.
 
@@ -52,7 +53,9 @@ BSI module list:
 `https://www.bsi.bund.de/DE/Themen/Unternehmen-und-Organisationen/Standards-und-Zertifizierung/IT-Grundschutz/IT-Grundschutz-Kompendium/IT-Grundschutz-Bausteine/Bausteine_Download_Edition_node.html`
 
 An anchor whose edition changed, or a source that refuses, follows the
-drift route in `SKILL.md` External sources.
+drift route in `SKILL.md` External sources. The re-checks run once per standing
+run; a dispatched run reuses the anchors named in the latest `Distributor:` item
+for the goal (found as `SKILL.md` says) unless an edition change is suspected.
 
 ## Areas
 
@@ -177,6 +180,10 @@ with its exact question; it is neither a pass nor a fail.
 
 ## Marks
 
+Marks are per repository and area; each area's row shows the lowest mark and
+how many repositories have it, so the per-repository marks show where the
+repositories differ and no finer scale exists.
+
 - `100 %`: every check passes, with evidence. The checks alone decide the
   mark; an area's Intent sentence says what its checks serve and is never
   graded.
@@ -196,26 +203,38 @@ or not, carries "on repository evidence, N open".
 ## Modern and already planned
 
 - **Modern:** judge a version or practice against the primary release or
-  end-of-life source; name the version found and the current one.
+  end-of-life source; name the version found and the current one. A listing
+  such as endoflife.date is a lead only, like every secondary source: the mark
+  cites the vendor's own release or end-of-life page.
 - **Already planned?** Search the owning repository's board, open and closed.
   Cite the owner item and its current `Next`, or "no owner". A closed or
   retired concept follows the shared Refute rule.
 - **HIGH check:** before the report, re-read each `HIGH` on the owner's current
   default branch (`gh api repos/<owner>/<repo>/contents/<path>?ref=<default>`,
   or the commits API) and board, and mark one already landed or dispatched.
+  Example only: `gh api repos/<owner>/<repo>/contents/<path>?ref=<default>`
+  still shows the offending line, so the finding stands; a result showing the
+  cause gone drops it.
 
 ## Output
 
 The finding record gains no field; `<lens>/<check>` is `platform/<area>` and
 `file:line` the failing or missing evidence. Report, in order:
 
-1. the area table: area, mark, one evidence line, owner;
-2. findings in the finding record, ranked by severity;
-3. the `0 %` areas, on their own;
-4. the open host and operator questions;
-5. examined and kept;
-6. suspected and unproven.
+1. a summary of at most ten lines: marks per area, the `HIGH` findings and the
+   delta against the last distributor;
+2. the area table: area, mark, one evidence line, owner as the
+   `<owner>/<repo>#<n>` of the open item that owns the gap, or "no owner"; each
+   area row carries its marks as the Marks section says;
+3. findings in the finding record, ranked by severity;
+4. the `0 %` areas, on their own;
+5. the open host and operator questions;
+6. examined and kept;
+7. suspected and unproven.
 
 Severity examples: `HIGH` a secret in git, an exposed admin port, a data store
 with no backup; `MEDIUM` a backup never restored, no alert path; `LOW` a stale
-runbook line.
+runbook line. An operator ruling that bounds a risk leaves the severity as
+judged: the line names the ruling and the owning item, and the finding goes to
+that item, never a new one. When no open item owns the gap ("no owner"), the
+finding goes to this audit's distributor with the ruling named.

@@ -188,3 +188,16 @@ test('#345 AC-sync-relay-real-git: a real conflict the agent aborts escalates at
   assert.equal(headOf(lane), lane.tip)
   assert.equal(lane.git(lane.worktree, 'status', '--porcelain'), '')
 })
+
+test('#345 AC-sync-relay-real-git: a scope printer line that carries the sync nonce ends the lane as failed at sync quoting the line', async (t) => {
+  const lane = laneRepository(t, { onMain: true })
+  const scopePrinterAnswer = (prompt) => {
+    const syncCommandLine = prompt.split('\n').at(-1)
+    const scopeCommandLine = syncCommandLine.replace(/ sync ('sync-[0-9a-f]+')$/, ` scope 7 '${BRANCH}' $1`)
+    return { printed: runCommandLine(scopeCommandLine, { cwd: os.tmpdir(), env: { ...lane.env, FAKE_BRIEF_OUTPUT: JSON.stringify({ outside_claim: [] }) } }) }
+  }
+  const { result, launchedAgents } = await runLane(laneArgs(lane), { sync: scopePrinterAnswer })
+  assert.deepEqual([result.status, result.stage], ['failed', 'sync'])
+  assert.match(result.reason, /the printed line: \{"crc":/)
+  assert.deepEqual(launchedAgents, ['sync'])
+})

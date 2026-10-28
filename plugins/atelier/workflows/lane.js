@@ -370,16 +370,17 @@ if (A.build) {
   const git = `git -C '${A.worktree}'`
   const andGeneratedFiles = GENERATED.length ? ' and the generated files' : ''
   const nonce = `sync-${tip}`
+  const quotedNonce = `'${nonce}'`
   const synced = await safeAgent(
     `${laneFacts}\nBring the lane up to date with main and change nothing else. Run each command exactly as written, with its -C option. ${git} fetch origin; if ${git} merge-base --is-ancestor origin/main HEAD succeeds, change nothing. ` +
     `Otherwise ${git} merge origin/main; when it merges cleanly, ${git} push. ` +
     (LEDGERS.length || GENERATED.length ? `Conflicts only in the append-only ledgers${andGeneratedFiles}: resolve them as the lane facts say, commit the merge, ${git} push. ` : '') +
     (GENERATED.length ? `When a generated file's command fails or leaves its path dirty or unmerged, run ${git} merge --abort and put the command and its output in note. ` : '') +
     (LEDGERS.length || GENERATED.length ? `Any other conflict: ` : `Any conflict: `) +
-    `run ${git} merge --abort, confirm \`${git} status --porcelain\` is empty, push nothing, and put the conflicting paths in note. Last, whatever happened, ${RELAY_ASK}\n${relayCommand('sync', `'${nonce}'`)}`,
+    `run ${git} merge --abort, confirm \`${git} status --porcelain\` is empty, push nothing, and put the conflicting paths in note. Last, whatever happened, ${RELAY_ASK}\n${relayCommand('sync', quotedNonce)}`,
     { label: 'sync', phase: 'Sync', schema: SYNC, ...MECHANICAL })
   if (!synced) return openResult('failed', 'sync')
-  const { values, problem } = readRelay(synced.printed, nonce)
+  const { values, problem } = readRelay(synced.printed, nonce, ['head', 'parents', 'main'])
   const failedCommand = values && (values.head.code !== 0 || ![0, 1].includes(values.main.code))
   if (problem || failedCommand) return openResult('failed', 'sync', { reason: `the sync's relay line ${problem || 'reports a failed git command'}; the printed line: ${synced.printed}` })
   if (values.main.code === 1) return openResult('escalated', 'sync', { reason: synced.note || `the lane tip ${values.head.out} does not contain origin/main, and the sync named no cause` })
@@ -595,21 +596,24 @@ function scopeStop(paths, origin, total) {
 // The values of a relay line, or why the line cannot be trusted: checked as text first (shape, CRC32), parsed after.
 // A caller stops at the stage of the step that ran the printer, so an unreadable scope line stops at scope, because it
 // proves nothing about the push; push is only for a readable line that shows the push failed or the remote lacks the tip.
-function readRelay(printed, nonce) {
+function readRelay(printed, nonce, requiredKeys = []) {
   const match = RELAY_LINE.exec((printed || '').trim())
   if (!match) return { problem: 'is not a relay line' }
   if (crc32(match[2]) !== match[1]) return { problem: 'fails its CRC check' }
   let values
   try { values = JSON.parse(match[2]) } catch { return { problem: 'does not hold JSON' } }
   if (values?.nonce !== nonce) return { problem: `carries the nonce ${values?.nonce}, not ${nonce}` }
+  const missing = requiredKeys.find(key => !values[key])
+  if (missing) return { problem: `lacks the ${missing} entry` }
   return { values }
 }
 
 async function pushAndCheckScope(label, origin) {
   phase('Scope')
   const nonce = `${label}-${tip}`
+  const quotedArguments = [A.item, `'${A.branch}'`, `'${nonce}'`]
   const checked = await safeAgent(
-    `${laneFacts}\nChange nothing in the files; ${RELAY_ASK}\n${relayCommand('scope', A.item, `'${A.branch}'`, `'${nonce}'`)}`,
+    `${laneFacts}\nChange nothing in the files; ${RELAY_ASK}\n${relayCommand('scope', ...quotedArguments)}`,
     { label, phase: 'Scope', schema: RELAYED, ...MECHANICAL })
   if (!checked) return { stop: openResult('failed', 'scope', { reason: 'the push and claim-scope check returned no result' }) }
   const fail = (stage, reason) => ({ stop: openResult('failed', stage, { reason: `${reason}; the printed line: ${checked.printed}` }) })

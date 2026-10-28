@@ -132,7 +132,7 @@ test('#131 AC-build-rescope-resume-reviews-the-build: resuming a build hand-back
 test('#108 AC-sync-in-worktree: every git command the sync agent is handed carries the worktree', async () => {
   const { agentCalls } = await runLane(resumeArgs)
   const prompt = agentCalls.sync.prompt.slice(agentCalls.sync.prompt.indexOf('Bring the lane up to date'))
-  for (const command of ['git fetch origin', 'git merge-base --is-ancestor origin/main HEAD', 'git merge origin/main', 'git push', 'git merge --abort', 'git status --porcelain', 'git rev-parse HEAD']) {
+  for (const command of ['git fetch origin', 'git merge-base --is-ancestor origin/main HEAD', 'git merge origin/main', 'git push', 'git merge --abort', 'git status --porcelain']) {
     assert.ok(prompt.includes(command.replace('git ', "git -C '/w' ")), `${command}: ${prompt}`)
   }
   assert.doesNotMatch(prompt, /\bgit (?!-C '\/w' )/)
@@ -177,7 +177,7 @@ const stepsThatMustPush = [
   ['a fix batch that only merged main', { ...resumeArgs, fixFirst: [conflictsWithMain] }, { 'fix-1': mergeOnlyFix }, 'scope-1', mergedOnlyTip],
 ]
 
-const pushedByName = /^cd '\/w' && python3 -c '[^']*"git","push","origin",branch[^']*' 1 'b' '[\w-]+'$/
+const pushedByName = /^cd '\/w' && python3 -c '[^']*"git","push","origin",branch[^']*' scope 1 'b' '[\w-]+'$/
 
 for (const [step, args, answers, scopeLabel, stepTip] of stepsThatMustPush) {
   test(`#115 AC-remote-carries-tip: after ${step} the scope agent is handed one command line whose printer pushes the lane branch by name, never by force`, async () => {
@@ -324,24 +324,68 @@ test('#103 AC-scratch-and-load: the sync prompt does not carry the drive facts',
 const syncedTip = 'd0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0'
 const reachesTheEndAt = (tip) => ({ ...reachesTheEnd, 'r0-review': APPROVE, 'ci-0': greenCi(tip) })
 
-for (const merged of [false, true]) {
-  test(`#267 AC-sync-tip-adopted: a resume whose sync answers merged ${merged} with another tip reviews and reports that tip`, async () => {
-    const answers = { ...reachesTheEndAt(syncedTip), sync: { merged, tip: syncedTip, stoppedOnConflict: false } }
+const otherCommit = 'e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5'
+const mainCommit = 'f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6'
+
+for (const [what, parents, writesHistory] of [['moved the branch', [otherCommit], true], ['merged main onto the held tip', [resumeTip, mainCommit], false]]) {
+  test(`#345 AC-sync-tip-relayed: a resume whose sync ${what} reviews and reports the relayed tip, and ${writesHistory ? 'names both tips' : 'writes no'} history`, async () => {
+    const answers = { ...reachesTheEndAt(syncedTip), sync: { head: syncedTip, parents } }
     const { result, launchedAgents } = await runLane(resumeArgs, answers)
     assert.ok(launchedAgents.includes('r0-review'), launchedAgents.join())
     assert.equal(result.tip, syncedTip)
+    const moved = result.history.find(entry => entry.by === 'sync')
+    assert.deepEqual(moved && [moved.after, moved.from, moved.tip], writesHistory ? [0, resumeTip, syncedTip] : undefined)
   })
 }
 
-test('#267 AC-sync-tip-adopted: a sync tip that is not a sha fails the lane at sync', async () => {
-  const { result } = await runLane(resumeArgs, { sync: { merged: false, tip: 'not a sha', stoppedOnConflict: false } })
-  assert.deepEqual([result.status, result.stage], ['failed', 'sync'])
+test('#345 AC-sync-tip-relayed: an up-to-date lane keeps its tip and writes no history', async () => {
+  const { result } = await runLane(resumeArgs, reachesTheEndAt(resumeTip))
+  assert.equal(result.tip, resumeTip)
+  assert.equal(result.history.some(entry => entry.by === 'sync'), false)
 })
 
-test('#267 AC-sync-tip-adopted: a moved branch with merged false names both tips in the history', async () => {
-  const { result } = await runLane(resumeArgs, { ...reachesTheEndAt(syncedTip), sync: { merged: false, tip: syncedTip, stoppedOnConflict: false } })
-  const moved = result.history.find(entry => entry.by === 'sync')
-  assert.deepEqual([moved.from, moved.tip], [resumeTip, syncedTip])
+const relayFailures = [
+  ['the agent returned no result', null, undefined],
+  ['incident 3: a head edited to the merge base fails the CRC check', { edit: (line) => line.replace(resumeTip, mainCommit) }, /fails its CRC check/],
+  ['a line carrying another nonce', { nonce: `sync-${otherCommit}` }, /carries the nonce sync-e5e5/],
+  ['the agent printed no line', { printed: 'fatal: not a git repository' }, /is not a relay line/],
+  ['git rev-parse HEAD failed', { head_code: 128 }, /reports a failed git command/],
+  ['the main check failed with 128', { main_code: 128 }, /reports a failed git command/],
+]
+
+for (const [what, scenario, reasonPattern] of relayFailures) {
+  test(`#345 AC-sync-relay-failures: a sync where ${what} fails the lane at sync`, async () => {
+    const { result, launchedAgents } = await runLane(resumeArgs, { sync: scenario })
+    assert.deepEqual([result.status, result.stage], ['failed', 'sync'])
+    if (scenario) {
+      assert.match(result.reason, reasonPattern)
+      assert.ok(result.reason.includes('the printed line: '), result.reason)
+    }
+    assert.deepEqual(launchedAgents, ['sync'])
+  })
+}
+
+test('#345 AC-sync-relay-failures: a failure quotes the line the agent printed', async () => {
+  const printed = 'fatal: not a git repository'
+  const { result } = await runLane(resumeArgs, { sync: { printed } })
+  assert.ok(result.reason.endsWith(`the printed line: ${printed}`), result.reason)
+})
+
+for (const [what, note, reason] of [['with a note', 'conflict in board.py', 'conflict in board.py'], ['without a note', undefined, `the lane tip ${resumeTip} does not contain origin/main, and the sync named no cause`]]) {
+  test(`#345 AC-sync-conflict-relayed: a sync whose lane does not contain origin/main escalates at sync ${what}`, async () => {
+    const { result, launchedAgents } = await runLane(resumeArgs, { sync: { main_code: 1, note } })
+    assert.deepEqual([result.status, result.stage, result.reason], ['escalated', 'sync', reason])
+    assert.deepEqual(launchedAgents, ['sync'])
+  })
+}
+
+test('#345 AC-sync-tip-relayed: the sync agent is handed one relay command line and answers only the printed line and a note', async () => {
+  const { agentCalls } = await runLane(resumeArgs)
+  const { prompt, options } = agentCalls.sync
+  assert.match(prompt.split('\n').at(-1), new RegExp(`^cd '/w' && python3 -c '[^']*"merge-base","--is-ancestor"[^']*' sync 'sync-${resumeTip}'$`))
+  assert.deepEqual(Object.keys(options.schema.properties), ['printed', 'note'])
+  assert.deepEqual(options.schema.required, ['printed'])
+  assert.doesNotMatch(prompt, /stoppedOnConflict|merged true/)
 })
 
 const generated = { 'quality/baseline.toml': 'uv run quality baseline write .' }
@@ -372,10 +416,10 @@ test('#298 generated-facts: the builder and the fixer prompts carry the generate
   }
 })
 
-test('#298 generated-failure: the sync prompt tells the agent to abort and return stoppedOnConflict when the command fails, and that answer escalates at sync', async () => {
+test('#298 generated-failure: the sync prompt tells the agent to abort and put the output in note when the command fails, and a lane without main escalates at sync with that note', async () => {
   const note = 'uv run quality baseline write . exited 1: boom'
-  const { agentCalls, result } = await runLane({ ...resumeArgs, generated }, { sync: { merged: false, tip: resumeTip, stoppedOnConflict: true, note } })
-  assert.match(agentCalls.sync.prompt, /command fails or leaves its path dirty or unmerged[^.]*merge --abort[^.]*stoppedOnConflict true[^.]*output/)
+  const { agentCalls, result } = await runLane({ ...resumeArgs, generated }, { sync: { main_code: 1, note } })
+  assert.match(agentCalls.sync.prompt, /command fails or leaves its path dirty or unmerged[^.]*merge --abort[^.]*put the command and its output in note/)
   assert.deepEqual([result.status, result.stage, result.reason], ['escalated', 'sync', note])
 })
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import sys
 from collections.abc import Callable
 from pathlib import Path
@@ -79,10 +80,10 @@ class Machine:
 
 
 class CodexJobs:
-    """Running-job counts the script sees in turn (the last repeats); sleeps are recorded, not slept."""
+    """Running jobs the script sees in turn (the last list repeats); sleeps are recorded, not slept."""
 
     def __init__(self) -> None:
-        self.counts = [0]
+        self.polls: list[list[install.CodexJob]] = [[]]
         self.pauses: list[float] = []
         self.commands_at_pause: list[list[str]] = []
         self.read_commands: Callable[[], list[str]] = list
@@ -91,14 +92,14 @@ class CodexJobs:
         self.pauses.append(seconds)
         self.commands_at_pause.append(self.read_commands())
 
-    def count(self) -> int:
-        return self.counts.pop(0) if len(self.counts) > 1 else self.counts[0]
+    def find(self) -> list[install.CodexJob]:
+        return self.polls.pop(0) if len(self.polls) > 1 else self.polls[0]
 
 
 @pytest.fixture
 def codex_jobs(monkeypatch: pytest.MonkeyPatch) -> CodexJobs:
     jobs = CodexJobs()
-    monkeypatch.setattr(install, "count_codex_jobs", jobs.count)
+    monkeypatch.setattr(install, "find_codex_jobs", jobs.find)
     monkeypatch.setattr(install, "pause", jobs.pause)
     return jobs
 
@@ -257,14 +258,14 @@ def test_stops_and_changes_nothing_when_a_contract_path_holds_something_else(
 
 def test_waits_for_a_gap_between_codex_jobs_before_updating_codex(machine, codex_jobs, capsys):
     machine.install_provider("codex", CODEX_FROM_LOCAL)
-    codex_jobs.counts = [3, 1, 0]
+    codex_jobs.polls = [jobs_named("1", "2", "3"), jobs_named("4"), []]
 
     assert install.main([]) == 0
 
     assert codex_jobs.pauses == [install.CODEX_POLL_SECONDS] * 2
     output = capsys.readouterr().out
-    assert output.count("codex: 3 Codex process(es) running, waiting") == 1
-    assert output.count("codex: 1 Codex process(es) running, waiting") == 1
+    assert output.count("codex: waiting for a gap before updating: 1 (?, ?), 2 (?, ?), 3 (?, ?)") == 1
+    assert output.count("codex: waiting for a gap before updating: 4 (?, ?)") == 1
     assert "codex plugin add atelier@atelier" in machine.commands()
 
 
@@ -279,11 +280,22 @@ def test_does_not_wait_for_codex_when_no_job_runs(machine, codex_jobs, capsys):
 
 def test_does_not_wait_for_codex_jobs_when_only_claude_is_updated(machine, codex_jobs):
     machine.install_provider("claude", CLAUDE_PRESENT)
-    codex_jobs.counts = [5]
+    codex_jobs.polls = [jobs_named("1")]
 
     assert install.main([]) == 0
 
     assert codex_jobs.pauses == []
+
+
+FIND_CODEX_JOBS = install.find_codex_jobs  # the codex_jobs fixture replaces the module attribute
+
+
+def jobs_named(*pids: str) -> list[install.CodexJob]:
+    return [install.CodexJob(pid=pid, age_seconds=None, directory=None) for pid in pids]
+
+
+def pids(jobs: list[install.CodexJob]) -> set[str]:
+    return {job.pid for job in jobs}
 
 
 def test_counts_only_processes_named_codex(tmp_path):
@@ -293,7 +305,7 @@ def test_counts_only_processes_named_codex(tmp_path):
     (tmp_path / "14").mkdir()
     (tmp_path / "14" / "comm").mkdir()  # reading fails like a process that just ended
 
-    assert install.count_codex_jobs(tmp_path) == 2
+    assert pids(install.find_codex_jobs(tmp_path)) == {"11", "13"}
 
 
 def write_process(process_root: Path, pid: str, name: str, *arguments: str) -> None:
@@ -307,13 +319,13 @@ def test_does_not_count_the_codex_app_server_daemon_as_a_job(tmp_path):
     write_process(tmp_path, "22", "codex", "app-server", "daemon", "pid-update-loop")
     write_process(tmp_path, "23", "codex", "exec", "task")
 
-    assert install.count_codex_jobs(tmp_path) == 1
+    assert pids(install.find_codex_jobs(tmp_path)) == {"23"}
 
 
 def test_finds_no_job_when_only_the_app_server_daemon_runs(tmp_path):
     write_process(tmp_path, "21", "codex", "app-server", "--listen", "stdio://")
 
-    assert install.count_codex_jobs(tmp_path) == 0
+    assert install.find_codex_jobs(tmp_path) == []
 
 
 def test_counts_a_codex_process_whose_command_line_cannot_be_read(tmp_path):
@@ -321,13 +333,37 @@ def test_counts_a_codex_process_whose_command_line_cannot_be_read(tmp_path):
     (tmp_path / "21" / "cmdline").unlink()
     (tmp_path / "21" / "cmdline").mkdir()
 
-    assert install.count_codex_jobs(tmp_path) == 1
+    assert pids(install.find_codex_jobs(tmp_path)) == {"21"}
+
+
+def test_names_a_waited_for_job_with_its_pid_age_and_directory(tmp_path, machine, codex_jobs, capsys):
+    ticks = os.sysconf("SC_CLK_TCK")
+    write_process(tmp_path, "31", "codex", "exec", "task")
+    (tmp_path / "31" / "stat").write_text(f"31 (codex) S {' '.join(['0'] * 18)} {1000 * ticks} 0 0\n")
+    (tmp_path / "uptime").write_text(f"{1000 + 3 * 3600 + 18 * 60}.50 99.00\n")
+    (tmp_path / "31" / "cwd").symlink_to("/work/hopin-worktrees/issue-253")
+    jobs = FIND_CODEX_JOBS(tmp_path)
+    machine.install_provider("codex", CODEX_FROM_LOCAL)
+    codex_jobs.polls = [jobs, []]
+
+    assert install.main([]) == 0
+
+    assert "codex: waiting for a gap before updating: 31 (3h18m, /work/hopin-worktrees/issue-253)" in capsys.readouterr().out
+
+
+def test_shows_a_question_mark_for_a_job_value_that_cannot_be_read(tmp_path):
+    write_process(tmp_path, "41", "codex", "exec", "task")
+    (tmp_path / "41" / "stat").mkdir()
+
+    [job] = install.find_codex_jobs(tmp_path)
+
+    assert install.describe_job(job) == "41 (?, ?)"
 
 
 def test_updates_claude_before_waiting_for_a_gap_between_codex_jobs(machine, codex_jobs):
     machine.install_provider("codex", CODEX_FROM_LOCAL)
     machine.install_provider("claude", CLAUDE_PRESENT)
-    codex_jobs.counts = [2, 0]
+    codex_jobs.polls = [jobs_named("1", "2"), []]
 
     assert install.main([]) == 0
 

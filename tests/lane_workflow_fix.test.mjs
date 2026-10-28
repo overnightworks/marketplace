@@ -312,3 +312,71 @@ for (const [behaviour, answered, shownAsRemoval] of removalsByFindingKind) {
     assert.equal(prompt.includes(`answered ${answered.where} by removing`), shownAsRemoval)
   })
 }
+
+// The contract stops the fix loop at the final gate's third consecutive REVISE; the ordinary reviewer is bound by the budgets only.
+const tipAfter = (n) => String(n).repeat(40)
+const reviseWith = (where, extra = {}) => ({ verdict: 'REVISE', blocking: [finding(where, `defect at ${where}`)], followups: [], codexExit: 0, ...extra })
+const fixFrom = (from, to) => ({ ...resumeFix, oldTip: from, mergedBase: from, tip: to, regression: [], files: ['src/x.py'] })
+const materialResume = { ...resumeArgs, risk: 'material' }
+
+test('#330 three consecutive gate REVISEs stop at review before the third fixer, handing the head the three findings', async () => {
+  const { result, launchedAgents } = await runLane(materialResume, {
+    'r0-review': APPROVE,
+    'r0-gate': reviseWith('a.py:1'),
+    'fix-1': fixFrom(resumeTip, tipAfter(1)),
+    'r1-gate': reviseWith('b.py:2'),
+    'fix-2': fixFrom(tipAfter(1), tipAfter(2)),
+    'r2-gate': reviseWith('c.py:3'),
+  })
+  assert.deepEqual([result.status, result.stage], ['awaiting-head', 'review'])
+  assert.ok(!launchedAgents.includes('fix-3'))
+  assert.equal(result.spent.review, 2)
+  assert.equal(result.tip, tipAfter(2))
+  assert.deepEqual(result.gateRevisions.map(round => round.blocking.map(f => f.where)), [['a.py:1'], ['b.py:2'], ['c.py:3']])
+  assert.match(result.reason, /gate returned REVISE three times in a row/)
+})
+
+test('#330 a gate APPROVE between REVISEs breaks the streak, so a later gate REVISE is fixed as before', async () => {
+  const { result, launchedAgents } = await runLane(materialResume, {
+    'r0-review': APPROVE,
+    'r0-gate': reviseWith('a.py:1'),
+    'fix-1': fixFrom(resumeTip, tipAfter(1)),
+    'r1-gate': reviseWith('b.py:2'),
+    'fix-2': fixFrom(tipAfter(1), tipAfter(2)),
+    'r2-gate': { ...APPROVE, codexExit: 0 },
+  })
+  assert.equal(result.gateRevisions, undefined)
+  assert.ok(launchedAgents.includes('fix-2'))
+  const gateApproved = { ...APPROVE, codexExit: 0 }
+  const afterApprove = await runLane(materialResume, {
+    'r0-review': reviseWith('r.py:1', { codexExit: undefined }),
+    'r0-gate': reviseWith('a.py:1'),
+    'fix-1': fixFrom(resumeTip, tipAfter(1)),
+    'r1-review': reviseWith('r.py:2', { codexExit: undefined }),
+    'r1-gate': reviseWith('b.py:2'),
+    'fix-2': fixFrom(tipAfter(1), tipAfter(2)),
+    'r2-review': reviseWith('r.py:3', { codexExit: undefined }),
+    'r2-gate': gateApproved,
+    'fix-3': fixFrom(tipAfter(2), tipAfter(3)),
+    'r3-review': APPROVE,
+    'r3-gate': reviseWith('c.py:3'),
+    'fix-4': fixFrom(tipAfter(3), tipAfter(4)),
+    'r4-gate': gateApproved,
+  })
+  assert.equal(afterApprove.result.gateRevisions, undefined)
+  assert.ok(afterApprove.launchedAgents.includes('fix-4'))
+})
+
+test('#330 three consecutive reviewer REVISEs with different findings do not stop at three', async () => {
+  const { result, launchedAgents } = await runLane(resumeArgs, {
+    'r0-review': reviseWith('a.py:1', { codexExit: undefined }),
+    'fix-1': fixFrom(resumeTip, tipAfter(1)),
+    'r1-review': reviseWith('b.py:2', { codexExit: undefined }),
+    'fix-2': fixFrom(tipAfter(1), tipAfter(2)),
+    'r2-review': reviseWith('c.py:3', { codexExit: undefined }),
+    'fix-3': fixFrom(tipAfter(2), tipAfter(3)),
+    'r3-review': APPROVE,
+  })
+  assert.ok(launchedAgents.includes('fix-3'))
+  assert.equal(result.gateRevisions, undefined)
+})

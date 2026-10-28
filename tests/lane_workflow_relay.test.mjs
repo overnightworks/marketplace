@@ -214,6 +214,7 @@ test('#350 lane-relay-protocol: a child with another protocol number fails the l
   const { result, launchedAgents } = await driveRelayChild(resumedLane, { transformChild: (source) => source.replace(/^const LANE_RELAY_PROTOCOL = \d+$/m, `const LANE_RELAY_PROTOCOL = ${parentNumber + 1}`) })
   assert.deepEqual([result.status, result.stage], ['failed', 'sync'])
   assert.match(result.reason, new RegExp(`protocol ${parentNumber + 1}.*protocol ${parentNumber}`))
+  assert.doesNotMatch(result.reason, /the printed line/)
   assert.deepEqual(launchedAgents, [])
 })
 
@@ -221,6 +222,7 @@ test('#350 lane-relay-protocol: a child that misses args fails the lane at sync 
   const { result } = await driveRelayChild(resumedLane, { alterChildArgs: ({ worktree: _worktree, nonce: _nonce, ...rest }) => rest })
   assert.deepEqual([result.status, result.stage], ['failed', 'sync'])
   assert.match(result.reason, /missing args: .*worktree.*nonce/)
+  assert.doesNotMatch(result.reason, /the printed line/)
 })
 
 test('#350 lane-relay-protocol: a child that throws fails a resumed lane at sync and a built lane at scope, naming the error', async () => {
@@ -228,9 +230,11 @@ test('#350 lane-relay-protocol: a child that throws fails a resumed lane at sync
   const resumed = await driveRelayChild(resumedLane, throwing)
   assert.deepEqual([resumed.result.status, resumed.result.stage], ['failed', 'sync'])
   assert.match(resumed.result.reason, /the child exploded/)
+  assert.doesNotMatch(resumed.result.reason, /the printed line/)
   const built = await driveRelayChild(builtLane, throwing, { build: builtAnswer })
   assert.deepEqual([built.result.status, built.result.stage], ['failed', 'scope'])
   assert.match(built.result.reason, /the child exploded/)
+  assert.doesNotMatch(built.result.reason, /the printed line/)
 })
 
 test('#350 lane-relay-protocol: lane.js and lane-relay.js hold the same protocol number', () => {

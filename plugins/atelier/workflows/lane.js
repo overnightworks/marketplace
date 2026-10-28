@@ -154,6 +154,8 @@ async function relay(request) {
     return { problem: `ended in lane-relay with ${String(error).slice(0, 300)}` }
   }
 }
+// The failure reasons name the printed line only when the command printed one.
+const printedLine = (relayed) => relayed.printed === undefined ? '' : `; the printed line: ${relayed.printed}`
 // Language models copy a 40-character hash unreliably (a sync step once dropped one character). A commit is
 // accepted as 7 to 40 hex characters — git resolves an unambiguous prefix, and fixers often answer with the short form.
 const SHA = /^[0-9a-f]{7,40}$/
@@ -359,7 +361,7 @@ if (A.build) {
   if (!synced) return openResult('failed', 'sync')
   const { values, problem } = synced
   const failedCommand = values && (values.head.code !== 0 || ![0, 1].includes(values.main.code))
-  if (problem || failedCommand) return openResult('failed', 'sync', { reason: `the sync's relay line ${problem || 'reports a failed git command'}; the printed line: ${synced.printed}` })
+  if (problem || failedCommand) return openResult('failed', 'sync', { reason: `the sync's relay line ${problem || 'reports a failed git command'}${printedLine(synced)}` })
   if (values.main.code === 1) return openResult('escalated', 'sync', { reason: synced.note || `the lane tip ${values.head.out} does not contain origin/main, and the sync named no cause` })
   const [firstParent, mergedIn] = values.parents.out.split('\n')
   if (!sameCommit(values.head.out, tip) && !(mergedIn && sameCommit(firstParent, tip))) history.push({ after: 0, by: 'sync', from: tip, tip: values.head.out })
@@ -367,11 +369,13 @@ if (A.build) {
 }
 
 // ------------------------------------------------------- review / fix
+const gateRounds = []
 async function reviewRound(which, range) {
   const results = await parallel(which.map(r => () => reviewBy(r, `r${spent.total}-${r.key}`, range)))
   results.forEach((v, i) => {
     if (!v) return
     history.push({ after: spent.total, by: which[i].key, verdict: v.verdict, blocking: (v.blocking || []).map(f => f.where), reportPath: v.reportPath || '' })
+    if (which[i] === GATE) gateRounds.push({ after: spent.total, verdict: v.verdict, blocking: v.blocking || [], reportPath: v.reportPath || '' })
     followups.push(...(v.followups || []).map(f => ({ ...f, tip })))
   })
   return { which, results, verdict: classify(results, which.length) }
@@ -570,14 +574,13 @@ function scopeStop(paths, origin, total) {
     `or start ${newRun} and fixFirst asking a fixer to revert them. Find the commits with git log origin/main..${tip} -- ${listed}.` }) }
 }
 
-
 async function pushAndCheckScope(label, origin) {
   phase('Scope')
   const nonce = `${label}-${tip}`
   const quotedArguments = [A.item, `'${A.branch}'`, `'${nonce}'`]
   const checked = await relay({ label, phase: 'Scope', step: 'scope', relayArgs: quotedArguments, nonce, requiredKeys: ['push', 'remote', 'head', 'brief'], brief: `${laneFacts}\nChange nothing in the files;` })
   if (!checked) return { stop: openResult('failed', 'scope', { reason: 'the push and claim-scope check returned no result' }) }
-  const fail = (stage, reason) => ({ stop: openResult('failed', stage, { reason: `${reason}; the printed line: ${checked.printed}` }) })
+  const fail = (stage, reason) => ({ stop: openResult('failed', stage, { reason: `${reason}${printedLine(checked)}` }) })
   const { values, problem } = checked
   if (problem) return fail('scope', `the push and claim-scope check ${problem}`)
   const { push, remote, head, brief } = values
@@ -604,6 +607,12 @@ async function settleReview(rr) {
   if (rr.verdict.state === 'revise') {
     const blocking = rr.results.filter(Boolean).flatMap(v => v.blocking || [])
     const raised = rr.which.filter((r, i) => rr.results[i] && (rr.results[i].blocking || []).length > 0)
+    const gateStreak = gateRounds.slice(-3)
+    if (gateStreak.length === 3 && gateStreak.every(round => round.verdict === 'REVISE')) {
+      return openResult('awaiting-head', 'review', { gateRevisions: gateStreak, lastBlocking: blocking, reason:
+        'The final gate returned REVISE three times in a row; no fixer was started. Re-ask the pull question against gateRevisions first, ' +
+        'then start a new run with pr and tip and fixFirst, or re-cut the item.' })
+    }
     const f = await fixBatch(blocking, 'the review', 'review')
     if (f.stop) return f.stop
     if (!f.range) return openResult('failed', 'review', { reason: 'a review finding was answered by a merge alone', lastBlocking: blocking })

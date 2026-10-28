@@ -1,8 +1,0 @@
-claim_id = "247015ead829448195641fb7eb20a62c"
-agent = "Claude b5de3560-4db0-4dfe-be9f-fe26ef53140a"
-role = "builder"
-base = "ec61eac59d219803ca689117d377ea5668fb6593"
-branch = "claude/issue-357-lane-lock-queue-awaits-head"
-scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/workflows/lane.js", "tests/lane_workflow_ci.test.mjs"]
-opened_commit = "8a73d43a33360d4b7a14be291270ff4221953c3a"
-whole_reason = "One behaviour change in lane.js plus its test row and the three version pins every atelier change bumps."

@@ -1,11 +1,11 @@
 # Decision cards
 
 Reader: a head writing or revising an operator question as an option line. The
-card's keys, limits and mechanical refusals belong to aco: read `specs/body-block.spec.md`
-("Option lines", BODY-95..BODY-100) in the aco repository, and pipe the body through
-`aco check -`. This file holds only what `aco check` cannot judge. The operator's
-wish: a card he decides at a glance, always in the same structure. The visual law is
-`atelier:design-interface` law 8.
+card's keys, limits and mechanical refusals belong to aco: read the
+[body-block spec "Option lines" (BODY-95..BODY-100)](https://github.com/overnightworks/aco/blob/main/specs/body-block.spec.md)
+in the aco repository, and pipe the body through `aco check -`. This file holds only
+what `aco check` cannot judge. The operator's wish: a card he decides at a glance,
+always in the same structure. The visual law is `atelier:design-interface` law 8.
 
 ## 1. Question
 
@@ -64,8 +64,9 @@ board works.
 ## 6. What a head never guesses
 
 Material risk, a product choice that is not safely inferable, and the lines that wait
-for the operator's spoken word are listed in the contract's "How to work" and "How to
-decide". A card never states them again, and a head never fills such a line itself.
+for the operator's spoken word are listed in the contract's
+[How to work](https://github.com/overnightworks/marketplace/blob/main/instructions/AGENTS.md#how-to-work)
+and [How to decide](https://github.com/overnightworks/marketplace/blob/main/instructions/AGENTS.md#how-to-decide). A card never states them again, and a head never fills such a line itself.
 
 ## 7. Unclear
 

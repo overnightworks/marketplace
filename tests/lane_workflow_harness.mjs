@@ -13,7 +13,9 @@ const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor
 const FAKE_GIT = `#!/bin/sh
 case "$1 $2" in
   "push origin") [ -z "$FAKE_PUSH_ERROR" ] || { printf '%s\\n' "$FAKE_PUSH_ERROR" >&2; exit 1; } ;;
-  "rev-parse HEAD") printf '%s\\n' "$FAKE_HEAD" ;;
+  "rev-parse HEAD") [ "$FAKE_HEAD_CODE" = 0 ] || { printf 'fatal: bad revision\\n' >&2; exit "$FAKE_HEAD_CODE"; }; printf '%s\\n' "$FAKE_HEAD" ;;
+  "rev-parse HEAD^@") printf '%s\\n' "$FAKE_PARENTS" ;;
+  "merge-base --is-ancestor") exit "$FAKE_MAIN_CODE" ;;
   "rev-parse origin/"*) printf '%s\\n' "$FAKE_REMOTE" ;;
 esac
 `
@@ -39,11 +41,12 @@ export async function runLane(args, answers = {}, options = {}) {
   const launchedByChild = {}
   const launchedAgents = []
   const agentCalls = {}
-  const cleanSync = { merged: false, tip: args.tip, stoppedOnConflict: false }
-  const defaultAnswerFor = (label) => label === 'sync' ? cleanSync : label.startsWith('scope-') ? {} : null
-  // The remote branch carries the newest tip a builder or fixer returned. A scope step's answer says what the fake git
-  // and aco print (push_error, remote_tip, brief_error, outside_claim) and how the agent mishandled the printed line
-  // (nonce, edit, printed); the line itself always comes from running the real printer the prompt carries.
+  const isRelayed = (label) => label === 'sync' || label.startsWith('scope-')
+  const defaultAnswerFor = (label) => isRelayed(label) ? {} : null
+  // The branch carries the newest tip a builder, fixer or sync returned. A scope or sync step's answer says what the fake
+  // git and aco print (scope: push_error, remote_tip, brief_error, outside_claim; sync: head, parents, head_code,
+  // main_code) and how the agent mishandled the printed line (nonce, edit, printed, printerMode: the printer mode it ran instead); the line itself always comes from
+  // running the real printer the prompt carries. Without answers a sync leaves an up-to-date lane as it is.
   let newestTip = args.tip
   let fakeBin
   const fakeCommands = () => {
@@ -58,19 +61,24 @@ export async function runLane(args, answers = {}, options = {}) {
     if ('printed' in scenario) return scenario.printed
     const line = prompt.split('\n').at(-1).replace(/^cd '[^']*' && /, '')
     const env = {
-      ...process.env, PATH: `${fakeCommands()}:${process.env.PATH}`, FAKE_HEAD: newestTip, FAKE_REMOTE: scenario.remote_tip ?? newestTip,
+      ...process.env, PATH: `${fakeCommands()}:${process.env.PATH}`, FAKE_HEAD: scenario.head ?? newestTip, FAKE_REMOTE: scenario.remote_tip ?? newestTip,
+      FAKE_HEAD_CODE: scenario.head_code ?? 0, FAKE_PARENTS: (scenario.parents ?? []).join('\n'), FAKE_MAIN_CODE: scenario.main_code ?? 0,
       FAKE_PUSH_ERROR: scenario.push_error ?? '', FAKE_BRIEF_ERROR: scenario.brief_error ?? '',
       FAKE_BRIEF_OUTPUT: JSON.stringify({ outside_claim: 'outside_claim' in scenario ? scenario.outside_claim : [] }),
     }
-    const printed = runCommandLine(scenario.nonce ? line.replace(/'[^']*'$/, `'${scenario.nonce}'`) : line, { cwd: os.tmpdir(), env })
+    const asked = scenario.printerMode ? line.replace(/' scope .* ('[^']*')$/, `' ${scenario.printerMode} $1`) : line
+    const printed = runCommandLine(scenario.nonce ? asked.replace(/'[^']*'$/, `'${scenario.nonce}'`) : asked, { cwd: os.tmpdir(), env })
     return scenario.edit ? scenario.edit(printed) : printed
   }
   const answerFor = (label, prompt) => {
     const given = label in answers ? answers[label] : defaultAnswerFor(label)
     if (typeof given === 'function') return given(prompt)
-    const answer = label.startsWith('scope-') && given ? { ...given } : structuredClone(given)
-    if (answer?.tip && /^(build|fix-|sync)/.test(label)) newestTip = answer.tip
-    return label.startsWith('scope-') && answer ? { printed: printedBy(prompt, answer) } : answer
+    const answer = isRelayed(label) && given ? { ...given } : structuredClone(given)
+    if (answer?.tip && /^(build|fix-)/.test(label)) newestTip = answer.tip
+    if (!isRelayed(label) || !answer) return answer
+    const printed = printedBy(prompt, answer)
+    if (label === 'sync' && answer.head) newestTip = answer.head
+    return { ...(answer.note && { note: answer.note }), printed }
   }
   const agent = async (prompt, agentOptions = {}) => { launchedAgents.push(agentOptions.label); agentCalls[agentOptions.label] = { prompt, options: agentOptions }; return answerFor(agentOptions.label, prompt) }
   // A thunk that throws resolves to null, as in the Workflow runtime.

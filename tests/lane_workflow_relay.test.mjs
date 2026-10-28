@@ -1,10 +1,10 @@
-// Drives the scope step's printer against real git and a temp bare remote, with a fake aco, through the lane's own checks.
+// Drives the scope and sync steps' printer against real git and a temp bare remote, with a fake aco, through the lane's own checks.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import { execFileSync } from 'node:child_process'
+import { execFileSync, spawnSync } from 'node:child_process'
 import { runLane, runCommandLine, installFake, FAKE_ACO, resumedLane } from './lane_workflow_harness.mjs'
 
 const BRANCH = 'lane'
@@ -12,7 +12,7 @@ const LONGEST_PATH_COMPONENT = 255
 
 // Every test owns a temp tree. PATH, HOME and the git configuration are set in the child environment only, so the
 // operator's configuration never reaches git and the test never changes the process environment.
-function laneRepository(t) {
+function laneRepository(t, { onMain = false } = {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'lane-relay-'))
   t.after(() => fs.rmSync(root, { recursive: true }))
   const bin = path.join(root, 'bin')
@@ -34,10 +34,23 @@ function laneRepository(t) {
     return git(worktree, 'rev-parse', 'HEAD')
   }
   const worktree = path.join(root, 'work')
-  git(root, 'init', '-b', BRANCH, worktree)
+  git(root, 'init', '-b', onMain ? 'main' : BRANCH, worktree)
   git(worktree, 'remote', 'add', 'origin', remote)
+  if (onMain) {
+    commitIn(worktree, 'base-file')
+    git(worktree, 'push', 'origin', 'main')
+    git(worktree, 'checkout', '-b', BRANCH)
+  }
   const tip = commitIn(worktree, 'lane-file')
-  return { root, env, git, remote, commitIn, worktree, tip }
+  const advanceMain = (name, content = name) => {
+    const other = path.join(root, `main-${name}`)
+    git(root, 'clone', remote, other)
+    fs.writeFileSync(path.join(other, name), content)
+    git(other, 'add', name)
+    git(other, 'commit', '-m', name)
+    git(other, 'push', 'origin', 'main')
+  }
+  return { root, env, git, remote, commitIn, advanceMain, worktree, tip }
 }
 
 // The scope step's agent answers by running the command line it was handed, in the lane's real worktree.
@@ -46,6 +59,24 @@ const agentRunning = (lane, acoPrints, printedLines = []) => (prompt) => {
   const printed = runCommandLine(prompt.split('\n').at(-1), { cwd: os.tmpdir(), env })
   printedLines.push(printed)
   return { printed }
+}
+
+// The sync step's agent does what its prompt says with real git, then runs the relay line it was handed.
+const syncAgentRunning = (lane) => (prompt) => {
+  const inWorktree = (...gitArgs) => lane.git(lane.worktree, ...gitArgs)
+  inWorktree('fetch', 'origin')
+  const containsMain = spawnSync('git', ['merge-base', '--is-ancestor', 'origin/main', 'HEAD'], { cwd: lane.worktree, env: lane.env }).status === 0
+  let note
+  if (!containsMain) {
+    try {
+      inWorktree('merge', 'origin/main', '-m', 'merge main')
+      inWorktree('push', 'origin', BRANCH)
+    } catch {
+      inWorktree('merge', '--abort')
+      note = 'conflict in lane-file'
+    }
+  }
+  return { printed: runCommandLine(prompt.split('\n').at(-1), { cwd: os.tmpdir(), env: lane.env }), ...(note && { note }) }
 }
 
 const laneArgs = (lane) => ({ ...resumedLane, item: 7, worktree: lane.worktree, branch: BRANCH, scratch: lane.root, pr: 1, tip: lane.tip })
@@ -101,7 +132,7 @@ test('#323 AC-scope-relay: the printer text holds no single quote, so the shell 
   const lane = laneRepository(t)
   const { agentCalls } = await runLane(laneArgs(lane), { 'scope-resume': agentRunning(lane, []) })
   const commandLine = agentCalls['scope-resume'].prompt.split('\n').at(-1)
-  assert.match(commandLine, new RegExp(`^cd '${lane.worktree}' && python3 -c '[^']+' 7 '${BRANCH}' 'scope-resume-${lane.tip}'$`))
+  assert.match(commandLine, new RegExp(`^cd '${lane.worktree}' && python3 -c '[^']+' scope 7 '${BRANCH}' 'scope-resume-${lane.tip}'$`))
 })
 
 test('#323 AC-scope-relay: fifty of the longest paths stay one line the lane accepts, and a longer list is capped at fifty', async (t) => {
@@ -114,4 +145,59 @@ test('#323 AC-scope-relay: fifty of the longest paths stay one line the lane acc
   assert.match(result.reason, /and 10 more/)
   t.diagnostic(`worst-case printed line: ${printedLines[0].length} characters`)
   assert.ok(printedLines[0].length < 40000, String(printedLines[0].length))
+})
+
+const runSyncStep = (lane) => runLane(laneArgs(lane), { sync: syncAgentRunning(lane), 'scope-resume': agentRunning(lane, []) })
+const headOf = (lane) => lane.git(lane.worktree, 'rev-parse', 'HEAD')
+
+test('#345 AC-sync-relay-real-git: incident 3, a lane that already contains origin/main with a commit on top, carries its own head to the push', async (t) => {
+  const lane = laneRepository(t, { onMain: true })
+  lane.advanceMain('main-file')
+  lane.git(lane.worktree, 'fetch', 'origin')
+  lane.git(lane.worktree, 'merge', 'origin/main', '-m', 'merge main')
+  lane.commitIn(lane.worktree, 'lane-file-two')
+  const head = headOf(lane)
+  const mergeBase = lane.git(lane.worktree, 'merge-base', 'origin/main', 'HEAD')
+  assert.notEqual(head, mergeBase)
+  const { agentCalls, launchedAgents } = await runSyncStep(lane)
+  assert.ok(launchedAgents.includes('r0-review'), launchedAgents.join())
+  assert.ok(agentCalls['scope-resume'].prompt.endsWith(` 'scope-resume-${head}'`), agentCalls['scope-resume'].prompt)
+  assert.equal(remoteTip(lane), head)
+  assert.equal(headOf(lane), head)
+})
+
+test('#345 AC-sync-relay-real-git: a clean merge of origin/main makes the merge commit the lane tip, pushed to the remote, fresh and repeated', async (t) => {
+  const lane = laneRepository(t, { onMain: true })
+  lane.advanceMain('main-file')
+  for (const run of ['fresh', 'repeated']) {
+    const { agentCalls, launchedAgents } = await runSyncStep(lane)
+    const head = headOf(lane)
+    assert.equal(lane.git(lane.worktree, 'rev-list', '--parents', '-n', '1', 'HEAD').split(' ').length, 3, `${run}: HEAD is a merge commit`)
+    assert.ok(launchedAgents.includes('r0-review'), `${run}: ${launchedAgents.join()}`)
+    assert.ok(agentCalls['scope-resume'].prompt.endsWith(` 'scope-resume-${head}'`), run)
+    assert.equal(remoteTip(lane), head, run)
+  }
+})
+
+test('#345 AC-sync-relay-real-git: a real conflict the agent aborts escalates at sync with the lane head unchanged and no review', async (t) => {
+  const lane = laneRepository(t, { onMain: true })
+  lane.advanceMain('lane-file', 'main wrote this file too')
+  const { result, launchedAgents } = await runSyncStep(lane)
+  assert.deepEqual([result.status, result.stage, result.reason], ['escalated', 'sync', 'conflict in lane-file'])
+  assert.deepEqual(launchedAgents, ['sync'])
+  assert.equal(headOf(lane), lane.tip)
+  assert.equal(lane.git(lane.worktree, 'status', '--porcelain'), '')
+})
+
+test('#345 AC-sync-relay-real-git: a scope printer line that carries the sync nonce ends the lane as failed at sync quoting the line', async (t) => {
+  const lane = laneRepository(t, { onMain: true })
+  const scopePrinterAnswer = (prompt) => {
+    const syncCommandLine = prompt.split('\n').at(-1)
+    const scopeCommandLine = syncCommandLine.replace(/ sync ('sync-[0-9a-f]+')$/, ` scope 7 '${BRANCH}' $1`)
+    return { printed: runCommandLine(scopeCommandLine, { cwd: os.tmpdir(), env: { ...lane.env, FAKE_BRIEF_OUTPUT: JSON.stringify({ outside_claim: [] }) } }) }
+  }
+  const { result, launchedAgents } = await runLane(laneArgs(lane), { sync: scopePrinterAnswer })
+  assert.deepEqual([result.status, result.stage], ['failed', 'sync'])
+  assert.match(result.reason, /the printed line: \{"crc":/)
+  assert.deepEqual(launchedAgents, ['sync'])
 })

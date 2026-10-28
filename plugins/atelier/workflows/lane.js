@@ -142,25 +142,24 @@ const BUILD = {
   required: ['pr', 'tip', 'blocked'],
   properties: { pr: { type: 'number' }, tip: { type: 'string', pattern: '^[0-9a-f]{7,40}$', description: 'a commit sha from git rev-parse, nothing else' }, summary: { type: 'string' }, blocked: { type: 'boolean' }, blockedReason: { type: 'string' }, rescope: RESCOPE },
 }
-const SYNC = {
-  type: 'object',
-  required: ['merged', 'tip', 'stoppedOnConflict'],
-  properties: { merged: { type: 'boolean' }, tip: { type: 'string', pattern: '^[0-9a-f]{7,40}$', description: 'a commit sha from git rev-parse, nothing else' }, stoppedOnConflict: { type: 'boolean' }, note: { type: 'string' } },
-}
-// The push and the claim-scope check reach a decision only through one line the PRINTER wrote: the agent runs it and
-// relays the line unchanged, and a retyped or edited line fails its CRC32. The printer holds no single quote, so the
-// shell passes it as one argument; it never forces a push, and it caps the paths it relays at 50.
+// A value a command prints reaches a decision only through one line the PRINTER wrote: the agent runs it and relays the
+// line unchanged, and a retyped or edited line fails its CRC32. The printer holds no single quote, so the shell passes
+// it as one argument. Its first argument names the step whose commands it runs; the scope step never forces a push and
+// relays at most 50 paths, and the sync step reports the lane tip, its parents and whether it contains origin/main.
 const PRINTER = [
   'import json,shutil,subprocess,sys,zlib',
-  'item,branch,nonce=sys.argv[1:]',
+  'step,*rest,nonce=sys.argv[1:]',
   'run=lambda*c:subprocess.run(c,capture_output=True,text=True) if shutil.which(c[0]) else subprocess.CompletedProcess(c,127,"","not found: "+c[0])',
-  'ran={n:run(*c) for n,c in (("push",("git","push","origin",branch)),("remote",("git","rev-parse","origin/"+branch)),("head",("git","rev-parse","HEAD")),("brief",("aco","brief",item,"--json")))}',
-  'claim=json.loads(ran["brief"].stdout)["outside_claim"] if ran["brief"].returncode==0 else None',
+  'steps=dict(scope=lambda item,branch:(("push",("git","push","origin",branch)),("remote",("git","rev-parse","origin/"+branch)),("head",("git","rev-parse","HEAD")),("brief",("aco","brief",item,"--json"))),sync=lambda:(("head",("git","rev-parse","HEAD")),("parents",("git","rev-parse","HEAD^@")),("main",("git","merge-base","--is-ancestor","origin/main","HEAD"))))',
+  'ran={n:run(*c) for n,c in steps[step](*rest)}',
+  'claim=json.loads(ran["brief"].stdout)["outside_claim"] if "brief" in ran and ran["brief"].returncode==0 else None',
   'values={n:{"code":p.returncode,"err":" ".join(l for l in p.stderr.splitlines() if l[:5]!="hint:")[-300:],"out":p.stdout.strip()[:100]} for n,p in ran.items()}',
-  'values.update(nonce=nonce,outside_claim=claim[:50] if isinstance(claim,list) else claim,count=len(claim) if isinstance(claim,list) else None)',
+  'values.update(nonce=nonce,**(dict(outside_claim=claim[:50] if isinstance(claim,list) else claim,count=len(claim) if isinstance(claim,list) else None) if "brief" in ran else {}))',
   'payload=json.dumps(values,ensure_ascii=True,separators=(",",":"),sort_keys=True)',
   'print("""{"crc":"%08x","v":%s}"""%(zlib.crc32(payload.encode()),payload))',
 ].join(';')
+const relayCommand = (...relayArgs) => `cd '${A.worktree}' && python3 -c '${PRINTER}' ${relayArgs.join(' ')}`
+const RELAY_ASK = 'run this one command line exactly as written, without changing it or its directory, and return the line it prints unchanged as printed; when it prints no line, return its error output as printed:'
 const RELAY_LINE = /^\{"crc":"([0-9a-f]{8})","v":(.*)\}$/
 const CRC_TABLE = Array.from({ length: 256 }, (_, n) => {
   let crc = n
@@ -172,11 +171,12 @@ const crc32 = (text) => {
   for (let i = 0; i < text.length; i++) crc = CRC_TABLE[(crc ^ text.codePointAt(i)) & 255] ^ (crc >>> 8)
   return ((crc ^ 0xffffffff) >>> 0).toString(16).padStart(8, '0')
 }
-const PUSH_AND_SCOPE_CHECK = {
+const RELAYED = {
   type: 'object',
   required: ['printed'],
   properties: { printed: { type: 'string', description: 'the one line the command printed, character for character as printed; when it printed no line, its error output' } },
 }
+const SYNC = { ...RELAYED, properties: { ...RELAYED.properties, note: { type: 'string', description: 'what stopped the merge: the conflicting paths, or the failed command and its output' } } }
 // Language models copy a 40-character hash unreliably (a sync step once dropped one character). A commit is
 // accepted as 7 to 40 hex characters — git resolves an unambiguous prefix, and fixers often answer with the short form.
 const SHA = /^[0-9a-f]{7,40}$/
@@ -369,19 +369,24 @@ if (A.build) {
   phase('Sync')
   const git = `git -C '${A.worktree}'`
   const andGeneratedFiles = GENERATED.length ? ' and the generated files' : ''
+  const nonce = `sync-${tip}`
+  const quotedNonce = `'${nonce}'`
   const synced = await safeAgent(
     `${laneFacts}\nBring the lane up to date with main and change nothing else. Run each command exactly as written, with its -C option. ${git} fetch origin; if ${git} merge-base --is-ancestor origin/main HEAD succeeds, change nothing. ` +
     `Otherwise ${git} merge origin/main; when it merges cleanly, ${git} push. ` +
     (LEDGERS.length || GENERATED.length ? `Conflicts only in the append-only ledgers${andGeneratedFiles}: resolve them as the lane facts say, commit the merge, ${git} push. ` : '') +
-    (GENERATED.length ? `When a generated file's command fails or leaves its path dirty or unmerged, run ${git} merge --abort and return stoppedOnConflict true with the command and its output in note. ` : '') +
+    (GENERATED.length ? `When a generated file's command fails or leaves its path dirty or unmerged, run ${git} merge --abort and put the command and its output in note. ` : '') +
     (LEDGERS.length || GENERATED.length ? `Any other conflict: ` : `Any conflict: `) +
-    `run ${git} merge --abort, confirm \`${git} status --porcelain\` is empty, push nothing, and return stoppedOnConflict true with the conflicting paths in note. Return merged true only when you made and pushed a merge commit, and tip as the output of \`${git} rev-parse HEAD\` — a sha, no words.`,
+    `run ${git} merge --abort, confirm \`${git} status --porcelain\` is empty, push nothing, and put the conflicting paths in note. Last, whatever happened, ${RELAY_ASK}\n${relayCommand('sync', quotedNonce)}`,
     { label: 'sync', phase: 'Sync', schema: SYNC, ...MECHANICAL })
   if (!synced) return openResult('failed', 'sync')
-  if (synced.stoppedOnConflict) return openResult('escalated', 'sync', { reason: synced.note || 'merge conflict in lane files; the worktree was left clean' })
-  if (!SHA.test(synced.tip || '')) return openResult('failed', 'sync', { reason: `sync returned a tip that is not a sha: ${String(synced.tip).slice(0, 80)}` })
-  if (!synced.merged && !sameCommit(synced.tip, tip)) history.push({ after: 0, by: 'sync', from: tip, tip: synced.tip })
-  tip = synced.tip
+  const { values, problem } = readRelay(synced.printed, nonce, ['head', 'parents', 'main'])
+  const failedCommand = values && (values.head.code !== 0 || ![0, 1].includes(values.main.code))
+  if (problem || failedCommand) return openResult('failed', 'sync', { reason: `the sync's relay line ${problem || 'reports a failed git command'}; the printed line: ${synced.printed}` })
+  if (values.main.code === 1) return openResult('escalated', 'sync', { reason: synced.note || `the lane tip ${values.head.out} does not contain origin/main, and the sync named no cause` })
+  const [firstParent, mergedIn] = values.parents.out.split('\n')
+  if (!sameCommit(values.head.out, tip) && !(mergedIn && sameCommit(firstParent, tip))) history.push({ after: 0, by: 'sync', from: tip, tip: values.head.out })
+  tip = values.head.out
 }
 
 // ------------------------------------------------------- review / fix
@@ -589,27 +594,30 @@ function scopeStop(paths, origin, total) {
 }
 
 // The values of a relay line, or why the line cannot be trusted: checked as text first (shape, CRC32), parsed after.
-function readRelay(printed, nonce) {
+// A caller stops at the stage of the step that ran the printer, so an unreadable scope line stops at scope, because it
+// proves nothing about the push; push is only for a readable line that shows the push failed or the remote lacks the tip.
+function readRelay(printed, nonce, requiredKeys = []) {
   const match = RELAY_LINE.exec((printed || '').trim())
   if (!match) return { problem: 'is not a relay line' }
   if (crc32(match[2]) !== match[1]) return { problem: 'fails its CRC check' }
   let values
   try { values = JSON.parse(match[2]) } catch { return { problem: 'does not hold JSON' } }
   if (values?.nonce !== nonce) return { problem: `carries the nonce ${values?.nonce}, not ${nonce}` }
+  const missing = requiredKeys.find(key => !values[key])
+  if (missing) return { problem: `lacks the ${missing} entry` }
   return { values }
 }
 
 async function pushAndCheckScope(label, origin) {
   phase('Scope')
   const nonce = `${label}-${tip}`
-  const commandLine = `cd '${A.worktree}' && python3 -c '${PRINTER}' ${A.item} '${A.branch}' '${nonce}'`
+  const quotedArguments = [A.item, `'${A.branch}'`, `'${nonce}'`]
   const checked = await safeAgent(
-    `${laneFacts}\nChange nothing in the files. Run this one command line exactly as written, without changing it or its directory, ` +
-    `and return the line it prints unchanged as printed; when it prints no line, return its error output as printed:\n${commandLine}`,
-    { label, phase: 'Scope', schema: PUSH_AND_SCOPE_CHECK, ...MECHANICAL })
+    `${laneFacts}\nChange nothing in the files; ${RELAY_ASK}\n${relayCommand('scope', ...quotedArguments)}`,
+    { label, phase: 'Scope', schema: RELAYED, ...MECHANICAL })
   if (!checked) return { stop: openResult('failed', 'scope', { reason: 'the push and claim-scope check returned no result' }) }
   const fail = (stage, reason) => ({ stop: openResult('failed', stage, { reason: `${reason}; the printed line: ${checked.printed}` }) })
-  const { values, problem } = readRelay(checked.printed, nonce)
+  const { values, problem } = readRelay(checked.printed, nonce, ['push', 'remote', 'head', 'brief'])
   if (problem) return fail('scope', `the push and claim-scope check ${problem}`)
   const { push, remote, head, brief } = values
   if (push.code !== 0 || !sameCommit(remote.out, tip)) {

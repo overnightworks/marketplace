@@ -1,8 +1,0 @@
-claim_id = "23efed2bb8d64b38b9a2a1002c7e678d"
-agent = "Claude b5de3560-4db0-4dfe-be9f-fe26ef53140a"
-role = "builder"
-base = "d29edacd3cfdb76a884b869f4459a00088c68896"
-branch = "claude/issue-361-build-rescope-reviews-whole-lane"
-scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/workflows/lane.js", "tests/lane_workflow_scope.test.mjs"]
-opened_commit = "d88af7baed5de9d4f4c6c1162b663d0ae8edd991"
-whole_reason = "One resume rule in lane.js with its test row and the three version pins every atelier change bumps."

@@ -5,13 +5,15 @@ card's keys, limits and mechanical refusals belong to aco: read the
 [body-block spec "Option lines" (BODY-95..BODY-100)](https://github.com/overnightworks/aco/blob/main/specs/body-block.spec.md)
 in the aco repository, and pipe the body through `aco check -`. This file holds only
 what `aco check` cannot judge. The operator's wish: a card he decides at a glance,
-always in the same structure. The visual law is `atelier:design-interface` law 8.
+always in the same structure. Why no judged field carries an identifier:
+`atelier:design-interface` law 8 (identifiers are proof anchors, never reading
+matter).
 
 ## 1. Question
 
 One plain sentence about the person's outcome, in the operator's language. It asks what
-the person gets or loses, never which mechanism to pick. Test: a reader who knows
-nothing of the repository can say what a "yes" changes for them.
+the person gets or loses, never which mechanism to pick. Test: a reader who knows nothing of the repository can say what a "yes" changes
+for them.
 
 Not: "Soll der Resolver Zeilen über den Revisions-Hash binden?"
 But: "Soll dein Song beim Sprung zum Ursprungs-Take offen bleiben?"

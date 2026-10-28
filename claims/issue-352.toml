@@ -1,0 +1,7 @@
+claim_id = "3d1400b082194b0ba2580c9fc49e381e"
+agent = "Claude b5de3560-4db0-4dfe-be9f-fe26ef53140a"
+role = "builder"
+base = "3f298b6124166680d66365731e77712d685c4b48"
+branch = "claude/issue-352-readme-session-version"
+scope = ["README.md"]
+opened_commit = "69e12bc21aa0e013b77a28358cc7bc306c166742"

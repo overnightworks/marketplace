@@ -1,10 +1,34 @@
 // Drives the atelier lane workflow script with a stub agent runner; shared by the lane workflow tests.
 import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
+import { spawnSync } from 'node:child_process'
 
 const workflowSource = (file) => fs.readFileSync(new URL(`../plugins/atelier/workflows/${file}`, import.meta.url), 'utf8').replace(/^export const meta/m, 'const meta')
 // The plugin workflows a workflow can start by name, as the Workflow runtime resolves them.
 const CHILD_WORKFLOWS = { 'atelier:lane-ci': 'lane-ci.js', 'atelier:lane-codex': 'lane-codex.js' }
 const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor
+
+// Stand-ins for the two programs the printer runs, steered by environment variables the harness sets for the child only.
+const FAKE_GIT = `#!/bin/sh
+case "$1 $2" in
+  "push origin") [ -z "$FAKE_PUSH_ERROR" ] || { printf '%s\\n' "$FAKE_PUSH_ERROR" >&2; exit 1; } ;;
+  "rev-parse HEAD") printf '%s\\n' "$FAKE_HEAD" ;;
+  "rev-parse origin/"*) printf '%s\\n' "$FAKE_REMOTE" ;;
+esac
+`
+export const FAKE_ACO = `#!/bin/sh
+[ -z "$FAKE_BRIEF_ERROR" ] || printf '%s\\n' "$FAKE_BRIEF_ERROR" >&2
+printf '%s' "$FAKE_BRIEF_OUTPUT"
+[ -z "$FAKE_BRIEF_ERROR" ]
+`
+export const installFake = (directory, program, script) => fs.writeFileSync(path.join(directory, program), script, { mode: 0o755 })
+
+// Runs a command line the way the agent does and returns what it printed (its error output when it printed nothing).
+export const runCommandLine = (line, { cwd, env }) => {
+  const ran = spawnSync('sh', ['-c', line], { cwd, env, encoding: 'utf8' })
+  return (ran.stdout || ran.stderr).trim()
+}
 
 // answers holds each agent's result by its label; an agent without one ends without a result. Without answers only
 // the sync step answers (an up-to-date lane), so a run gets as far as starting its first review round.
@@ -16,19 +40,39 @@ export async function runLane(args, answers = {}, options = {}) {
   const launchedAgents = []
   const agentCalls = {}
   const cleanSync = { merged: false, tip: args.tip, stoppedOnConflict: false }
-  const coveredByClaim = { outside_claim: '[]' }
-  const defaultAnswerFor = (label) => label === 'sync' ? cleanSync : label.startsWith('scope-') ? coveredByClaim : null
-  // The remote branch carries the newest tip a builder or fixer returned, unless a test says what the push printed
-  // or the answer carries the error of a failed push. Absent fields are "" as the schema now demands.
+  const defaultAnswerFor = (label) => label === 'sync' ? cleanSync : label.startsWith('scope-') ? {} : null
+  // The remote branch carries the newest tip a builder or fixer returned. A scope step's answer says what the fake git
+  // and aco print (push_error, remote_tip, brief_error, outside_claim) and how the agent mishandled the printed line
+  // (nonce, edit, printed); the line itself always comes from running the real printer the prompt carries.
   let newestTip = args.tip
-  const pushPrintedSomething = (answer) => !answer.command_error || 'remote_tip' in answer
-  const answerFor = (label) => {
-    const answer = label in answers ? structuredClone(answers[label]) : defaultAnswerFor(label)
-    if (answer?.tip && /^(build|fix-|sync)/.test(label)) newestTip = answer.tip
-    if (!label.startsWith('scope-') || !answer) return answer
-    return { remote_tip: pushPrintedSomething(answer) ? newestTip : '', outside_claim: '', command_error: '', ...answer }
+  let fakeBin
+  const fakeCommands = () => {
+    if (!fakeBin) {
+      fakeBin = fs.mkdtempSync(path.join(os.tmpdir(), 'lane-fake-'))
+      installFake(fakeBin, 'git', FAKE_GIT)
+      installFake(fakeBin, 'aco', FAKE_ACO)
+    }
+    return fakeBin
   }
-  const agent = async (prompt, agentOptions = {}) => { launchedAgents.push(agentOptions.label); agentCalls[agentOptions.label] = { prompt, options: agentOptions }; return answerFor(agentOptions.label) }
+  const printedBy = (prompt, scenario) => {
+    if ('printed' in scenario) return scenario.printed
+    const line = prompt.split('\n').at(-1).replace(/^cd '[^']*' && /, '')
+    const env = {
+      ...process.env, PATH: `${fakeCommands()}:${process.env.PATH}`, FAKE_HEAD: newestTip, FAKE_REMOTE: scenario.remote_tip ?? newestTip,
+      FAKE_PUSH_ERROR: scenario.push_error ?? '', FAKE_BRIEF_ERROR: scenario.brief_error ?? '',
+      FAKE_BRIEF_OUTPUT: JSON.stringify({ outside_claim: 'outside_claim' in scenario ? scenario.outside_claim : [] }),
+    }
+    const printed = runCommandLine(scenario.nonce ? line.replace(/'[^']*'$/, `'${scenario.nonce}'`) : line, { cwd: os.tmpdir(), env })
+    return scenario.edit ? scenario.edit(printed) : printed
+  }
+  const answerFor = (label, prompt) => {
+    const given = label in answers ? answers[label] : defaultAnswerFor(label)
+    if (typeof given === 'function') return given(prompt)
+    const answer = label.startsWith('scope-') && given ? { ...given } : structuredClone(given)
+    if (answer?.tip && /^(build|fix-|sync)/.test(label)) newestTip = answer.tip
+    return label.startsWith('scope-') && answer ? { printed: printedBy(prompt, answer) } : answer
+  }
+  const agent = async (prompt, agentOptions = {}) => { launchedAgents.push(agentOptions.label); agentCalls[agentOptions.label] = { prompt, options: agentOptions }; return answerFor(agentOptions.label, prompt) }
   // A thunk that throws resolves to null, as in the Workflow runtime.
   const parallel = async thunks => Promise.all(thunks.map(thunk => thunk().catch(() => null)))
   const ignore = () => {}
@@ -41,8 +85,12 @@ export async function runLane(args, answers = {}, options = {}) {
     const nested = () => { throw new Error('a child workflow cannot start another workflow') }
     return compile(childSource)(options.alterChildArgs ? options.alterChildArgs(childArgs) : childArgs, childAgent, parallel, async () => [], ignore, ignore, nested)
   }
-  const result = await compile(source)(args, agent, parallel, async () => [], ignore, ignore, startWorkflow)
-  return { result, launchedAgents, agentCalls, launchedByChild }
+  try {
+    const result = await compile(source)(args, agent, parallel, async () => [], ignore, ignore, startWorkflow)
+    return { result, launchedAgents, agentCalls, launchedByChild }
+  } finally {
+    if (fakeBin) fs.rmSync(fakeBin, { recursive: true })
+  }
 }
 
 export const resumedLane = { item: 1, worktree: '/w', branch: 'b', contract: 'c', e2e: 'e', scratch: '/s', pr: 1, tip: 'abcdef0' }

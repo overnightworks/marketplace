@@ -1,0 +1,8 @@
+claim_id = "c78120456a6442e09899988d1b0c5de2"
+agent = "Claude b5de3560-4db0-4dfe-be9f-fe26ef53140a"
+role = "builder"
+base = "663394338ec26f11ace110f4129745d9f679bb6d"
+branch = "claude/issue-340-lane-codex-child"
+scope = [".claude-plugin/marketplace.json", "README.md", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/skills/providers/SKILL.md", "plugins/atelier/workflows/lane-codex.js", "plugins/atelier/workflows/lane.js", "sonar-project.properties", "tests/lane_workflow_codex.test.mjs", "tests/lane_workflow_harness.mjs"]
+opened_commit = "db8fd08356d40d72ee6ffe743ec1decf4cdcc763"
+whole_reason = "One behaviour-neutral move of the Codex courier into a child workflow, with the pointers and version pins that name it."

@@ -706,6 +706,13 @@ function sharedReds(ci) {
   return (ci.checks || []).filter(c => c.bucket === 'fail' && failedOnBase.has(c.name)).map(c => c.name)
 }
 
+function lockQueueCiState(ci) {
+  if (!ci || ci.failure) return 'not readable'
+  if (ci.green && !ci.unproven && !ci.requiredChecksError) return 'green'
+  const names = (ci.failing || []).map(f => `"${f.where}"`).join(', ')
+  return names ? `red (${names})` : 'not green'
+}
+
 function testVerdict(e2e, testBlocking) {
   if (e2e.skipped) return 'SKIPPED'
   return testBlocking.length ? 'FAIL' : 'PASS'
@@ -728,7 +735,10 @@ while (true) {
     log('the shared probe lock was busy; trying the end-to-end test once more')
     continue
   }
-  if (!e2e || e2e.verdict === 'failed') return openResult('failed', 'test', { reason: e2e?.lockBusy ? 'the shared probe lock stayed busy twice' : 'the tester returned no usable result' })
+  if (e2e?.verdict === 'failed' && e2e.lockBusy) {
+    return openResult('awaiting-head', 'test', { reason: `lock queue: the shared probe lock stayed busy for both tries, so the end-to-end test did not run; CI of this round: ${lockQueueCiState(ci)}. Start a new run with pr and tip once the queue clears.` })
+  }
+  if (!e2e || e2e.verdict === 'failed') return openResult('failed', 'test', { reason: 'the tester returned no usable result' })
   if (!ci || ci.failure) return openResult('failed', 'ci', ci ? { reason: ci.failure } : undefined)
   const testBlocking = e2e.blocking || []
   if (e2e.verdict === 'FAIL' && testBlocking.length === 0) return openResult('failed', 'test', { reason: 'a FAIL verdict came without any blocking finding' })

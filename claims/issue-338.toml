@@ -1,7 +1,0 @@
-claim_id = "492fa8ca34734f698aef0152adfda7a4"
-agent = "Claude b5de3560-4db0-4dfe-be9f-fe26ef53140a"
-role = "builder"
-base = "7ae2a8e2c140a936f164e470b8bd1822cd6f0e58"
-branch = "claude/issue-338-out-of-order-reason-not-stored"
-scope = ["instructions/AGENTS.md"]
-opened_commit = "b1e4e4dcd5c896854c23b9ed743a23d96fcc1a86"

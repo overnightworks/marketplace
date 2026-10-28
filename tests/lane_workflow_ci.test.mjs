@@ -101,7 +101,7 @@ test('#266 AC-ci-listing-proof: the CI brief carries the API-error rule, the con
 
 const readWorkflow = (name) => fs.readFileSync(new URL(`../plugins/atelier/workflows/${name}.js`, import.meta.url), 'utf8')
 const protocolOf = (source) => Number(source.match(/^const LANE_CI_PROTOCOL = (\d+)$/m)?.[1])
-const drivePassingCi = (options) => runLane({ ...lane, foldIn: [tidy] }, { ...reachesCi, 'ci-0': ciAnswer([check(required, 'pass')]) }, options)
+const drivePassingCi = (options) => runLane({ ...lane, foldIn: [tidy] }, { ...reachesCi, 'ci-0': ciAnswer([check(required, 'pass')]) }, { ...options, child: 'atelier:lane-ci' })
 
 test('#311 lane-ci-protocol: a child with another protocol number fails the lane at ci naming both numbers', async () => {
   const parentNumber = protocolOf(readWorkflow('lane'))

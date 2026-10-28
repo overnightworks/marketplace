@@ -28,9 +28,9 @@ Procedure:
 - Start with a two-sentence mirror of the vision: "so habe ich dich verstanden" in the operator's language.
 - Sweep these six lenses in every round: `create_change_remove`, `identity`, `states`, `secrets_and_rights`, `undo`, and `scale`.
 - `create_change_remove` inspects anlegen, ändern, entfernen, and their symmetry; `identity` inspects what counts as the same, including project versus branch and a duplicate on re-add; `states` inspects empty, duplicate, error, and running; `secrets_and_rights` inspects tokens entered but never shown again and who may do what; `undo` inspects reversing an action and what survives it; and `scale` inspects 1 versus 100 of a thing.
-- For each line a lens reveals, write one three-layer line: an acceptance sentence; an example and counterexample; and a folded technical explanation. The output stores those layers as `sentence`, `example` and `counterexample`, and `technical`.
-- Write `sentence`, `example`, and `counterexample` in the operator's language. Use the acceptance-sentence form for `sentence`; begin examples with "Wenn du …, dann …" and counterexamples with "Sagst du nein, dann …". Keep technical vocabulary out of those three fields.
-- Propose every line with a `yes`, `no`, or `later` default; ask no questions.
+- For each line a lens reveals, write one option card in the operator's language: a `question`, the `problem` it solves, two to four real options each with its `result` and `cost`, and the `recommended` option's letter (`A` to `D` by position). The card's keys and limits are aco's option lines (`overnightworks/aco`, `specs/body-block.spec.md`, "Option lines"); do not copy them here. Add a folded `technical` explanation.
+- Keep technical vocabulary out of `question`, `problem`, `result` and `cost`; those stay in `technical`.
+- Propose every card with a recommendation; ask no questions.
 - List a lens in `lenses_without_lines` only when it does not apply to the touched surface, never because the vision omitted it, so every lens is represented once.
 - Repeat the sweep until a round adds no line. Report the number of rounds and set `complete` only then; otherwise set `needs_more`.
 
@@ -44,6 +44,6 @@ Output Contract:
 - Return `refine_result` with:
   - `mirror`: string of exactly two sentences, "so habe ich dich verstanden" in the operator's language.
   - `rounds`: integer.
-  - `expectations`: list of objects with `lens` (`create_change_remove`, `identity`, `states`, `secrets_and_rights`, `undo`, or `scale`), `sentence` (user language), `example` ("Wenn du …, dann …"), `counterexample` ("Sagst du nein, dann …"), `technical` (string), `default` (`yes`, `no`, or `later`), and `status` (`proposed`).
+  - `expectations`: list of objects with `lens` (`create_change_remove`, `identity`, `states`, `secrets_and_rights`, `undo`, or `scale`), `question` (user language), `problem` (user language), `options` (2 to 4 objects with `result` and `cost`, user language), `recommended` (letter of one option), `technical` (string), and `status` (`proposed`).
   - `lenses_without_lines`: list of `lens` values.
   - `verdict`: `complete` or `needs_more`.

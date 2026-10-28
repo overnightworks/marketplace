@@ -1,8 +1,0 @@
-claim_id = "3f075962019c4a6fb1b45b368ede59b5"
-agent = "Claude b5de3560-4db0-4dfe-be9f-fe26ef53140a"
-role = "builder"
-base = "1c3617c609a9ab5b17485ea22ae067280196b9eb"
-branch = "claude/issue-343-scope-relay"
-scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/workflows/lane.js", "tests/lane_workflow_harness.mjs", "tests/lane_workflow_relay.test.mjs", "tests/lane_workflow_scope.test.mjs"]
-opened_commit = "9b233293eb8ab78f80580e23c94583aad88dcf43"
-whole_reason = "One relay for the push and scope check: the printer, its verifier and its tests, plus the three version pins."

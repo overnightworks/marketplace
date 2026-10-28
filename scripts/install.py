@@ -5,10 +5,12 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import shutil
 import subprocess
 import sys
 import time
+from dataclasses import dataclass
 from pathlib import Path
 
 
@@ -98,18 +100,58 @@ def install_codex(*, from_checkout: bool) -> None:
 
 def wait_for_codex_gap() -> None:
     """Block until no Codex job runs; the script's own Codex subcommands start after this."""
-    while running := count_codex_jobs():
-        print(f"codex: {running} Codex process(es) running, waiting for a gap before updating")
+    while jobs := find_codex_jobs():
+        print(f"codex: waiting for a gap before updating: {', '.join(map(describe_job, jobs))}")
         pause(CODEX_POLL_SECONDS)
 
 
-def count_codex_jobs(process_root: Path = Path("/proc")) -> int:
-    return sum(
-        1
+@dataclass(frozen=True)
+class CodexJob:
+    """A process the update waits for; an unreadable age or directory is None."""
+
+    pid: str
+    age_seconds: float | None
+    directory: str | None
+
+
+def describe_job(job: CodexJob) -> str:
+    age = "?" if job.age_seconds is None else format_age(job.age_seconds)
+    return f"{job.pid} ({age}, {job.directory or '?'})"
+
+
+def format_age(seconds: float) -> str:
+    minutes = int(seconds // 60)
+    return f"{minutes // 60}h{minutes % 60:02d}m" if minutes >= 60 else f"{minutes}m"
+
+
+def find_codex_jobs(process_root: Path = Path("/proc")) -> list[CodexJob]:
+    return [
+        CodexJob(
+            pid=name_file.parent.name,
+            age_seconds=read_process_age(name_file.parent, process_root / "uptime"),
+            directory=read_process_directory(name_file.parent),
+        )
         for name_file in process_root.glob("[0-9]*/comm")
         if read_process_name(name_file) == CODEX_PROCESS_NAME
         and not is_app_server(name_file.with_name("cmdline"))
-    )
+    ]
+
+
+def read_process_age(process_directory: Path, uptime_file: Path) -> float | None:
+    try:
+        status = (process_directory / "stat").read_text()
+        started_ticks = int(status.rpartition(")")[2].split()[19])  # field 22 of stat
+        uptime_seconds = float(uptime_file.read_text().split()[0])
+    except (OSError, ValueError, IndexError):
+        return None
+    return uptime_seconds - started_ticks / os.sysconf("SC_CLK_TCK")
+
+
+def read_process_directory(process_directory: Path) -> str | None:
+    try:
+        return str(os.readlink(process_directory / "cwd"))
+    except OSError:
+        return None
 
 
 def read_process_name(name_file: Path) -> str | None:

@@ -143,7 +143,7 @@ names the call and its reason.
   goal that has a latest `Distributor:` item runs as a delta against it: the
   auditor finds it in the repository where the audit's distributor items live
   (that of the head that dispatched the audit) with a title search,
-  `gh issue list --state all --search 'in:title "Distributor:" <goal>'`,
+  `gh issue list -R <that repository> --state all --search 'in:title "Distributor:" <goal>'`,
   taking the newest created item (sorted newest first), and the report says
   new, resolved and unchanged.
 - **Standing audit.** Only the scheduled standing audit uses this anchor and
@@ -208,9 +208,9 @@ ranked list of cuts and never executes them.
    moves a boundary or reshapes an interface is marked `needs plan review`,
    never `cut now`. Test cuts follow the Test size rules in
    `references/tests.md`.
-4. **Report** the distributor text. The head searches for an open item whose
-   title starts "Distributor:" and names the goal, or the standing-audit
-   anchor item; if none exists it opens a new distributor. Shape:
+4. **Report** the distributor text. The head finds the goal's latest
+   `Distributor:` item, open or closed, as the delta rule above says, or the
+   standing-audit anchor item; if none exists it opens a new distributor. Shape:
 
    ```text
    Measurements: <counts, counting rule, commands, growth per area>

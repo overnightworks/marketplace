@@ -180,7 +180,7 @@ with its exact question; it is neither a pass nor a fail.
 
 ## Marks
 
-Marks are per repository and area; the platform line shows the lowest mark and
+Marks are per repository and area; each area's row shows the lowest mark and
 how many repositories reach it, so the per-repository marks show where the
 repositories differ and no finer scale exists.
 

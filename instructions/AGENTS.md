@@ -211,6 +211,14 @@ must account for both. Verify evidence before you say it is done. If the UI
 changed, require a delegated agent to drive it like a user. If you cannot
 verify, say exactly what you could not do — after you actually tried.
 
+The operator's configuration is a deliberate choice (operator ruling
+28.10.2026). Code ships safe defaults and accepts whatever the operator turns on
+or off there, with no refuse list and, unless the operator asks for one, no
+warning against it; a malformed value still fails loud. The operator's settings
+are trusted: a safeguard against them serves only an attacker the trust model
+admits, and one that would make a later deliberate setting cost a code change is
+not built without one.
+
 An item whose landing would leave an older path, surface, store or source of
 truth doing the same job names that predecessor and its exit in its `Done
 when`, and closes only on one of them: the predecessor is gone; its removal is

@@ -21,8 +21,8 @@ Licensed under the [MIT License](LICENSE).
 - A head starts the lane by its name, `atelier:lane`, with the Workflow tool.
   The name resolves to the installed plugin, so a run from a checkout first
   installs the checkout with `python3 scripts/install.py --from-checkout`;
-  without that flag the published copy runs. `lane-ci` is internal to `lane`
-  and is never started by a head.
+  without that flag the published copy runs. `lane-ci` and `lane-codex` are internal to `lane`
+  and are never started by a head.
 
 ## Install And Update
 

@@ -143,16 +143,17 @@ names the call and its reason.
   goal that has a latest `Distributor:` item runs as a delta against it: the
   auditor finds it in the repository where the audit's distributor items live
   (that of the head that dispatched the audit) with a title search,
-  `gh issue list -R <that repository> --state all --search 'in:title "Distributor:" <goal>'`,
-  taking the newest created item (sorted newest first), and the report says
+  `gh issue list -R <that repository> --state all --limit 1 --search 'in:title "Distributor:" <goal> sort:created-desc'`,
+  which prints the newest created one, open or closed, and the report says
   new, resolved and unchanged.
 - **Standing audit.** Only the scheduled standing audit uses this anchor and
   cadence. The standing board item owns due-ness: its body holds a line naming
   the last run's commit (`last run at commit X`). Find the one whose title
   names the audit's subject with
   `gh issue list --state open --search "Standing-Audit in:title"`. Count
-  landings since X with
-  `gh api repos/<owner>/<repo>/compare/X...<default> --jq '.commits | length'`,
+  landings since X as merged pull requests: read X's date with
+  `gh api repos/<owner>/<repo>/commits/X --jq .commit.committer.date`, then
+  `gh pr list -R <owner>/<repo> --state merged --base <default> --search "merged:>=<date>" --limit 500 --json number --jq length`,
   or count the days. With no item, say it is the first run and tell the head to
   open the standing item. One item covering two audits shares its anchor: a
   run of either resets it, so the report names which ran. The head writes the

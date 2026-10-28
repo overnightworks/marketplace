@@ -169,7 +169,7 @@ const CRC_TABLE = Array.from({ length: 256 }, (_, n) => {
 })
 const crc32 = (text) => {
   let crc = 0xffffffff
-  for (let i = 0; i < text.length; i++) crc = CRC_TABLE[(crc ^ text.charCodeAt(i)) & 255] ^ (crc >>> 8)
+  for (let i = 0; i < text.length; i++) crc = CRC_TABLE[(crc ^ text.codePointAt(i)) & 255] ^ (crc >>> 8)
   return ((crc ^ 0xffffffff) >>> 0).toString(16).padStart(8, '0')
 }
 const PUSH_AND_SCOPE_CHECK = {

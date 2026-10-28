@@ -1,0 +1,8 @@
+claim_id = "8bb4bfcfdd8d40cbb1663604920b9c3e"
+agent = "Claude b5de3560-4db0-4dfe-be9f-fe26ef53140a"
+role = "builder"
+base = "4175311d31b8d1830570bb772306dbc333d546b6"
+branch = "claude/issue-296-audit-platform-answers"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/skills/audit/SKILL.md", "plugins/atelier/skills/audit/references/platform.md"]
+opened_commit = "7da548c323f23a4332407aaeed9de2372d108b0d"
+whole_reason = "Fifteen answers to one audit run's questions in the two skill files they arose in; 7/8/12 and 9/10 are joint decisions."

@@ -54,8 +54,8 @@ function laneRepository(t, { onMain = false } = {}) {
 }
 
 // The scope step's agent answers by running the command line it was handed, in the lane's real worktree.
-const agentRunning = (lane, acoPrints, printedLines = []) => (prompt) => {
-  const env = { ...lane.env, FAKE_BRIEF_OUTPUT: JSON.stringify({ outside_claim: acoPrints }) }
+const agentRunning = (lane, acoPrints, printedLines = [], briefExtras = {}) => (prompt) => {
+  const env = { ...lane.env, FAKE_BRIEF_OUTPUT: JSON.stringify({ outside_claim: acoPrints, ...briefExtras }) }
   const printed = runCommandLine(prompt.split('\n').at(-1), { cwd: os.tmpdir(), env })
   printedLines.push(printed)
   return { printed }
@@ -80,7 +80,7 @@ const syncAgentRunning = (lane) => (prompt) => {
 }
 
 const laneArgs = (lane) => ({ ...resumedLane, item: 7, worktree: lane.worktree, branch: BRANCH, scratch: lane.root, pr: 1, tip: lane.tip })
-const runScopeStep = (lane, acoPrints, printedLines) => runLane(laneArgs(lane), { 'scope-resume': agentRunning(lane, acoPrints, printedLines) })
+const runScopeStep = (lane, acoPrints, printedLines, briefExtras) => runLane(laneArgs(lane), { 'scope-resume': agentRunning(lane, acoPrints, printedLines, briefExtras) })
 const remoteTip = (lane) => lane.git(lane.remote, 'rev-parse', `refs/heads/${BRANCH}`)
 
 test('#323 AC-scope-relay: the printer pushes the lane tip to a real remote and the lane goes on to review, fresh and repeated', async (t) => {
@@ -111,6 +111,21 @@ test('#323 AC-scope-relay: paths outside the claim that aco prints reach the sto
   const { result } = await runScopeStep(lane, ['src/other.py'])
   assert.deepEqual([result.status, result.stage, result.outside], ['awaiting-head', 'scope', ['src/other.py']])
 })
+
+const laneSharedRows = [
+  ['a touched lane-shared path is not outside', { claim: { lane_shared: ['quality/baseline.toml'] } }, ['quality/baseline.toml'], 'r0-review'],
+  ['a path in neither the scope nor lane_shared still stops the lane', { claim: { lane_shared: ['quality/baseline.toml'] } }, ['quality/baseline.toml', 'src/other.py'], ['src/other.py']],
+  ['a brief whose lane_shared_unavailable is set filters nothing', { claim: { lane_shared: ['quality/baseline.toml'], lane_shared_unavailable: 'no board' } }, ['quality/baseline.toml'], ['quality/baseline.toml']],
+  ['a brief with no lane_shared filters nothing', {}, ['quality/baseline.toml'], ['quality/baseline.toml']],
+]
+for (const [name, briefExtras, acoPrints, expected] of laneSharedRows) {
+  test(`#363 AC-lane-shared: ${name}`, async (t) => {
+    const lane = laneRepository(t)
+    const { result, launchedAgents } = await runScopeStep(lane, acoPrints, [], briefExtras)
+    if (typeof expected === 'string') return assert.ok(launchedAgents.includes(expected), `${launchedAgents.join()} ${result.reason}`)
+    assert.deepEqual([result.status, result.stage, result.outside], ['awaiting-head', 'scope', expected])
+  })
+}
 
 test('#323 AC-scope-relay: a null outside_claim stops the lane without a live claim', async (t) => {
   const lane = laneRepository(t)

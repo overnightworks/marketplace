@@ -144,7 +144,7 @@ const BUILD = {
 }
 // A value a command prints reaches a decision only through the line the lane-relay child reads back and checks. A refusal
 // or a crash is a problem the caller stops on, at the stage of its own step, like an unreadable line.
-const LANE_RELAY_PROTOCOL = 2
+const LANE_RELAY_PROTOCOL = 3
 const SYNC_ANSWER = { properties: { note: { type: 'string', description: 'what stopped the merge: the conflicting paths, or the failed command and its output' } } }
 async function relay(request) {
   try {
@@ -230,7 +230,7 @@ const laneFacts =
 
 // For the agents that may run a drive (the builder and the fixer); the tester already writes under its own scratch directory.
 const rescopeFacts =
-  `When the work needs a path outside the claim scope, edit nothing there: finish what lies inside, and list the path, the change it needs and the reason in rescope. The head then runs aco rescope and resumes.`
+  `When the work needs a path outside the claim scope, edit nothing there: finish what lies inside, and list the path, the change it needs and the reason in rescope. A file that \`aco brief\` lists as lane-shared counts as inside the scope and needs no rescope. The head then runs aco rescope and resumes.`
 
 // For the builder and the fixer: the deterministic checks CI repeats run before the push, not after it.
 const localCheckFacts =
@@ -334,7 +334,7 @@ function openFollowups() {
 }
 const raisedBeforeTip = (open) => open.filter(f => f.tip && !sameCommit(f.tip, tip))
 // A builder or fixer that needs a path outside the claim hands the head a rescope request; the scope stage stays the backstop.
-const awaitRescope = (stage, rescope, reason = '', extra = {}, newRun = 'with pr and tip and fixFirst carrying the rescope entries as findings (path to where, change to text, reason to evidence, kind defect), so a fixer makes the change') =>
+const awaitRescope = (stage, rescope, reason = '', extra = {}, newRun = 'with pr and tip and fixFirst carrying the rescope entries as findings (an entry path becomes where, its change becomes text, its reason becomes evidence, kind defect), so a fixer makes the change') =>
   openResult('awaiting-head', stage, { reason: `the work needs paths outside the claim scope; run aco rescope for them and start a new run ${newRun}.${reason}`, rescope, ...extra })
 const openResult = (status, stage, extra) =>
   ({ status, stage, pr, tip, spent, routing: ROUTING, history, followups: openFollowups(), raisedBeforeTip: raisedBeforeTip(openFollowups()), folded: [...folded.values()], disputed, ...extra })

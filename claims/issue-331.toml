@@ -1,0 +1,8 @@
+claim_id = "0698408314d24174ae37116f25cd0c4d"
+agent = "Claude b5de3560-4db0-4dfe-be9f-fe26ef53140a"
+role = "builder"
+base = "6bb419f0c15bb72e6f64b958f193e8e86714fd74"
+branch = "claude/issue-331-fix-then-merge"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/workflows/lane-relay.js", "plugins/atelier/workflows/lane.js", "tests/lane_workflow.test.mjs", "tests/lane_workflow_ci.test.mjs", "tests/lane_workflow_fix.test.mjs", "tests/lane_workflow_harness.mjs", "tests/lane_workflow_relay.test.mjs"]
+opened_commit = "398b98dbc770f4c19603859d53f2cf02b5a9ecfb"
+whole_reason = "The fixer's tip and merge shape from the sync relay line: lane-relay takes the agent and answer schema from its caller, the fix decision and delta range from HEAD and its parents, their stub and real-git tests, and the three version pins."

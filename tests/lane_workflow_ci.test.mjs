@@ -164,6 +164,14 @@ test('#311 lane-ci-protocol: a call without the pull request number fails the la
   assert.match(result.reason, /missing args: .*pr.*worktree/)
 })
 
+test('#400 lane-ci-protocol: a child with another protocol number and a missing arg fails the lane with the skew sentence, not missing args', async () => {
+  const skewed = (source) => source.replace(/^const LANE_CI_PROTOCOL = \d+$/m, `const LANE_CI_PROTOCOL = ${protocolOf(readWorkflow('lane')) + 1}`)
+  const { result } = await drivePassingCi({ transformChild: skewed, alterChildArgs: ({ pr: _pr, ...rest }) => rest })
+  assert.deepEqual([result.status, result.stage], ['failed', 'ci'])
+  assert.match(result.reason, /the installed atelier differs from the running lane/)
+  assert.doesNotMatch(result.reason, /missing args/)
+})
+
 test('#311 lane-ci-protocol: a child that throws fails the lane at ci naming the error', async () => {
   const { result } = await drivePassingCi({ transformChild: () => "throw new Error('the child exploded')" })
   assert.deepEqual([result.status, result.stage], ['failed', 'ci'])

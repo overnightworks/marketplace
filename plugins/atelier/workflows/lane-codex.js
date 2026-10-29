@@ -7,9 +7,9 @@ export const meta = {
 const LANE_CODEX_PROTOCOL = 1
 const A = args || {}
 const need = ['protocol', 'worktree', 'scratch', 'tag', 'label', 'routing', 'reviewerBrief', 'findingKinds', 'verdictSchema', 'mechanical']
+if (A.protocol !== LANE_CODEX_PROTOCOL) return { refused: `lane-codex speaks protocol ${JSON.stringify(LANE_CODEX_PROTOCOL)}, but the lane that started it speaks protocol ${JSON.stringify(A.protocol)}; the installed atelier differs from the running lane` }
 const missing = need.filter(key => A[key] === undefined || A[key] === null || A[key] === '')
 if (missing.length) return { refused: `missing args: ${missing.join(', ')}` }
-if (A.protocol !== LANE_CODEX_PROTOCOL) return { refused: `lane-codex speaks protocol ${JSON.stringify(LANE_CODEX_PROTOCOL)}, but the lane that started it speaks protocol ${JSON.stringify(A.protocol)}; the installed atelier differs from the running lane` }
 const { label, routing } = A
 const COURIER_VERDICT = A.verdictSchema
 const MECHANICAL = A.mechanical

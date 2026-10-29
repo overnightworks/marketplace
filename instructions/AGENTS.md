@@ -114,7 +114,8 @@ inventory rots while the vision moves on. Re-run the refinement at the pull
 rather than keeping old lists fresh. The pull begins by re-questioning the
 item's point (operator rulings 31.08. and 19.10.2026): does the problem still
 exist, or has a landing, a newer ruling, or the vision itself overtaken it; is
-it worth its lifetime cost in build, review rounds and upkeep; does another
+its long-term gain toward the blessed vision, applicable fleet standards, or
+reduced upkeep worth its lifetime cost in build, review and upkeep; does another
 layer or tool cover it better; and is it the symptom of an architecture problem,
 which then goes to plan review instead of being built? An item opened from a
 review finding is pulled when it is opened. Only an item that survives that
@@ -155,9 +156,10 @@ is built; it is neither built stubbornly nor silently swapped in, and the ruled
 sentence stands until the operator rules again.
 
 Each repository's head owns its product: what it is for, what it deliberately is
-not, and its quality, judged by who uses it today. For a library or shared
-workflow these include the repositories that depend on it, read from their
-manifests and pins when a decision touches them, never kept as a list; a
+not, and its quality, judged against its blessed vision and the fleet standards
+that cover it, and by who uses it today, the operator included. For a library or
+shared workflow these include the repositories that depend on it, read from
+their manifests and pins when a decision touches them, never kept as a list; a
 dependency no manifest shows stands as one sentence in the vision. A change that
 breaks what a dependent uses is asked of that dependent before it is built,
 unless the operator has ruled it for them; each dependent's head still owns its
@@ -177,6 +179,35 @@ feature work, with `--out-of-order` when `aco next` names another item, and
 builds the new version in unless an open item blocks it, which its `Blocked by`
 then names.
 
+Consistency across the operator's repositories is a counted benefit (operator
+ruling 29.10.2026): repositories of one kind are built the same way unless the
+result would be worse. After plan review, the operator rules each fleet
+standard, its owning repository, covered repositories and adoption trigger. The
+standard is a requirement and invariant for those repositories, subject to that
+trigger, and can justify conformance work.
+
+Marketplace's `docs/standards.md` indexes each standard by name, repository kind
+and link to its authoritative document. The standard's owning head maintains
+that entry when it lands, moves or retires; scope, triggers and deviations stay
+at the owner.
+
+The owner records standard changes there and tells reachable covered heads live.
+Until adoption is due, this replaces the board-notification duty in "Heads talk
+to each other" and opens no conformance item. Releases of packages already
+depended on remain ordinary releases.
+
+At session start, heads check covering standards for due adoption; at each pull,
+they check those covering the touched part. When a trigger is due, the covered
+head opens or sharpens the conformance item with the standard as caller and
+takes it ahead of new feature work, as a release item.
+
+The owning head reviews deviation requests; only the operator can rule one,
+recorded at the owner. A request names enduring harm: a lost capability,
+recurring upkeep, an unmet operational constraint or a credible risk, with
+uncertainty stated. Initial effort, including migration, a build step or
+unfamiliarity, bears on the adoption trigger, never on whether a covered
+repository conforms.
+
 A rule change is itself a change under review (operator ruling 31.08.2026):
 before the head anchors a new or altered standing rule — in this contract, a
 doctrine document, or the coordination process — it writes the problem, the
@@ -193,23 +224,30 @@ stopgap that an open item's planned solution will replace is built only when the
 people who use the system today cannot wait for that item, or when the current
 state is unlawful or misleading; otherwise the work waits for that item and is
 built right once (operator ruling 19.10.2026). Before presenting a plan or
-demanding an addition, compare it once more with the simplest alternative that
-meets the requirements. State briefly in the plan or finding what problem it
-solves, for whom, and why the added complexity earns its keep. For a safeguard,
-consider credible failures or attacks, their likelihood and severity, recovery,
-and the costs and risks of building, operating, maintaining or deferring it;
-name uncertainty rather than treating it as low risk. Credible attacks are
-judged against the repository's trust model (`docs/ARCHITECTURE.md`,
-Crosscutting Concepts, Trust; else the `audit` skill's default) (operator ruling
-20.10.2026). Distinguish what an applicable standard requires, recommends and
-leaves optional: optional does not mean unnecessary for this system. This
-comparison cannot waive ruled behaviour, required checks, mandatory edges, or
-necessary protection of data, security and rights. Leave unjustified additions
-out and name any remaining risk on the owning item. For example, an extra
-confirmation click and exposing a credential are different harms; the solution
-must account for both. Verify evidence before you say it is done. If the UI
-changed, require a delegated agent to drive it like a user. If you cannot
-verify, say exactly what you could not do — after you actually tried.
+demanding an addition, compare it once more with the real alternatives that meet
+the declared requirements, functional and non-functional, including the blessed
+vision and applicable fleet standards, and take the best: the cleanest, meeting
+what applicable external standards require, and the most maintainable and
+efficient over the long term (operator ruling 29.10.2026). Effort saved now
+makes no alternative better; it bears only on whether and when work is done.
+Count long-term complexity and upkeep across the affected repositories,
+including the benefit of shared knowledge, fixes and reviews. State briefly in
+the plan or finding which alternatives it weighed, what problem it solves, for
+whom, and why the added complexity earns its keep. For a safeguard, consider
+credible failures or attacks, their likelihood and severity, recovery, and the
+costs and risks of building, operating, maintaining or deferring it; name
+uncertainty rather than treating it as low risk. Credible attacks are judged
+against the repository's trust model (`docs/ARCHITECTURE.md`, Crosscutting
+Concepts, Trust; else the `audit` skill's default) (operator ruling 20.10.2026).
+Distinguish what an applicable standard requires, recommends and leaves
+optional: optional does not mean unnecessary for this system. This comparison
+cannot waive ruled behaviour, required checks, mandatory edges, or necessary
+protection of data, security and rights. Leave unjustified additions out and
+name any remaining risk on the owning item. For example, an extra confirmation
+click and exposing a credential are different harms; the solution must account
+for both. Verify evidence before you say it is done. If the UI changed, require
+a delegated agent to drive it like a user. If you cannot verify, say exactly
+what you could not do — after you actually tried.
 
 The operator's configuration is a deliberate choice (operator ruling
 28.10.2026). Code ships safe defaults and accepts whatever the operator turns on
@@ -228,10 +266,13 @@ ruled that it stays, until a date or an open item. A predecessor that stays is
 frozen as the code policy describes (no hardening, no new tests)
 and gets no new callers (operator ruling 20.10.2026).
 
-No new item without a named caller (operator ruling 04.09.2026). A review
-finding is a caller only through the ruled sentence it breaks or the person or
-incident it hit; any other gap waits for usage evidence on its owning item (see
-"Build vertically first").
+No new item without a named caller (operator ruling 04.09.2026): a documented
+need or request of a named person, including the operator; an incident; or a
+specific ruled sentence it serves, including one in a blessed vision or
+applicable fleet standard. The body cites that evidence or source and explains
+how the item serves it. A review finding is a caller only through the ruled
+sentence it breaks or the person or incident it hit; any other gap waits for
+usage evidence on its owning item (see "Build vertically first").
 
 ## How to coordinate
 
@@ -694,7 +735,7 @@ judgement (operator ruling 06.09.2026).
   verification and its removal path.
 - Create a new boundary only when no existing owner can honestly own the
   decision.
-- Do not add architecture, extension points, compatibility layers, or options
+- Do not add abstractions, extension points, compatibility layers, or options
   without a current caller. Build for today's real requirement, not an imagined
   one; leave clean seams where future extension is genuinely likely — the test
   is "would this be hard to change later?", not "might we need it?".

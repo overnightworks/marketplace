@@ -5,6 +5,8 @@ it is never copied. Install and verification commands live in the
 [README](../README.md), rules in the [contract](../instructions/AGENTS.md), and
 the list of documents a repository carries in the
 [write-docs skill](../plugins/atelier/skills/write-docs/references/document-types.md#repository-document-set).
+The [fleet standards](standards.md) index names each standard that covers
+several of the operator's repositories and links to its owner.
 
 ## Mental model
 

@@ -144,7 +144,7 @@ const BUILD = {
 }
 // A value a command prints reaches a decision only through the line the lane-relay child reads back and checks. A refusal
 // or a crash is a problem the caller stops on, at the stage of its own step, like an unreadable line.
-const LANE_RELAY_PROTOCOL = 3
+const LANE_RELAY_PROTOCOL = 4
 const SYNC_ANSWER = { properties: { note: { type: 'string', description: 'what stopped the merge: the conflicting paths, or the failed command and its output' } } }
 async function relay(request) {
   try {
@@ -588,14 +588,21 @@ async function pushAndCheckScope(label, origin) {
   phase('Scope')
   const nonce = `${label}-${tip}`
   const quotedArguments = [A.item, `'${A.branch}'`, `'${nonce}'`]
-  const checked = await relay({ label, phase: 'Scope', step: 'scope', relayArgs: quotedArguments, nonce, requiredKeys: ['push', 'remote', 'head', 'brief'], brief: `${laneFacts}\nChange nothing in the files;` })
+  const checked = await relay({ label, phase: 'Scope', step: 'scope', relayArgs: quotedArguments, nonce, requiredKeys: ['push', 'remote', 'head', 'parents', 'second_parent_in_main', 'brief'], brief: `${laneFacts}\nChange nothing in the files;` })
   if (!checked) return { stop: openResult('failed', 'scope', { reason: 'the push and claim-scope check returned no result' }) }
   const fail = (stage, reason) => ({ stop: openResult('failed', stage, { reason: `${reason}${printedLine(checked)}` }) })
   const { values, problem } = checked
   if (problem) return fail('scope', `the push and claim-scope check ${problem}`)
   const { push, remote, head, brief } = values
-  if (push.code !== 0 || !sameCommit(remote.out, tip)) {
+  // A fix batch may leave a clean merge of origin/main on top of the tip; the lane goes on from that merge, never from any other difference.
+  const adoptedMerge = push.code === 0 && !sameCommit(remote.out, tip) && sameCommit(remote.out, head.out) && mergedOnto(values, tip) &&
+    values.parents.out.split('\n').length === 2 && values.second_parent_in_main.code === 0
+  if (push.code !== 0 || !(adoptedMerge || sameCommit(remote.out, tip))) {
     return fail('push', `the remote branch ${A.branch} does not carry the lane tip ${tip}: git push exited ${push.code} (${push.err}), origin/${A.branch} is ${remote.out}, HEAD is ${head.out}`)
+  }
+  if (adoptedMerge) {
+    history.push({ by: 'scope', adoptedMerge: head.out, from: tip })
+    tip = head.out
   }
   if (brief.code !== 0) return fail('scope', `aco brief ${A.item} --json exited ${brief.code}: ${brief.err}`)
   const paths = values.outside_claim

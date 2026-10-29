@@ -162,6 +162,48 @@ test('#323 AC-scope-relay: fifty of the longest paths stay one line the lane acc
   assert.ok(printedLines[0].length < 40000, String(printedLines[0].length))
 })
 
+// A fix batch merges origin/main on top of the lane tip, so HEAD at the scope check is a merge whose first parent is the tip.
+const mergeIntoWorktree = (lane, ref) => lane.git(lane.worktree, 'merge', ref, '-m', 'merge', '--no-ff')
+
+test('#313 AC-scope-adopts-main-merge: a clean merge of origin/main on top of the tip passes the scope check and the lane goes on from it, fresh and repeated', async (t) => {
+  const lane = laneRepository(t, { onMain: true })
+  lane.advanceMain('main-file')
+  lane.git(lane.worktree, 'fetch', 'origin')
+  mergeIntoWorktree(lane, 'origin/main')
+  const head = headOf(lane)
+  for (const run of ['fresh', 'repeated']) {
+    const { result, launchedAgents } = await runScopeStep(lane, [])
+    assert.equal(remoteTip(lane), head, run)
+    assert.ok(launchedAgents.includes('r0-review'), `${run}: ${launchedAgents.join()} ${result.reason}`)
+  }
+})
+
+test('#313 AC-scope-adopts-main-merge: a merge of a branch that is not in origin/main still stops the lane at push', async (t) => {
+  const lane = laneRepository(t, { onMain: true })
+  lane.git(lane.worktree, 'checkout', '-b', 'side', 'main')
+  lane.commitIn(lane.worktree, 'side-file')
+  lane.git(lane.worktree, 'checkout', BRANCH)
+  mergeIntoWorktree(lane, 'side')
+  const { result, launchedAgents } = await runScopeStep(lane, [])
+  assert.deepEqual([result.status, result.stage], ['failed', 'push'])
+  assert.ok(!launchedAgents.some(label => label.includes('review')))
+})
+
+test('#313 AC-scope-adopts-main-merge: a pushed commit that is not a merge on top of the tip still stops the lane at push', async (t) => {
+  const lane = laneRepository(t, { onMain: true })
+  lane.commitIn(lane.worktree, 'unreported-file')
+  const { result } = await runScopeStep(lane, [])
+  assert.deepEqual([result.status, result.stage], ['failed', 'push'])
+})
+
+test('#367 AC-scope-line-no-brief-text: a brief whose output starts with non-ASCII puts none of its text on the relay line, and the lane goes on', async (t) => {
+  const lane = laneRepository(t)
+  const printedLines = []
+  const { result, launchedAgents } = await runScopeStep(lane, [], printedLines, { title: '\u201equoted title' })
+  assert.doesNotMatch(printedLines[0], /quoted|u201e/)
+  assert.ok(launchedAgents.includes('r0-review'), `${launchedAgents.join()} ${result.reason}`)
+})
+
 const runSyncStep = (lane) => runLane(laneArgs(lane), { sync: syncAgentRunning(lane), 'scope-resume': agentRunning(lane, []) })
 const headOf = (lane) => lane.git(lane.worktree, 'rev-parse', 'HEAD')
 

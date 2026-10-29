@@ -1,0 +1,8 @@
+claim_id = "73442258855944d79c20981e8f532fd7"
+agent = "Claude b5de3560-4db0-4dfe-be9f-fe26ef53140a"
+role = "builder"
+base = "351e649c4c9e8a48f5f943e0ce131609ab1202f0"
+branch = "claude/issue-377-check-symlinks-only"
+scope = [".github/workflows/ci.yml", "README.md", "scripts/check_root_layout.py", "scripts/check_symlinks.py", "tests/test_check_root_layout.py", "tests/test_check_symlinks.py"]
+opened_commit = "e5006eb4f95c0dace2d5de7d6f25d41f9864a180"
+whole_reason = "One predecessor exit: the script, its test module, its CI step and its README line move together under the new name."

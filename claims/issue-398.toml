@@ -1,0 +1,8 @@
+claim_id = "45ae610ab0174dc79a31774c1ad36a30"
+agent = "Claude b5de3560-4db0-4dfe-be9f-fe26ef53140a"
+role = "builder"
+base = "a59f0ef49df6a07eb1ed2614e6eae48078e15060"
+branch = "claude/issue-398-relay-reread"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/workflows/lane-relay.js", "plugins/atelier/workflows/lane.js", "tests/lane_workflow_fix.test.mjs", "tests/lane_workflow_harness.mjs", "tests/lane_workflow_relay.test.mjs", "tests/lane_workflow_scope.test.mjs"]
+opened_commit = "5ac01401e842200aa74f01b907df6d147732521a"
+whole_reason = "The relay protocol bump must change both copies and the pins that publish them in one commit."

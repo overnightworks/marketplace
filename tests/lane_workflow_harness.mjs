@@ -9,7 +9,7 @@ const workflowSource = (file) => fs.readFileSync(new URL(`../plugins/atelier/wor
 const CHILD_WORKFLOWS = { 'atelier:lane-ci': 'lane-ci.js', 'atelier:lane-codex': 'lane-codex.js', 'atelier:lane-relay': 'lane-relay.js' }
 const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor
 
-// Stand-ins for the two programs the printer runs, steered by environment variables the harness sets for the child only.
+// Stand-ins for the three programs the printer runs, steered by environment variables the harness sets for the child only.
 const FAKE_GIT = `#!/bin/sh
 case "$1 $2" in
   "push origin") [ -z "$FAKE_PUSH_ERROR" ] || { printf '%s\\n' "$FAKE_PUSH_ERROR" >&2; exit 1; } ;;
@@ -17,6 +17,19 @@ case "$1 $2" in
   "rev-parse HEAD^@") printf '%s\\n' "$FAKE_PARENTS" ;;
   "merge-base --is-ancestor") exit "$FAKE_MAIN_CODE" ;;
   "rev-parse origin/"*) printf '%s\\n' "$FAKE_REMOTE" ;;
+esac
+`
+const FAKE_GH = `#!/bin/sh
+fail() { printf '%s\\n' "$2" >&2; exit "$1"; }
+case "$1 $2" in
+  "pr view") [ "$FAKE_VIEW_CODE" = 0 ] || fail "$FAKE_VIEW_CODE" "$FAKE_VIEW_ERROR"; printf '{"baseRefName":"main","headRefOid":"%s"}' "$FAKE_PR_HEAD" ;;
+  "pr checks") [ "$FAKE_CHECKS_CODE" = 0 ] || fail "$FAKE_CHECKS_CODE" "$FAKE_CHECKS_ERROR"; printf '%s' "$FAKE_CHECKS" ;;
+  "api repos/"*) case "$2" in
+    */rules/branches/main) [ "$FAKE_RULES_CODE" = 0 ] || fail "$FAKE_RULES_CODE" "$FAKE_RULES_ERROR"; printf '%s' "$FAKE_RULES" ;;
+    */commits/main/check-runs) printf '%s' "$FAKE_BASE_RUNS" ;;
+    *) fail 1 "unexpected gh api path $2" ;;
+  esac ;;
+  *) fail 1 "unexpected gh call $*" ;;
 esac
 `
 export const FAKE_ACO = `#!/bin/sh
@@ -42,7 +55,7 @@ export async function runLane(args, answers = {}, options = {}) {
   const launchedAgents = []
   const agentCalls = {}
   const isFixer = (label) => label.startsWith('fix-')
-  const isRelayed = (label) => label === 'sync' || label.startsWith('scope-') || isFixer(label)
+  const isRelayed = (label) => label === 'sync' || label.startsWith('scope-') || label.startsWith('ci-read-') || isFixer(label)
   const defaultAnswerFor = (label) => isRelayed(label) && !isFixer(label) ? {} : null
   // The branch carries the newest tip a builder, fixer or sync returned. A scope, sync or fixer answer says what the fake
   // git and aco print (scope: push_error, remote_tip, brief_error, outside_claim; sync and fixer: head, parents, head_code,
@@ -55,8 +68,23 @@ export async function runLane(args, answers = {}, options = {}) {
       fakeBin = fs.mkdtempSync(path.join(os.tmpdir(), 'lane-fake-'))
       installFake(fakeBin, 'git', FAKE_GIT)
       installFake(fakeBin, 'aco', FAKE_ACO)
+      installFake(fakeBin, 'gh', FAKE_GH)
     }
     return fakeBin
+  }
+  // The gh side of a ci-read answer: pr_head, view_code/view_error, checks (the listing), checks_code/checks_error, required
+  // (the contexts of the rules), rules_code/rules_error and base_runs (the base tip's check runs, one page each).
+  const ghEnv = (scenario) => ({
+    FAKE_PR_HEAD: scenario.pr_head ?? newestTip, FAKE_VIEW_CODE: scenario.view_code ?? 0, FAKE_VIEW_ERROR: scenario.view_error ?? '',
+    FAKE_CHECKS: JSON.stringify(scenario.checks ?? []), FAKE_CHECKS_CODE: scenario.checks_code ?? 0, FAKE_CHECKS_ERROR: scenario.checks_error ?? '',
+    FAKE_RULES: JSON.stringify([{ type: 'deletion' }, { type: 'required_status_checks', parameters: { required_status_checks: (scenario.required ?? []).map(context => ({ context })) } }]),
+    FAKE_RULES_CODE: scenario.rules_code ?? 0, FAKE_RULES_ERROR: scenario.rules_error ?? '',
+    FAKE_BASE_RUNS: JSON.stringify((scenario.base_runs ?? []).map(run => ({ check_runs: [run] }))),
+  })
+  // A ci-read answer defaults to the world the same round's watcher answer describes with its head, checks, requiredChecks and baseChecks, which the lane must not read from the watcher.
+  const ciWorldOf = (label) => {
+    const watcher = answers[label.replace('ci-read-', 'ci-')]
+    return watcher && typeof watcher === 'object' ? { pr_head: watcher.head, checks: watcher.checks, required: watcher.requiredChecks, base_runs: watcher.baseChecks } : {}
   }
   const printedBy = (prompt, scenario) => {
     if ('printed' in scenario) return scenario.printed
@@ -65,7 +93,7 @@ export async function runLane(args, answers = {}, options = {}) {
       ...process.env, PATH: `${fakeCommands()}:${process.env.PATH}`, FAKE_HEAD: scenario.head ?? newestTip, FAKE_REMOTE: scenario.remote_tip ?? newestTip,
       FAKE_HEAD_CODE: scenario.head_code ?? 0, FAKE_PARENTS: (scenario.parents ?? []).join('\n'), FAKE_MAIN_CODE: scenario.main_code ?? 0,
       FAKE_PUSH_ERROR: scenario.push_error ?? '', FAKE_BRIEF_ERROR: scenario.brief_error ?? '',
-      FAKE_BRIEF_OUTPUT: JSON.stringify({ outside_claim: 'outside_claim' in scenario ? scenario.outside_claim : [] }),
+      FAKE_BRIEF_OUTPUT: JSON.stringify({ outside_claim: 'outside_claim' in scenario ? scenario.outside_claim : [] }), ...ghEnv(scenario),
     }
     const asked = scenario.printerMode ? line.replace(/' scope .* ('[^']*')$/, `' ${scenario.printerMode} $1`) : line
     const printed = runCommandLine(scenario.nonce ? asked.replace(/'[^']*'$/, `'${scenario.nonce}'`) : asked, { cwd: os.tmpdir(), env })
@@ -74,12 +102,12 @@ export async function runLane(args, answers = {}, options = {}) {
   const answerFor = (label, prompt) => {
     const given = label in answers ? answers[label] : defaultAnswerFor(label)
     if (typeof given === 'function') return given(prompt)
-    const answer = isRelayed(label) && given ? { ...given } : structuredClone(given)
+    const answer = isRelayed(label) && given ? { ...(label.startsWith('ci-read-') ? ciWorldOf(label) : {}), ...given } : structuredClone(given)
     if (answer?.tip && label === 'build') newestTip = answer.tip
     if (!isRelayed(label) || !answer) return answer
     const printed = printedBy(prompt, answer)
     if (answer.head && !label.startsWith('scope-')) newestTip = answer.head
-    const { head: _head, parents: _parents, head_code: _headCode, main_code: _mainCode, nonce: _nonce, edit: _edit, printerMode: _printerMode, push_error: _pushError, remote_tip: _remoteTip, brief_error: _briefError, outside_claim: _outsideClaim, printed: _printed, ...report } = answer
+    const { pr_head: _prHead, checks: _checks, required: _required, base_runs: _baseRuns, head: _head, parents: _parents, head_code: _headCode, main_code: _mainCode, nonce: _nonce, edit: _edit, printerMode: _printerMode, push_error: _pushError, remote_tip: _remoteTip, brief_error: _briefError, outside_claim: _outsideClaim, printed: _printed, ...report } = answer
     return { ...report, printed }
   }
   const agent = async (prompt, agentOptions = {}) => { launchedAgents.push(agentOptions.label); agentCalls[agentOptions.label] = { prompt, options: agentOptions }; return answerFor(agentOptions.label, prompt) }

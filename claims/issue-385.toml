@@ -1,8 +1,0 @@
-claim_id = "755ad58c6b1d483481cae32ff0cb7e59"
-agent = "Claude b5de3560-4db0-4dfe-be9f-fe26ef53140a"
-role = "builder"
-base = "ef3072ab97df38a1fe5351539734a26965a0e7eb"
-branch = "claude/issue-385-fold-bundled-cards"
-scope = [".claude-plugin/marketplace.json", "instructions/AGENTS.md", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/skills/aco/SKILL.md", "plugins/atelier/skills/board-hygiene/SKILL.md"]
-opened_commit = "a084abf2fc44c3c36f7be3e54775b71fb732841e"
-whole_reason = "One ruled process change: the contract's two sentences, the two skills that restate them and the version pins move together."

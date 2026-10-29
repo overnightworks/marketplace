@@ -1,8 +1,0 @@
-claim_id = "8f0bdac84ae249c1a89975a582171005"
-agent = "Claude b5de3560-4db0-4dfe-be9f-fe26ef53140a"
-role = "builder"
-base = "eac2fe9636380b3df5319676492ca6428039adb1"
-branch = "claude/issue-395-decision-cards-asked-on"
-scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/skills/aco/references/decision-cards.md"]
-opened_commit = "b2190e117c222c75d5c47e09586fa1dbf3e5fbaa"
-whole_reason = "A one-sentence guide edit cannot ship without the three plugin pins that publish it."

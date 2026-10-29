@@ -1,0 +1,8 @@
+claim_id = "e12e30deb195433cb611332d8389e997"
+agent = "Claude b5de3560-4db0-4dfe-be9f-fe26ef53140a"
+role = "builder"
+base = "9b5fe93e5320ad4de3180bbb6f90d01cec294f82"
+branch = "claude/issue-400-protocol-first"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/workflows/lane-ci.js", "plugins/atelier/workflows/lane-codex.js", "plugins/atelier/workflows/lane-relay.js", "tests/lane_workflow_ci.test.mjs", "tests/lane_workflow_codex.test.mjs", "tests/lane_workflow_relay.test.mjs"]
+opened_commit = "b15157a51f6c5d535b031e6a911d7a768dd3fefc"
+whole_reason = "The same two-line swap in three children with their tests and the pins that publish them is one change."

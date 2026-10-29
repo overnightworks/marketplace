@@ -1,0 +1,8 @@
+claim_id = "777b62e6e6374b4ba275b7c47959b781"
+agent = "Claude b5de3560-4db0-4dfe-be9f-fe26ef53140a"
+role = "builder"
+base = "a840d8a60a66a6d205ade0c5b3090852c0035a29"
+branch = "claude/issue-313-lane-bundle-scope-relay-briefs"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/workflows/lane-relay.js", "plugins/atelier/workflows/lane.js", "tests/lane_workflow_fix.test.mjs", "tests/lane_workflow_harness.mjs", "tests/lane_workflow_relay.test.mjs", "tests/lane_workflow_scope.test.mjs"]
+opened_commit = "47bef8f8086e779226d8f940293a079697620c13"
+whole_reason = "Four small lane-workflow cards bundled under one claim: they share the scope relay line, its protocol bump and one version."

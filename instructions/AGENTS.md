@@ -442,7 +442,9 @@ Before claiming, at the recorded revision, trace changed signatures to their
 callers and each acceptance sentence through the implementation and verification
 paths needed to satisfy it, resolving helpers to their current owners. Record
 these paths in the item body; include every path requiring an edit in scope, and
-explain why each excluded path already supports the intended result.
+explain why each excluded path already supports the intended result. Each
+affected verification assertion is classified under Value Ownership; finding a
+pin does not require keeping or re-pinning it.
 
 A small card is not a slice: three or four are bundled into one lane under the
 lead card's issue number for its claim, worktree and branch — bundling
@@ -841,6 +843,16 @@ Before adding a literal, constant, default, or fixture value, classify its owner
   and adapter internals.
 - Tests reuse production contracts but do not duplicate production construction,
   serialization, path, or derivation logic to calculate expected results.
+- A test or probe does not restate a value chosen in a shipped file
+  (configuration, Compose, Dockerfile, lockfile, realm export, CI workflow),
+  ruled choices included. Each assertion is judged alone: it stays when it
+  checks validity, a constraint that more than today's value would satisfy, a
+  relationship read from both owners (never a literal, and never a value as its
+  own expected result), or a protective limit (an allowlist, a deny list, a
+  non-root user) even where it equals today's value. A ruled choice is proven by
+  reviewing its diff and by evidence through the consumer that uses it; a
+  missing proof is named on its owner, never covered by a static copy (operator
+  ruling 29.10.2026).
 
 ## Reuse
 

@@ -30,8 +30,7 @@ applies what is clear under the coordination contract.
    only result worth a verdict; `body ok` is not proof of done.
 6. List open pull requests that no open item owns, with whether each can land
    (`mergeStateStatus` CLEAN and every check green; otherwise name the
-   blocker). An owner is `closingIssuesReferences` or a
-   `Lands #n` line in the PR body:
+   blocker). An owner is `closingIssuesReferences`:
    `gh pr list --json number,title,body,author,closingIssuesReferences,mergeStateStatus,statusCheckRollup`.
    A bot pull request without an item is invisible to `aco next`.
 7. A standing audit item whose "last run at commit X" anchor is more than its

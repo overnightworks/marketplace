@@ -301,8 +301,8 @@ When a child or slice lands, update its parent or
 epic body too — the landing brief names this step. An epic without a
 terminal, checkable `Done when` is not an item: give it one at dispatch or
 close it into the owning document (operator ruling 27.08.2026). Close an
-item only when its `Done when` has been met; otherwise
-retain its current state and next dependency.
+item only when its `Done when` has been met or when it is folded into a
+bundle's lead; otherwise retain its current state and next dependency.
 
 A fact stands once in a body (operator ruling 31.08.2026, after independent
 counter-review). A phase or slice table carries order and done-when, never a
@@ -403,15 +403,18 @@ paths needed to satisfy it, resolving helpers to their current owners. Record
 these paths in the item body; include every path requiring an edit in scope, and
 explain why each excluded path already supports the intended result.
 
-A small card is not a slice: three or four land together as one lane, under the
-lead card's issue number for its claim, worktree and branch, with the other
-cards named in its body — bundling amortizes the claim, worktree, dispatch and
-landing overhead a lane pays regardless of card count. A card that is urgent or
-carries material risk lands alone. The claim runs under the lead card's issue
-with `--scope` covering every bundled card's paths and `--whole` naming the
-bundle; each non-lead body says 'lands with #<lead>'; the PR closes only the
-lead and names each other card with `Lands #<card>`, and after the merge the
-head closes each card with the PR link.
+A small card is not a slice: three or four are bundled into one lane under the
+lead card's issue number for its claim, worktree and branch — bundling
+amortizes the claim, worktree, dispatch and landing overhead a lane pays
+regardless of card count. A card that is urgent or carries material risk lands
+alone; a card under a parent other than the lead's is not bundled. At bundling
+the head folds each other card into the lead's body — its sentences, its ruled
+expectation lines unchanged, its `Done when`, and its number as their source —
+moves the card's blockers and the items it blocks onto the lead, and closes the
+card with a comment naming the lead, so no board offers it again and the lead's
+landing frees what waited on it (operator ruling 29.10.2026). The claim runs
+under the lead with `--scope` covering every folded card's paths and `--whole`
+naming the bundle.
 
 Run as many lanes as the work has disjoint scopes, not a fixed number: each has
 its own issue, exact claim, worktree, branch, and builder. Width is set by

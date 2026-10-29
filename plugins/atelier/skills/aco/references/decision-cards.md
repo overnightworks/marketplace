@@ -2,7 +2,7 @@
 
 Reader: a head writing or revising an operator question as an option line. The
 card's keys, limits and mechanical refusals belong to aco: read the
-[body-block spec "Option lines" (BODY-95..BODY-100)](https://github.com/overnightworks/aco/blob/main/specs/body-block.spec.md)
+[body-block spec "Option lines" (BODY-95..BODY-103)](https://github.com/overnightworks/aco/blob/main/specs/body-block.spec.md)
 in the aco repository, and pipe the body through `aco check -`. This file holds only
 what `aco check` cannot judge. The operator's wish: a card he decides at a glance,
 always in the same structure. Why no judged field carries an identifier:
@@ -82,7 +82,9 @@ line stays open and carries `returned_on` and, when he gave one, `returned_note`
 
 1. With a note: read it, and revise the card so it answers that note.
 2. Without one: check the card against sections 1 to 5 and rewrite whatever fails.
-3. Remove `returned_on` and `returned_note` only in the same edit that revises the card.
-   Pipe the new body through `aco check -` first.
+3. Remove `returned_on` and `returned_note` only in the same edit that revises the
+   card, and set `asked_on` to that day in it: a card asked again is a new question
+   to the operator, and the board shows the newest first. Pipe the new body through
+   `aco check -` first.
 
 Never answer an unclear card by explaining it in chat: the card is the answer.

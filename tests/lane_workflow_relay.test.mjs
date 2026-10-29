@@ -112,10 +112,12 @@ test('#323 AC-scope-relay: paths outside the claim that aco prints reach the sto
   assert.deepEqual([result.status, result.stage, result.outside], ['awaiting-head', 'scope', ['src/other.py']])
 })
 
+const baselineEntry = { path: 'quality/baseline.toml', names_a_file: true };
 const laneSharedRows = [
-  ['a touched lane-shared path is not outside', { claim: { lane_shared: ['quality/baseline.toml'] } }, ['quality/baseline.toml'], 'r0-review'],
-  ['a path in neither the scope nor lane_shared still stops the lane', { claim: { lane_shared: ['quality/baseline.toml'] } }, ['quality/baseline.toml', 'src/other.py'], ['src/other.py']],
-  ['a brief whose lane_shared_unavailable is set filters nothing', { claim: { lane_shared: ['quality/baseline.toml'], lane_shared_unavailable: 'no board' } }, ['quality/baseline.toml'], ['quality/baseline.toml']],
+  ['a touched lane-shared path is not outside', { claim: { lane_shared: [baselineEntry] } }, ['quality/baseline.toml'], 'r0-review'],
+  ['a path in neither the scope nor lane_shared still stops the lane', { claim: { lane_shared: [baselineEntry] } }, ['quality/baseline.toml', 'src/other.py'], ['src/other.py']],
+  ['a brief whose lane_shared_unavailable is set filters nothing', { claim: { lane_shared: [baselineEntry], lane_shared_unavailable: 'no board' } }, ['quality/baseline.toml'], ['quality/baseline.toml']],
+  ['an entry with names_a_file false filters nothing', { claim: { lane_shared: [{ path: 'quality/baseline.toml', names_a_file: false }] } }, ['quality/baseline.toml'], ['quality/baseline.toml']],
   ['a brief with no lane_shared filters nothing', {}, ['quality/baseline.toml'], ['quality/baseline.toml']],
 ]
 for (const [name, briefExtras, acoPrints, expected] of laneSharedRows) {

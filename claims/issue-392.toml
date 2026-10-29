@@ -1,0 +1,7 @@
+claim_id = "20807761663f4fefaf1ca656d09999be"
+agent = "Claude b5de3560-4db0-4dfe-be9f-fe26ef53140a"
+role = "builder"
+base = "2108122b9c3cf7eb0cc4add265044bf23ed0e9c0"
+branch = "claude/issue-392-output-owner-sentence"
+scope = ["instructions/AGENTS.md"]
+opened_commit = "8ab5f90d929e09d395981e9fee18fe750c2e179e"

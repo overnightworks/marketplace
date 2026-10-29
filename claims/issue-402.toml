@@ -1,0 +1,7 @@
+claim_id = "6a429852932f4e0b869cbea6a8e43cf0"
+agent = "Claude b5de3560-4db0-4dfe-be9f-fe26ef53140a"
+role = "builder"
+base = "7b64a6596d2710b70946cc42c2dbe6530c173b9a"
+branch = "claude/issue-402-no-copied-values"
+scope = ["instructions/AGENTS.md"]
+opened_commit = "7d28f24a2dc45bc2b04e041739ef366ceee06f6e"

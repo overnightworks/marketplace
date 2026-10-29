@@ -2,7 +2,7 @@
 name = "marketplace"
 version = "0.1.0"
 description = "The generator, layout, and findings-gate scripts behind the atelier plugin"
-requires-python = ">=3.12"
+requires-python = ">=3.14"
 dependencies = []
 
 # Nothing here is distributed: a host installs the plugin from a marketplace

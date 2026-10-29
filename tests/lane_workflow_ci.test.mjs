@@ -238,7 +238,7 @@ const lockBusy = { verdict: 'failed', lockBusy: true, blocking: [], followups: [
 const lockQueue = [
   ['green', ciAnswer([check(required, 'pass')]), /green/],
   ['red', redCi(['Python: tests']), /red[\s\S]*Python: tests/],
-  ['unreadable', { failure: 'lane-ci failed: boom' }, /not readable/],
+  ['unreadable', { problem: 'lane-ci failed: boom' }, /not readable/],
 ]
 for (const [what, ci, state] of lockQueue) {
   test(`#357 lock-queue: two busy probe locks with CI ${what} go to the head at test and launch no fixer`, async () => {

@@ -38,7 +38,7 @@ const PRINTER = [
   'ran={}',
   '[ran.__setitem__(n,run(*(c(ran) if callable(c) else c))) for n,c in steps[step](*rest) if "view" not in ran or ran["view"].returncode==0]',
   'brief=json.loads(ran["brief"].stdout) if "brief" in ran and ran["brief"].returncode==0 else None',
-  'shared=[] if brief is None or brief.get("claim",{}).get("lane_shared_unavailable") else brief.get("claim",{}).get("lane_shared",[])',
+  'shared=[] if brief is None or brief.get("claim",{}).get("lane_shared_unavailable") else [e["path"] for e in brief.get("claim",{}).get("lane_shared",[]) if e["names_a_file"]]',
   'claim=[p for p in brief["outside_claim"] if p not in shared] if brief and isinstance(brief["outside_claim"],list) else brief and brief["outside_claim"]',
   'values={n:{"code":p.returncode,"err":" ".join(l for l in p.stderr.splitlines() if l[:5]!="hint:")[-300:],**({} if n in("brief","view","checks","rules","runs") else {"out":p.stdout.strip()[:100]})} for n,p in ran.items()}',
   'parsed=lambda n:json.loads(ran[n].stdout) if n in ran and ran[n].returncode==0 else None',

@@ -463,3 +463,9 @@ test('#298 resume-wording: the shared-red stop names a new run with pr and tip, 
   assert.match(result.reason, /new run with pr and tip and fixFirst/)
   assert.doesNotMatch(result.reason, /resume with/)
 })
+
+test('#368 AC-lane-shared-line-named: the builder and fixer prompts say the lane-shared: line of aco brief lists the files that need no rescope', async () => {
+  const { agentCalls: builderCalls } = await runLane(builtLane, { build: built })
+  const { agentCalls: fixerCalls } = await runLane({ ...resumeArgs, fixFirst: [defectWithoutDraft] }, { 'fix-1': resumeFix })
+  for (const prompt of [builderCalls.build.prompt, fixerCalls['fix-1'].prompt]) assert.match(prompt, /`aco brief <item>` prints it on its `lane-shared:` line[^.]*before you call a path outside the scope/)
+})

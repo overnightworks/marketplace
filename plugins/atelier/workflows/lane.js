@@ -146,9 +146,9 @@ const BUILD = {
 async function startChild(name, childArgs) {
   try {
     const answer = await workflow(`atelier:${name}`, childArgs)
-    return answer?.refused ? { problem: `${name} refused: ${answer.refused}` } : answer
+    return answer?.refused ? { problem: `was refused by ${name}: ${answer.refused}` } : answer
   } catch (error) {
-    return { problem: `${name} failed: ${String(error).slice(0, 300)}` }
+    return { problem: `ended in ${name} with ${String(error).slice(0, 300)}` }
   }
 }
 // A value a command prints reaches a decision only through the line the lane-relay child reads back and checks.
@@ -287,7 +287,7 @@ const LANE_CODEX_PROTOCOL = 1
 async function codexReview(label, routing, role, range) {
   const failed = (note) => ({ verdict: 'failed', blocking: [], followups: [], codexExit: -1, note })
   const answer = await startChild('lane-codex', { protocol: LANE_CODEX_PROTOCOL, worktree: A.worktree, scratch: A.scratch, tag: TAG, label, routing, reviewerBrief: reviewerBrief(role, range), findingKinds: FINDING_KINDS, verdictSchema: COURIER_VERDICT, mechanical: MECHANICAL })
-  if (answer?.problem) return failed(answer.problem)
+  if (answer?.problem) return failed(`the Codex courier ${answer.problem}`)
   if (answer && typeof answer.verdict !== 'string') return failed(`lane-codex answered without a verdict: ${JSON.stringify(answer).slice(0, 200)}`)
   return answer
 }
@@ -700,7 +700,7 @@ function explore(n) {
 const LANE_CI_PROTOCOL = 2
 async function watchCi(n) {
   const answer = await startChild('lane-ci', { protocol: LANE_CI_PROTOCOL, pr, n, repo: A.repo, worktree: A.worktree, finding: FINDING, watcher: WATCHER })
-  if (answer && !answer.problem && !SHA.test(answer.head || '')) return { problem: `lane-ci answered without a head sha: ${JSON.stringify(answer).slice(0, 200)}` }
+  if (answer && !answer.problem && !SHA.test(answer.head || '')) return { problem: `answered without a head sha: ${JSON.stringify(answer).slice(0, 200)}` }
   return answer
 }
 
@@ -743,7 +743,7 @@ while (true) {
     return openResult('awaiting-head', 'test', { reason: `lock queue: the shared probe lock stayed busy for both tries, so the end-to-end test did not run; CI of this round: ${lockQueueCiState(ci)}. Start a new run with pr and tip once the queue clears.` })
   }
   if (!e2e || e2e.verdict === 'failed') return openResult('failed', 'test', { reason: 'the tester returned no usable result' })
-  if (!ci || ci.problem) return openResult('failed', 'ci', ci ? { reason: ci.problem } : undefined)
+  if (!ci || ci.problem) return openResult('failed', 'ci', ci ? { reason: `the CI watcher ${ci.problem}` } : undefined)
   const testBlocking = e2e.blocking || []
   if (e2e.verdict === 'PASS' && !e2e.skipped && !(e2e.cells || []).some(c => c.result === 'held')) return openResult('failed', 'test', { reason: 'a PASS without driven cells: the tester named no held cell' })
   if (e2e.verdict === 'FAIL' && testBlocking.length === 0) return openResult('failed', 'test', { reason: 'a FAIL verdict came without any blocking finding' })

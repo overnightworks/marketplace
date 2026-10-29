@@ -258,7 +258,7 @@ test('#345 AC-sync-relay-real-git: a scope printer line that carries the sync no
   const { result, launchedAgents } = await runLane(laneArgs(lane), { sync: scopePrinterAnswer })
   assert.deepEqual([result.status, result.stage], ['failed', 'sync'])
   assert.match(result.reason, /the printed line: \{"crc":/)
-  assert.deepEqual(launchedAgents, ['sync'])
+  assert.deepEqual(launchedAgents, ['sync', 'sync-reread'])
 })
 
 // The fixer does what its prompt says with real git, then runs the relay line it was handed last.
@@ -366,4 +366,51 @@ test('#350 lane-relay-protocol: the sync and scope agents are launched by the la
   assert.deepEqual(resumed.launchedByChild['atelier:lane-relay'], ['sync', 'scope-resume'])
   const fixed = await driveRelayChild({ ...resumedLane, fixFirst: [defectWithoutDraft] }, {}, { 'fix-1': { ...resumeFix, regression: [] } })
   assert.deepEqual(fixed.launchedByChild['atelier:lane-relay'], ['sync', 'fix-1', 'scope-1'])
+})
+
+// The re-read: an unreadable relay line is read once more by a printer-only agent before the lane fails.
+const JUNK = { printed: '{"crc":"pending","v":"pending"}' }
+const syncFails = (rereads) => runLane(resumedLane, { sync: JUNK, ...rereads })
+const reread = (result) => result.launchedAgents.filter(label => label.endsWith('-reread'))
+
+test('#398 AC-relay-reread: a good re-read replaces the unreadable line and the lane goes on, with the re-read agent holding only the printer command and the mechanical options', async () => {
+  const run = await syncFails({ 'sync-reread': {} })
+  assert.deepEqual(reread(run), ['sync-reread'])
+  assert.ok(run.launchedAgents.includes('r0-review'), run.launchedAgents.join())
+  const { prompt, options } = run.agentCalls['sync-reread']
+  assert.equal(prompt.split('\n').length, 2, prompt)
+  assert.match(prompt, /^run this one command line exactly as written/)
+  assert.equal(options.agentType, run.agentCalls.sync.options.agentType)
+  assert.equal(options.phase, run.agentCalls.sync.options.phase)
+  assert.deepEqual(Object.keys(options.schema.properties), ['printed'])
+})
+
+test('#398 AC-relay-reread: the re-read line is the printed line the lane quotes, and the first answer keeps its other fields', async () => {
+  const run = await runLane(resumedLane, { sync: JUNK, 'sync-reread': { head: 'abcdef0', main_code: 1 } })
+  assert.deepEqual([run.result.status, run.result.stage], ['escalated', 'sync'])
+  assert.deepEqual(reread(run), ['sync-reread'])
+  const fixed = await runLane({ ...resumedLane, fixFirst: [defectWithoutDraft] }, { 'fix-1': { ...resumeFix, regression: [], printed: JUNK.printed }, 'fix-1-reread': {} })
+  assert.deepEqual(reread(fixed), ['fix-1-reread'])
+  assert.ok(fixed.launchedAgents.includes('scope-1'), fixed.launchedAgents.join())
+})
+
+test('#398 AC-relay-reread: a re-read that is unreadable too leaves the first problem and its line standing, and no third read starts', async () => {
+  const run = await syncFails({ 'sync-reread': { printed: 'a second bad copy' } })
+  assert.deepEqual([run.result.status, run.result.stage], ['failed', 'sync'])
+  assert.match(run.result.reason, /is not a relay line/)
+  assert.ok(run.result.reason.includes(JUNK.printed), run.result.reason)
+  assert.ok(!run.result.reason.includes('a second bad copy'))
+  assert.deepEqual(reread(run), ['sync-reread'])
+})
+
+test('#398 AC-relay-reread: a re-read agent that returns no result leaves the first problem standing', async () => {
+  const run = await syncFails({ 'sync-reread': null })
+  assert.deepEqual([run.result.status, run.result.stage], ['failed', 'sync'])
+  assert.ok(run.result.reason.includes(JUNK.printed), run.result.reason)
+  assert.deepEqual(reread(run), ['sync-reread'])
+})
+
+test('#398 AC-relay-reread: a readable line starts no re-read', async () => {
+  const run = await runLane(resumedLane, {})
+  assert.deepEqual(reread(run), [])
 })

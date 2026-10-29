@@ -5,13 +5,13 @@ export const meta = {
 }
 
 // Both copies of this number (here and in lane.js) change together in any commit that changes the args or the return shape.
-const LANE_RELAY_PROTOCOL = 5
+const LANE_RELAY_PROTOCOL = 6
 const A = args || {}
-const need = ['protocol', 'worktree', 'label', 'phase', 'brief', 'step', 'relayArgs', 'nonce', 'requiredKeys', 'agentOptions']
+const need = ['protocol', 'worktree', 'label', 'phase', 'brief', 'step', 'relayArgs', 'nonce', 'requiredKeys', 'agentOptions', 'mechanical']
 const missing = need.filter(key => A[key] === undefined || A[key] === null || A[key] === '')
 if (missing.length) return { refused: `missing args: ${missing.join(', ')}` }
 if (A.protocol !== LANE_RELAY_PROTOCOL) return { refused: `lane-relay speaks protocol ${JSON.stringify(LANE_RELAY_PROTOCOL)}, but the lane that started it speaks protocol ${JSON.stringify(A.protocol)}; the installed atelier differs from the running lane` }
-const { label, phase: phaseName, brief, step, relayArgs, nonce, requiredKeys, agentOptions, answerSchema = {} } = A
+const { label, phase: phaseName, brief, step, relayArgs, nonce, requiredKeys, agentOptions, mechanical, answerSchema = {} } = A
 
 // agent() with a schema throws when the subagent ends without a result; an end without one is a null the lane reports.
 async function safeAgent(prompt, opts) {
@@ -86,4 +86,15 @@ const answer = await safeAgent(`${brief} ${RELAY_ASK}\n${relayCommand(step, ...r
   ...agentOptions,
 })
 if (!answer) return null
-return { ...answer, ...readRelay(answer.printed, nonce, requiredKeys) }
+const read = readRelay(answer.printed, nonce, requiredKeys)
+if (!read.problem) return { ...answer, ...read }
+
+// An agent that copied the line badly is asked once more, by an agent that only runs the printer: the printer reads the state that is there now, and the CRC and the nonce still guard the second line.
+log(`${label} relayed an unreadable line (${read.problem}); reading it once more: ${String(answer.printed).slice(0, 300)}`)
+const second = await safeAgent(`${RELAY_ASK}\n${relayCommand(step, ...relayArgs)}`, {
+  label: `${label}-reread`, phase: phaseName,
+  schema: { type: 'object', required: ['printed'], properties: { printed: PRINTED } },
+  ...mechanical,
+})
+const secondRead = second ? readRelay(second.printed, nonce, requiredKeys) : read
+return secondRead.problem ? { ...answer, ...read } : { ...answer, printed: second.printed, ...secondRead }

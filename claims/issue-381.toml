@@ -1,8 +1,0 @@
-claim_id = "d9288badcb4347f18192bb5a0e5ff4b8"
-agent = "Claude b5de3560-4db0-4dfe-be9f-fe26ef53140a"
-role = "builder"
-base = "722a1dd9bb7bc3d50ed111b17082aa657359fb02"
-branch = "claude/issue-381-ci-relay-line"
-scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/workflows/lane-ci.js", "plugins/atelier/workflows/lane-relay.js", "plugins/atelier/workflows/lane.js", "tests/lane_workflow.test.mjs", "tests/lane_workflow_ci.test.mjs", "tests/lane_workflow_fix.test.mjs", "tests/lane_workflow_harness.mjs", "tests/lane_workflow_relay.test.mjs", "tests/lane_workflow_scope.test.mjs"]
-opened_commit = "d27aa8c666465a9e65684be9e95597053c269bd0"
-whole_reason = "One boundary move: the CI values leave lane-ci's agent for a lane-relay printer that lane.js judges; the three workflows and their tests move together because both protocol numbers change in one commit."

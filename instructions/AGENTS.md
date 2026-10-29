@@ -802,7 +802,11 @@ judgement (operator ruling 06.09.2026).
   code route was tried and measured or judged counterproductive; it is
   versioned in the repository next to its reason (a rule-specific line marker
   or a properties entry naming its stronger owner), never a SonarCloud status
-  change, and never a file-wide ignore.
+  change, and never a file-wide ignore. A program's one output owner, the file
+  whose job is printing, declares itself there in the form quality's
+  `python-print` rule honours (`# ruff: noqa: T201 - <reason>`); that
+  declaration names the owner and is no file-wide ignore (operator rulings 27.
+  and 29.10.2026).
 - Hold size and complexity with ratchets, not repository-wide allowlists. Files
   from eight hundred lines, functions from sixty, and cyclomatic complexity
   above fifteen are debt-entry thresholds, not quality seals: compared per path

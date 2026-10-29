@@ -1,0 +1,8 @@
+claim_id = "605c7d74515f41b98399a3758e687ef3"
+agent = "Claude b5de3560-4db0-4dfe-be9f-fe26ef53140a"
+role = "builder"
+base = "8001e5443fa29de02d6cd0b9b46d94872c362d7b"
+branch = "claude/issue-379-one-child-starter"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/workflows/lane.js", "tests/lane_workflow_ci.test.mjs"]
+opened_commit = "77f4ac2110b7be31e7ab2531617aec2e244d8662"
+whole_reason = "One refactor of lane.js's three child calls; the tests and the three version pins follow it."

@@ -1,0 +1,8 @@
+claim_id = "ad2ec70c4f43460ea0736cfcaa96c362"
+agent = "Claude b5de3560-4db0-4dfe-be9f-fe26ef53140a"
+role = "builder"
+base = "bd2841a8de0d6791c34505467ab9f60dfd32b01d"
+branch = "claude/issue-389-lane-shared-objects"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/workflows/lane-relay.js", "tests/lane_workflow_relay.test.mjs"]
+opened_commit = "11890043e67a509a00e8038b1f4d1331cceed398"
+whole_reason = "One printer line and its test rows; the three version pins follow."

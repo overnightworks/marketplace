@@ -22,6 +22,14 @@ test('#340 lane-codex-protocol: a call without the worktree fails the lane at re
   assert.match(result.reason, /missing args: .*worktree.*scratch/)
 })
 
+test('#400 lane-codex-protocol: a child with another protocol number and a missing arg fails the lane with the skew sentence, not missing args', async () => {
+  const skewed = (source) => source.replace(/^const LANE_CODEX_PROTOCOL = \d+$/m, `const LANE_CODEX_PROTOCOL = ${protocolOf(readWorkflow('lane')) + 1}`)
+  const { result } = await driveGate({ transformChild: skewed, alterChildArgs: ({ worktree: _worktree, ...rest }) => rest })
+  assert.deepEqual([result.status, result.stage], ['failed', 'review'])
+  assert.match(result.reason, /the installed atelier differs from the running lane/)
+  assert.doesNotMatch(result.reason, /missing args/)
+})
+
 test('#340 lane-codex-protocol: a child that throws fails the lane at review naming the error', async () => {
   const { result } = await driveGate({ transformChild: () => "throw new Error('the child exploded')" })
   assert.deepEqual([result.status, result.stage], ['failed', 'review'])

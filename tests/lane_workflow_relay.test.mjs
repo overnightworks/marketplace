@@ -342,6 +342,14 @@ test('#350 lane-relay-protocol: a child that misses args fails the lane at sync 
   assert.doesNotMatch(result.reason, /the printed line/)
 })
 
+test('#400 lane-relay-protocol: a child with another protocol number and a missing arg fails the lane with the skew sentence, not missing args', async () => {
+  const skewed = (source) => source.replace(/^const LANE_RELAY_PROTOCOL = \d+$/m, `const LANE_RELAY_PROTOCOL = ${protocolOf(readWorkflow('lane')) + 1}`)
+  const { result } = await driveRelayChild(resumedLane, { transformChild: skewed, alterChildArgs: ({ mechanical: _mechanical, ...rest }) => rest })
+  assert.deepEqual([result.status, result.stage], ['failed', 'sync'])
+  assert.match(result.reason, /the installed atelier differs from the running lane/)
+  assert.doesNotMatch(result.reason, /missing args/)
+})
+
 test('#350 lane-relay-protocol: a child that throws fails a resumed lane at sync and a built lane at scope, naming the error', async () => {
   const throwing = { transformChild: () => "throw new Error('the child exploded')" }
   const resumed = await driveRelayChild(resumedLane, throwing)

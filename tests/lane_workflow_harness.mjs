@@ -55,7 +55,9 @@ export async function runLane(args, answers = {}, options = {}) {
   const launchedAgents = []
   const agentCalls = {}
   const isFixer = (label) => label.startsWith('fix-')
-  const isRelayed = (label) => label === 'sync' || label.startsWith('scope-') || label.startsWith('ci-read-') || isFixer(label)
+  const REREAD = '-reread'
+  const baseLabel = (label) => label.endsWith(REREAD) ? label.slice(0, -REREAD.length) : label
+  const isRelayed = (label) => /^(sync|scope-|ci-read-|fix-)/.test(baseLabel(label))
   const defaultAnswerFor = (label) => isRelayed(label) && !isFixer(label) ? {} : null
   // The branch carries the newest tip a builder, fixer or sync returned. A scope, sync or fixer answer says what the fake
   // git and aco print (scope: push_error, remote_tip, brief_error, outside_claim; sync and fixer: head, parents, head_code,
@@ -99,16 +101,19 @@ export async function runLane(args, answers = {}, options = {}) {
     const printed = runCommandLine(scenario.nonce ? asked.replace(/'[^']*'$/, `'${scenario.nonce}'`) : asked, { cwd: os.tmpdir(), env })
     return scenario.edit ? scenario.edit(printed) : printed
   }
+  // A -reread agent is the printer-only second read of a relay line: it answers its own label, else repeats its relay agent's scenario, and returns the printed line only.
   const answerFor = (label, prompt) => {
-    const given = label in answers ? answers[label] : defaultAnswerFor(label)
-    if (typeof given === 'function') return given(prompt)
-    const answer = isRelayed(label) && given ? { ...(label.startsWith('ci-read-') ? ciWorldOf(label) : {}), ...given } : structuredClone(given)
+    const base = baseLabel(label)
+    const reread = label !== base
+    const given = label in answers ? answers[label] : base in answers ? answers[base] : defaultAnswerFor(base)
+    if (typeof given === 'function') return reread ? { printed: given(prompt).printed } : given(prompt)
+    const answer = isRelayed(label) && given ? { ...(base.startsWith('ci-read-') ? ciWorldOf(base) : {}), ...given } : structuredClone(given)
     if (answer?.tip && label === 'build') newestTip = answer.tip
     if (!isRelayed(label) || !answer) return answer
     const printed = printedBy(prompt, answer)
-    if (answer.head && !label.startsWith('scope-')) newestTip = answer.head
+    if (answer.head && !base.startsWith('scope-')) newestTip = answer.head
     const { pr_head: _prHead, checks: _checks, required: _required, base_runs: _baseRuns, head: _head, parents: _parents, head_code: _headCode, main_code: _mainCode, nonce: _nonce, edit: _edit, printerMode: _printerMode, push_error: _pushError, remote_tip: _remoteTip, brief_error: _briefError, outside_claim: _outsideClaim, printed: _printed, ...report } = answer
-    return { ...report, printed }
+    return reread ? { printed } : { ...report, printed }
   }
   const agent = async (prompt, agentOptions = {}) => { launchedAgents.push(agentOptions.label); agentCalls[agentOptions.label] = { prompt, options: agentOptions }; return answerFor(agentOptions.label, prompt) }
   // A thunk that throws resolves to null, as in the Workflow runtime.

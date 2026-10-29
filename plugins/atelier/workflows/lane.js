@@ -152,9 +152,9 @@ async function startChild(name, childArgs) {
   }
 }
 // A value a command prints reaches a decision only through the line the lane-relay child reads back and checks.
-const LANE_RELAY_PROTOCOL = 5
+const LANE_RELAY_PROTOCOL = 6
 const SYNC_ANSWER = { properties: { note: { type: 'string', description: 'what stopped the merge: the conflicting paths, or the failed command and its output' } } }
-const relay = (request) => startChild('lane-relay', { protocol: LANE_RELAY_PROTOCOL, worktree: A.worktree, agentOptions: MECHANICAL, ...request })
+const relay = (request) => startChild('lane-relay', { protocol: LANE_RELAY_PROTOCOL, worktree: A.worktree, agentOptions: MECHANICAL, mechanical: MECHANICAL, ...request })
 // The failure reasons name the printed line only when the command printed one.
 const printedLine = (relayed) => relayed.printed === undefined ? '' : `; the printed line: ${relayed.printed}`
 // Language models copy a 40-character hash unreliably (a sync step once dropped one character). A commit is

@@ -215,9 +215,9 @@ for (const [step, args, answers, scopeLabel, stepTip] of stepsThatMustPush) {
 }
 
 const aBuiltLaneWith = (scopeAnswer) => runLane(builtLane, { build: built, 'scope-0': scopeAnswer })
-const stopsBeforeAnyReview = (result, launchedAgents, stage) => {
+const stopsBeforeAnyReview = (result, launchedAgents, stage, rereads = ['scope-0-reread']) => {
   assert.deepEqual([result.status, result.stage], ['failed', stage])
-  assert.deepEqual(launchedAgents, ['build', 'scope-0'])
+  assert.deepEqual(launchedAgents, ['build', 'scope-0', ...rereads])
 }
 
 test('#323 AC-scope-relay: the scope agent returns one printed line and nothing the model derives', async () => {
@@ -292,14 +292,14 @@ for (const [description, printed] of linesThatAreNotRelayLines) {
 
 test('#323 AC-scope-relay: a scope step that returns no result stops the lane at scope', async () => {
   const { result, launchedAgents } = await aBuiltLaneWith(null)
-  stopsBeforeAnyReview(result, launchedAgents, 'scope')
+  stopsBeforeAnyReview(result, launchedAgents, 'scope', [])
   assert.match(result.reason, /returned no result/)
 })
 
 for (const text of ['claimed', { a: 1 }, [1], true]) {
   test(`#71 AC-answer-not-aco: the value ${JSON.stringify(text)} is not aco's outside_claim and stops the lane at scope naming it`, async () => {
     const { result, launchedAgents } = await aBuiltLaneWith({ outside_claim: text })
-    stopsBeforeAnyReview(result, launchedAgents, 'scope')
+    stopsBeforeAnyReview(result, launchedAgents, 'scope', [])
     assert.ok(result.reason.includes(JSON.stringify(text)), result.reason)
   })
 }
@@ -312,7 +312,7 @@ const failedBriefs = [
 for (const [command, answer] of failedBriefs) {
   test(`#118 AC-failed-command-own-field: a failed ${command} stops the lane at scope naming its error output, before any review`, async () => {
     const { result, launchedAgents } = await aBuiltLaneWith({ remote_tip: built.tip, ...answer })
-    stopsBeforeAnyReview(result, launchedAgents, 'scope')
+    stopsBeforeAnyReview(result, launchedAgents, 'scope', [])
     assert.ok(result.reason.includes(answer.brief_error), result.reason)
   })
 }
@@ -357,11 +357,11 @@ const relayFailures = [
   ['incident 3: a head edited to the merge base fails the CRC check', { edit: (line) => line.replace(resumeTip, mainCommit) }, /fails its CRC check/],
   ['a line carrying another nonce', { nonce: `sync-${otherCommit}` }, /carries the nonce sync-e5e5/],
   ['the agent printed no line', { printed: 'fatal: not a git repository' }, /is not a relay line/],
-  ['git rev-parse HEAD failed', { head_code: 128 }, /reports a failed git command/],
-  ['the main check failed with 128', { main_code: 128 }, /reports a failed git command/],
+  ['git rev-parse HEAD failed', { head_code: 128 }, /reports a failed git command/, 'readable'],
+  ['the main check failed with 128', { main_code: 128 }, /reports a failed git command/, 'readable'],
 ]
 
-for (const [what, scenario, reasonPattern] of relayFailures) {
+for (const [what, scenario, reasonPattern, lineIs] of relayFailures) {
   test(`#345 AC-sync-relay-failures: a sync where ${what} fails the lane at sync`, async () => {
     const { result, launchedAgents } = await runLane(resumeArgs, { sync: scenario })
     assert.deepEqual([result.status, result.stage], ['failed', 'sync'])
@@ -369,7 +369,7 @@ for (const [what, scenario, reasonPattern] of relayFailures) {
       assert.match(result.reason, reasonPattern)
       assert.ok(result.reason.includes('the printed line: '), result.reason)
     }
-    assert.deepEqual(launchedAgents, ['sync'])
+    assert.deepEqual(launchedAgents, scenario && lineIs !== 'readable' ? ['sync', 'sync-reread'] : ['sync'])
   })
 }
 

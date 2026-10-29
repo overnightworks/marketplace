@@ -142,18 +142,19 @@ const BUILD = {
   required: ['pr', 'tip', 'blocked'],
   properties: { pr: { type: 'number' }, tip: { type: 'string', pattern: '^[0-9a-f]{7,40}$', description: 'a commit sha from git rev-parse, nothing else' }, summary: { type: 'string' }, blocked: { type: 'boolean' }, blockedReason: { type: 'string' }, rescope: RESCOPE },
 }
-// A value a command prints reaches a decision only through the line the lane-relay child reads back and checks. A refusal
-// or a crash is a problem the caller stops on, at the stage of its own step, like an unreadable line.
-const LANE_RELAY_PROTOCOL = 4
-const SYNC_ANSWER = { properties: { note: { type: 'string', description: 'what stopped the merge: the conflicting paths, or the failed command and its output' } } }
-async function relay(request) {
+// A child's refusal or crash is a problem naming the child, which its caller stops on at the stage of its own step.
+async function startChild(name, childArgs) {
   try {
-    const answer = await workflow('atelier:lane-relay', { protocol: LANE_RELAY_PROTOCOL, worktree: A.worktree, agentOptions: MECHANICAL, ...request })
-    return answer?.refused ? { problem: `was refused by lane-relay: ${answer.refused}` } : answer
+    const answer = await workflow(`atelier:${name}`, childArgs)
+    return answer?.refused ? { problem: `${name} refused: ${answer.refused}` } : answer
   } catch (error) {
-    return { problem: `ended in lane-relay with ${String(error).slice(0, 300)}` }
+    return { problem: `${name} failed: ${String(error).slice(0, 300)}` }
   }
 }
+// A value a command prints reaches a decision only through the line the lane-relay child reads back and checks.
+const LANE_RELAY_PROTOCOL = 4
+const SYNC_ANSWER = { properties: { note: { type: 'string', description: 'what stopped the merge: the conflicting paths, or the failed command and its output' } } }
+const relay = (request) => startChild('lane-relay', { protocol: LANE_RELAY_PROTOCOL, worktree: A.worktree, agentOptions: MECHANICAL, ...request })
 // The failure reasons name the printed line only when the command printed one.
 const printedLine = (relayed) => relayed.printed === undefined ? '' : `; the printed line: ${relayed.printed}`
 // Language models copy a 40-character hash unreliably (a sync step once dropped one character). A commit is
@@ -281,19 +282,14 @@ function claudeReview(label, role, range) {
     { label, phase: 'Review', schema: VERDICT, agentType: 'atelier:code-reviewer', ...claudeRole('review') })
 }
 
-// The Codex courier is the lane-codex child. A refusal, a crash or a malformed answer is a failed verdict that names it,
-// which the review classifier reports as the lane's failure.
+// The lane-codex child's refusal, crash or malformed answer is a failed verdict that names it.
 const LANE_CODEX_PROTOCOL = 1
 async function codexReview(label, routing, role, range) {
   const failed = (note) => ({ verdict: 'failed', blocking: [], followups: [], codexExit: -1, note })
-  try {
-    const answer = await workflow('atelier:lane-codex', { protocol: LANE_CODEX_PROTOCOL, worktree: A.worktree, scratch: A.scratch, tag: TAG, label, routing, reviewerBrief: reviewerBrief(role, range), findingKinds: FINDING_KINDS, verdictSchema: COURIER_VERDICT, mechanical: MECHANICAL })
-    if (answer?.refused) return failed(`lane-codex refused: ${answer.refused}`)
-    if (answer && typeof answer.verdict !== 'string') return failed(`lane-codex answered without a verdict: ${JSON.stringify(answer).slice(0, 200)}`)
-    return answer
-  } catch (error) {
-    return failed(`lane-codex failed: ${String(error).slice(0, 300)}`)
-  }
+  const answer = await startChild('lane-codex', { protocol: LANE_CODEX_PROTOCOL, worktree: A.worktree, scratch: A.scratch, tag: TAG, label, routing, reviewerBrief: reviewerBrief(role, range), findingKinds: FINDING_KINDS, verdictSchema: COURIER_VERDICT, mechanical: MECHANICAL })
+  if (answer?.problem) return failed(answer.problem)
+  if (answer && typeof answer.verdict !== 'string') return failed(`lane-codex answered without a verdict: ${JSON.stringify(answer).slice(0, 200)}`)
+  return answer
 }
 
 const reviewBy = (r, label, range) => r.provider === 'codex' ? codexReview(label, ROUTING[r.key], r.role, range) : claudeReview(label, r.role, range)
@@ -700,18 +696,12 @@ function explore(n) {
       { label: `e2e-${n}-fallback`, phase: 'Test and CI', schema: E2E, agentType: 'general-purpose', ...claudeRole('test') }))
 }
 
-// The CI watcher is the lane-ci child. A throw inside parallel() would reach the loop as a bare null, so a refusal or a
-// crash comes back as {failure} with its reason.
+// A throw inside parallel() would reach the loop as a bare null, so the lane-ci child's failure returns as {problem}.
 const LANE_CI_PROTOCOL = 2
 async function watchCi(n) {
-  try {
-    const answer = await workflow('atelier:lane-ci', { protocol: LANE_CI_PROTOCOL, pr, n, repo: A.repo, worktree: A.worktree, finding: FINDING, watcher: WATCHER })
-    if (answer?.refused) return { failure: `lane-ci refused: ${answer.refused}` }
-    if (answer && !SHA.test(answer.head || '')) return { failure: `lane-ci answered without a head sha: ${JSON.stringify(answer).slice(0, 200)}` }
-    return answer
-  } catch (error) {
-    return { failure: `lane-ci failed: ${String(error).slice(0, 300)}` }
-  }
+  const answer = await startChild('lane-ci', { protocol: LANE_CI_PROTOCOL, pr, n, repo: A.repo, worktree: A.worktree, finding: FINDING, watcher: WATCHER })
+  if (answer && !answer.problem && !SHA.test(answer.head || '')) return { problem: `lane-ci answered without a head sha: ${JSON.stringify(answer).slice(0, 200)}` }
+  return answer
 }
 
 // A check red on this head and failed on the base tip is main's to repair; the watcher copied both listings, the script compares them.
@@ -721,7 +711,7 @@ function sharedReds(ci) {
 }
 
 function lockQueueCiState(ci) {
-  if (!ci || ci.failure) return 'not readable'
+  if (!ci || ci.problem) return 'not readable'
   if (ci.green && !ci.unproven && !ci.requiredChecksError) return 'green'
   const names = (ci.failing || []).map(f => `"${f.where}"`).join(', ')
   return names ? `red (${names})` : 'not green'
@@ -753,7 +743,7 @@ while (true) {
     return openResult('awaiting-head', 'test', { reason: `lock queue: the shared probe lock stayed busy for both tries, so the end-to-end test did not run; CI of this round: ${lockQueueCiState(ci)}. Start a new run with pr and tip once the queue clears.` })
   }
   if (!e2e || e2e.verdict === 'failed') return openResult('failed', 'test', { reason: 'the tester returned no usable result' })
-  if (!ci || ci.failure) return openResult('failed', 'ci', ci ? { reason: ci.failure } : undefined)
+  if (!ci || ci.problem) return openResult('failed', 'ci', ci ? { reason: ci.problem } : undefined)
   const testBlocking = e2e.blocking || []
   if (e2e.verdict === 'PASS' && !e2e.skipped && !(e2e.cells || []).some(c => c.result === 'held')) return openResult('failed', 'test', { reason: 'a PASS without driven cells: the tester named no held cell' })
   if (e2e.verdict === 'FAIL' && testBlocking.length === 0) return openResult('failed', 'test', { reason: 'a FAIL verdict came without any blocking finding' })

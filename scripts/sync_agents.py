@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Sync Atelier agent definitions from Markdown sources to Codex TOML."""
+# ruff: noqa: T201 - the sync command reports what it wrote
 
 from __future__ import annotations
 

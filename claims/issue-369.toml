@@ -1,8 +1,0 @@
-claim_id = "bca2dc4efdac4fb2ae2400766f85c214"
-agent = "Claude b5de3560-4db0-4dfe-be9f-fe26ef53140a"
-role = "builder"
-base = "381681d730e1d218edffb43f432a67f679905286"
-branch = "claude/issue-369-tester-pass-carries-cells"
-scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/workflows/lane.js", "tests/lane_workflow_ci.test.mjs", "tests/lane_workflow_harness.mjs"]
-opened_commit = "0b54304028d2d02d0b1b1d653eb9eb31aa14a06d"
-whole_reason = "One answer-contract change in lane.js with its harness and test rows and the three version pins every atelier change bumps."

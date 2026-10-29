@@ -5,7 +5,7 @@ export const meta = {
 }
 
 // Both copies of this number (here and in lane.js) change together in any commit that changes the args or the return shape.
-const LANE_RELAY_PROTOCOL = 3
+const LANE_RELAY_PROTOCOL = 4
 const A = args || {}
 const need = ['protocol', 'worktree', 'label', 'phase', 'brief', 'step', 'relayArgs', 'nonce', 'requiredKeys', 'agentOptions']
 const missing = need.filter(key => A[key] === undefined || A[key] === null || A[key] === '')
@@ -25,18 +25,18 @@ async function safeAgent(prompt, opts) {
 
 // A value a command prints reaches a decision only through one line the PRINTER wrote: the agent runs it and relays the
 // line unchanged, and a retyped or edited line fails its CRC32. The printer holds no single quote, so the shell passes
-// it as one argument. Its first argument names the step whose commands it runs; the scope step never forces a push and
-// relays at most 50 paths, and the sync step reports the lane tip, its parents and whether it contains origin/main.
+// it as one argument. Its first argument names the step whose commands it runs; the scope step never forces a push,
+// relays HEAD's parents and whether its second parent is in origin/main, at most 50 paths and no text of aco brief but its exit code and error output, and the sync step reports the lane tip, its parents and whether it contains origin/main.
 const PRINTER = [
   'import json,shutil,subprocess,sys,zlib',
   'step,*rest,nonce=sys.argv[1:]',
   'run=lambda*c:subprocess.run(c,capture_output=True,text=True) if shutil.which(c[0]) else subprocess.CompletedProcess(c,127,"","not found: "+c[0])',
-  'steps=dict(scope=lambda item,branch:(("push",("git","push","origin",branch)),("remote",("git","rev-parse","origin/"+branch)),("head",("git","rev-parse","HEAD")),("brief",("aco","brief",item,"--json"))),sync=lambda:(("head",("git","rev-parse","HEAD")),("parents",("git","rev-parse","HEAD^@")),("main",("git","merge-base","--is-ancestor","origin/main","HEAD"))))',
+  'steps=dict(scope=lambda item,branch:(("push",("git","push","origin",branch)),("remote",("git","rev-parse","origin/"+branch)),("head",("git","rev-parse","HEAD")),("parents",("git","rev-parse","HEAD^@")),("second_parent_in_main",("git","merge-base","--is-ancestor","HEAD^2","origin/main")),("brief",("aco","brief",item,"--json"))),sync=lambda:(("head",("git","rev-parse","HEAD")),("parents",("git","rev-parse","HEAD^@")),("main",("git","merge-base","--is-ancestor","origin/main","HEAD"))))',
   'ran={n:run(*c) for n,c in steps[step](*rest)}',
   'brief=json.loads(ran["brief"].stdout) if "brief" in ran and ran["brief"].returncode==0 else None',
   'shared=[] if brief is None or brief.get("claim",{}).get("lane_shared_unavailable") else brief.get("claim",{}).get("lane_shared",[])',
   'claim=[p for p in brief["outside_claim"] if p not in shared] if brief and isinstance(brief["outside_claim"],list) else brief and brief["outside_claim"]',
-  'values={n:{"code":p.returncode,"err":" ".join(l for l in p.stderr.splitlines() if l[:5]!="hint:")[-300:],"out":p.stdout.strip()[:100]} for n,p in ran.items()}',
+  'values={n:{"code":p.returncode,"err":" ".join(l for l in p.stderr.splitlines() if l[:5]!="hint:")[-300:],**({} if n=="brief" else {"out":p.stdout.strip()[:100]})} for n,p in ran.items()}',
   'values.update(nonce=nonce,**(dict(outside_claim=claim[:50] if isinstance(claim,list) else claim,count=len(claim) if isinstance(claim,list) else None) if "brief" in ran else {}))',
   'payload=json.dumps(values,ensure_ascii=True,separators=(",",":"),sort_keys=True)',
   'print("""{"crc":"%08x","v":%s}"""%(zlib.crc32(payload.encode()),payload))',

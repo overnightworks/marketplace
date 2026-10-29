@@ -144,7 +144,7 @@ const BUILD = {
 }
 // A value a command prints reaches a decision only through the line the lane-relay child reads back and checks. A refusal
 // or a crash is a problem the caller stops on, at the stage of its own step, like an unreadable line.
-const LANE_RELAY_PROTOCOL = 3
+const LANE_RELAY_PROTOCOL = 4
 const SYNC_ANSWER = { properties: { note: { type: 'string', description: 'what stopped the merge: the conflicting paths, or the failed command and its output' } } }
 async function relay(request) {
   try {
@@ -230,7 +230,7 @@ const laneFacts =
 
 // For the agents that may run a drive (the builder and the fixer); the tester already writes under its own scratch directory.
 const rescopeFacts =
-  `When the work needs a path outside the claim scope, edit nothing there: finish what lies inside, and list the path, the change it needs and the reason in rescope. A file that \`aco brief\` lists as lane-shared counts as inside the scope and needs no rescope. The head then runs aco rescope and resumes.`
+  `When the work needs a path outside the claim scope, edit nothing there: finish what lies inside, and list the path, the change it needs and the reason in rescope. A file that \`aco brief\` lists as lane-shared counts as inside the scope and needs no rescope: \`aco brief <item>\` prints it on its \`lane-shared:\` line, which you read before you call a path outside the scope (a stale \`quality/baseline.toml\` entry is lowered in place). The head then runs aco rescope and resumes.`
 
 // For the builder and the fixer: the deterministic checks CI repeats run before the push, not after it.
 const localCheckFacts =
@@ -533,7 +533,7 @@ async function fixBatch(blocking, source, budgetKey, carried = false) {
   const answered = await relay({ label: `fix-${spent.total}`, phase: 'Fix', step: 'sync', relayArgs: [`'${nonce}'`], nonce, requiredKeys: ['head', 'parents', 'main'], answerSchema: FIX, agentOptions: { agentType: 'atelier:code-fixer', ...claudeRole(fixerRole(blocking, foldIn)) }, brief:
     `${laneFacts} ${driveFacts} ${rescopeFacts} ${localCheckFacts}\nYou are a fresh fixer for PR #${pr} (lane tip ${tip}). Merge origin/main if it moved, before or after your fixes (a merge commit; ` +
     `resolve other conflicts only when you can do so without changing behaviour, and set mergeResolvedLaneConflict true when files this lane changed needed resolution). If the worktree already carries commits or uncommitted changes past that tip from an earlier fixer that ran out of turns, judge them, keep what is right, and continue from there. Commit each finding as soon as it is green; if you run short of turns, commit what is green and return what is left in blockedReason with blocked true. ${fixerTask}${foldInBrief(foldIn)}\n\n` +
-    `Each finding names the rule it breaks and its evidence. Check the evidence yourself first. If it does not hold — the rule is not broken, or the evidence is wrong — ` +
+    `Each finding names the rule it breaks and its evidence. A scanner finding whose message covers the whole file (for example "in this file") is fixed at every occurrence in that file, not only at the reported line. Check the evidence yourself first. If it does not hold — the rule is not broken, or the evidence is wrong — ` +
     `do not change code for it: list it in disputed with your counter-evidence. Report every test you add, strengthen or keep for a blocking finding, and every probe cell you run for it, in regression under that finding's number in the list above; the number counts only for the blocking list, a follow-up needs no regression entry. Run the mutation you name, do not reason about it. ` +
     `A defect's test fails before your fix and passes after it; a defect with a test draft needs one. A defect in test code (hygiene) needs no regression test: the diff is its proof. A test-gap finding means a behaviour has no test, the code is already right, and it always needs a test: it passes before and after, ` +
     `so name in mutation the production change, made and reverted, under which the test fails; a test that fails on the pre-fix code counts as such a mutation (failedBefore true). When a test-gap's cell pins no behaviour at all, you may remove it instead: report resolution removed-vacuous with the removal diff in diff. A docs finding needs no test. When the only finding is that the pull request conflicts with main, the merge is the whole fix. ` +
@@ -588,14 +588,21 @@ async function pushAndCheckScope(label, origin) {
   phase('Scope')
   const nonce = `${label}-${tip}`
   const quotedArguments = [A.item, `'${A.branch}'`, `'${nonce}'`]
-  const checked = await relay({ label, phase: 'Scope', step: 'scope', relayArgs: quotedArguments, nonce, requiredKeys: ['push', 'remote', 'head', 'brief'], brief: `${laneFacts}\nChange nothing in the files;` })
+  const checked = await relay({ label, phase: 'Scope', step: 'scope', relayArgs: quotedArguments, nonce, requiredKeys: ['push', 'remote', 'head', 'parents', 'second_parent_in_main', 'brief'], brief: `${laneFacts}\nChange nothing in the files;` })
   if (!checked) return { stop: openResult('failed', 'scope', { reason: 'the push and claim-scope check returned no result' }) }
   const fail = (stage, reason) => ({ stop: openResult('failed', stage, { reason: `${reason}${printedLine(checked)}` }) })
   const { values, problem } = checked
   if (problem) return fail('scope', `the push and claim-scope check ${problem}`)
   const { push, remote, head, brief } = values
-  if (push.code !== 0 || !sameCommit(remote.out, tip)) {
+  // A fix batch may leave a clean merge of origin/main on top of the tip; the lane goes on from that merge, never from any other difference.
+  const adoptedMerge = push.code === 0 && !sameCommit(remote.out, tip) && sameCommit(remote.out, head.out) && mergedOnto(values, tip) &&
+    values.parents.out.split('\n').length === 2 && values.second_parent_in_main.code === 0
+  if (push.code !== 0 || !(adoptedMerge || sameCommit(remote.out, tip))) {
     return fail('push', `the remote branch ${A.branch} does not carry the lane tip ${tip}: git push exited ${push.code} (${push.err}), origin/${A.branch} is ${remote.out}, HEAD is ${head.out}`)
+  }
+  if (adoptedMerge) {
+    history.push({ by: 'scope', adoptedMerge: head.out, from: tip })
+    tip = head.out
   }
   if (brief.code !== 0) return fail('scope', `aco brief ${A.item} --json exited ${brief.code}: ${brief.err}`)
   const paths = values.outside_claim

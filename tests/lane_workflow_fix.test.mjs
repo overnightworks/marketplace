@@ -440,3 +440,8 @@ test('#358 the builder and the fixer are told to run the static checks before pu
   assert.match(agentCalls['fix-1'].prompt, localChecks)
   assert.doesNotMatch(agentCalls['r1-review'].prompt, localChecks)
 })
+
+test('#370 AC-file-wide-rule-swept: the fixer prompt says a finding whose message covers the whole file is fixed at every occurrence in that file', async () => {
+  const { agentCalls } = await runLane({ ...resumeArgs, fixFirst: [defectWithoutDraft] }, { 'fix-1': resumeFix })
+  assert.match(agentCalls['fix-1'].prompt, /message covers the whole file[^.]*every occurrence in that file, not only at the reported line/)
+})

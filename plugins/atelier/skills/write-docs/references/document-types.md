@@ -256,7 +256,8 @@ Skeleton:
 
 "Who uses it today" names people and products, not a list of dependent
 repositories: those are read from manifests (the contract's product ownership),
-and only a dependency no manifest shows stands here.
+and only a dependency no manifest shows stands here. When nobody uses the
+product yet, the section says so in one line.
 
 Limits: the document set's budget. No plans, phases, status or technical
 choices, because those rot: plans, phases and status belong in items, technical
@@ -274,9 +275,8 @@ operator's blessing. A draft takes each section from the operator's words, the
 README or the rulings; a section none of them answers stays out and goes to the
 operator as a question with the draft, never invented.
 
-Mistakes: a roadmap or status list; technical choices; wishes with no user
-today; a section invented or left as an empty heading; wording the operator
-never said or blessed.
+Mistakes: a roadmap or status list; technical choices; a section invented or
+left as an empty heading; wording the operator never said or blessed.
 
 ## Mockup
 

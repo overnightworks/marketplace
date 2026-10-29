@@ -44,10 +44,12 @@ done-when and does not block.
   capability, link) modeled twice, not only duplicated guidance.
 - Standards and libraries: prefer an existing standard or maintained library
   over a hand-rolled equivalent unless a named reason rejects it.
-- Value: the body answers the pull question of the user-level contract (worth
-  its lifetime cost, no other layer or tool covers it better, not an
-  architecture symptom); a plan that drives a component past its declared
-  sentences toward completeness is REVISE.
+- Value: the body answers the pull question of the user-level contract (its
+  long-term gain worth its lifetime cost, no other layer or tool covers it
+  better, not an architecture symptom); a plan that drives a component past its
+  declared sentences toward completeness is REVISE. A plan that violates an
+  applicable fleet standard's adoption requirements without a ruled deviation is
+  REVISE.
 - Provider neutrality: provider-specific detail (flags, file formats, launch
   mechanics) lives behind the adapter boundary; the concept and contract layer
   stays neutral. Flag any provider baked into the neutral contract layer.

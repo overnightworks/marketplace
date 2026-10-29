@@ -1,0 +1,8 @@
+claim_id = "cd7537bdda494bb4bd28c51231ec1083"
+agent = "Claude b5de3560-4db0-4dfe-be9f-fe26ef53140a"
+role = "builder"
+base = "a840d8a60a66a6d205ade0c5b3090852c0035a29"
+branch = "claude/issue-372-python-3-14"
+scope = [".github/workflows/ci.yml", "pyproject.toml", "sonar-project.properties", "uv.lock"]
+opened_commit = "c51227264861e85cc783158c9d38db43c68031cb"
+whole_reason = "One version move across the four files that declare it; splitting would leave CI and the floor disagreeing."

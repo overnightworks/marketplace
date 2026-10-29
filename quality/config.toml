@@ -1,2 +1,31 @@
 [gate]
 mandatory_jobs = ["Sync check and tests"]
+
+[[root.allow]]
+entry = ".agents/"
+reason = "the Codex marketplace catalog, read at the root"
+
+[[root.allow]]
+entry = ".claude-plugin/"
+reason = "the Claude marketplace catalog, read at the root"
+
+[[root.allow]]
+entry = ".claude/"
+reason = "this repository's own Claude host configuration"
+
+[[root.allow]]
+entry = ".codex/"
+reason = "this repository's own Codex host configuration"
+
+[[root.allow]]
+entry = "instructions/"
+reason = "the operator's contract and code policy"
+
+[[root.allow]]
+entry = "plugins/"
+reason = "the plugin payload both catalogs point at"
+
+[[layout.allow]]
+path = "scripts/install.py"
+rule = "script-name"
+reason = "the operator's documented install command, run after every atelier landing"

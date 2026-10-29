@@ -13,6 +13,7 @@ publishes a composite action that every consumer's CI resolves with `uses:`,
 which checks out the whole repository: a link pointing outside it breaks that
 extraction and every consuming build with it.
 """
+# ruff: noqa: T201 - the layout gate reports its findings
 
 from __future__ import annotations
 
@@ -134,8 +135,8 @@ def parse_tracked_entries(records: Iterable[str]) -> tuple[TrackedEntry, ...]:
 
 
 def _git_records(repository_root: Path, *options: str) -> list[str]:
-    completed = subprocess.run(
-        ["git", "ls-files", "-z", *options],
+    completed = subprocess.run(  # noqa: S603 - argv is fixed words and the caller's options
+        ["git", "ls-files", "-z", *options],  # noqa: S607 - git is resolved from PATH like every repository tool
         cwd=repository_root,
         check=True,
         capture_output=True,

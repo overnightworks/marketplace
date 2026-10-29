@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Install or update the atelier plugin for every provider CLI found, and link the contract."""
+# ruff: noqa: T201 - the install command reports what it ran and found
 
 from __future__ import annotations
 
@@ -192,7 +193,7 @@ def install_claude(*, from_checkout: bool) -> None:
 def run(command: list[str], *, show_output: bool = True) -> subprocess.CompletedProcess[str]:
     if show_output:
         print("+ " + " ".join(command))
-    result = subprocess.run(command, capture_output=True, text=True, check=False)
+    result = subprocess.run(command, capture_output=True, text=True, check=False)  # noqa: S603 - argv is fixed words
     if show_output:
         sys.stdout.write(result.stdout)
     sys.stderr.write(result.stderr)

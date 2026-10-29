@@ -152,7 +152,7 @@ async function startChild(name, childArgs) {
   }
 }
 // A value a command prints reaches a decision only through the line the lane-relay child reads back and checks.
-const LANE_RELAY_PROTOCOL = 4
+const LANE_RELAY_PROTOCOL = 5
 const SYNC_ANSWER = { properties: { note: { type: 'string', description: 'what stopped the merge: the conflicting paths, or the failed command and its output' } } }
 const relay = (request) => startChild('lane-relay', { protocol: LANE_RELAY_PROTOCOL, worktree: A.worktree, agentOptions: MECHANICAL, ...request })
 // The failure reasons name the printed line only when the command printed one.
@@ -697,22 +697,32 @@ function explore(n) {
 }
 
 // A throw inside parallel() would reach the loop as a bare null, so the lane-ci child's failure returns as {problem}.
-const LANE_CI_PROTOCOL = 2
-async function watchCi(n) {
-  const answer = await startChild('lane-ci', { protocol: LANE_CI_PROTOCOL, pr, n, repo: A.repo, worktree: A.worktree, finding: FINDING, watcher: WATCHER })
-  if (answer && !answer.problem && !SHA.test(answer.head || '')) return { problem: `answered without a head sha: ${JSON.stringify(answer).slice(0, 200)}` }
-  return answer
+const LANE_CI_PROTOCOL = 3
+// The printed listing, not the watcher's word, decides whether CI counts as green; null means the listing proves it.
+function unprovenGreen({ checks, rules }) {
+  if (checks.code !== 0 || !checks.list.length) return `no checks are listed for the pull request head (gh pr checks exited ${checks.code}: ${checks.err})`
+  const bucketOf = new Map(checks.list.map(c => [c.name, c.bucket]))
+  return [
+    ...checks.list.filter(c => !['pass', 'skipping'].includes(c.bucket)).map(c => `check "${c.name}" is ${c.bucket}, not pass or skipping`),
+    ...(rules.contexts || []).filter(name => bucketOf.get(name) !== 'pass').map(name => bucketOf.has(name) ? `required check "${name}" is ${bucketOf.get(name)}, not pass` : `required check "${name}" is missing from the listing`),
+  ].join('; ') || null
 }
 
-// A check red on this head and failed on the base tip is main's to repair; the watcher copied both listings, the script compares them.
-function sharedReds(ci) {
-  const failedOnBase = new Set((ci.baseChecks || []).filter(run => run.conclusion === 'failure').map(run => run.name))
-  return (ci.checks || []).filter(c => c.bucket === 'fail' && failedOnBase.has(c.name)).map(c => c.name)
+async function watchCi(n) {
+  const watched = await startChild('lane-ci', { protocol: LANE_CI_PROTOCOL, pr, n, repo: A.repo, worktree: A.worktree, finding: FINDING, watcher: WATCHER })
+  if (!watched || watched.problem) return watched
+  const nonce = `ci-${n}-${tip}`
+  const read = await relay({ label: `ci-read-${n}`, phase: 'Test and CI', step: 'ci', relayArgs: [pr, `'${A.repo || ''}'`, `'${nonce}'`], nonce, requiredKeys: ['view'], brief: `${laneFacts}\nChange nothing in the files;` })
+  if (!read) return { problem: 'ended without reading the CI values' }
+  if (read.problem) return { problem: `read the CI values, but their relay line ${read.problem}${printedLine(read)}` }
+  const { view, checks, rules, head, shared } = read.values
+  if (view.code !== 0) return { problem: `could not read the pull request: gh pr view exited ${view.code}: ${view.err}` }
+  return { ...watched, head, shared, rulesError: rules.code === 0 ? null : `gh api exited ${rules.code}: ${rules.err}`, unproven: watched.green ? unprovenGreen({ checks, rules }) : null }
 }
 
 function lockQueueCiState(ci) {
   if (!ci || ci.problem) return 'not readable'
-  if (ci.green && !ci.unproven && !ci.requiredChecksError) return 'green'
+  if (ci.green && !ci.unproven && !ci.rulesError) return 'green'
   const names = (ci.failing || []).map(f => `"${f.where}"`).join(', ')
   return names ? `red (${names})` : 'not green'
 }
@@ -752,14 +762,14 @@ while (true) {
   const { unproven } = ci
   history.push(
     { after: spent.total, by: `e2e-${n - 1}`, verdict: testVerdict(e2e, testBlocking), blocking: testBlocking.map(f => f.where), cells: e2e.cells || [], reportPath: e2e.evidencePath || '' },
-    { after: spent.total, by: `ci-${n - 1}`, verdict: ci.green && !unproven && !ci.requiredChecksError ? 'GREEN' : 'RED', blocking: (ci.failing || []).map(f => f.where) },
+    { after: spent.total, by: `ci-${n - 1}`, verdict: ci.green && !unproven && !ci.rulesError ? 'GREEN' : 'RED', blocking: (ci.failing || []).map(f => f.where) },
   )
   followups.push(...(e2e.followups || []).map(f => ({ ...f, tip })))
-  if (ci.requiredChecksError) return openResult('failed', 'ci', { reason: `the required checks of the base branch could not be read: ${ci.requiredChecksError}` })
+  if (ci.rulesError) return openResult('failed', 'ci', { reason: `the required checks of the base branch could not be read: ${ci.rulesError}` })
   if (unproven) return openResult('failed', 'ci', { reason: `CI reported green, but the check listing does not prove it: ${unproven}` })
   if (testBlocking.length === 0 && ci.green) break
 
-  const shared = sharedReds(ci)
+  const { shared } = ci
   if (shared.length && testBlocking.length === 0) {
     const checkList = shared.map(name => `"${name}"`).join(', ')
     return openResult('awaiting-head', 'ci', { reason: `the CI check(s) ${checkList} are red on the base branch tip too: the red is shared with main and is fixed there, so no fixer was launched. If this lane's item is that repair, start a new run with pr and tip and fixFirst.` })

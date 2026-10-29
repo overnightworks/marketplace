@@ -15,7 +15,7 @@ const reachesCi = { 'fix-1': alreadySatisfied, 'r1-review': { verdict: 'APPROVE'
 const required = 'quality / verdict'
 const check = (name, bucket) => ({ name, bucket })
 const ciAnswer = (checks, extra = {}) => ({ head: tip, green: true, failing: [], checks, requiredChecks: [required], ...extra })
-const driveCi = (ci, args = lane) => runLane({ ...args, foldIn: [tidy] }, { ...reachesCi, 'ci-0': ci })
+const driveCi = (ci, args = lane, read) => runLane({ ...args, foldIn: [tidy] }, { ...reachesCi, 'ci-0': ci, ...(read && { 'ci-read-0': read }) })
 
 const unproven = [
   ['a pending check', [check(required, 'pass'), check('Python: tests', 'pending')], /Python: tests/],
@@ -40,13 +40,64 @@ for (const [what, checks, reason] of unproven) {
   })
 }
 
-test('#266 AC-ci-listing-proof: a required check error fails the lane at ci naming the error and launches no fixer', async () => {
-  const { result, launchedAgents } = await driveCi(ciAnswer([check(required, 'pass')], { requiredChecksError: 'HTTP 403: forbidden' }))
+test('#381 ci-relay-line: a printed rules exit code fails the lane at ci naming the exit and the printed error and launches no fixer', async () => {
+  const { result, launchedAgents } = await driveCi(ciAnswer([check(required, 'pass')]), lane, { rules_code: 1, rules_error: 'HTTP 403: forbidden' })
   assert.deepEqual([result.status, result.stage], ['failed', 'ci'])
-  assert.match(result.reason, /HTTP 403: forbidden/)
+  assert.match(result.reason, /exited 1: HTTP 403: forbidden/)
   assert.equal(result.history.at(-1).by, 'ci-0')
   assert.equal(result.history.at(-1).verdict, 'RED')
   assert.ok(!launchedAgents.includes('fix-2'))
+})
+
+test('#381 ci-relay-line: a watcher answer carrying requiredChecksError null reaches ready-to-land when the printed line proves green', async () => {
+  const { result } = await driveCi(ciAnswer([check(required, 'pass')], { requiredChecksError: 'null' }))
+  assert.equal(result.status, 'ready-to-land', result.reason)
+})
+
+test('#381 ci-relay-line: the head the watcher answers does not count, the printed head does', async () => {
+  const { result } = await driveCi(ciAnswer([check(required, 'pass')]), lane, { pr_head: 'd0d0d0d' })
+  assert.deepEqual([result.status, result.stage], ['failed', 'ci'])
+  assert.match(result.reason, /d0d0d0d/)
+})
+
+test('#381 ci-relay-line: the checks the watcher copies do not count, the printed listing does', async () => {
+  const { result } = await driveCi(ciAnswer([check(required, 'pass')]), lane, { checks: [check(required, 'pass'), check('Python: tests', 'fail')] })
+  assert.deepEqual([result.status, result.stage], ['failed', 'ci'])
+  assert.match(result.reason, /Python: tests/)
+})
+
+test('#381 ci-relay-line: a failed gh pr view fails the lane at ci naming its exit and error', async () => {
+  const { result, launchedAgents } = await driveCi(ciAnswer([check(required, 'pass')]), lane, { view_code: 1, view_error: 'no pull requests found' })
+  assert.deepEqual([result.status, result.stage], ['failed', 'ci'])
+  assert.match(result.reason, /gh pr view exited 1: no pull requests found/)
+  assert.ok(!launchedAgents.includes('fix-2'))
+})
+
+test('#381 ci-relay-line: a nonzero gh pr checks exit leaves a green watcher unproven, naming the exit and the printed error', async () => {
+  const { result } = await driveCi(ciAnswer([check(required, 'pass')]), lane, { checks_code: 1, checks_error: "no checks reported on the 'b' branch" })
+  assert.deepEqual([result.status, result.stage], ['failed', 'ci'])
+  assert.match(result.reason, /gh pr checks exited 1: no checks reported on the 'b' branch/)
+})
+
+test('#381 ci-relay-line: a nonzero gh pr checks exit with a red watcher still reaches a fixer with its quoted entries', async () => {
+  const failing = [{ where: 'Python: tests', kind: 'defect', text: 'fails', rule: 'CI check Python: tests', evidence: 'boom' }]
+  const { agentCalls } = await driveCi(ciAnswer([], { green: false, failing }), lane, { checks_code: 1, checks_error: 'no checks reported' })
+  assert.match(agentCalls['fix-2'].prompt, /Python: tests/)
+})
+
+for (const [what, mishandling] of [['an edited line', { edit: (line) => line.replace('"shared":[]', '"shared":["x"]') }], ['a wrong nonce', { nonce: 'ci-0-other' }]]) {
+  test(`#381 ci-relay-line: ${what} fails the lane at ci and the watcher's word is not used instead`, async () => {
+    const { result } = await driveCi(ciAnswer([check(required, 'pass')]), lane, mishandling)
+    assert.deepEqual([result.status, result.stage], ['failed', 'ci'])
+    assert.match(result.reason, /relay line/)
+  })
+}
+
+test('#381 ci-relay-line: with repo set the printer is told the repository, without it the worktree repository', async () => {
+  const withRepo = await driveCi(ciAnswer([check(required, 'pass')]), { ...lane, repo: 'o/n' })
+  const without = await driveCi(ciAnswer([check(required, 'pass')]))
+  assert.match(withRepo.agentCalls['ci-read-0'].prompt, / ci 1 'o\/n' 'ci-0-/)
+  assert.match(without.agentCalls['ci-read-0'].prompt, / ci 1 '' 'ci-0-/)
 })
 
 const proven = [
@@ -79,27 +130,20 @@ test('#266 AC-ci-listing-proof: green false with all checks passing does not bec
   assert.equal(result.history.at(-1).verdict, 'RED')
 })
 
-test('#266 AC-ci-listing-proof: with repo set the CI brief names the repository and the worktree cd is gone', async () => {
+test('#381 ci-relay-line: the CI brief keeps the registration wait, the re-watch rule and the rules read for pacing only, and returns no listing', async () => {
   const { agentCalls } = await driveCi(ciAnswer([check(required, 'pass')]), { ...lane, repo: 'o/n' })
   const brief = agentCalls['ci-0'].prompt
   assert.match(brief, /repos\/o\/n\/rules\/branches/)
   assert.match(brief, / -R o\/n/)
   assert.doesNotMatch(brief, /cd '\/w'/)
+  assert.match(brief, /neither what you read nor its error is returned or judged/)
+  assert.match(brief, /watch again; re-watching shares the cap/)
+  assert.doesNotMatch(brief, /requiredChecksError|baseChecks|into checks|as head/)
 })
 
-test('#266 AC-ci-listing-proof: without repo the CI brief runs the listing and rules commands in the worktree', async () => {
+test('#266 AC-ci-listing-proof: without repo the CI brief runs the rules read in the worktree', async () => {
   const { agentCalls } = await driveCi(ciAnswer([check(required, 'pass')]))
   assert.match(agentCalls['ci-0'].prompt, /cd '\/w' && gh api repos\/\{owner\}\/\{repo\}\/rules\/branches/)
-})
-
-test('#266 AC-ci-listing-proof: the CI brief carries the API-error rule, the conflicting-PR empty arrays and the re-watch rule', async () => {
-  const { agentCalls } = await driveCi(ciAnswer([check(required, 'pass')]))
-  const brief = agentCalls['ci-0'].prompt
-  assert.match(brief, /requiredChecksError/)
-  assert.match(brief, /never `\[\]`/)
-  assert.match(brief, /checks: \[\] and requiredChecks: \[\] and baseChecks: \[\]/)
-  assert.match(brief, /watch again before you copy the listing/)
-  assert.match(brief, /--json name,bucket/)
 })
 
 const readWorkflow = (name) => fs.readFileSync(new URL(`../plugins/atelier/workflows/${name}.js`, import.meta.url), 'utf8')
@@ -183,17 +227,9 @@ test('#286 ci-shared-red: a shared red with a blocking end-to-end finding gives 
   assert.doesNotMatch(brief, /quality \/ hygiene/)
 })
 
-test('#286 ci-shared-red: the CI brief asks the watcher for the base check runs before the conflicting-path sentence', async () => {
-  const { agentCalls } = await driveCi(ciAnswer([check(required, 'pass')]))
-  const brief = agentCalls['ci-0'].prompt
-  assert.ok(brief.indexOf('baseChecks') > 0 && brief.indexOf('baseChecks') < brief.indexOf('On the conflicting pull request path'))
-  assert.match(brief, /check-runs --paginate/)
-})
-
-test('#311 lane-ci-protocol: an answer without a head sha fails the lane at ci naming what came back', async () => {
-  const { result } = await driveCi({})
-  assert.deepEqual([result.status, result.stage], ['failed', 'ci'])
-  assert.match(result.reason, /without a head sha: \{/)
+test('#286 ci-shared-red: base runs spread over several pages are all searched for the failure', async () => {
+  const { result } = await driveCi(redCi(['quality / hygiene'], [run('a', 'success'), run('b', 'success'), run('quality / hygiene', 'failure')]))
+  assert.equal(result.status, 'awaiting-head')
 })
 
 test('#311 lane-ci-protocol: the refusal shows each protocol value with its type', async () => {

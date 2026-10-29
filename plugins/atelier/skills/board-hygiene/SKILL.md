@@ -73,8 +73,8 @@ rest and say so in the report.
 - Goal: when the operator or the head names a current goal, judge every open
   work item once against it. `keep <reason>`: the item serves the goal now, and
   the reason names how; a keep without a reason is not a verdict. `close`: the
-  item is done, overtaken, or not worth its lifetime cost now; when it is not
-  done, add one sentence "reopen when <trigger>".
+  item is done, overtaken, or its long-term gain is not worth its lifetime cost
+  now; when it is not done, add one sentence "reopen when <trigger>".
 - Point: does the problem the item names still exist? If not, `close`.
 - Landed but waiting for a live proof only the operator can give: `keep —
   unclear`, with that question on the operator list. Mark nothing "unverified".

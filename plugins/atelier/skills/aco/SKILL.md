@@ -75,7 +75,7 @@ this says *how*.
   `card_hash` holds) and its `Done when` to the lead body, and pipe it through
   `aco check -`. Add each of the card's blockers to the lead, and point each
   item the card blocks at the lead (drop an edge from the card to the lead or to
-  another folded card instead of moving it), with the dependency call above plus
+  another folded card instead of moving it), with the dependency call under "Item bodies" below plus
   their `Blocked by:` lines. Then
   `gh issue close <card> --duplicate-of <lead> --comment "Folded into #<lead>."`.
   Claim the lead with `--scope` covering every folded card's paths and `--whole`

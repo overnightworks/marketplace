@@ -70,8 +70,16 @@ this says *how*.
 - An open pull request without a claim (a dependency bot's, a fixer's): `aco adopt <pr>
   --no-item deps|fix|docs` makes it a claimed lane on its own branch; `deps` needs
   `dependency_paths` in `.aco/board.toml`. Then land as usual (`specs/adopt.spec.md`).
-- Bundled cards (contract: "How to coordinate"): claim the lead with `--scope`
-  covering every card's paths and `--whole` naming the bundle.
+- Bundled cards (contract: "How to coordinate"): before the claim, append each
+  card's sentences, its `[[expectation]]` entries byte for byte (their
+  `card_hash` holds) and its `Done when` to the lead body, and pipe it through
+  `aco check -`. Add each of the card's blockers to the lead, and point each
+  item the card blocks at the lead (drop an edge from the card to the lead or to
+  another folded card instead of moving it), with the dependency call under "Item bodies" below plus
+  their `Blocked by:` lines. Then
+  `gh issue close <card> --duplicate-of <lead> --comment "Folded into #<lead>."`.
+  Claim the lead with `--scope` covering every folded card's paths and `--whole`
+  naming the bundle.
 
 After `aco start`, run the lane through the `lane` workflow
 (`plugins/atelier/workflows/lane.js`) where it helps, starting it as the
@@ -147,8 +155,7 @@ contract and this skill.
 
 The body carries exactly one classification line outside any code fence:
 `Work-Item: #<n>` plus a closing reference (`Closes #<n>`), or `No-Item: fix|docs` for
-a lane claim. Bundled cards: `Lands #<m>` per card (it does not close; the head
-closes them after the merge). Run `aco check <pr>` before landing; it refuses a
+a lane claim. Run `aco check <pr>` before landing; it refuses a
 missing, doubled or fenced line (`specs/landing-grammar.spec.md`); a pass proves the
 classification, the closing reference, a claim on the head branch and the default-branch
 target, not that the work is reviewed or the checks are green.
@@ -161,7 +168,7 @@ Push the branch, then open the pull request with `gh pr create` (title, head, ba
 body).
 
 A pull request lands exactly one item (LAND-18/19). A partial slice of a larger item
-becomes its own item first (`aco cut`); bundled cards use `Lands #<m>`.
+becomes its own item first (`aco cut`).
 
 ## Land
 
@@ -189,7 +196,6 @@ Code's auto mode denies.
    `next:`, in aco also `reinstall:`) to the head and runs none of
    them. The head acts on them as the contract's "How to coordinate" says, then
    runs `aco next`.
-4. Close bundled non-lead cards with the PR link.
 
 If the merge worked but a step failed, `aco land` prints `follow-up incomplete`
 and the re-run command; re-run it, which resumes and never merges twice.

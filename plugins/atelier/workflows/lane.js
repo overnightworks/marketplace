@@ -206,11 +206,15 @@ const FIX = {
 }
 const E2E = {
   type: 'object',
-  required: ['verdict', 'blocking', 'followups'],
+  required: ['verdict', 'blocking', 'followups', 'cells'],
   properties: {
     verdict: { type: 'string', enum: ['PASS', 'FAIL', 'failed'] },
     blocking: { type: 'array', items: FINDING },
     followups: { type: 'array', items: FOLLOWUP },
+    cells: {
+      type: 'array', description: 'every cell you drove or chose not to drive; the evidence of your verdict lives here, because your scratch directory is deleted',
+      items: { type: 'object', required: ['cell', 'result', 'command', 'exit'], properties: { cell: { type: 'string', description: 'what was driven' }, result: { type: 'string', enum: ['held', 'failed', 'not driven'] }, command: { type: 'string', description: 'the command or action' }, exit: { type: 'string', description: 'its exit code or observed outcome' } } },
+    },
     evidencePath: { type: 'string' },
     lockBusy: { type: 'boolean', description: 'true when /tmp/probe-stack.lock stayed held by someone else and the live part could not run' },
   },
@@ -690,7 +694,7 @@ function explore(n) {
     `\`flock -o -w 1200 /tmp/probe-stack.lock <command>\`, or close fd 9 (\`9>&-\`) for every child. Run every server under \`timeout <cap>\` on a free port above 8790, ` +
     `write its pid to a file under ${A.scratch}/${TAG}-e2e-${n}/ and kill it before reporting; stop every other process you start (a container, a background browser) before reporting too; lsof in your report is evidence only, never a guard. Never touch another session's server. ` +
     `Right after you acquire the lock, read the 1-minute load average again; while it is above 1.5 × cores, release the lock and wait. ` +
-    `If the lock stays held by someone else for those 1200 seconds, return verdict failed with lockBusy true instead of guessing. verdict is PASS with no blocking findings and FAIL with at least one. Return evidencePath.`
+    `If the lock stays held by someone else for those 1200 seconds, return verdict failed with lockBusy true instead of guessing. verdict is PASS with no blocking findings and FAIL with at least one. A PASS needs at least one held cell. Return every cell in cells, each with its command and exit; return evidencePath too.`
   return safeAgent(prompt, { label: `e2e-${n}`, phase: 'Test and CI', schema: E2E, agentType: 'atelier:explorative-tester', ...claudeRole('test') })
     .then(r => r || safeAgent(`Load the atelier:explorative-testing skill first.\n${prompt}`,
       { label: `e2e-${n}-fallback`, phase: 'Test and CI', schema: E2E, agentType: 'general-purpose', ...claudeRole('test') }))
@@ -751,12 +755,13 @@ while (true) {
   if (!e2e || e2e.verdict === 'failed') return openResult('failed', 'test', { reason: 'the tester returned no usable result' })
   if (!ci || ci.failure) return openResult('failed', 'ci', ci ? { reason: ci.failure } : undefined)
   const testBlocking = e2e.blocking || []
+  if (e2e.verdict === 'PASS' && !e2e.skipped && !(e2e.cells || []).some(c => c.result === 'held')) return openResult('failed', 'test', { reason: 'a PASS without driven cells: the tester named no held cell' })
   if (e2e.verdict === 'FAIL' && testBlocking.length === 0) return openResult('failed', 'test', { reason: 'a FAIL verdict came without any blocking finding' })
   // A blocking finding outranks a PASS label, as in the review classifier.
   if (!sameCommit(ci.head, tip)) return openResult('failed', 'ci', { reason: `the pull request head ${ci.head} is not the lane tip ${tip}` })
   const { unproven } = ci
   history.push(
-    { after: spent.total, by: `e2e-${n - 1}`, verdict: testVerdict(e2e, testBlocking), blocking: testBlocking.map(f => f.where), reportPath: e2e.evidencePath || '' },
+    { after: spent.total, by: `e2e-${n - 1}`, verdict: testVerdict(e2e, testBlocking), blocking: testBlocking.map(f => f.where), cells: e2e.cells || [], reportPath: e2e.evidencePath || '' },
     { after: spent.total, by: `ci-${n - 1}`, verdict: ci.green && !unproven && !ci.requiredChecksError ? 'GREEN' : 'RED', blocking: (ci.failing || []).map(f => f.where) },
   )
   followups.push(...(e2e.followups || []).map(f => ({ ...f, tip })))

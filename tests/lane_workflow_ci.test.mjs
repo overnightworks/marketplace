@@ -11,7 +11,7 @@ const tip = 'c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0'
 const lane = { item: 1, worktree: '/w', branch: 'b', contract: 'c', e2e: 'e', scratch: '/s', pr: 1, tip }
 const tidy = { where: 'x.py:1', text: 'tidy the import order', kind: 'follow-up (fix in place)' }
 const alreadySatisfied = { head: tip, mergeResolvedLaneConflict: false, files: [], regression: [], disputed: [], blocked: false, resolved: [{ where: tidy.where, text: tidy.text, evidence: 'already pinned' }] }
-const reachesCi = { 'fix-1': alreadySatisfied, 'r1-review': { verdict: 'APPROVE', blocking: [], followups: [] }, 'e2e-0': { verdict: 'PASS', blocking: [], followups: [] } }
+const reachesCi = { 'fix-1': alreadySatisfied, 'r1-review': { verdict: 'APPROVE', blocking: [], followups: [] }, 'e2e-0': { verdict: 'PASS', blocking: [], followups: [], cells: [{ cell: 'c', result: 'held', command: 'run', exit: '0' }] } }
 const required = 'quality / verdict'
 const check = (name, bucket) => ({ name, bucket })
 const ciAnswer = (checks, extra = {}) => ({ head: tip, green: true, failing: [], checks, requiredChecks: [required], ...extra })
@@ -250,3 +250,25 @@ for (const [what, ci, state] of lockQueue) {
     assert.ok(!launchedAgents.some(agent => agent.startsWith('fix-2')))
   })
 }
+
+const cell = (result) => ({ cell: `a ${result} cell`, result, command: 'node run.mjs', exit: result === 'held' ? '0' : '1' })
+const testerAnswer = (cells) => ({ ...reachesCi['e2e-0'], cells })
+const withoutHeldCell = [
+  ['no cells at all', []],
+  ['only cells that were not driven', [cell('not driven'), cell('not driven')]],
+  ['only failed cells', [cell('failed')]],
+]
+for (const [what, cells] of withoutHeldCell) {
+  test(`#369 a tester PASS with ${what} fails the lane at test`, async () => {
+    const { result } = await runLane({ ...lane, foldIn: [tidy] }, { ...reachesCi, 'e2e-0': testerAnswer(cells), 'ci-0': ciAnswer([check(required, 'pass')]) })
+    assert.deepEqual([result.status, result.stage], ['failed', 'test'])
+    assert.match(result.reason, /a PASS without driven cells/)
+  })
+}
+
+test('#369 the cells of a tester PASS reach the result history, held, failed and not driven alike', async () => {
+  const cells = [cell('held'), cell('failed'), cell('not driven')]
+  const { result } = await runLane({ ...lane, foldIn: [tidy] }, { ...reachesCi, 'e2e-0': testerAnswer(cells), 'ci-0': ciAnswer([check(required, 'pass')]) })
+  assert.equal(result.status, 'ready-to-land', result.reason)
+  assert.deepEqual(result.history.find(entry => entry.by === 'e2e-0').cells, cells)
+})

@@ -107,7 +107,7 @@ export const resumedLane = { item: 1, worktree: '/w', branch: 'b', contract: 'c'
 
 export const APPROVE = { verdict: 'APPROVE', blocking: [], followups: [] }
 
-export const PASS = { verdict: 'PASS', blocking: [], followups: [] }
+export const PASS = { verdict: 'PASS', blocking: [], followups: [], cells: [{ cell: 'drives the entry point', result: 'held', command: 'run it', exit: '0' }] }
 
 export const greenCi = (head) => ({ head, green: true, failing: [], checks: [{ name: 'quality / verdict', bucket: 'pass' }], requiredChecks: ['quality / verdict'] })
 

@@ -1,8 +1,0 @@
-claim_id = "5d67e0ca19da4b3ba25dbbe65c1d8cd2"
-agent = "Claude b5de3560-4db0-4dfe-be9f-fe26ef53140a"
-role = "builder"
-base = "e40444888f68807015bde0638a9178ce2573b902"
-branch = "claude/issue-371-quality-v0-9-0"
-scope = [".github/workflows/ci.yml", ".github/workflows/codeql.yml", "quality/config.toml", "scripts/check_root_layout.py", "scripts/check_skills.py", "scripts/install.py", "scripts/sync_agents.py"]
-opened_commit = "fe2a44848c21bfb10845c12ff8f0403641899e0e"
-whole_reason = "One quality release bump: its pins, its declarations and the findings it reports across the four scripts, which must land together for the gate to stay green."

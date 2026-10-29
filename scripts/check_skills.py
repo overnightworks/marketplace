@@ -17,6 +17,7 @@ The frontmatter reader knows exactly two forms, `key: value` and a folded `>-`
 block, because those are the forms the skills use and a YAML dependency would
 cost more than it removes. Anything else fails loudly instead of being guessed.
 """
+# ruff: noqa: T201 - the skill gate reports its findings
 
 from __future__ import annotations
 

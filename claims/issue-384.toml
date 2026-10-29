@@ -1,0 +1,8 @@
+claim_id = "fb23745d9e0f49c0b1dd5284ddf313f8"
+agent = "Claude b5de3560-4db0-4dfe-be9f-fe26ef53140a"
+role = "builder"
+base = "ef3072ab97df38a1fe5351539734a26965a0e7eb"
+branch = "claude/issue-384-fleet-standards"
+scope = [".claude-plugin/marketplace.json", "docs/ARCHITECTURE.md", "docs/standards.md", "instructions/AGENTS.md", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/skills/board-hygiene/SKILL.md", "plugins/atelier/skills/plan-review/SKILL.md", "plugins/atelier/skills/write-docs/references/document-types.md"]
+opened_commit = "835e1aed90ea9d00687b9484e1a7c9bec1ea021b"
+whole_reason = "One ruled contract change: the contract sentences, the skill copies that quote them, the index C1 names and the version pins move together."

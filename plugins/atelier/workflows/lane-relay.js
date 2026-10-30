@@ -66,16 +66,18 @@ const crc32 = (text) => {
 }
 // The printer sorts checks.list by name and bucket, because the order of the listing decides nothing and a model that
 // tidies it must not fail the check: a mismatching line is read again with the list in the printer's order, in the printer's JSON form.
+const compareText = (a, b) => Number(a > b) - Number(a < b)
 const sortedListing = (values) => {
   const list = values?.checks?.list
   if (!Array.isArray(list)) return values
-  const key = (entry) => `${entry?.name}\u0000${entry?.bucket}`
-  return { ...values, checks: { ...values.checks, list: [...list].sort((a, b) => (key(a) < key(b) ? -1 : key(a) > key(b) ? 1 : 0)) } }
+  const byNameThenBucket = (a, b) => compareText(a?.name, b?.name) || compareText(a?.bucket, b?.bucket)
+  return { ...values, checks: { ...values.checks, list: [...list].sort(byNameThenBucket) } }
 }
+const printerPair = (value, key) => printerText(key) + ':' + printerText(value[key])
 const printerText = (value) => {
   if (Array.isArray(value)) return `[${value.map(printerText).join(',')}]`
-  if (value && typeof value === 'object') return `{${Object.keys(value).sort().map(key => `${printerText(key)}:${printerText(value[key])}`).join(',')}}`
-  return JSON.stringify(value).replace(/[^\x00-\x7f]/g, ch => `\\u${ch.charCodeAt(0).toString(16).padStart(4, '0')}`)
+  if (value && typeof value === 'object') return `{${Object.keys(value).sort(compareText).map(key => printerPair(value, key)).join(',')}}`
+  return JSON.stringify(value).replace(/[^\x00-\x7f]/g, ch => String.raw`\u` + ch.codePointAt(0).toString(16).padStart(4, '0'))
 }
 const PRINTED = { type: 'string', description: 'the one line the command printed, character for character as printed; when it printed no line, its error output' }
 

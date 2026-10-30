@@ -270,3 +270,14 @@ test('#425 the e2e tester builds its environment in the lane worktree, removes i
     assert.doesNotMatch(prompt + JSON.stringify(options.schema), /scratch[^.]*is deleted/i, label)
   }
 })
+
+test('#431 every e2e tester, the fallback and a later run create a directory of their own instead of sharing a named one', async () => {
+  const { agentCalls } = await runLane(agentProvidersReplay.args, { ...agentProvidersReplay.answers, 'e2e-0': null, 'e2e-0-fallback': agentProvidersReplay.answers['e2e-0'] })
+  for (const label of ['e2e-0', 'e2e-0-fallback']) {
+    const { prompt } = agentCalls[label]
+    const scratch = agentProvidersReplay.args.scratch
+    assert.match(prompt, new RegExp(`mktemp -d ${scratch}/\\S+-XXXXXX`), label)
+    const namedDirectories = prompt.match(new RegExp(`${scratch}/[^\\s\`'"]*`, 'g')).filter(path => !path.includes('XXXXXX'))
+    assert.deepEqual(namedDirectories, [], label)
+  }
+})

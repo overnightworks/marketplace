@@ -53,6 +53,7 @@ export async function runLane(args, answers = {}, options = {}) {
   const source = workflowSource('lane.js')
   const launchedByChild = {}
   const launchedAgents = []
+  const launchedPrompts = []
   const agentCalls = {}
   const isFixer = (label) => label.startsWith('fix-')
   const REREAD = '-reread'
@@ -115,7 +116,7 @@ export async function runLane(args, answers = {}, options = {}) {
     const { pr_head: _prHead, checks: _checks, required: _required, base_runs: _baseRuns, head: _head, parents: _parents, head_code: _headCode, main_code: _mainCode, nonce: _nonce, edit: _edit, printerMode: _printerMode, push_error: _pushError, remote_tip: _remoteTip, brief_error: _briefError, outside_claim: _outsideClaim, printed: _printed, ...report } = answer
     return reread ? { printed } : { ...report, printed }
   }
-  const agent = async (prompt, agentOptions = {}) => { launchedAgents.push(agentOptions.label); agentCalls[agentOptions.label] = { prompt, options: agentOptions }; return answerFor(agentOptions.label, prompt) }
+  const agent = async (prompt, agentOptions = {}) => { launchedAgents.push(agentOptions.label); launchedPrompts.push(prompt); agentCalls[agentOptions.label] = { prompt, options: agentOptions }; return answerFor(agentOptions.label, prompt) }
   // A thunk that throws resolves to null, as in the Workflow runtime.
   const parallel = async thunks => Promise.all(thunks.map(thunk => thunk().catch(() => null)))
   const ignore = () => {}
@@ -130,7 +131,7 @@ export async function runLane(args, answers = {}, options = {}) {
   }
   try {
     const result = await compile(source)(args, agent, parallel, async () => [], ignore, ignore, startWorkflow)
-    return { result, launchedAgents, agentCalls, launchedByChild }
+    return { result, launchedAgents, launchedPrompts, agentCalls, launchedByChild }
   } finally {
     if (fakeBin) fs.rmSync(fakeBin, { recursive: true })
   }

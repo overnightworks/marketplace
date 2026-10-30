@@ -386,8 +386,8 @@ test('#398 AC-relay-reread: a good re-read replaces the unreadable line and the 
   assert.deepEqual(reread(run), ['sync-reread'])
   assert.ok(run.launchedAgents.includes('r0-review'), run.launchedAgents.join())
   const { prompt, options } = run.agentCalls['sync-reread']
-  assert.equal(prompt.split('\n').length, 2, prompt)
-  assert.match(prompt, /^run this one command line exactly as written/)
+  assert.equal(prompt.split('\n').length, 3, prompt)
+  assert.match(prompt.split('\n')[1], /^run this one command line exactly as written/)
   assert.equal(options.agentType, run.agentCalls.sync.options.agentType)
   assert.equal(options.phase, run.agentCalls.sync.options.phase)
   assert.deepEqual(Object.keys(options.schema.properties), ['printed'])

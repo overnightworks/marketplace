@@ -98,12 +98,12 @@ const MECHANICAL = { agentType: 'general-purpose', ...ROUTING.mechanical }
 const WATCHER = MECHANICAL
 const claudeRole = (role) => ({ model: ROUTING[role].model, effort: ROUTING[role].effort })
 
-// agent() with a schema THROWS when a subagent ends without calling StructuredOutput (seen on 26.09.2026: a builder hit
-// its turn limit after 151 tool calls, left its work uncommitted, and the throw ended the whole run). Every call goes
-// through this wrapper, so such an end is a null result the lane reports, never a crashed run.
+// agent() with a schema THROWS when a subagent ends without a result (a builder hit its turn limit on 26.09.2026): every call goes
+// through this wrapper, so such an end is a null the lane reports. Every prompt opens with the delegated line, as do the children's.
+const DELEGATED_LINE = 'This is a delegated step started by a head, not a main session: skip the session-start routine and do only this brief.'
 async function safeAgent(prompt, opts) {
   try {
-    return await agent(prompt, opts)
+    return await agent(`${DELEGATED_LINE}\n${prompt}`, opts)
   } catch (error) {
     log(`${opts?.label || 'agent'} ended without a result: ${String(error).slice(0, 160)}`)
     return null
@@ -152,9 +152,9 @@ async function startChild(name, childArgs) {
   }
 }
 // A value a command prints reaches a decision only through the line the lane-relay child reads back and checks.
-const LANE_RELAY_PROTOCOL = 6
+const LANE_RELAY_PROTOCOL = 7
 const SYNC_ANSWER = { properties: { note: { type: 'string', description: 'what stopped the merge: the conflicting paths, or the failed command and its output' } } }
-const relay = (request) => startChild('lane-relay', { protocol: LANE_RELAY_PROTOCOL, worktree: A.worktree, agentOptions: MECHANICAL, mechanical: MECHANICAL, ...request })
+const relay = (request) => startChild('lane-relay', { protocol: LANE_RELAY_PROTOCOL, delegatedLine: DELEGATED_LINE, worktree: A.worktree, agentOptions: MECHANICAL, mechanical: MECHANICAL, ...request })
 // The failure reasons name the printed line only when the command printed one.
 const printedLine = (relayed) => relayed.printed === undefined ? '' : `; the printed line: ${relayed.printed}`
 // Language models copy a 40-character hash unreliably (a sync step once dropped one character). A commit is
@@ -283,10 +283,10 @@ function claudeReview(label, role, range) {
 }
 
 // The lane-codex child's refusal, crash or malformed answer is a failed verdict that names it.
-const LANE_CODEX_PROTOCOL = 1
+const LANE_CODEX_PROTOCOL = 2
 async function codexReview(label, routing, role, range) {
   const failed = (note) => ({ verdict: 'failed', blocking: [], followups: [], codexExit: -1, note })
-  const answer = await startChild('lane-codex', { protocol: LANE_CODEX_PROTOCOL, worktree: A.worktree, scratch: A.scratch, tag: TAG, label, routing, reviewerBrief: reviewerBrief(role, range), findingKinds: FINDING_KINDS, verdictSchema: COURIER_VERDICT, mechanical: MECHANICAL })
+  const answer = await startChild('lane-codex', { protocol: LANE_CODEX_PROTOCOL, delegatedLine: DELEGATED_LINE, worktree: A.worktree, scratch: A.scratch, tag: TAG, label, routing, reviewerBrief: reviewerBrief(role, range), findingKinds: FINDING_KINDS, verdictSchema: COURIER_VERDICT, mechanical: MECHANICAL })
   if (answer?.problem) return failed(`the Codex courier ${answer.problem}`)
   if (answer && typeof answer.verdict !== 'string') return failed(`lane-codex answered without a verdict: ${JSON.stringify(answer).slice(0, 200)}`)
   return answer
@@ -697,7 +697,7 @@ function explore(n) {
 }
 
 // A throw inside parallel() would reach the loop as a bare null, so the lane-ci child's failure returns as {problem}.
-const LANE_CI_PROTOCOL = 3
+const LANE_CI_PROTOCOL = 4
 // The printed listing, not the watcher's word, decides whether CI counts as green; null means the listing proves it.
 function unprovenGreen({ checks, rules }) {
   if (checks.code !== 0 || !checks.list.length) return `no checks are listed for the pull request head (gh pr checks exited ${checks.code}: ${checks.err})`
@@ -709,7 +709,7 @@ function unprovenGreen({ checks, rules }) {
 }
 
 async function watchCi(n) {
-  const watched = await startChild('lane-ci', { protocol: LANE_CI_PROTOCOL, pr, n, repo: A.repo, worktree: A.worktree, finding: FINDING, watcher: WATCHER })
+  const watched = await startChild('lane-ci', { protocol: LANE_CI_PROTOCOL, delegatedLine: DELEGATED_LINE, pr, n, repo: A.repo, worktree: A.worktree, finding: FINDING, watcher: WATCHER })
   if (!watched || watched.problem) return watched
   const nonce = `ci-${n}-${tip}`
   const read = await relay({ label: `ci-read-${n}`, phase: 'Test and CI', step: 'ci', relayArgs: [pr, `'${A.repo || ''}'`, `'${nonce}'`], nonce, requiredKeys: ['view'], brief: `${laneFacts}\nChange nothing in the files;` })

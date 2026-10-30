@@ -5,9 +5,9 @@ export const meta = {
 }
 
 // Both copies of this number (here and in lane.js) change together in any commit that changes the args or the return shape.
-const LANE_RELAY_PROTOCOL = 6
+const LANE_RELAY_PROTOCOL = 7
 const A = args || {}
-const need = ['protocol', 'worktree', 'label', 'phase', 'brief', 'step', 'relayArgs', 'nonce', 'requiredKeys', 'agentOptions', 'mechanical']
+const need = ['protocol', 'delegatedLine', 'worktree', 'label', 'phase', 'brief', 'step', 'relayArgs', 'nonce', 'requiredKeys', 'agentOptions', 'mechanical']
 if (A.protocol !== LANE_RELAY_PROTOCOL) return { refused: `lane-relay speaks protocol ${JSON.stringify(LANE_RELAY_PROTOCOL)}, but the lane that started it speaks protocol ${JSON.stringify(A.protocol)}; the installed atelier differs from the running lane` }
 const missing = need.filter(key => A[key] === undefined || A[key] === null || A[key] === '')
 if (missing.length) return { refused: `missing args: ${missing.join(', ')}` }
@@ -80,7 +80,7 @@ function readRelay(printed, nonce, requiredKeys = []) {
   return { values }
 }
 
-const answer = await safeAgent(`${brief} ${RELAY_ASK}\n${relayCommand(step, ...relayArgs)}`, {
+const answer = await safeAgent(`${A.delegatedLine}\n${brief} ${RELAY_ASK}\n${relayCommand(step, ...relayArgs)}`, {
   label, phase: phaseName,
   schema: { type: 'object', required: ['printed', ...(answerSchema.required || [])], properties: { printed: PRINTED, ...answerSchema.properties } },
   ...agentOptions,
@@ -91,7 +91,7 @@ if (!read.problem) return { ...answer, ...read }
 
 // An agent that copied the line badly is asked once more, by an agent that only runs the printer: the printer reads the state that is there now, and the CRC and the nonce still guard the second line.
 log(`${label} relayed an unreadable line (${read.problem}); reading it once more: ${String(answer.printed).slice(0, 300)}`)
-const second = await safeAgent(`${RELAY_ASK}\n${relayCommand(step, ...relayArgs)}`, {
+const second = await safeAgent(`${A.delegatedLine}\n${RELAY_ASK}\n${relayCommand(step, ...relayArgs)}`, {
   label: `${label}-reread`, phase: phaseName,
   schema: { type: 'object', required: ['printed'], properties: { printed: PRINTED } },
   ...mechanical,

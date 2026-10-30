@@ -1,8 +1,0 @@
-claim_id = "9f22a2805ba94c7ebdb86a4d59f084c3"
-agent = "Claude a5abe9e4-862b-4cac-94ed-68bd072edf38"
-role = "builder"
-base = "9746328eecaa1db81e4f0c304745cfa65c19c550"
-branch = "claude/issue-431-each-end-to-end-tester-writes-into-a-dir"
-scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/workflows/lane.js", "tests/lane_workflow.test.mjs"]
-opened_commit = "f7a5a94e04624626ac632fb05d0cffcb4afb1d1a"
-whole_reason = "One prompt path, its test and the release pins."

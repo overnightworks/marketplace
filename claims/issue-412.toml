@@ -1,8 +1,0 @@
-claim_id = "5bd68c19fda54f97afe860e705580613"
-agent = "Claude b5de3560-4db0-4dfe-be9f-fe26ef53140a"
-role = "builder"
-base = "f97b205a5e32f4a1a93eb88626a089b7b19eb329"
-branch = "claude/issue-412-delegated-line-in-lane-prompts"
-scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/workflows/lane-ci.js", "plugins/atelier/workflows/lane-codex.js", "plugins/atelier/workflows/lane-relay.js", "plugins/atelier/workflows/lane.js", "tests"]
-opened_commit = "b24b4b4941da81113d69b64a077e066b86dbb081"
-whole_reason = "One protocol change across the lane and its three children; the line, the protocol bumps and the tests that prove them must land together."

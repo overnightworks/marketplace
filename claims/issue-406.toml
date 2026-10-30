@@ -1,8 +1,0 @@
-claim_id = "055e4bcc03264f798e6ef12bde2ac90e"
-agent = "Claude b5de3560-4db0-4dfe-be9f-fe26ef53140a"
-role = "builder"
-base = "8179f3c3d4edb9d45eb53100d995282a96ea829e"
-branch = "claude/issue-406-aco-withdraw"
-scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/skills/aco/SKILL.md"]
-opened_commit = "240febde296cec2f4cecc8d4288bf1dc34f23f7e"
-whole_reason = "A one-bullet skill edit cannot ship without the three plugin pins that publish it."

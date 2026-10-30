@@ -1,7 +1,0 @@
-claim_id = "13970187359c47ff8fc6bfe2969cb9a8"
-agent = "Claude a5abe9e4-862b-4cac-94ed-68bd072edf38"
-role = "builder"
-base = "cd8b46cedc9f35fb89831e304dc2d7d8f1206ba5"
-branch = "claude/issue-423-contract-size-check"
-scope = [".github/workflows/ci.yml"]
-opened_commit = "3669c473cc521193fec07e0e5c8d01df0a0f02ca"

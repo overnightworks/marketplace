@@ -213,7 +213,7 @@ const E2E = {
     blocking: { type: 'array', items: FINDING },
     followups: { type: 'array', items: FOLLOWUP },
     cells: {
-      type: 'array', description: 'every cell you drove or chose not to drive; the evidence of your verdict lives here, because your scratch directory is deleted',
+      type: 'array', description: 'every cell you drove or chose not to drive; the head reads your verdict from here; scratch is only transport',
       items: { type: 'object', required: ['cell', 'result', 'command', 'exit'], properties: { cell: { type: 'string', description: 'what was driven' }, result: { type: 'string', enum: ['held', 'failed', 'not driven'] }, command: { type: 'string', description: 'the command or action' }, exit: { type: 'string', description: 'its exit code or observed outcome' } } },
     },
     evidencePath: { type: 'string' },
@@ -686,11 +686,11 @@ function explore(n) {
     `Run the lane's code, not the installed tool (from ${A.worktree}). What to drive:\n${A.e2e}\n\nContract:\n${A.contract}\n\n${BLOCKING_LINE}\n` +
     `For every blocking finding give a scenario name in where, unique within your report, the command that shows it in repro, and — when it can be automated stably — a failing test draft ` +
     `under your scratch path in testDraft (a live or UI case stays a manual proof; leave testDraft empty then). ` +
-    `Write only under ${A.scratch}/${TAG}-e2e-${n}/. Take /tmp/probe-stack.lock for any server or browser run so that no process you start inherits it: ` +
+    `Write only under ${A.scratch}/${TAG}-e2e-${n}/, besides the environment the repository's own sync command creates in ${A.worktree}. Take /tmp/probe-stack.lock for any server or browser run so that no process you start inherits it: ` +
     `Take it with \`flock -o -w 1200 /tmp/probe-stack.lock setpriv --pdeathsig TERM timeout -k 30 1800 <command>\`, the only form; if \`flock\` cannot run \`setpriv\`, stop and report it, never drop it. \`-o\` keeps the lock out of every process you start, and \`setpriv\` makes \`timeout\` send TERM to your whole stack the moment the lock holder dies, so the lock is free only while that stack tears down, which must finish within the 30 s of \`-k\`. A process that detaches itself (\`setsid\`, a daemon, a browser in its own session) escapes both the lock and the cap, so your teardown trap stops it by pid. The cap frees the lock even if you stop; a stack that needs longer is cut, not raised. <command> is an executable such as \`bash -c '…'\` or a script, because timeout cannot run a shell builtin or function; a script that starts containers tears them down in \`trap '<teardown>' EXIT TERM\`. Run every server under \`timeout <cap>\` on a free port above 8790, ` +
     `write its pid to a file under ${A.scratch}/${TAG}-e2e-${n}/ and kill it before reporting; stop every other process you start (a container, a background browser) before reporting too; lsof in your report is evidence only, never a guard. Never touch another session's server. ` +
     `Right after you acquire the lock, read the 1-minute load average again; while it is above 1.5 × cores, release the lock and wait. ` +
-    `If the lock stays held by someone else for those 1200 seconds, return verdict failed with lockBusy true instead of guessing. verdict is PASS with no blocking findings and FAIL with at least one. A PASS needs at least one held cell. Return every cell in cells, each with its command and exit; return evidencePath too.`
+    `If the lock stays held by someone else for those 1200 seconds, return verdict failed with lockBusy true instead of guessing. verdict is PASS with no blocking findings and FAIL with at least one. A PASS needs at least one held cell. Return every cell in cells, each with its command and exit; return evidencePath too, keep your evidence under evidencePath and remove your playground before you report.`
   return safeAgent(prompt, { label: `e2e-${n}`, phase: 'Test and CI', schema: E2E, agentType: 'atelier:explorative-tester', ...claudeRole('test') })
     .then(r => r || safeAgent(`Load the atelier:explorative-testing skill first.\n${prompt}`,
       { label: `e2e-${n}-fallback`, phase: 'Test and CI', schema: E2E, agentType: 'general-purpose', ...claudeRole('test') }))

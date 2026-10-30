@@ -52,3 +52,31 @@ test('#340 lane-codex-protocol: the gate courier is launched by the lane-codex c
   assert.deepEqual(launchedByChild['atelier:lane-codex'], ['r0-gate'])
   assert.ok(launchedAgents.includes('r0-gate'))
 })
+
+const bodyCommands = (repoFlag) => [`gh issue view 7${repoFlag} --json body --jq .body`, `gh pr view 9${repoFlag} --json body --jq .body`]
+const bodyLane = { ...resumedLane, item: 7, pr: 9, repo: 'o/r' }
+
+test('#419 review-reads-body: the Claude reviewer brief names both gh commands with the repo flag', async () => {
+  const { agentCalls } = await runLane(bodyLane, { 'r0-review': APPROVE })
+  for (const command of bodyCommands(' -R o/r')) assert.ok(agentCalls['r0-review'].prompt.includes(command), command)
+})
+
+test('#419 review-reads-body: the Codex courier appends both gh outputs to the brief file through the shell, right before codex exec', async () => {
+  const { agentCalls } = await runLane({ ...bodyLane, risk: 'material' }, { 'r0-review': APPROVE })
+  const prompt = agentCalls['r0-gate'].prompt
+  const [issueCommand, prCommand] = bodyCommands(' -R o/r')
+  assert.ok(prompt.indexOf(issueCommand) > 0 && prompt.indexOf(prCommand) > prompt.indexOf(issueCommand))
+  assert.ok(prompt.indexOf(prCommand) < prompt.indexOf('codex exec'))
+  assert.match(prompt, /\{ cat \/s\/\S*-brief\.md[^\n]*gh issue view[^\n]*gh pr view[^\n]*\} > \S*-brief\.md\.tmp && mv \S*-brief\.md\.tmp \/s\/\S*-brief\.md/)
+})
+
+test('#419 review-reads-body: the Codex brief does not ask the networkless sandbox to run gh', async () => {
+  const { agentCalls } = await runLane({ ...bodyLane, risk: 'material' }, { 'r0-review': APPROVE })
+  const brief = agentCalls['r0-gate'].prompt.match(/-----\n([\s\S]*?)\n-----/)[1]
+  assert.doesNotMatch(brief, /gh issue view/)
+})
+
+test('#419 review-reads-body: a lane-codex call without the pull request number fails the lane naming it', async () => {
+  const { result } = await driveGate({ alterChildArgs: ({ pr: _pr, ...rest }) => rest })
+  assert.match(result.reason, /missing args: .*pr/)
+})

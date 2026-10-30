@@ -278,15 +278,15 @@ function reviewerBrief(role, range) {
 function claudeReview(label, role, range) {
   return safeAgent(
     `Work read-only in ${A.worktree} on branch ${A.branch}: read files and run read-only commands freely; do not run tests and do not edit anything.\n` +
-    reviewerBrief(role, range),
+    `Before judging, read the current item body (gh issue view ${A.item}${R} --json body --jq .body) and the pull request body (gh pr view ${pr}${R} --json body --jq .body): the contract core and the verification evidence.\n` + reviewerBrief(role, range),
     { label, phase: 'Review', schema: VERDICT, agentType: 'atelier:code-reviewer', ...claudeRole('review') })
 }
 
 // The lane-codex child's refusal, crash or malformed answer is a failed verdict that names it.
-const LANE_CODEX_PROTOCOL = 2
+const LANE_CODEX_PROTOCOL = 3
 async function codexReview(label, routing, role, range) {
   const failed = (note) => ({ verdict: 'failed', blocking: [], followups: [], codexExit: -1, note })
-  const answer = await startChild('lane-codex', { protocol: LANE_CODEX_PROTOCOL, delegatedLine: DELEGATED_LINE, worktree: A.worktree, scratch: A.scratch, tag: TAG, label, routing, reviewerBrief: reviewerBrief(role, range), findingKinds: FINDING_KINDS, verdictSchema: COURIER_VERDICT, mechanical: MECHANICAL })
+  const answer = await startChild('lane-codex', { protocol: LANE_CODEX_PROTOCOL, item: A.item, pr, repo: A.repo, delegatedLine: DELEGATED_LINE, worktree: A.worktree, scratch: A.scratch, tag: TAG, label, routing, reviewerBrief: reviewerBrief(role, range), findingKinds: FINDING_KINDS, verdictSchema: COURIER_VERDICT, mechanical: MECHANICAL })
   if (answer?.problem) return failed(`the Codex courier ${answer.problem}`)
   if (answer && typeof answer.verdict !== 'string') return failed(`lane-codex answered without a verdict: ${JSON.stringify(answer).slice(0, 200)}`)
   return answer

@@ -445,3 +445,30 @@ test('#370 AC-file-wide-rule-swept: the fixer prompt says a finding whose messag
   const { agentCalls } = await runLane({ ...resumeArgs, fixFirst: [defectWithoutDraft] }, { 'fix-1': resumeFix })
   assert.match(agentCalls['fix-1'].prompt, /message covers the whole file[^.]*every occurrence in that file, not only at the reported line/)
 })
+
+const answeredOutsideTheTree = [
+  ['a pull request body edit', 'PR body, section Verification'],
+  ['an item comment', 'https://github.com/o/r/issues/1#issuecomment-1'],
+]
+
+for (const [what, where] of answeredOutsideTheTree) {
+  test(`#430 AC-outside-answer-reaches-recheck: a docs finding answered by ${what} at an unchanged tip reaches the raiser's re-check, which reads it live`, async () => {
+    const { result, agentCalls } = await runLane({ ...resumeArgs, fixFirst: [docsFinding] }, { 'fix-1': { ...unchangedFix, outside: [{ finding: 1, where }] }, ...reachesTheEnd })
+    assert.equal(result.status, 'ready-to-land')
+    assert.match(agentCalls['r1-review'].prompt, /read live what the fixer edited outside the tree/)
+    assert.ok(agentCalls['r1-review'].prompt.includes(where))
+  })
+}
+
+test('#430 AC-outside-recheck-names-repo: with repo set the re-check reads the body and the comment from that repository', async () => {
+  const { agentCalls } = await runLane({ ...resumeArgs, repo: 'owner/name', fixFirst: [docsFinding] }, { 'fix-1': { ...unchangedFix, outside: [{ finding: 1, where: 'PR body' }] }, ...reachesTheEnd })
+  const prompt = agentCalls['r1-review'].prompt
+  assert.match(prompt, /gh pr view \S+ -R owner\/name --json body/)
+  assert.match(prompt, /gh issue view \S+ -R owner\/name --comments/)
+})
+
+test('#430 AC-nothing-changed-stops: an unchanged tip whose outside answers leave a blocking finding unanswered still stops with the fixer changed nothing', async () => {
+  const { result } = await runLane({ ...resumeArgs, fixFirst: [docsFinding, defectWithoutDraft] }, { 'fix-1': { ...unchangedFix, outside: [{ finding: 1, where: 'PR body' }, { finding: 2, where: ' ' }] } })
+  assert.deepEqual([result.status, result.stage], ['failed', 'fix'])
+  assert.match(result.reason, /the fixer changed nothing/)
+})

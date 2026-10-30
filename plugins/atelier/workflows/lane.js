@@ -475,7 +475,10 @@ function fixRejection(fixed, blocking, foldIn) {
     .filter(checked => checked.gap)
   if (gaps.length) return { reason: [...new Set(gaps.map(checked => checked.gap))].join('; '), regression: gaps.map(checked => checked.proof), lastBlocking: gaps.map(checked => checked.finding) }
   const unproven = blocking.map((finding, index) => ({ finding, index })).filter(({ finding, index }) => needsProof(finding) && !proofs.some(r => proves(r, index)))
-  if (unproven.length) return { reason: `a test-gap finding or a defect with a test draft got no regression test: ${unproven.map(({ finding, index }) => `${index + 1}. ${finding.where}`).join(', ')}`, lastBlocking: unproven.map(({ finding }) => finding) }
+  if (unproven.length) {
+    const unprovenList = unproven.map(({ finding, index }) => (index + 1) + '. ' + finding.where).join(', ')
+    return { reason: 'a test-gap finding or a defect with a test draft got no regression test: ' + unprovenList, lastBlocking: unproven.map(({ finding }) => finding) }
+  }
   // Satisfied fold-ins leave the lane at the held tip, or at a merge of main onto it: anything past that is unasked work.
   const foldInsOnly = everyFoldInSatisfied(fixed, blocking, foldIn)
   if (fixed.unchanged) return (foldInsOnly && fixed.containsMain) || answeredOutside(fixed, blocking) ? null : { reason: 'the fixer changed nothing', lastBlocking: blocking }
@@ -505,12 +508,16 @@ function acceptFix(fixed, blocking, foldIn) {
     log(`fix ${spent.total}: no lane change to review`)
     return { range: null, gateAgain: false, touchesProduction: false }
   }
-  const range = (outsideRange
-    ? `no commit changed: read live what the fixer edited outside the tree (${fixed.outside.map(o => `finding ${o.finding}: ${o.where}`).join('; ')}), the pull request body with gh pr view ${pr}${R} --json body and an item comment with gh issue view ${A.item}${R} --comments`
-    : fixed.mergeResolvedLaneConflict
-    ? `only this delta: git diff ${fixed.heldTip}..${fixed.tip} (it includes a merge of main whose conflicts in this lane's files were resolved by hand)`
-    : `only this delta, the fixer's own commits: git log -p --first-parent --remerge-diff ${fixed.heldTip}..${fixed.tip} (main's clean changes are not shown; a lane edit inside a merge of main is)`) +
-    `. It answers these findings:\n${listFindings(blocking)}${removalsInRange(fixed, blocking)}${foldInsInRange(foldIn)}`
+  let delta
+  if (outsideRange) {
+    const edited = fixed.outside.map(o => 'finding ' + o.finding + ': ' + o.where).join('; ')
+    delta = `no commit changed: read live what the fixer edited outside the tree (${edited}), the pull request body with gh pr view ${pr}${R} --json body and an item comment with gh issue view ${A.item}${R} --comments`
+  } else if (fixed.mergeResolvedLaneConflict) {
+    delta = `only this delta: git diff ${fixed.heldTip}..${fixed.tip} (it includes a merge of main whose conflicts in this lane's files were resolved by hand)`
+  } else {
+    delta = `only this delta, the fixer's own commits: git log -p --first-parent --remerge-diff ${fixed.heldTip}..${fixed.tip} (main's clean changes are not shown; a lane edit inside a merge of main is)`
+  }
+  const range = `${delta}. It answers these findings:\n${listFindings(blocking)}${removalsInRange(fixed, blocking)}${foldInsInRange(foldIn)}`
   log(`fix ${spent.total}: ${fixed.heldTip.slice(0, 7)}..${tip.slice(0, 7)}`)
   return { range, gateAgain: MATERIAL && touchesProduction, touchesProduction }
 }

@@ -460,6 +460,13 @@ for (const [what, where] of answeredOutsideTheTree) {
   })
 }
 
+test('#430 AC-outside-recheck-names-repo: with repo set the re-check reads the body and the comment from that repository', async () => {
+  const { agentCalls } = await runLane({ ...resumeArgs, repo: 'owner/name', fixFirst: [docsFinding] }, { 'fix-1': { ...unchangedFix, outside: [{ finding: 1, where: 'PR body' }] }, ...reachesTheEnd })
+  const prompt = agentCalls['r1-review'].prompt
+  assert.match(prompt, /gh pr view \S+ -R owner\/name --json body/)
+  assert.match(prompt, /gh issue view \S+ -R owner\/name --comments/)
+})
+
 test('#430 AC-nothing-changed-stops: an unchanged tip whose outside answers leave a blocking finding unanswered still stops with the fixer changed nothing', async () => {
   const { result } = await runLane({ ...resumeArgs, fixFirst: [docsFinding, defectWithoutDraft] }, { 'fix-1': { ...unchangedFix, outside: [{ finding: 1, where: 'PR body' }, { finding: 2, where: ' ' }] } })
   assert.deepEqual([result.status, result.stage], ['failed', 'fix'])

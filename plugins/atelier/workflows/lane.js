@@ -506,7 +506,7 @@ function acceptFix(fixed, blocking, foldIn) {
     return { range: null, gateAgain: false, touchesProduction: false }
   }
   const range = (outsideRange
-    ? `no commit changed: read live what the fixer edited outside the tree (${fixed.outside.map(o => `finding ${o.finding}: ${o.where}`).join('; ')}), the pull request body with gh pr view ${pr} --json body and an item comment with gh issue view ${A.item} --comments`
+    ? `no commit changed: read live what the fixer edited outside the tree (${fixed.outside.map(o => `finding ${o.finding}: ${o.where}`).join('; ')}), the pull request body with gh pr view ${pr}${R} --json body and an item comment with gh issue view ${A.item}${R} --comments`
     : fixed.mergeResolvedLaneConflict
     ? `only this delta: git diff ${fixed.heldTip}..${fixed.tip} (it includes a merge of main whose conflicts in this lane's files were resolved by hand)`
     : `only this delta, the fixer's own commits: git log -p --first-parent --remerge-diff ${fixed.heldTip}..${fixed.tip} (main's clean changes are not shown; a lane edit inside a merge of main is)`) +

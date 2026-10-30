@@ -1,0 +1,8 @@
+claim_id = "f8e5dd3e8f1d46598014a3a0fdd5f3e6"
+agent = "Claude a5abe9e4-862b-4cac-94ed-68bd072edf38"
+role = "builder"
+base = "cd8b46cedc9f35fb89831e304dc2d7d8f1206ba5"
+branch = "claude/issue-421-scratch-only-transport"
+scope = [".claude-plugin/marketplace.json", "instructions/AGENTS.md", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/.codex/agents/code-fixer.toml", "plugins/atelier/.codex/agents/code-reviewer.toml", "plugins/atelier/.codex/agents/code-worker.toml", "plugins/atelier/.codex/agents/explorative-tester.toml", "plugins/atelier/agents/code-fixer.md", "plugins/atelier/agents/code-reviewer.md", "plugins/atelier/agents/code-worker.md", "plugins/atelier/agents/explorative-tester.md"]
+opened_commit = "4640a54b3da68b174ef8c9c428c69cfc84f33ffb"
+whole_reason = "One ruled sentence and the four agents that must follow it, with their generated copies and the release pins; split, an agent would contradict the contract."

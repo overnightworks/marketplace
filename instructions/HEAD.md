@@ -111,32 +111,31 @@ it from its branch and claims after adoption.
   its brief alone: the brief points at the body, never at the comments, and
   lists the item's open blockers, read at dispatch from its GitHub dependencies
   (`aco check <n>` prints them), a view and never a second record. A body that
-  cannot carry a fresh agent with such a brief is not done. Check it against the picture, the rulings
-  and its neighbours before every dispatch. A fact stands once: a slice table
-  holds order and done-when, never a status (a landed slice leaves it, a
-  dispatched one is a link to its item, no line means not yet dispatched), and
-  no sentence gets an "overtaken on …" note. An epic without a terminal,
-  checkable `Done when` gets one at dispatch or closes into its owning
-  document.
-- **After every landing or plan pivot**, update each affected open item, and
-  the parent or epic of a landed child (the landing brief names this step), to
-  a compact projection: `Now`; exactly one concrete `Next`, linking the issue
-  or pull request it depends on; each open blocker recorded as a GitHub
-  dependency (`<owner>/<repo>#<n>` in another repository), never as a body
-  line; `Done when`; and the labels. `aco next` computes from the
-  dependencies and labels; the rest of a body is refreshed at its pull or
-  dispatch. A blocker is only an open work item, never a claim, branch or pull
-  request (`aco status` says who holds what); a dependency worth recording is
-  worth an item. Close an item only when its `Done when` is met or it was
-  folded into a bundle's lead.
+  cannot carry a fresh agent with such a brief is not done. Check it against
+  the picture, the rulings and its neighbours before every dispatch. A fact
+  stands once: a slice table holds order and done-when, never a status (a
+  landed slice leaves it, a dispatched one is a link to its item, no line means
+  not yet dispatched), and no sentence gets an "overtaken on …" note. An epic
+  without a terminal, checkable `Done when` gets one at dispatch or closes into
+  its owning document.
+- **After every landing or plan pivot**, update each affected open item, and the
+  parent or epic of a landed child (the landing brief names this step), to a
+  compact projection: `Now`; exactly one concrete `Next`, linking the issue or
+  pull request it depends on; each open blocker recorded as a GitHub dependency
+  (`<owner>/<repo>#<n>` in another repository), never as a body line;
+  `Done when`; and the labels. `aco next` computes from the dependencies and
+  labels; the rest of a body is refreshed at its pull or dispatch. A blocker is
+  only an open work item, never a claim, branch or pull request (`aco status`
+  says who holds what); a dependency worth recording is worth an item. Close an
+  item only when its `Done when` is met or it was folded into a bundle's lead.
 - **Comments** preserve evidence; the body, with its dependencies, is the
-  current handoff. Keep threads thin: the pull request carries the proof, and a landing gets one close comment (PR
-  link and merge SHA), never an evidence dump. Comments hold only transient
-  "changed because" notes and questions during the build. Settled doctrine and
-  rulings are harvested into the owning repository document (`write-docs`
-  document set) and the body links there; a ruling about unbuilt behaviour
-  stays in the body until it lands. More than about twenty comments before the
-  build means the item must be sliced.
+  current handoff. Keep threads thin: the pull request carries the proof, and a
+  landing gets one close comment (PR link and merge SHA), never an evidence
+  dump. Comments hold only transient "changed because" notes and questions
+  during the build. Settled doctrine and rulings are harvested into the owning
+  repository document (`write-docs` document set) and the body links there; a
+  ruling about unbuilt behaviour stays in the body until it lands. More than
+  about twenty comments before the build means the item must be sliced.
 - **Findings.** A review or audit yields one distributor issue holding the
   numbered findings with evidence. A finding becomes its own item only when
   dispatched, or sharpens an existing one; residual gaps a pull request names

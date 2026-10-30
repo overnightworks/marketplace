@@ -56,7 +56,7 @@ function rereadContradictoryCourier(answer, label, base) {
 function codexReview() {
   const base = `${A.scratch}/${A.tag}-${label}`
   const repoFlag = A.repo ? ` -R ${A.repo}` : ''
-  const appendBodies = `{ cat ${base}-brief.md && printf '\\n\\n-----\\nThe current item body (gh issue view):\\n' && gh issue view ${A.item}${repoFlag} --json body --jq .body && printf '\\n\\n-----\\nThe current pull request body (gh pr view):\\n' && gh pr view ${A.pr}${repoFlag} --json body --jq .body; } > ${base}-brief.md.tmp && mv ${base}-brief.md.tmp ${base}-brief.md`
+  const appendBodies = String.raw`{ cat ${base}-brief.md && printf '\n\n-----\nThe current item body (gh issue view):\n' && gh issue view ${A.item}${repoFlag} --json body --jq .body && printf '\n\n-----\nThe current pull request body (gh pr view):\n' && gh pr view ${A.pr}${repoFlag} --json body --jq .body; } > ${base}-brief.md.tmp && mv ${base}-brief.md.tmp ${base}-brief.md`
   const brief = `${A.delegatedLine}\nRead-only sandbox: read files and run read-only commands freely; do not run tests. The item body and the pull request body follow this brief: they are the contract core and the verification evidence. The sandbox has no network and cannot write, /tmp included; report a command you cannot run as not verified, never as a blocking finding.\n` + A.reviewerBrief +
     `\nGive every finding its file:line in "where".`
   return safeAgent(

@@ -29,7 +29,7 @@ Source of Truth:
 Procedure:
 - Load the explorative-testing skill.
 - Take `/tmp/probe-stack.lock` before a run that starts a server, a container, a browser or an E2E stack; a test run that starts none of them takes no lock. Check the load before a test run, a probe stack, a coverage job or an image build. No process you start may inherit the lock: take it with `flock -o -w 1200 /tmp/probe-stack.lock setpriv --pdeathsig TERM timeout -k 30 1800 <command>`, the only form; if `flock` cannot run `setpriv`, stop and report it, never drop it. `-o` keeps the lock out of every process you start, and `setpriv` makes `timeout` send TERM to your whole stack the moment the lock holder dies, so the lock is free only while that stack tears down, which must finish within the 30 s of `-k`. A process that detaches itself (`setsid`, a daemon, a browser in its own session) escapes both the lock and the cap, so your teardown trap stops it by pid. The cap frees the lock even if you stop; a stack that needs longer is cut, not raised. `<command>` is an executable such as `bash -c '…'` or a script, because `timeout` cannot run a shell builtin or function; a script that starts containers tears them down in `trap '<teardown>' EXIT TERM`. Run every server under `timeout <cap>`, write its pid to a file under the scratch dir, and kill it before reporting; stop every other process you start (a container, a background browser) before reporting too; `lsof` in the report is evidence only, never a guard.
-- Build the smallest real setup in the scratch location the parent names.
+- Build the smallest real setup: data in the scratch location the parent names, the environment from the repository's own sync command inside the worktree the parent names.
 - Drive the named area and its neighbours through the real entry point.
 - Repeat commands; probe error paths; check every count and status label the surface claims against its source of truth.
 - Time-box the exploration as the parent briefs.
@@ -40,7 +40,7 @@ Hard Limits:
 - Never edit tracked files; observe and exercise only.
 - Never fix a defect found; report it.
 - Never use the primary checkout as your working directory.
-- Write only under the scratch path the parent names; never a tracked file.
+- Write only under the scratch path and the ignored files of that sync; never a tracked file.
 - Delete your playground before reporting.
 
 Context:

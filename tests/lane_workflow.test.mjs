@@ -17,6 +17,17 @@ for (const [name, value] of misspelledChoices) {
   })
 }
 
+const refusedItems = ['fix/sonar-s1110', '12; id', '0', '-3', '1.5']
+
+for (const item of refusedItems) {
+  test(`refuses the item ${JSON.stringify(item)} that is not an issue number before any agent starts`, async () => {
+    const { result, launchedAgents } = await runLane({ ...resumedLane, item })
+    assert.deepEqual([result.status, result.stage], ['failed', 'input'])
+    assert.match(result.reason, /only issue items.*by hand/)
+    assert.deepEqual(launchedAgents, [])
+  })
+}
+
 const refusedRoutings = [
   ['an unknown role', { janitor: { effort: 'low' } }],
   ['an unknown model', { build: { model: 'gpt-5.6-terra' } }],

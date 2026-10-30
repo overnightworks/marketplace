@@ -107,9 +107,11 @@ it from its branch and claims after adoption.
   or anything irreversible, which wait for a spoken ruling. Who may write a
   ruled sentence: `AGENTS.md`, Rulings bind. Internal machinery (isolation,
   flakes, refactors, adapters) gets a plan review instead.
-- **The body is the agent contract.** A fresh builder starts from the body
-  alone, so briefs point at the body, never at the comments; a body that cannot
-  carry a fresh agent is not done. Check it against the picture, the rulings
+- **The body is the agent contract.** A fresh builder starts from the body and
+  its brief alone: the brief points at the body, never at the comments, and
+  lists the item's open blockers, read at dispatch from its GitHub dependencies
+  (`aco check <n>` prints them), a view and never a second record. A body that
+  cannot carry a fresh agent with such a brief is not done. Check it against the picture, the rulings
   and its neighbours before every dispatch. A fact stands once: a slice table
   holds order and done-when, never a status (a landed slice leaves it, a
   dispatched one is a link to its item, no line means not yet dispatched), and
@@ -119,17 +121,16 @@ it from its branch and claims after adoption.
 - **After every landing or plan pivot**, update each affected open item, and
   the parent or epic of a landed child (the landing brief names this step), to
   a compact projection: `Now`; exactly one concrete `Next`, linking the issue
-  or pull request it depends on; `Blocked by` (`nichts`, or the open blockers
-  as `#<n>` or `<owner>/<repo>#<n>`) with each blocker also a GitHub
-  dependency; `Done when`; and the labels. `aco next` computes from the
+  or pull request it depends on; each open blocker recorded as a GitHub
+  dependency (`<owner>/<repo>#<n>` in another repository), never as a body
+  line; `Done when`; and the labels. `aco next` computes from the
   dependencies and labels; the rest of a body is refreshed at its pull or
   dispatch. A blocker is only an open work item, never a claim, branch or pull
   request (`aco status` says who holds what); a dependency worth recording is
   worth an item. Close an item only when its `Done when` is met or it was
   folded into a bundle's lead.
-- **Comments** preserve evidence; the body alone is the current handoff. Keep
-  threads thin:
-  the pull request carries the proof, and a landing gets one close comment (PR
+- **Comments** preserve evidence; the body, with its dependencies, is the
+  current handoff. Keep threads thin: the pull request carries the proof, and a landing gets one close comment (PR
   link and merge SHA), never an evidence dump. Comments hold only transient
   "changed because" notes and questions during the build. Settled doctrine and
   rulings are harvested into the owning repository document (`write-docs`
@@ -164,7 +165,7 @@ it from its branch and claims after adoption.
   migration section if any and what the dependent must change. The dependent's
   head takes it ahead of new feature work (`--out-of-order` when `aco next`
   names another item) and builds the version in unless an open item blocks it,
-  which its `Blocked by` then names.
+  which it then records as a dependency.
 - **Fleet standards.** A due adoption trigger makes the covered head open or
   sharpen the conformance item, with the standard as caller, and take it ahead
   of new feature work like a release. A head that owns or proposes a standard,
@@ -181,8 +182,8 @@ it from its branch and claims after adoption.
   and rulings too), then open an idea (the incident with evidence, the wish
   with its reason, the lane that hit it as caller, never a finished solution)
   or, for a question, a work item with an aco block, the question, your
-  recommendation and the waiting item, which in turn names it in `Blocked by`
-  as `<owner>/<repo>#<n>` and as a GitHub dependency.
+  recommendation and the waiting item, which in turn records it as a GitHub
+  dependency (`<owner>/<repo>#<n>`).
 
 ## Rule changes
 

@@ -91,8 +91,9 @@ Does the skill beat the no-skill baseline (S1-S3)?
 
 Missing rules or checks come from misses: findings a later stage caught after
 an earlier review approved (the escalation and re-measurement lines in the
-item journals, per the coordination contract: `instructions/AGENTS.md` in the
-marketplace repository, else the global contract `~/.claude/CLAUDE.md` if installed;
+item journals, per the head contract's "Model routing": `instructions/HEAD.md`
+in the marketplace repository, else `HEAD.md` beside the installed contract
+`~/.claude/CLAUDE.md`;
 default when neither exists: the reviews and CI failures of the last landed
 lanes).
 Do not propose a check from imagination.

@@ -43,7 +43,7 @@ const PRODUCTION = A.productionPaths || ['src/', 'pyproject.toml', 'uv.lock']
 const B = { review: 5, test: 2, ci: 3, total: 8, ...A.budgets }
 const LEDGERS = A.ledgers || []
 const GENERATED = Object.entries(A.generated || {})
-// The one table of every role's model and effort (instructions/AGENTS.md, "Model routing"). Effort is medium unless the
+// The one table of every role's model and effort (instructions/HEAD.md, "Model routing"). Effort is medium unless the
 // row says otherwise; high is the ceiling. Nothing else in this script names a model.
 const MODEL_PROVIDER = { haiku: 'claude', sonnet: 'claude', opus: 'claude', fable: 'claude', 'gpt-6-astra': 'codex' }
 const EFFORT_CEILING = new Set(['low', 'medium', 'high'])

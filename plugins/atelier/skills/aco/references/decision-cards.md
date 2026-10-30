@@ -72,8 +72,9 @@ board works.
 
 Material risk, a product choice that is not safely inferable, and the lines that wait
 for the operator's spoken word are listed in the contract's
-[How to work](https://github.com/overnightworks/marketplace/blob/main/instructions/AGENTS.md#how-to-work)
-and [How to decide](https://github.com/overnightworks/marketplace/blob/main/instructions/AGENTS.md#how-to-decide). A card never states them again, and a head never fills such a line itself.
+[How to work](https://github.com/overnightworks/marketplace/blob/main/instructions/AGENTS.md#how-to-work),
+[Role](https://github.com/overnightworks/marketplace/blob/main/instructions/HEAD.md#role)
+and [Items](https://github.com/overnightworks/marketplace/blob/main/instructions/HEAD.md#items). A card never states them again, and a head never fills such a line itself.
 
 ## 7. Unclear
 

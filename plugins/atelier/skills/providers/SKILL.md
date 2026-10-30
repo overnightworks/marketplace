@@ -11,12 +11,9 @@ read auth files. `$WT` is the agent's worktree, `$BRIEF` its brief, `$OUT` its
 output file; `$BRIEF` and `$OUT` are absolute paths, because Grok resolves a
 relative `--prompt-file` against `--cwd`.
 
-Every `$BRIEF` a head writes for Codex or Grok opens with this line, so the
-agent does not take itself for a main session and run the session-start
-routine:
-
-> This is a delegated step started by a head, not a main session: skip the
-> session-start routine and do only this brief.
+Every `$BRIEF` a head writes for Codex or Grok opens with the delegated line
+the global contract gives (`instructions/AGENTS.md`, "Head or helper"), so the
+agent does not take itself for a head and run the session-start routine.
 
 ## Version check and smoke check
 
@@ -35,10 +32,10 @@ to a tracked file in the worktree fails; it needs no commit, merge or network te
 
 ## Codex reviewer (read-only)
 
-Model and effort come from the global contract's section "Model routing" if
-installed (the row for the work, the Codex column; its Effort column);
-otherwise use the operator's stated model and effort, or ask. Never guess.
-`$MODEL` and `$EFFORT` below are those values.
+Model and effort come from the head contract's section "Model routing"
+(`instructions/HEAD.md`) if installed (the row for the work, the Codex column;
+its Effort column); otherwise use the operator's stated model and effort, or
+ask. Never guess. `$MODEL` and `$EFFORT` below are those values.
 
 ```bash
 codex exec -s read-only -C "$WT" -m "$MODEL" -c model_reasoning_effort="$EFFORT" \
@@ -105,14 +102,15 @@ jq -r .text "$OUT"
 - Always pass `--effort`: `~/.grok/config.toml` defaults to `xhigh` and
   `permission_mode = "always-approve"`. `grok --help` lists no valid values for
   `--effort` (alias `--reasoning-effort`), so the values are unverified: take the
-  level from the global contract's "Model routing" table if installed, default
+  level from `instructions/HEAD.md`'s "Model routing" table if installed, default
   `high`.
 - `--sandbox` takes a profile name (`grok --help` shows a free-form `<PROFILE>`);
   `read-only` and `workspace` are unverified as built-ins beyond the smoke check
   above, so run that check before relying on either.
 - `--json-schema '<schema>'` works and implies json output.
-- Grok loads the global contract, so `.text` may carry a `Contract loaded.` line;
-  inspect the reported evidence, not just the first line.
+- A helper does not print `Contract loaded.`; a `.text` that carries the line
+  is reported to the head. Inspect the reported evidence, not just the first
+  line.
 
 ## Grok writer in a linked worktree
 

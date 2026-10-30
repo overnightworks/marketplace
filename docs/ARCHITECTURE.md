@@ -2,7 +2,8 @@
 
 Reader: a human operator or engineer asking where agent guidance lives and why
 it is never copied. Install and verification commands live in the
-[README](../README.md), rules in the [contract](../instructions/AGENTS.md), and
+[README](../README.md), rules in the [contract](../instructions/AGENTS.md) and
+its [head part](../instructions/HEAD.md), and
 the list of documents a repository carries in the
 [write-docs skill](../plugins/atelier/skills/write-docs/references/document-types.md#repository-document-set).
 The [fleet standards](standards.md) index names each standard that covers
@@ -12,8 +13,8 @@ several of the operator's repositories and links to its owner.
 
 Guidance has three owners, and each reaches an agent by its own route:
 
-- **The contract and code policy** are one file, written once, installed per
-  machine.
+- **The contract and code policy** are two files, written once, installed per
+  machine: `AGENTS.md` for every agent, `HEAD.md` for the head alone.
 - **The plugin** carries skills, agents and workflows to every host that
   installs it.
 - **A repository** carries only its own facts, through git.
@@ -22,6 +23,7 @@ Guidance has three owners, and each reaches an agent by its own route:
 flowchart LR
     subgraph marketplace["overnightworks/marketplace"]
         contract["instructions/AGENTS.md<br/>contract + code policy"]
+        headfile["instructions/HEAD.md<br/>head contract"]
         plugin["plugins/atelier<br/>skills, agents, workflows"]
         codexagents["plugins/atelier/.codex/agents<br/>generated from agents/"]
     end
@@ -34,6 +36,7 @@ flowchart LR
         docs["docs/VISION.md<br/>docs/ARCHITECTURE.md, specs"]
     end
     contract -- symlink --> userfiles --> host
+    headfile -- head reads beside the link --> host
     plugin -- plugin install --> host
     plugin -- sync_agents --> codexagents
     facts -- git --> host
@@ -53,3 +56,10 @@ must be an up-to-date `main`, because agents read whatever it holds.
 `scripts/install.py` links `instructions/AGENTS.md` to `~/.claude/CLAUDE.md`
 and `~/.codex/AGENTS.md`. Grok reads `~/.claude/CLAUDE.md` through its Claude
 compatibility (`compat.claude.agents`, on by default).
+
+No provider loads `instructions/HEAD.md` by itself. `AGENTS.md` tells the head
+to read it before its first answer, and again after a compaction or a resume,
+with one command that resolves the link and prints "HEAD.md not read" when it
+fails. A helper is told apart by its first message, another agent's brief that
+opens with the delegated line; it reads only a section of `HEAD.md` its brief
+names.

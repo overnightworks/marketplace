@@ -1,9 +1,10 @@
 # Atelier Marketplace
 
 Atelier is the operator's shared agent toolkit: a plugin of skills,
-provider-native agents and Claude Code workflows for Codex and Claude Code,
-plus the agent contract and code policy that Codex, Claude Code and Grok all
-read. It serves the agent sessions across the overnightworks repositories.
+provider-native agents and Claude Code workflows for Codex and Claude Code, plus
+the agent contract and code policy that Codex, Claude Code and Grok all read:
+one file for every agent and one more for the head. It serves the agent sessions
+across the overnightworks repositories.
 
 Licensed under the [MIT License](LICENSE).
 
@@ -17,7 +18,8 @@ Licensed under the [MIT License](LICENSE).
   generated files.
 - `.agents/plugins/marketplace.json` and `.claude-plugin/marketplace.json` are
   the Codex and Claude Code marketplace catalogs.
-- `instructions/AGENTS.md` is the operator's contract and code policy.
+- `instructions/AGENTS.md` is the operator's contract and code policy for every
+  agent; `instructions/HEAD.md` beside it is the part only the head reads.
 - A head starts the lane by its name, `atelier:lane`, with the Workflow tool.
   The name, and each child the lane starts by name (`lane-ci`, `lane-codex`,
   `lane-relay`), resolves to the plugin version the session loaded at its
@@ -48,7 +50,7 @@ a new Codex thread or run `/reload-plugins` in Claude Code.
 - [Architecture](docs/ARCHITECTURE.md): where agent guidance lives and why it
   is never copied.
 - [Contract and code policy](instructions/AGENTS.md): the rules every agent
-  follows.
+  follows; [head contract](instructions/HEAD.md): the rules the head adds.
 
 ## Verify
 

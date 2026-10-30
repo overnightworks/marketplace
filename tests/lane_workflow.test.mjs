@@ -169,6 +169,18 @@ test('#128 AC-courier-final-action: the courier and its re-read name StructuredO
   }
 })
 
+test('#412 delegated-line: every agent prompt the lane and its children start opens with the delegated line', async () => {
+  const line = 'This is a delegated step started by a head, not a main session: skip the session-start routine and do only this brief.'
+  const answers = { ...agentProvidersReplay.answers, 'r0-gate': contradictoryCourier, 'r0-gate-reread': { ...gateRevise, codexExit: 0 } }
+  const unreadableSync = await runLane(resumedLane, { sync: { printed: '{"crc":"pending","v":"pending"}' }, 'sync-reread': {} })
+  assert.ok(unreadableSync.launchedAgents.includes('sync-reread'))
+  const { launchedAgents, launchedPrompts: laneAgentPrompts, agentCalls } = await runLane(agentProvidersReplay.args, answers)
+  const launchedPrompts = [...unreadableSync.launchedPrompts, ...laneAgentPrompts]
+  for (const label of ['build', 'r0-review', 'r0-gate', 'r0-gate-reread', 'fix-1', 'e2e-0', 'ci-0']) assert.ok(launchedAgents.includes(label), label)
+  for (const prompt of launchedPrompts) assert.ok(prompt.startsWith(`${line}\n`), prompt.slice(0, 120))
+  assert.ok(agentCalls['r0-gate'].prompt.includes(`-----\n${line}\nRead-only sandbox`))
+})
+
 // The recorded answers as a reviewer and fixer briefed with finding kinds would give them: the test-gap finding
 // carries the kind its reviewer gives it, and its proof the mutation its fixer reported. The other options vary
 // that proof: whether it passes after the fix, whether it names the finding's where exactly, a near match of it,

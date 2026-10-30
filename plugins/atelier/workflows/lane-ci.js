@@ -4,9 +4,9 @@ export const meta = {
 }
 
 // Both copies of this number (here and in lane.js) change together in any commit that changes the args or the return shape.
-const LANE_CI_PROTOCOL = 3
+const LANE_CI_PROTOCOL = 4
 const A = args || {}
-const need = ['protocol', 'pr', 'n', 'worktree', 'finding', 'watcher']
+const need = ['protocol', 'delegatedLine', 'pr', 'n', 'worktree', 'finding', 'watcher']
 if (A.protocol !== LANE_CI_PROTOCOL) return { refused: `lane-ci speaks protocol ${JSON.stringify(LANE_CI_PROTOCOL)}, but the lane that started it speaks protocol ${JSON.stringify(A.protocol)}; the installed atelier differs from the running lane` }
 const missing = need.filter(key => A[key] === undefined || A[key] === null || A[key] === '')
 if (missing.length) return { refused: `missing args: ${missing.join(', ')}` }
@@ -35,7 +35,7 @@ function watchCi() {
   const inWorktree = A.repo ? '' : `cd '${A.worktree}' && `
   const rulesRepoPath = A.repo ? `repos/${A.repo}` : 'repos/{owner}/{repo}'
   return agentOrNull(
-    `Report CI for pull request #${pr}${IN_REPO}; change nothing in the repository. ` +
+    `${A.delegatedLine}\nReport CI for pull request #${pr}${IN_REPO}; change nothing in the repository. ` +
     `If \`${inWorktree}gh pr view ${pr}${R} --json mergeable --jq .mergeable\` says CONFLICTING, return green false with one failing entry: where "mergeable", kind "defect", text "the pull request conflicts with main", ` +
     `rule "GitHub runs no CI on a conflicting pull request", evidence the mergeable value. Otherwise wait in the foreground — you cannot be woken later. First wait until CI has registered the head, because a just-pushed head lists no check yet: run \`${inWorktree}for i in $(seq 1 20); do [ "$(gh pr checks ${pr}${R} --json name --jq length 2>/dev/null)" -gt 0 ] 2>/dev/null && break; sleep 15; done\` (Bash timeout 600000 ms; it ends with status 0 after about 5 minutes even when no check registered, then go on). Then run \`${inWorktree}timeout 540 gh pr checks ${pr}${R} --watch --interval 90\` (Bash timeout 600000 ms) and repeat it until it exits on its own rather than by the timeout, at most 7 times. If a check fails, ` +
     `rerun the failed jobs once (\`${inWorktree}gh run rerun <run-id>${R} --failed\`) and watch again, so a flaky check does not count. green is true only when at least one check ran on head ` +

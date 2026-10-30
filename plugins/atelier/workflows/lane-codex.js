@@ -4,9 +4,9 @@ export const meta = {
 }
 
 // Both copies of this number (here and in lane.js) change together in any commit that changes the args or the return shape.
-const LANE_CODEX_PROTOCOL = 1
+const LANE_CODEX_PROTOCOL = 2
 const A = args || {}
-const need = ['protocol', 'worktree', 'scratch', 'tag', 'label', 'routing', 'reviewerBrief', 'findingKinds', 'verdictSchema', 'mechanical']
+const need = ['protocol', 'delegatedLine', 'worktree', 'scratch', 'tag', 'label', 'routing', 'reviewerBrief', 'findingKinds', 'verdictSchema', 'mechanical']
 if (A.protocol !== LANE_CODEX_PROTOCOL) return { refused: `lane-codex speaks protocol ${JSON.stringify(LANE_CODEX_PROTOCOL)}, but the lane that started it speaks protocol ${JSON.stringify(A.protocol)}; the installed atelier differs from the running lane` }
 const missing = need.filter(key => A[key] === undefined || A[key] === null || A[key] === '')
 if (missing.length) return { refused: `missing args: ${missing.join(', ')}` }
@@ -45,7 +45,7 @@ function rereadContradictoryCourier(answer, label, base) {
   const emptyRevise = answer?.verdict === 'REVISE' && (answer.blocking || []).length === 0
   if (!((answer?.verdict === 'failed' || emptyRevise) && answer.codexExit === 0)) return answer
   const rereading = safeAgent(
-    `You are a courier re-reading a finished Codex review. Do not start Codex, do not review anything yourself and do not edit anything.\n` +
+    `${A.delegatedLine}\nYou are a courier re-reading a finished Codex review. Do not start Codex, do not review anything yourself and do not edit anything.\n` +
     `Read ${base}-out.json.exit and ${base}-out.json. If the exit status is 0 and the file is valid JSON, copy its verdict, blocking and followups verbatim into the StructuredOutput call, with reportPath ${base}-out.json and codexExit 0. ` +
     `Otherwise return verdict failed with the exit status in codexExit (-1 when there is no marker) and the reason in note.\n${STRUCTURED_OUTPUT_ONLY_LINE}`,
     { label: `${label}-reread`, phase: 'Review', schema: COURIER_VERDICT, ...MECHANICAL })
@@ -55,10 +55,10 @@ function rereadContradictoryCourier(answer, label, base) {
 
 function codexReview() {
   const base = `${A.scratch}/${A.tag}-${label}`
-  const brief = `Read-only sandbox: read files and run read-only commands freely; do not run tests. The sandbox has no network and cannot write, /tmp included; report a command you cannot run as not verified, never as a blocking finding.\n` + A.reviewerBrief +
+  const brief = `${A.delegatedLine}\nRead-only sandbox: read files and run read-only commands freely; do not run tests. The sandbox has no network and cannot write, /tmp included; report a command you cannot run as not verified, never as a blocking finding.\n` + A.reviewerBrief +
     `\nGive every finding its file:line in "where".`
   return safeAgent(
-    `You are a courier for one independent Codex review. Do not review anything yourself and do not edit the repository.\n` +
+    `${A.delegatedLine}\nYou are a courier for one independent Codex review. Do not review anything yourself and do not edit the repository.\n` +
     `1. rm -f ${base}-out.json ${base}-out.json.exit ${base}-out.json.exit.tmp\n` +
     `2. Write this brief verbatim to ${base}-brief.md:\n-----\n${brief}\n-----\n` +
     `3. Write this JSON schema verbatim to ${base}-schema.json:\n${CODEX_SCHEMA}\n` +

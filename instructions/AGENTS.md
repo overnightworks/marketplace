@@ -125,9 +125,11 @@ questions, doubts and friction go to its parent.
   exclusively.
 - An open lane merges trunk into its worktree and runs the checks; a lane that
   must land on its own never merges an unlanded sibling lane.
-- A step ends with its work committed on the lane branch and its evidence in
-  the item's journal, so nothing a later step needs lives only in a
-  transcript. Issue comments are the durable handoff; `/tmp` and scratch only transport, never a repository copy or dependency install; a second checkout is a `git worktree`, removed after its step.
+- A step ends with its work committed on the lane branch and its evidence in the
+  item's journal, so nothing a later step needs lives only in a transcript.
+  Issue comments are the durable handoff; `/tmp` and scratch only transport,
+  never a repository copy or dependency install; a second checkout is a
+  `git worktree`, removed after its step.
 - Evidence from a private repository enters a public one only as a pointer.
 
 ## Reviews

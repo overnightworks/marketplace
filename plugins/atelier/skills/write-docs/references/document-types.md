@@ -255,7 +255,7 @@ Skeleton:
 ```
 
 "Who uses it today" names people and products, not a list of dependent
-repositories: those are read from manifests (the contract's product ownership),
+repositories: those are read from manifests (`instructions/HEAD.md`, Product),
 and only a dependency no manifest shows stands here. When nobody uses the
 product yet, the section says so in one line.
 
@@ -343,7 +343,9 @@ reader's language, one language per document; a quoted wish or ruling keeps the
 words it was spoken in.
 
 The set's paths are exact; a file under another name or case is renamed to it.
-Each ruled sentence names its ruling by date (operator ruling <date>); the
+Each ruled sentence names its ruling by date (operator ruling <date>), except
+in the global contract's two files and in an owner-document section marked as
+holding contract rules, whose record the contract's preamble governs; the
 landing that removes a behaviour removes its ruled sentences and their tests.
 
 No roadmap, plan, wish-list or concept file: before the build it is the item

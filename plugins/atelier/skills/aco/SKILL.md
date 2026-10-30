@@ -11,9 +11,9 @@ local owner) and in `README.md` and `specs/<command>.spec.md` of the aco
 repository (github.com/overnightworks/aco; a local checkout may carry another
 directory name, so find it with `git -C <candidate> remote get-url origin`, and
 read the spec on the forge when none exists). Read the spec of a command before
-using it the first time; this file copies none of it. The global contract's
-section "How to coordinate" says *that* a lane is claimed, reviewed and landed;
-this says *how*.
+using it the first time; this file copies none of it. The head contract
+(`instructions/HEAD.md`, sections "Lanes" and "Landing") says *that* a lane is
+claimed, reviewed and landed; this says *how*.
 
 ## Session start
 
@@ -27,7 +27,7 @@ this says *how*.
 
 ## Start a lane
 
-- Before the claim, trace callers and owners into the scope (contract: "How to coordinate", the trace-before-claim rule). A live claim changes scope only through `aco rescope <n> --add PATH` (or `--drop PATH`), after the body's scope says so, run from the claim's own worktree (it refuses the main checkout, unlike `aco start`); a second `aco claim` refuses. A lane that returns `awaiting-head` with a `rescope` list is resumed after that.
+- Before the claim, trace callers and owners into the scope (`HEAD.md`: "Lanes", Trace before the claim). A live claim changes scope only through `aco rescope <n> --add PATH` (or `--drop PATH`), after the body's scope says so, run from the claim's own worktree (it refuses the main checkout, unlike `aco start`); a second `aco claim` refuses. A lane that returns `awaiting-head` with a `rescope` list is resumed after that.
 - Issue item: from the main checkout, run the `aco start <n> ...` line that
   `aco next` prints and fill any `<reason>` placeholder it prints (for example after
   `--whole`); it creates the worktree
@@ -48,8 +48,8 @@ this says *how*.
   paths); aco refuses the claim without it. One sentence why it does not split.
   Prefer a body `whole` field.
 - `--out-of-order REASON` is required when a higher-ranked item is free or a
-  blocker is open; aco refuses the start without it (contract: "Start of a main
-  session").
+  blocker is open; aco refuses the start without it (`HEAD.md`: "Session
+  start").
 - Issue-less work: create the `fix/<slug>` or `docs/<slug>` worktree yourself, then
   `aco claim --scope PATH` in lane mode from inside it (`specs/claim.spec.md`).
   Release with `aco release --merged <pr>` or `--abandoned REASON`
@@ -70,13 +70,13 @@ this says *how*.
 - An open pull request without a claim (a dependency bot's, a fixer's): `aco adopt <pr>
   --no-item deps|fix|docs` makes it a claimed lane on its own branch; `deps` needs
   `dependency_paths` in `.aco/board.toml`. Then land as usual (`specs/adopt.spec.md`).
-- Bundled cards (contract: "How to coordinate"): before the claim, append each
+- Bundled cards (`HEAD.md`: "Lanes", Bundles): before the claim, append each
   card's sentences, its `[[expectation]]` entries byte for byte (their
   `card_hash` holds) and its `Done when` to the lead body, and pipe it through
   `aco check -`. Add each of the card's blockers to the lead, and point each
   item the card blocks at the lead (drop an edge from the card to the lead or to
-  another folded card instead of moving it), with the dependency call under "Item bodies" below plus
-  their `Blocked by:` lines. Then
+  another folded card instead of moving it), with the dependency call under "Item bodies" below.
+  Then
   `gh issue close <card> --duplicate-of <lead> --comment "Folded into #<lead>."`.
   Claim the lead with `--scope` covering every folded card's paths and `--whole`
   naming the bundle.
@@ -117,12 +117,12 @@ contract and this skill.
   refuses.
 - Read a body with `gh issue view <n> --json body --jq .body` and write it with
   `gh issue edit <n> --body-file <file>` (a PR uses `gh pr view` and `gh pr edit`).
-- Keep the contract's `Blocked by:` line, and record each blocker as a GitHub issue
-  dependency too: `aco next` and `aco board` read only those, never the body prose
-  (`specs/body-block.spec.md`). `gh api -X POST
+- Record each blocker as a GitHub issue dependency, never as a body line: `aco next`
+  and `aco board` read only those (`specs/body-block.spec.md`). `gh api -X POST
   repos/<owner>/<repo>/issues/<n>/dependencies/blocked_by -F issue_id=<id>`, where
   `<id>` is `gh api repos/<owner>/<repo>/issues/<m> --jq .id` of the blocker; a
-  blocker in another repository works the same way.
+  blocker in another repository works the same way. For a brief, read an item's
+  open blockers with `aco check <n>` (`specs/check.spec.md`, CHECK-08).
 - Pipe the new body through `aco check -` before writing it; it reports defects
   in the fenced `aco` block (`specs/check.spec.md`, `specs/body-block.spec.md`).
 - `aco check <issue>` judges a written issue body's contract.
@@ -198,7 +198,7 @@ Code's auto mode denies.
    the landing runs no git command beside or after it.
 3. The landing agent reports the follow-up lines `aco land` prints (`freed:`,
    `next:`, in aco also `reinstall:`) to the head and runs none of
-   them. The head acts on them as the contract's "How to coordinate" says, then
+   them. The head acts on them as `HEAD.md`'s "Landing" says, then
    runs `aco next`.
 
 If the merge worked but a step failed, `aco land` prints `follow-up incomplete`
@@ -216,4 +216,5 @@ reason (not a finished solution), and extend this skill only where the answer is
 a *how*, not a copied fact.
 
 A lane-workflow step that does not fit is reported on the marketplace board
-(contract: "How to coordinate"), not worked around silently.
+(`HEAD.md`: "Other repositories", Friction goes to its owner), not worked
+around silently.

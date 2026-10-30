@@ -1,0 +1,8 @@
+claim_id = "3ace61e507b04654808117e82615ad91"
+agent = "Claude a5abe9e4-862b-4cac-94ed-68bd072edf38"
+role = "builder"
+base = "3a8fc09e68fab27e06b5776468877ffb9b5a9479"
+branch = "claude/issue-428-relay-reordered-list"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/workflows/lane-relay.js", "tests/lane_workflow_relay.test.mjs"]
+opened_commit = "8a5ff665c4fc549f6f4743004e7b8e055abc72d4"
+whole_reason = "One check, its replay test and the release pins."

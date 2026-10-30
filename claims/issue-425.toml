@@ -1,0 +1,8 @@
+claim_id = "119f3cc1d6d147cbb4857316e6453724"
+agent = "Claude a5abe9e4-862b-4cac-94ed-68bd072edf38"
+role = "builder"
+base = "1925211df64e3c501e2e6ea5adba182a84718922"
+branch = "claude/issue-425-e2e-env-in-worktree"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/workflows/lane.js", "tests/lane_workflow.test.mjs"]
+opened_commit = "fbdf680af7d50a6be984b1fa3720c8636fd5819d"
+whole_reason = "One prompt change, its replay test and the release pins; split, the release would ship an unpinned prompt."

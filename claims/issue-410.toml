@@ -1,0 +1,8 @@
+claim_id = "73f1491f27d74611a4ed7b5e7d1e97ee"
+agent = "Claude b5de3560-4db0-4dfe-be9f-fe26ef53140a"
+role = "builder"
+base = "f7ee3d6afb2ce5dd841c28656c15a11fff0fc167"
+branch = "claude/issue-410-probe-lock-pdeathsig"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/.codex/agents/code-fixer.toml", "plugins/atelier/.codex/agents/code-worker.toml", "plugins/atelier/.codex/agents/explorative-tester.toml", "plugins/atelier/agents/code-fixer.md", "plugins/atelier/agents/code-worker.md", "plugins/atelier/agents/explorative-tester.md", "plugins/atelier/workflows/lane.js"]
+opened_commit = "b5393a207c4abcbe49cd12f3ac541d8760468741"
+whole_reason = "One lock form repeated in four briefs, their generated Codex copies and the pins that publish them is one change."

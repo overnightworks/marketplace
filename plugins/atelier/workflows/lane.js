@@ -197,6 +197,7 @@ const FIX = {
       description: 'fold-ins you found already done: left in the worktree by an earlier fixer whose fix was not accepted, or already satisfied by the lane tip',
       items: { type: 'object', required: ['where', 'text', 'evidence'], properties: { where: { type: 'string' }, text: { type: 'string' }, evidence: { type: 'string', description: 'the test, probe cell or line that already satisfies it' } } },
     },
+    outside: { type: 'array', description: 'blocking findings you answered by editing the pull request body or posting an item comment, with no commit: the number in the blocking list and the body section or comment URL', items: { type: 'object', required: ['finding', 'where'], properties: { finding: { type: 'integer', minimum: 1 }, where: { type: 'string' } } } },
     regression: {
       type: 'array',
       description: "every test you add, strengthen or keep for a blocking finding, and every probe cell you run for it, under that finding's number in the blocking list you were given",
@@ -407,10 +408,7 @@ function fixRoundStop(blocking, budgetKey) {
     return openResult(budgetKey === 'ci' ? 'ci-red' : 'unresolved', budgetKey, { reason: `${which} budget spent`, lastBlocking: blocking })
   }
   const repeated = noProgress(blocking)
-  if (repeated.length) {
-    return openResult('unresolved', budgetKey, { reason: 'a finding came back unchanged after its fix', lastBlocking: repeated })
-  }
-  return null
+  return repeated.length ? openResult('unresolved', budgetKey, { reason: 'a finding came back unchanged after its fix', lastBlocking: repeated }) : null
 }
 
 // The contract lets a fixer resolve a small follow-up in a file the lane already changed, when it cannot change behaviour.
@@ -469,19 +467,18 @@ const proves = (proof, index) => Number.isInteger(proof.finding) && proof.findin
 const satisfiedEvidence = (fixed, foldIn) => (fixed.resolved || []).find(r => r.where === foldIn.where && (r.evidence || '').trim())?.evidence
 // An unchanged tip is a fix only when there are no blocking findings and every fold-in is proven already satisfied.
 const everyFoldInSatisfied = (fixed, blocking, foldIn) => !blocking.length && foldIn.length > 0 && foldIn.every(f => satisfiedEvidence(fixed, f))
+// An unchanged tip is a fix too when each blocking finding is answered in the pull request body or an item comment.
+const answeredOutside = (fixed, blocking) => blocking.length > 0 && blocking.every((_, index) => (fixed.outside || []).some(o => o.finding === index + 1 && (o.where || '').trim()))
 function fixRejection(fixed, blocking, foldIn) {
   const proofs = fixed.regression || []
   const gaps = proofs.flatMap(proof => blocking.map((finding, index) => ({ proof, finding, index })).filter(({ index }) => proves(proof, index)).map(({ finding }) => ({ proof, finding, gap: proofGap(proof, finding) })))
     .filter(checked => checked.gap)
   if (gaps.length) return { reason: [...new Set(gaps.map(checked => checked.gap))].join('; '), regression: gaps.map(checked => checked.proof), lastBlocking: gaps.map(checked => checked.finding) }
   const unproven = blocking.map((finding, index) => ({ finding, index })).filter(({ finding, index }) => needsProof(finding) && !proofs.some(r => proves(r, index)))
-  if (unproven.length) {
-    const unprovenList = unproven.map(({ finding, index }) => (index + 1) + '. ' + finding.where).join(', ')
-    return { reason: `a test-gap finding or a defect with a test draft got no regression test: ${unprovenList}`, lastBlocking: unproven.map(({ finding }) => finding) }
-  }
+  if (unproven.length) return { reason: `a test-gap finding or a defect with a test draft got no regression test: ${unproven.map(({ finding, index }) => `${index + 1}. ${finding.where}`).join(', ')}`, lastBlocking: unproven.map(({ finding }) => finding) }
   // Satisfied fold-ins leave the lane at the held tip, or at a merge of main onto it: anything past that is unasked work.
   const foldInsOnly = everyFoldInSatisfied(fixed, blocking, foldIn)
-  if (fixed.unchanged) return foldInsOnly && fixed.containsMain ? null : { reason: 'the fixer changed nothing', lastBlocking: blocking }
+  if (fixed.unchanged) return (foldInsOnly && fixed.containsMain) || answeredOutside(fixed, blocking) ? null : { reason: 'the fixer changed nothing', lastBlocking: blocking }
   const mergeWasTheFinding = blocking.length === 1 && blocking[0].where === 'mergeable'
   if (fixed.mergeOnly && !mergeWasTheFinding && !foldInsOnly) return { reason: 'the fixer only merged main and fixed nothing', lastBlocking: blocking }
   return null
@@ -503,11 +500,14 @@ function acceptFix(fixed, blocking, foldIn) {
   const touchesProduction = fixed.mergeResolvedLaneConflict || relative.some(f => PRODUCTION.some(prefix => f.startsWith(prefix)))
   tip = fixed.tip
   if (touchesProduction) productionSinceTest = true
-  if (fixed.unchanged || (fixed.mergeOnly && !fixed.mergeResolvedLaneConflict)) {  // nothing of the lane changed to review: a clean merge of main answered the mergeable finding
+  const outsideRange = fixed.unchanged && answeredOutside(fixed, blocking)
+  if ((fixed.unchanged && !outsideRange) || (fixed.mergeOnly && !fixed.mergeResolvedLaneConflict)) {  // nothing of the lane changed to review: a clean merge of main answered the mergeable finding
     log(`fix ${spent.total}: no lane change to review`)
     return { range: null, gateAgain: false, touchesProduction: false }
   }
-  const range = (fixed.mergeResolvedLaneConflict
+  const range = (outsideRange
+    ? `no commit changed: read live what the fixer edited outside the tree (${fixed.outside.map(o => `finding ${o.finding}: ${o.where}`).join('; ')}), the pull request body with gh pr view ${pr} --json body and an item comment with gh issue view ${A.item} --comments`
+    : fixed.mergeResolvedLaneConflict
     ? `only this delta: git diff ${fixed.heldTip}..${fixed.tip} (it includes a merge of main whose conflicts in this lane's files were resolved by hand)`
     : `only this delta, the fixer's own commits: git log -p --first-parent --remerge-diff ${fixed.heldTip}..${fixed.tip} (main's clean changes are not shown; a lane edit inside a merge of main is)`) +
     `. It answers these findings:\n${listFindings(blocking)}${removalsInRange(fixed, blocking)}${foldInsInRange(foldIn)}`
@@ -537,7 +537,7 @@ async function fixBatch(blocking, source, budgetKey, carried = false) {
     `do not change code for it: list it in disputed with your counter-evidence. Report every test you add, strengthen or keep for a blocking finding, and every probe cell you run for it, in regression under that finding's number in the list above; the number counts only for the blocking list, a follow-up needs no regression entry. Run the mutation you name, do not reason about it. ` +
     `A defect's test fails before your fix and passes after it; a defect with a test draft needs one. A defect in test code (hygiene) needs no regression test: the diff is its proof. A test-gap finding means a behaviour has no test, the code is already right, and it always needs a test: it passes before and after, ` +
     `so name in mutation the production change, made and reverted, under which the test fails; a test that fails on the pre-fix code counts as such a mutation (failedBefore true). When a test-gap's cell pins no behaviour at all, you may remove it instead: report resolution removed-vacuous with the removal diff in diff. A docs finding needs no test. When the only finding is that the pull request conflicts with main, the merge is the whole fix. ` +
-    `Otherwise one commit per finding. Push, patch the PR body only where it became false (REST PATCH with --input, never gh pr edit --body-file), run \`aco check ${pr}\` from the worktree. ` +
+    `Otherwise one commit per finding. Push, patch the PR body where it became false or where a finding is about it (REST PATCH with --input, never gh pr edit --body-file); a finding the body or an item comment answers goes in outside, and commit nothing for it; run \`aco check ${pr}\` from the worktree. ` +
     `Return files: the output of \`${git} log --name-only --format= --first-parent --remerge-diff ${tipBeforeFix}..HEAD\` (of \`${git} diff --name-only ${tipBeforeFix}..HEAD\` when mergeResolvedLaneConflict is true). Last, whatever happened,` })
   if (!answered) return { stop: openResult('failed', 'fix', { reason: `the fixer returned no result; inspect ${A.worktree} for commits past ${tip} and uncommitted work, then start a new run with pr and tip (and fixFirst for what is left)`, lastBlocking: blocking }) }
   // What the fixer says it found already done is only reported to the head: an unaccepted fix folds nothing in.

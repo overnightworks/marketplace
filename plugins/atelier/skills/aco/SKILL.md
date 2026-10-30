@@ -147,6 +147,10 @@ contract and this skill.
   to its head (`specs/rule.spec.md`). `aco rule` only transcribes the operator's word;
   `aco rulings` prints the line index `--line` takes. It takes no item argument and lists
   every item, so find item `<n>` in its output.
+- Take back your own open or returned line only with `aco withdraw <n> --line <k>`, never
+  by editing the body (`specs/withdraw.spec.md`); it refuses a ruled line. Withdrawing a
+  returned line drops the operator's note, so carry that note into the line that replaces
+  it first.
 - A GitHub body has no compare-and-swap: re-read it right before writing, diff old
   against new so only your own lines differ, and afterwards check with `aco rulings`
   that every other line kept its state.

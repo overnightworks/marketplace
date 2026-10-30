@@ -1,8 +1,0 @@
-claim_id = "91aa21eaa9b94cd8be28d45dae46452f"
-agent = "Claude a5abe9e4-862b-4cac-94ed-68bd072edf38"
-role = "builder"
-base = "cd8b46cedc9f35fb89831e304dc2d7d8f1206ba5"
-branch = "claude/issue-419-review-reads-body"
-scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/workflows/lane-codex.js", "plugins/atelier/workflows/lane.js", "tests/lane_workflow.test.mjs", "tests/lane_workflow_codex.test.mjs", "tests/lane_workflow_harness.mjs", "tests/lane_workflow_scope.test.mjs"]
-opened_commit = "7e2622f898c3a7d4d6f6a763ac4e6f2aaaca5050"
-whole_reason = "One owner, the lane's contract core for reviewers, spans the workflow, its Codex child, their replay tests and the release pins; split, a half would ship a protocol skew."

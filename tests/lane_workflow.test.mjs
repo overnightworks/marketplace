@@ -259,3 +259,14 @@ test('#290 defect:#290 a REVISE in the whole-lane round has the raiser re-check 
   assert.match(agentCalls['r2-review'].prompt, /only this delta, the fixer's own commits: git log -p --first-parent --remerge-diff/)
   assert.ok(!agentCalls['r2-review'].prompt.includes('git diff origin/main...HEAD'))
 })
+
+test('#425 the e2e tester builds its environment in the lane worktree, removes its playground and keeps its evidence; no text says scratch is deleted', async () => {
+  const { agentCalls } = await runLane(agentProvidersReplay.args, { ...agentProvidersReplay.answers, 'e2e-0': null, 'e2e-0-fallback': agentProvidersReplay.answers['e2e-0'] })
+  for (const label of ['e2e-0', 'e2e-0-fallback']) {
+    const { prompt, options } = agentCalls[label]
+    assert.match(prompt, /besides the environment the repository's own sync command creates in \/w\b/, label)
+    assert.equal(prompt.match(/remove your playground/g).length, 1, label)
+    assert.match(prompt, /keep your evidence under evidencePath/, label)
+    assert.doesNotMatch(prompt + JSON.stringify(options.schema), /scratch[^.]*is deleted/i, label)
+  }
+})

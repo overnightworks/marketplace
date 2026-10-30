@@ -1,0 +1,8 @@
+claim_id = "b64ea09cc49142c4bcb4aa112a69d534"
+agent = "Claude b5de3560-4db0-4dfe-be9f-fe26ef53140a"
+role = "builder"
+base = "1d4248923d05edff354fea7e4ecbe048ce43638a"
+branch = "claude/issue-414-slim-contract-swap"
+scope = [".claude-plugin/marketplace.json", "AGENTS.md", "README.md", "docs/ARCHITECTURE.md", "docs/standards.md", "instructions/AGENTS.md", "instructions/HEAD.md", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/skills/aco/SKILL.md", "plugins/atelier/skills/aco/references/decision-cards.md", "plugins/atelier/skills/agent-documentation/SKILL.md", "plugins/atelier/skills/agent-documentation/references/skill-audit.md", "plugins/atelier/skills/providers/SKILL.md", "plugins/atelier/skills/write-docs/references/document-types.md", "plugins/atelier/workflows/lane.js"]
+opened_commit = "2072450a71603f33fe23e3096eaaddcb297a42d9"
+whole_reason = "Each pointer must change in the same commit that moves its section; landing any part apart leaves a false pointer or two copies of one rule."

@@ -1,0 +1,8 @@
+claim_id = "6819d735eda0419582333c79c5740089"
+agent = "Claude a5abe9e4-862b-4cac-94ed-68bd072edf38"
+role = "builder"
+base = "4d99cd0ed7294cd88e8f0dfeac6c04389f8d8f23"
+branch = "claude/issue-430-lane-a-fix-that-edits-only-the-pr-body-o"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/workflows/lane-relay.js", "plugins/atelier/workflows/lane.js", "tests/lane_workflow_fix.test.mjs"]
+opened_commit = "6419f488d7f730d9b198ff454817351ec7cd2851"
+whole_reason = "One fix-acceptance path, its relay value if chosen, its test and the release pins."

@@ -5,7 +5,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { execFileSync, spawnSync } from 'node:child_process'
-import { runLane, runCommandLine, installFake, FAKE_ACO, resumedLane, resumeFix, defectWithoutDraft } from './lane_workflow_harness.mjs'
+import { runLane, runCommandLine, installFake, FAKE_ACO, resumedLane, resumeArgs, resumeTip, resumeFix, defectWithoutDraft, reachesTheEnd, greenCi, tidy, unchangedFix, satisfied } from './lane_workflow_harness.mjs'
 
 const BRANCH = 'lane'
 const LONGEST_PATH_COMPONENT = 255
@@ -421,4 +421,38 @@ test('#398 AC-relay-reread: a re-read agent that returns no result leaves the fi
 test('#398 AC-relay-reread: a readable line starts no re-read', async () => {
   const run = await runLane(resumedLane, {})
   assert.deepEqual(reread(run), [])
+})
+
+// The CI read: the relaying agent edits the checks.list of the printed line and keeps the printed CRC.
+const withListing = (change) => (line) => {
+  const [, crc, payload] = /^\{"crc":"(\w+)","v":(.*)\}$/.exec(line)
+  const values = JSON.parse(payload)
+  values.checks.list = change(values.checks.list)
+  return `{"crc":"${crc}","v":${JSON.stringify(values)}}`
+}
+const listing = [{ name: 'quality / verdict', bucket: 'pass' }, { name: 'a', bucket: 'pass' }, { name: 'b', bucket: 'pass' }]
+const driveCiRead = (edit, checks = listing) => runLane({ ...resumeArgs, foldIn: [tidy] }, { ...reachesTheEnd, 'fix-1': { ...unchangedFix, resolved: [satisfied(tidy)] }, 'ci-0': { ...greenCi(resumeTip), checks }, 'ci-read-0': { edit } })
+
+test('#428 AC-relay-list-order: a relay line whose checks.list entries were swapped verifies, with no re-read', async () => {
+  const { result, launchedAgents } = await driveCiRead(withListing(([first, second, ...rest]) => [second, first, ...rest]))
+  assert.equal(result.status, 'ready-to-land', result.reason)
+  assert.deepEqual(reread({ launchedAgents }), [])
+})
+
+for (const [what, edit] of [
+  ['a dropped entry', withListing(([, ...rest]) => rest)],
+  ['a changed bucket', withListing(([first, ...rest]) => [{ ...first, bucket: 'fail' }, ...rest])],
+  ['a changed nonce', (line) => line.replace(/"nonce":"[^"]*"/, '"nonce":"other"')],
+]) {
+  test(`#428 AC-relay-list-order: ${what} still fails the relay check`, async () => {
+    const { result } = await driveCiRead(edit)
+    assert.deepEqual([result.status, result.stage], ['failed', 'ci'])
+    assert.match(result.reason, /relay line/)
+  })
+}
+
+test('#428 AC-relay-list-order: swapped entries with non-ASCII names verify', async () => {
+  const names = [{ name: 'ünï / 日本語 😀', bucket: 'pass' }, ...listing]
+  const { result } = await driveCiRead(withListing(([first, second, ...rest]) => [second, first, ...rest]), names)
+  assert.equal(result.status, 'ready-to-land', result.reason)
 })

@@ -43,6 +43,7 @@ const PRINTER = [
   'values={n:{"code":p.returncode,"err":" ".join(l for l in p.stderr.splitlines() if l[:5]!="hint:")[-300:],**({} if n in("brief","view","checks","rules","runs") else {"out":p.stdout.strip()[:100]})} for n,p in ran.items()}',
   'parsed=lambda n:json.loads(ran[n].stdout) if n in ran and ran[n].returncode==0 else None',
   'view,listing,rules,pages=parsed("view"),parsed("checks"),parsed("rules"),parsed("runs")',
+  'listing=listing and sorted(listing,key=lambda c:(c["name"],c["bucket"]))',
   'failed_on_base={r["name"] for page in pages or [] for r in page["check_runs"] if r["conclusion"]=="failure"}',
   'values.update({n:{**values[n],k:v} for n,k,v in(("checks","list",listing),("rules","contexts",None if rules is None else [c["context"] for r in rules if r["type"]=="required_status_checks" for c in r["parameters"]["required_status_checks"]])) if v is not None})',
   'values.update(**(dict(head=view["headRefOid"],shared=[c["name"] for c in listing or [] if c["bucket"]=="fail" and c["name"] in failed_on_base]) if view else {}))',
@@ -63,6 +64,19 @@ const crc32 = (text) => {
   for (let i = 0; i < text.length; i++) crc = CRC_TABLE[(crc ^ text.codePointAt(i)) & 255] ^ (crc >>> 8)
   return ((crc ^ 0xffffffff) >>> 0).toString(16).padStart(8, '0')
 }
+// The printer sorts checks.list by name and bucket, because the order of the listing decides nothing and a model that
+// tidies it must not fail the check: a mismatching line is read again with the list in the printer's order, in the printer's JSON form.
+const sortedListing = (values) => {
+  const list = values?.checks?.list
+  if (!Array.isArray(list)) return values
+  const key = (entry) => `${entry?.name}\u0000${entry?.bucket}`
+  return { ...values, checks: { ...values.checks, list: [...list].sort((a, b) => (key(a) < key(b) ? -1 : key(a) > key(b) ? 1 : 0)) } }
+}
+const printerText = (value) => {
+  if (Array.isArray(value)) return `[${value.map(printerText).join(',')}]`
+  if (value && typeof value === 'object') return `{${Object.keys(value).sort().map(key => `${printerText(key)}:${printerText(value[key])}`).join(',')}}`
+  return JSON.stringify(value).replace(/[^\x00-\x7f]/g, ch => `\\u${ch.charCodeAt(0).toString(16).padStart(4, '0')}`)
+}
 const PRINTED = { type: 'string', description: 'the one line the command printed, character for character as printed; when it printed no line, its error output' }
 
 // The values of a relay line, or why the line cannot be trusted: checked as text first (shape, CRC32), parsed after.
@@ -71,9 +85,9 @@ const PRINTED = { type: 'string', description: 'the one line the command printed
 function readRelay(printed, nonce, requiredKeys = []) {
   const match = RELAY_LINE.exec((printed || '').trim())
   if (!match) return { problem: 'is not a relay line' }
-  if (crc32(match[2]) !== match[1]) return { problem: 'fails its CRC check' }
   let values
-  try { values = JSON.parse(match[2]) } catch { return { problem: 'does not hold JSON' } }
+  try { values = JSON.parse(match[2]) } catch { return crc32(match[2]) === match[1] ? { problem: 'does not hold JSON' } : { problem: 'fails its CRC check' } }
+  if (crc32(match[2]) !== match[1] && crc32(printerText(sortedListing(values))) !== match[1]) return { problem: 'fails its CRC check' }
   if (values?.nonce !== nonce) return { problem: `carries the nonce ${values?.nonce}, not ${nonce}` }
   const missing = requiredKeys.find(key => !values[key])
   if (missing) return { problem: `lacks the ${missing} entry` }

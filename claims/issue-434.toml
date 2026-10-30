@@ -1,0 +1,8 @@
+claim_id = "9c1153cb251e43aab96e1caf90a74d8e"
+agent = "Claude a5abe9e4-862b-4cac-94ed-68bd072edf38"
+role = "builder"
+base = "f57fa8561508cfce698499ed17f9c43f339b56ef"
+branch = "claude/issue-434-the-lane-refuses-an-item-that-is-not-an"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/workflows/lane.js", "tests/lane_workflow.test.mjs"]
+opened_commit = "05df17861e343cde39fc7f929d585460a6dad48b"
+whole_reason = "One input check, its test, the whenToUse line and the release pins."

@@ -4,9 +4,9 @@ export const meta = {
 }
 
 // Both copies of this number (here and in lane.js) change together in any commit that changes the args or the return shape.
-const LANE_CODEX_PROTOCOL = 2
+const LANE_CODEX_PROTOCOL = 3
 const A = args || {}
-const need = ['protocol', 'delegatedLine', 'worktree', 'scratch', 'tag', 'label', 'routing', 'reviewerBrief', 'findingKinds', 'verdictSchema', 'mechanical']
+const need = ['protocol', 'item', 'pr', 'delegatedLine', 'worktree', 'scratch', 'tag', 'label', 'routing', 'reviewerBrief', 'findingKinds', 'verdictSchema', 'mechanical']
 if (A.protocol !== LANE_CODEX_PROTOCOL) return { refused: `lane-codex speaks protocol ${JSON.stringify(LANE_CODEX_PROTOCOL)}, but the lane that started it speaks protocol ${JSON.stringify(A.protocol)}; the installed atelier differs from the running lane` }
 const missing = need.filter(key => A[key] === undefined || A[key] === null || A[key] === '')
 if (missing.length) return { refused: `missing args: ${missing.join(', ')}` }
@@ -55,13 +55,16 @@ function rereadContradictoryCourier(answer, label, base) {
 
 function codexReview() {
   const base = `${A.scratch}/${A.tag}-${label}`
-  const brief = `${A.delegatedLine}\nRead-only sandbox: read files and run read-only commands freely; do not run tests. The sandbox has no network and cannot write, /tmp included; report a command you cannot run as not verified, never as a blocking finding.\n` + A.reviewerBrief +
+  const repoFlag = A.repo ? ` -R ${A.repo}` : ''
+  const appendBodies = `{ cat ${base}-brief.md && printf '\\n\\n-----\\nThe current item body (gh issue view):\\n' && gh issue view ${A.item}${repoFlag} --json body --jq .body && printf '\\n\\n-----\\nThe current pull request body (gh pr view):\\n' && gh pr view ${A.pr}${repoFlag} --json body --jq .body; } > ${base}-brief.md.tmp && mv ${base}-brief.md.tmp ${base}-brief.md`
+  const brief = `${A.delegatedLine}\nRead-only sandbox: read files and run read-only commands freely; do not run tests. The item body and the pull request body follow this brief: they are the contract core and the verification evidence. The sandbox has no network and cannot write, /tmp included; report a command you cannot run as not verified, never as a blocking finding.\n` + A.reviewerBrief +
     `\nGive every finding its file:line in "where".`
   return safeAgent(
     `${A.delegatedLine}\nYou are a courier for one independent Codex review. Do not review anything yourself and do not edit the repository.\n` +
     `1. rm -f ${base}-out.json ${base}-out.json.exit ${base}-out.json.exit.tmp\n` +
     `2. Write this brief verbatim to ${base}-brief.md:\n-----\n${brief}\n-----\n` +
     `3. Write this JSON schema verbatim to ${base}-schema.json:\n${CODEX_SCHEMA}\n` +
+    `3b. Append the current item body and pull request body to the brief with this one shell command, exactly as written, never retyped from memory or summarised. If it exits non-zero, do not start Codex: return verdict failed with codexExit -1 and the error in note.\n   ${appendBodies}\n` +
     `4. Start Codex detached, recording its exit status in a marker file:\n` +
     `   cd ${A.worktree} && setsid nohup bash -c 'codex exec -s read-only -C ${A.worktree} -m ${routing.model} -c model_reasoning_effort=${routing.effort} --output-schema ${base}-schema.json -o ${base}-out.json - < ${base}-brief.md; echo $? > ${base}-out.json.exit.tmp && mv ${base}-out.json.exit.tmp ${base}-out.json.exit' > ${base}-run.log 2>&1 &\n` +
     `5. Wait in the foreground — you cannot be woken later, your task ends when you answer. Run this Bash command (timeout 600000 ms) and repeat it until the marker exists, at most 7 times:\n` +

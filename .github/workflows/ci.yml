@@ -36,6 +36,14 @@ jobs:
         run: python3 scripts/sync_agents.py --check
       - name: Refuse tracked symlinks
         run: python3 scripts/check_symlinks.py
+      # Codex reads an instruction file only up to project_doc_max_bytes (default 32,768 bytes).
+      - name: Hold the global contract under the Codex size limit
+        run: |
+          file=instructions/AGENTS.md
+          limit=30000
+          size=$(wc -c < "$file")
+          echo "$file: $size bytes, limit $limit"
+          [ "$size" -le "$limit" ] || { echo "::error file=$file::$file is $size bytes, over the $limit limit" >&2; exit 1; }
       - name: Check the plugin skills
         run: python3 scripts/check_skills.py
       # The Workflow tool refuses a script whose `meta` is not a pure literal,

@@ -1,0 +1,7 @@
+claim_id = "00f4b1c3d5a04f4880d41fd604f49514"
+agent = "Claude a5abe9e4-862b-4cac-94ed-68bd072edf38"
+role = "builder"
+base = "44954451ce3bb60295814fce1ed3d062133dd8c3"
+branch = "claude/issue-437-adopt-quality-v0-9-1-a-contract-change-t"
+scope = [".github/workflows/ci.yml", ".github/workflows/codeql.yml"]
+opened_commit = "74d4241708be28fabb370bae433ea053407e6af5"

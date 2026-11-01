@@ -400,6 +400,20 @@ test('#331 a fixer that only merged main fixes nothing when a review finding, no
   assert.ok(!launchedAgents.includes('r1-review'))
 })
 
+test('#439 a CI finding answered by a clean merge of main runs CI again and reaches ready-to-land when CI is green', async () => {
+  const { result, launchedAgents } = await runLane(resumeArgs, { 'r0-review': APPROVE, 'e2e-0': PASS, 'ci-0': { head: resumeTip, green: false, failing: [defectWithoutDraft] }, 'fix-1': mergeOnlyFix, 'ci-1': greenCi(mergedOnlyTip) })
+  assert.equal(result.status, 'ready-to-land', result.reason)
+  assert.equal(result.tip, mergedOnlyTip)
+  assert.ok(!launchedAgents.includes('r1-review'))
+})
+
+test('#439 a CI finding that stays red after a clean merge of main stops the lane', async () => {
+  const red = { green: false, failing: [defectWithoutDraft] }
+  const { result } = await runLane(resumeArgs, { 'r0-review': APPROVE, 'e2e-0': PASS, 'ci-0': { head: resumeTip, ...red }, 'fix-1': mergeOnlyFix, 'ci-1': { head: mergedOnlyTip, ...red } })
+  assert.notEqual(result.status, 'ready-to-land')
+  assert.equal(result.stage, 'ci')
+})
+
 test('#331 the fixer is handed the sync relay line to run last and returns its report with it', async () => {
   const { agentCalls } = await runLane({ ...resumeArgs, fixFirst: [defectWithoutDraft] }, { 'fix-1': resumeFix })
   const { prompt, options } = agentCalls['fix-1']

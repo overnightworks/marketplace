@@ -469,7 +469,7 @@ const satisfiedEvidence = (fixed, foldIn) => (fixed.resolved || []).find(r => r.
 const everyFoldInSatisfied = (fixed, blocking, foldIn) => !blocking.length && foldIn.length > 0 && foldIn.every(f => satisfiedEvidence(fixed, f))
 // An unchanged tip is a fix too when each blocking finding is answered in the pull request body or an item comment.
 const answeredOutside = (fixed, blocking) => blocking.length > 0 && blocking.every((_, index) => (fixed.outside || []).some(o => o.finding === index + 1 && (o.where || '').trim()))
-function fixRejection(fixed, blocking, foldIn) {
+function fixRejection(fixed, blocking, foldIn, ciOnly) {
   const proofs = fixed.regression || []
   const gaps = proofs.flatMap(proof => blocking.map((finding, index) => ({ proof, finding, index })).filter(({ index }) => proves(proof, index)).map(({ finding }) => ({ proof, finding, gap: proofGap(proof, finding) })))
     .filter(checked => checked.gap)
@@ -480,7 +480,7 @@ function fixRejection(fixed, blocking, foldIn) {
   // Satisfied fold-ins leave the lane at the held tip, or at a merge of main onto it: anything past that is unasked work.
   const foldInsOnly = everyFoldInSatisfied(fixed, blocking, foldIn)
   if (fixed.unchanged) return (foldInsOnly && fixed.containsMain) || answeredOutside(fixed, blocking) ? null : { reason: 'the fixer changed nothing', lastBlocking: blocking }
-  const mergeWasTheFinding = blocking.length === 1 && blocking[0].where === 'mergeable'
+  const mergeWasTheFinding = ciOnly || (blocking.length === 1 && blocking[0].where === 'mergeable')
   if (fixed.mergeOnly && !mergeWasTheFinding && !foldInsOnly) return { reason: 'the fixer only merged main and fixed nothing', lastBlocking: blocking }
   return null
 }
@@ -552,7 +552,7 @@ async function fixBatch(blocking, source, budgetKey, carried = false) {
     return unaccepted(awaitRescope('fix', fixed.rescope, committed ? ' The returned tip carries fix commits no reviewer has seen; the new run takes deltaFrom.' : '', { lastBlocking: blocking }))
   }
   if ((fixed.disputed || []).length) return unaccepted(awaitHeadOnDispute(fixed, blocking))
-  const rejection = fixRejection(fixed, blocking, foldIn)
+  const rejection = fixRejection(fixed, blocking, foldIn, source === 'CI')
   if (rejection) return unaccepted(openResult('failed', 'fix', rejection))
   const accepted = acceptFix(fixed, blocking, foldIn)
   if (accepted.stop) return unaccepted(accepted.stop)

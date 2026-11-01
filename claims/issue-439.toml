@@ -1,8 +1,0 @@
-claim_id = "d4062a18c2504dc8bd7f344fb8996d3b"
-agent = "Claude a5abe9e4-862b-4cac-94ed-68bd072edf38"
-role = "builder"
-base = "1251b37b124ff9f9b15bc9bbba3985068cd5b665"
-branch = "claude/issue-439-a-fix-that-only-merges-main-re-runs-ci-w"
-scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/workflows/lane.js", "tests/lane_workflow_fix.test.mjs"]
-opened_commit = "3eb4a8d91b09ed028ce224948b013481b3888adf"
-whole_reason = "One acceptance rule, its test and the release pins."

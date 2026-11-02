@@ -1,0 +1,8 @@
+claim_id = "7a0b52b248b54437805cc7cf99db55b3"
+agent = "Claude a5abe9e4-862b-4cac-94ed-68bd072edf38"
+role = "builder"
+base = "036a8808ec6a090c601e8d382bed2673943c0de5"
+branch = "claude/issue-450-the-aco-skill-says-how-to-open-a-foreign"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/skills/aco/SKILL.md"]
+opened_commit = "e055a5b2c5263ff1de34daa7222ee03b62c6f252"
+whole_reason = "Two skill sentences and the release pins."

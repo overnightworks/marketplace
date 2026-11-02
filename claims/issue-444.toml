@@ -1,8 +1,0 @@
-claim_id = "978d364952e34042a60e1d7e0843dd55"
-agent = "Claude a5abe9e4-862b-4cac-94ed-68bd072edf38"
-role = "builder"
-base = "66a85a5d2257f0f2c81e72d4149451e9c2c33a15"
-branch = "claude/issue-444-a-lane-s-tester-keeps-the-probe-lock-it"
-scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/workflows/lane.js", "tests/lane_workflow_scope.test.mjs"]
-opened_commit = "001da2b80c5747a2040252494b01ee36b9ca213c"
-whole_reason = "One brief change, its pinned test row and the release pins."

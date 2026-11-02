@@ -218,7 +218,7 @@ const E2E = {
       items: { type: 'object', required: ['cell', 'result', 'command', 'exit'], properties: { cell: { type: 'string', description: 'what was driven' }, result: { type: 'string', enum: ['held', 'failed', 'not driven'] }, command: { type: 'string', description: 'the command or action' }, exit: { type: 'string', description: 'its exit code or observed outcome' } } },
     },
     evidencePath: { type: 'string' },
-    lockBusy: { type: 'boolean', description: 'true when /tmp/probe-stack.lock stayed held by someone else and the live part could not run' },
+    lockBusy: { type: 'boolean', description: 'true when /tmp/probe-stack.lock stayed held by someone else or the load stayed above the limit, and the live part could not run' },
   },
 }
 
@@ -689,8 +689,8 @@ function explore(n) {
     `First create your own directory with \`mktemp -d ${A.scratch}/${TAG}-e2e-${n}-XXXXXX\` and write only there, besides the environment the repository's own sync command creates in ${A.worktree}. Take /tmp/probe-stack.lock for any server or browser run so that no process you start inherits it: ` +
     `Take it with \`flock -o -w 1200 /tmp/probe-stack.lock setpriv --pdeathsig TERM timeout -k 30 1800 <command>\`, the only form; if \`flock\` cannot run \`setpriv\`, stop and report it, never drop it. \`-o\` keeps the lock out of every process you start, and \`setpriv\` makes \`timeout\` send TERM to your whole stack the moment the lock holder dies, so the lock is free only while that stack tears down, which must finish within the 30 s of \`-k\`. A process that detaches itself (\`setsid\`, a daemon, a browser in its own session) escapes both the lock and the cap, so your teardown trap stops it by pid. The cap frees the lock even if you stop; a stack that needs longer is cut, not raised. <command> is an executable such as \`bash -c '…'\` or a script, because timeout cannot run a shell builtin or function; a script that starts containers tears them down in \`trap '<teardown>' EXIT TERM\`. Run every server under \`timeout <cap>\` on a free port above 8790, ` +
     `write its pid to a file in your directory and kill it before reporting; stop every other process you start (a container, a background browser) before reporting too; lsof in your report is evidence only, never a guard. Never touch another session's server. ` +
-    `Right after you acquire the lock, read the 1-minute load average again; while it is above 1.5 × cores, release the lock and wait. ` +
-    `If the lock stays held by someone else for those 1200 seconds, return verdict failed with lockBusy true instead of guessing. verdict is PASS with no blocking findings and FAIL with at least one. A PASS needs at least one held cell. Return every cell in cells, each with its command and exit; return evidencePath too, keep your evidence under evidencePath and remove your playground before you report.`
+    `Before you queue, prepare and check everything that needs no server or browser, because a setup that fails inside the lock spends your turn. <command> starts by reading the 1-minute load average; while it is above 1.5 × cores it waits inside the lock, up to 300 seconds, because the reading can still carry the previous holder's stack. If the load is still above that, <command> ends without starting a stack. ` +
+    `If the lock stays held by someone else for those 1200 seconds, or the load stays above the limit, return verdict failed with lockBusy true instead of guessing. verdict is PASS with no blocking findings and FAIL with at least one. A PASS needs at least one held cell. Return every cell in cells, each with its command and exit; return evidencePath too, keep your evidence under evidencePath and remove your playground before you report.`
   return safeAgent(prompt, { label: `e2e-${n}`, phase: 'Test and CI', schema: E2E, agentType: 'atelier:explorative-tester', ...claudeRole('test') })
     .then(r => r || safeAgent(`Load the atelier:explorative-testing skill first.\n${prompt}`,
       { label: `e2e-${n}-fallback`, phase: 'Test and CI', schema: E2E, agentType: 'general-purpose', ...claudeRole('test') }))
@@ -746,11 +746,11 @@ while (true) {
   n++
   if (e2e?.verdict === 'failed' && e2e.lockBusy && !lockRetried) {
     lockRetried = true
-    log('the shared probe lock was busy; trying the end-to-end test once more')
+    log('the probe lock or the load was busy; trying the end-to-end test once more')
     continue
   }
   if (e2e?.verdict === 'failed' && e2e.lockBusy) {
-    return openResult('awaiting-head', 'test', { reason: `lock queue: the shared probe lock stayed busy for both tries, so the end-to-end test did not run; CI of this round: ${lockQueueCiState(ci)}. Start a new run with pr and tip once the queue clears.` })
+    return openResult('awaiting-head', 'test', { reason: `lock queue: the shared probe lock stayed busy or the load stayed above the limit for both tries, so the end-to-end test did not run; CI of this round: ${lockQueueCiState(ci)}. Start a new run with pr and tip once the queue clears.` })
   }
   if (!e2e || e2e.verdict === 'failed') return openResult('failed', 'test', { reason: 'the tester returned no usable result' })
   if (!ci || ci.problem) return openResult('failed', 'ci', ci ? { reason: `the CI watcher ${ci.problem}` } : undefined)

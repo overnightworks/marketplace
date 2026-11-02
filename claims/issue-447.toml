@@ -1,0 +1,8 @@
+claim_id = "bf178c2ee46e45bfaa14f5199af0d99b"
+agent = "Claude a5abe9e4-862b-4cac-94ed-68bd072edf38"
+role = "builder"
+base = "4e669831b9f91796557b36bb149d24dc1773ba76"
+branch = "claude/issue-447-the-decision-card-reference-says-where-w"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/skills/aco/references/decision-cards.md"]
+opened_commit = "04d155b84472f706e92b31af032bd6a410e60e92"
+whole_reason = "One reference line and the release pins."

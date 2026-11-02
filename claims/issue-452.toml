@@ -1,8 +1,0 @@
-claim_id = "92b9a9e7e3664049a07c2fe88b44b7aa"
-agent = "Claude a5abe9e4-862b-4cac-94ed-68bd072edf38"
-role = "builder"
-base = "5465de58ea6b21197afd44011940ab0631b00041"
-branch = "claude/issue-452-the-probe-lock-wait-is-3600-seconds-and"
-scope = [".claude-plugin/marketplace.json", "instructions/AGENTS.md", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/.codex/agents/code-fixer.toml", "plugins/atelier/.codex/agents/code-worker.toml", "plugins/atelier/.codex/agents/explorative-tester.toml", "plugins/atelier/agents/code-fixer.md", "plugins/atelier/agents/code-worker.md", "plugins/atelier/agents/explorative-tester.md", "plugins/atelier/workflows/lane.js"]
-opened_commit = "e627a037e9d26a581512edf993013d2c900a7c8a"
-whole_reason = "One number across its copies, one wait recipe beside it, and the release pins; none of it works apart."

@@ -199,7 +199,7 @@ Every review finding is marked **blocking** or **follow-up**.
   Thinking, editing, review and landing stay allowed.
 - One probe stack per machine: a browser proof, live Docker probe stack or
   targeted E2E runs only as
-  `flock -o -w 1200 /tmp/probe-stack.lock setpriv --pdeathsig TERM timeout -k 30 1800 <command>`.
+  `flock -o -w 3600 /tmp/probe-stack.lock setpriv --pdeathsig TERM timeout -k 30 1800 <command>`.
   A repository script may choose its own `-k K CAP` with CAP + K ≤ 1830 and K
   at least its measured teardown, stated next to the numbers. `<command>` is an
   executable (a script or `bash -c '…'`); a script that starts containers tears

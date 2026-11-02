@@ -169,7 +169,7 @@ test('#103 AC-scratch-and-load: the builder and fixer know the scratch path and 
   const args = { ...replay.args, scratch: '/drive-scratch' }
   const { agentCalls } = await runLane(args, answersWith(replay, { kind: 'test-gap', mutation: true }))
   for (const label of ['build', 'fix-1']) assert.match(agentCalls[label].prompt, /pidfiles and evidence under \/drive-scratch/)
-  assert.match(agentCalls['e2e-0'].prompt, /Right after you acquire the lock, read the 1-minute load average again.*above 1\.5 × cores, release the lock and wait/)
+  assert.match(agentCalls['e2e-0'].prompt, /Before you queue, prepare and check everything that needs no server or browser.*waits inside the lock, up to 300 seconds.*ends without starting a stack/)
 })
 
 const stepsThatMustPush = [

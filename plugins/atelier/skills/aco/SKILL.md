@@ -85,6 +85,8 @@ After `aco start`, run the lane through the `lane` workflow
 (`plugins/atelier/workflows/lane.js`) where it helps, starting it as the
 README's section "Layout" says, under the contract's standing opt-in. Without the
 `Workflow` tool, or where the workflow does not fit, run the lane steps by hand.
+Never message a step running inside a lane: it ends without its result and the
+run hangs. Stop the run, correct the body and start a new one.
 
 ## Briefs
 
@@ -109,6 +111,9 @@ contract and this skill.
   which is not a container; only a container holds children` (LAND-27,
   `specs/landing-grammar.spec.md`); set the parent's type with `gh api -X PATCH
   repos/<owner>/<repo>/issues/<parent> -f type=Container`.
+- `aco --repo` refuses `item new` for a foreign repository (`forge target ...
+  does not match canonical remote`): open a dependent's item from that
+  repository's own checkout.
 - Pulling an idea is a decision, not an idle step: remove the board's
   idea label and replace the body with a work-item body (the fenced `aco`
   block); `aco claim` refuses an idea whose body still lacks the

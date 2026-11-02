@@ -46,6 +46,7 @@ Describe the form in words; this file carries no SVG skeleton, because each card
   do not reach it: give the SVG its own `<style>` with a
   `@media (prefers-color-scheme: dark)` rule. aco refuses `url()`, so `marker-end`
   arrowheads do not work; draw arrowheads as paths.
+- Columns made of spaces need `white-space:pre` on `text`; on `svg`, Chrome collapses them.
 
 ## 4. Faithful options
 

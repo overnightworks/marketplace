@@ -1,7 +1,0 @@
-claim_id = "b831cc41a03d49dab3a6301ff98cbf10"
-agent = "Claude a5abe9e4-862b-4cac-94ed-68bd072edf38"
-role = "builder"
-base = "036a8808ec6a090c601e8d382bed2673943c0de5"
-branch = "claude/issue-451-adopt-quality-v0-9-2-a-dependabot-image"
-scope = [".github/workflows/ci.yml", ".github/workflows/codeql.yml"]
-opened_commit = "0131d24236f4df670588188dd35bba009f32e846"

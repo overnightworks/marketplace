@@ -1,0 +1,7 @@
+claim_id = "174a39a7f9dd4744b502cbcff5fec87d"
+agent = "Claude a5abe9e4-862b-4cac-94ed-68bd072edf38"
+role = "builder"
+base = "bcad67a639bdba49fa89d86b402884672ab1bfa8"
+branch = "dependabot/uv/pytest-9.2.0"
+scope = ["pyproject.toml", "uv.lock"]
+opened_commit = "baae687f98a665b2ef173b12f8cae68a143e71ae"

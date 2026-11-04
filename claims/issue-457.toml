@@ -1,0 +1,8 @@
+claim_id = "4938fc6633f348b1aa6966acdec10f63"
+agent = "Claude a5abe9e4-862b-4cac-94ed-68bd072edf38"
+role = "builder"
+base = "9ebe860c2900edabe6e9e167a06a839f7048f894"
+branch = "claude/issue-457-a-relayed-line-whose-closing-braces-a-mo"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/workflows/lane-relay.js", "tests/lane_workflow_relay.test.mjs"]
+opened_commit = "38098ffe8d6827dfac172c13cda8cc2b5ac2b34b"
+whole_reason = "One check, its replay test and the release pins."

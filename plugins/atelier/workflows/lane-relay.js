@@ -79,6 +79,13 @@ const printerText = (value) => {
   if (value && typeof value === 'object') return `{${Object.keys(value).sort(compareText).map(key => printerPair(value, key)).join(',')}}`
   return JSON.stringify(value).replace(/[^\x00-\x7f]/g, ch => String.raw`\u` + ch.codePointAt(0).toString(16).padStart(4, '0'))
 }
+// A model that copies a long line often miscounts the run of closing braces at its end; the CRC accepts only the count the printer wrote.
+const withAnyClosingBraces = (text) => {
+  let bareLength = text.length
+  while (bareLength > 0 && text[bareLength - 1] === '}') bareLength--
+  const bare = text.slice(0, bareLength)
+  return Array.from({ length: text.length - bare.length + 2 }, (_, count) => bare + '}'.repeat(count))
+}
 const PRINTED = { type: 'string', description: 'the one line the command printed, character for character as printed; when it printed no line, its error output' }
 
 // The values of a relay line, or why the line cannot be trusted: checked as text first (shape, CRC32), parsed after.
@@ -87,9 +94,10 @@ const PRINTED = { type: 'string', description: 'the one line the command printed
 function readRelay(printed, nonce, requiredKeys = []) {
   const match = RELAY_LINE.exec((printed || '').trim())
   if (!match) return { problem: 'is not a relay line' }
+  const printedPayload = withAnyClosingBraces(match[2]).find(text => crc32(text) === match[1])
   let values
-  try { values = JSON.parse(match[2]) } catch { return crc32(match[2]) === match[1] ? { problem: 'does not hold JSON' } : { problem: 'fails its CRC check' } }
-  if (crc32(match[2]) !== match[1] && crc32(printerText(sortedListing(values))) !== match[1]) return { problem: 'fails its CRC check' }
+  try { values = JSON.parse(printedPayload ?? match[2]) } catch { return printedPayload === undefined ? { problem: 'fails its CRC check' } : { problem: 'does not hold JSON' } }
+  if (printedPayload === undefined && crc32(printerText(sortedListing(values))) !== match[1]) return { problem: 'fails its CRC check' }
   if (values?.nonce !== nonce) return { problem: `carries the nonce ${values?.nonce}, not ${nonce}` }
   const missing = requiredKeys.find(key => !values[key])
   if (missing) return { problem: `lacks the ${missing} entry` }

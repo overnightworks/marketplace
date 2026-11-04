@@ -456,3 +456,25 @@ test('#428 AC-relay-list-order: swapped entries with non-ASCII names verify', as
   const { result } = await driveCiRead(withListing(([first, second, ...rest]) => [second, first, ...rest]), names)
   assert.equal(result.status, 'ready-to-land', result.reason)
 })
+
+// The closing braces at the end of the CI line, where the payload's last entry is the nested view entry.
+const withClosingBraces = (change) => (line) => line.replace(/\}+$/, (braces) => '}'.repeat(change(braces.length)))
+
+for (const [what, change] of [['one more', (count) => count + 1], ['one fewer', (count) => count - 1]]) {
+  test(`#457 AC-relay-brace-count: a relay line with ${what} closing brace at its end verifies, with no re-read`, async () => {
+    const { result, launchedAgents } = await driveCiRead(withClosingBraces(change))
+    assert.equal(result.status, 'ready-to-land', result.reason)
+    assert.deepEqual(reread({ launchedAgents }), [])
+  })
+}
+
+for (const [what, edit] of [
+  ['a brace added elsewhere', (line) => line.replace('"code":0', '"code":0}')],
+  ['a changed value', (line) => line.replace('"err":""}', '"err":"x"}')],
+]) {
+  test(`#457 AC-relay-brace-count: ${what} still fails the relay check`, async () => {
+    const { result } = await driveCiRead(edit)
+    assert.deepEqual([result.status, result.stage], ['failed', 'ci'])
+    assert.match(result.reason, /relay line/)
+  })
+}

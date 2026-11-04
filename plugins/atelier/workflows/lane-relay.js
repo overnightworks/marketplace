@@ -81,7 +81,9 @@ const printerText = (value) => {
 }
 // A model that copies a long line often miscounts the run of closing braces at its end; the CRC accepts only the count the printer wrote.
 const withAnyClosingBraces = (text) => {
-  const bare = text.replace(/\}+$/, '')
+  let bareLength = text.length
+  while (bareLength > 0 && text[bareLength - 1] === '}') bareLength--
+  const bare = text.slice(0, bareLength)
   return Array.from({ length: text.length - bare.length + 2 }, (_, count) => bare + '}'.repeat(count))
 }
 const PRINTED = { type: 'string', description: 'the one line the command printed, character for character as printed; when it printed no line, its error output' }

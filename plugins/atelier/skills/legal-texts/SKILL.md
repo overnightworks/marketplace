@@ -33,11 +33,16 @@ belong to the repository that composes them.
    `file:line`:
    - accounts and sign-in: which identity provider, which claims the app
      reads and stores;
-   - stored data: tables, files and object stores, with the personal fields;
+   - stored data: tables, files, object stores and in-memory stores (chat
+     replay, sessions, rate-limit counters keyed by address), with the
+     personal fields;
    - logs: what a request or job logs (addresses, user ids, content) and how
      long logs live;
    - device storage: cookies, local and session storage, IndexedDB, caches
-     and service workers, each with its key and purpose;
+     and service workers, each with its key and purpose. The app's own source
+     is not enough: dependencies and the framework write storage too (an
+     auth library's cookies, a router's session-storage keys), so read the
+     locked dependencies' runtime and the built bundle as well;
    - third parties and processors: every outbound request (APIs, AI
      providers, mail, fonts, CDNs) and what it sends;
    - transfers outside the EU: the recipient's location, as the provider

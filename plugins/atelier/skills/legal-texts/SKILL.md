@@ -134,8 +134,8 @@ sources rule says (the raw text fetched to scratch, one source line each).
   `02016R0679` for the GDPR), then fetch
   `https://publications.europa.eu/resource/celex/<consolidated CELEX>` with
   `Accept: application/xhtml+xml` and `Accept-Language: eng` (without it the
-  answer is 400). Its header line names the edition, its "Berichtigt durch" ("Corrected by") list
-  the corrigenda it includes.
+  answer is 400). Its header line names the edition, its "Berichtigt durch"
+  ("Corrected by") list the corrigenda it includes.
 - **gesetze-im-internet.de** answers `curl` with 200 for each paragraph page
   (encoded ISO-8859-1). The statute's edition is the `zuletzt geändert` line
   among the `<standkommentar>` entries of its `xml.zip`, not the line of its

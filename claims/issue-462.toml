@@ -1,8 +1,0 @@
-claim_id = "81aa19c9b133438b8b20d034e5f17b1b"
-agent = "Claude a5abe9e4-862b-4cac-94ed-68bd072edf38"
-role = "builder"
-base = "7d46c8b8de704b935f317ec9444b7a70b3e435c5"
-branch = "claude/issue-462-legal-texts-accepts-one-shared-objection"
-scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/skills/legal-texts/references/privacy-duties.md"]
-opened_commit = "d588692c4044e93074d888e08cb133989606013c"
-whole_reason = "One checklist row and the release pins."

@@ -26,8 +26,10 @@ belong to the repository that composes them.
    run. Then fetch the composed privacy and terms pages into scratch, and read
    every shared section and the app's current part, if any, in full. Note what
    each shared section already says.
-2. **Inventory what the code really processes.** Read the app's code at its
-   default branch, not its documentation, and list every processing with a
+2. **Inventory what the code really processes.** Read the app's code at the
+   revision that ships with these texts (the claimed lane's tree, so a
+   processing the lane adds is included), not its documentation, and list
+   every processing with a
    `file:line`:
    - accounts and sign-in: which identity provider, which claims the app
      reads and stores;

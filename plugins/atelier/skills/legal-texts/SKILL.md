@@ -24,7 +24,9 @@ belong to the repository that composes them.
    repository's default branch, never from a working tree. This skill copies
    none of its paths, ids or URLs, because they go stale: read them there each
    run. Then fetch the composed privacy and terms pages into scratch, and read
-   every shared section and the app's current part, if any, in full. Note what
+   every shared section and the app's current part, if any, in full (the app's
+   part at the lane tree, or at `origin/main` after a fetch for a run without a
+   lane, never a stale checkout). Note what
    each shared section already says.
 2. **Inventory what the code really processes.** Read the app's code at the
    revision that ships with these texts (the claimed lane's tree, so a
@@ -42,9 +44,19 @@ belong to the repository that composes them.
      and service workers, each with its key and purpose. The app's own source
      is not enough: dependencies and the framework write storage too (an
      auth library's cookies, a router's session-storage keys), so read the
-     locked dependencies' runtime and the built bundle as well;
+     locked dependencies' runtime and the built bundle as well. Without
+     `node_modules` or a build in the checkout, read single files of the locked
+     version (found through the lockfile) by URL from the registry CDN
+     (`https://unpkg.com/<package>@<locked version>/<path>`), or use a
+     `git worktree add --detach` of the app under `<repo>-worktrees/` with its
+     normal install, removed at the end of the step. Never download or unpack a
+     package into scratch, and never write that this app stores nothing without
+     one of these reads;
    - third parties and processors: every outbound request (APIs, AI
      providers, mail, fonts, CDNs) and what it sends;
+   - browser-side connections (WebRTC ICE servers, embeds): what the browser
+     itself contacts, such as a STUN server that sees the caller's address;
+   - device permissions: camera, microphone, screen capture and the like;
    - transfers outside the EU: the recipient's location, as the provider
      documents it;
    - sharing with other users or the public;
@@ -121,7 +133,7 @@ sources rule says (the raw text fetched to scratch, one source line each).
   [access routes](../audit/references/standards.md#access-routes) (stem
   `02016R0679` for the GDPR), then fetch
   `https://publications.europa.eu/resource/celex/<consolidated CELEX>` with
-  `Accept: application/xhtml+xml` and `Accept-Language: deu` (or `eng`). Its
+  `Accept: application/xhtml+xml` and `Accept-Language: eng` (without it the answer is 400). Its
   header line names the edition, its "Berichtigt durch" ("Corrected by") list
   the corrigenda it includes.
 - **gesetze-im-internet.de** answers `curl` with 200 for each paragraph page

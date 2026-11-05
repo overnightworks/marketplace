@@ -1,8 +1,0 @@
-claim_id = "0858d65a9a1e4e11b8e4bf0bfbda3a6c"
-agent = "Claude a5abe9e4-862b-4cac-94ed-68bd072edf38"
-role = "builder"
-base = "58542ddae59bbf63929b10d2f90be4b739a56f48"
-branch = "claude/issue-460-a-legal-texts-skill-writes-each-app-s-pr"
-scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/skills/legal-texts"]
-opened_commit = "28b016cba210b5ac09939f04d72c37c4c5c0ab29"
-whole_reason = "One new skill directory and the release pins."

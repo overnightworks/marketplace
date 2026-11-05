@@ -68,7 +68,7 @@ runs several apps; the composed pages decide, not this column.
 
 | Duty | Law | Per | Usually |
 |---|---|---|---|
-| The right to object is shown explicitly, clearly and apart from other information, at the latest at first communication | [GDPR Art. 21(4)][gdpr] | app | shared only if the section names this app's Art. 6(1)(f) processing, else a gap for the composing repository |
+| The right to object is shown explicitly, clearly and apart from other information, at the latest at first communication | [GDPR Art. 21(4)][gdpr] | app | shared when the composed page presents the right to object explicitly, clearly and separately and the app part names Art. 6(1)(f) at each processing resting on it; a gap for the composing repository without such a notice |
 | Storing or reading information on the user's device needs informed consent, unless strictly necessary for a service the user explicitly asked for; checked only where the inventory shows device storage | [TDDDG § 25(1), (2) Nr. 2][tdddg-25] | each stored key | app part: the key's purpose and why it is strictly necessary; a key that is not needs a consent the code asks for |
 
 [gdpr]: https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32016R0679

@@ -268,8 +268,9 @@ const raisedBeforeTip = (open) => open.filter(f => f.tip && !sameCommit(f.tip, t
 // A builder or fixer that needs a path outside the claim hands the head a rescope request; the scope stage stays the backstop.
 const awaitRescope = (stage, rescope, reason = '', extra = {}, newRun = 'with pr and tip and fixFirst carrying the rescope entries as findings (an entry path becomes where, its change becomes text, its reason becomes evidence, rule the item sentence the change serves, kind defect), so a fixer makes the change') =>
   openResult('awaiting-head', stage, { reason: `the work needs paths outside the claim scope; run aco rescope for them and start a new run ${newRun}.${reason}`, rescope, ...extra })
+const gateUnseenView = () => gateUnseen ? { gateUnseen: { ...gateUnseen, tip } } : {}
 const openResult = (status, stage, extra) =>
-  ({ status, stage, pr, tip, spent, routing: ROUTING, history, followups: openFollowups(), raisedBeforeTip: raisedBeforeTip(openFollowups()), folded: [...folded.values()], disputed, ...(gateUnseen && { gateUnseen: { ...gateUnseen, tip } }), ...extra })
+  ({ status, stage, pr, tip, spent, routing: ROUTING, history, followups: openFollowups(), raisedBeforeTip: raisedBeforeTip(openFollowups()), folded: [...folded.values()], disputed, ...gateUnseenView(), ...extra })
 
 // ---------------------------------------------------------------- build
 if (A.build) {
@@ -608,9 +609,11 @@ async function standIn(rr) {
   return settleReview(await reviewRound([STANDIN], range, last.tip))
 }
 
+const settleLimit = rr => standInAllowed(rr) ? standIn(rr) : awaitLimit(rr)
+
 // Each round judges the previous fix, so rounds run one after another; the fix budgets bound the recursion.
 async function settleReview(rr) {
-  if (rr.verdict.state === 'limited') return standInAllowed(rr) ? standIn(rr) : awaitLimit(rr)
+  if (rr.verdict.state === 'limited') return settleLimit(rr)
   if (rr.verdict.state === 'revise') {
     const blocking = rr.results.filter(Boolean).flatMap(v => v.blocking || [])
     const raised = rr.which.filter((r, i) => rr.results[i] && (rr.results[i].blocking || []).length > 0)
@@ -772,7 +775,7 @@ while (true) {
 const stillOpen = openFollowups()
 return {
   status: 'ready-to-land', pr, tip, spent, routing: ROUTING, history, followups: stillOpen, raisedBeforeTip: raisedBeforeTip(stillOpen), folded: [...folded.values()], disputed,
-  ...(gateUnseen && { gateUnseen: { ...gateUnseen, tip } }),
+  ...gateUnseenView(),
   requiredHeadActions: [
     `land with \`aco land ${pr}\` only while the pull request head is still ${tip}`,
     ...(gateUnseen ? [`name ${gateUnseen.seenTip}..${tip} in the body of pull request #${pr}: the final gate, at its usage limit, did not see that range`] : []),

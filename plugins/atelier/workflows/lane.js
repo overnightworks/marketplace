@@ -45,14 +45,18 @@ const GENERATED = Object.entries(A.generated || {})
 const MODEL_PROVIDER = { haiku: 'claude', sonnet: 'claude', opus: 'claude', fable: 'claude', 'gpt-6-astra': 'codex' }
 const EFFORT_CEILING = new Set(['low', 'medium', 'high'])
 const REVIEWER_PROVIDER = A.reviewer || 'claude'
+// The review row follows the reviewer provider and the lane's risk.
+function defaultReviewRouting() {
+  if (REVIEWER_PROVIDER === 'codex') return { model: 'gpt-6-astra', effort: MATERIAL ? 'high' : 'medium' }
+  if (MATERIAL) return { model: 'opus', effort: 'high' }
+  return { model: 'sonnet', effort: 'medium' }
+}
 const DEFAULT_ROUTING = {
   mechanical: { model: 'haiku', effort: 'low' },
   build: { model: 'sonnet', effort: 'medium' },
   fix: { model: 'sonnet', effort: 'medium' },
   test: { model: 'sonnet', effort: 'medium' },
-  review: REVIEWER_PROVIDER === 'codex'
-    ? { model: 'gpt-6-astra', effort: MATERIAL ? 'high' : 'medium' }
-    : MATERIAL ? { model: 'opus', effort: 'high' } : { model: 'sonnet', effort: 'medium' },
+  review: defaultReviewRouting(),
   gate: { model: 'gpt-6-astra', effort: 'high' },
 }
 // The provider each role must run on: reviews on the chosen reviewer provider, the gate on any provider but the builder's.

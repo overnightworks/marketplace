@@ -23,10 +23,10 @@ What a run costs, before you decide to make one:
   CI — every line new, no coverage report — **and posts its own `SonarCloud Code
   Analysis` check run onto that commit.** GitHub shows only the latest check run
   per name, so yours becomes the one a reviewer reads; the CI run survives only
-  in the API under `filter=all`. Measured on this repository's PR #31, commit
-  `2c755a5`: three such check runs, of which CI made one, the displayed one was
-  produced locally, and a hidden one still links to a branch scope that has since
-  been deleted and that this plan refuses to read.
+  in the API under `filter=all`. A pull request can thus carry several such
+  check runs, of which CI made one, the displayed one was produced locally, and
+  a hidden one still links to a branch scope that has since been deleted and that
+  this plan refuses to read.
 - **The repair is a new push or a manual CI re-run**, and neither happens by
   itself — on a branch whose work is finished there may never be another
   analysis, so the locally made one stays the answer on that commit.
@@ -74,7 +74,7 @@ of "API access". Read the result under `pullRequest=<n>` with the API route in
 SKILL.md "API access", and `api/components/tree` in the same scope for the file list, which
 tells a finding that was fixed apart from a file that dropped out of scope.
 
-Two refusals a reader hits first (measured here, 07.09.2026, scanner CLI
+Two refusals a reader hits first (measured with scanner CLI
 `8.1.0.6389`):
 
 - **The branch scope is not the way out, and it is not refused where you
@@ -93,10 +93,10 @@ Two refusals a reader hits first (measured here, 07.09.2026, scanner CLI
   no entry created. The key names a pull request that really exists; there is no
   inventing a scratch scope to keep the run out of everyone's way.
 
-What the route is for, in one case: `githubactions:S8544` ("Python dependencies
-should be locked to verified versions", type vulnerability) sat on this
-repository's CI workflow, on a line no change touched, where every route in SKILL.md
-("API access" and the procedure) reported zero. It was read this way and fixed in commit `3f02341`. The before-and-after pair was
-measured in that lane and is deliberately not re-measured here — CI has since
-overwritten the analysis that held it, exactly as the warning above says, and a
-fresh measurement would mean another write.
+What the route is for, in one case: a finding such as `githubactions:S8544`
+("Python dependencies should be locked to verified versions", type
+vulnerability) on a workflow line no change touched, where every route in
+SKILL.md ("API access" and the procedure) reports zero, shows only through this
+route. The before-and-after pair is deliberately not re-measured: the next CI
+analysis overwrites the one that held it, as the warning above says, and a fresh
+measurement would mean another write.

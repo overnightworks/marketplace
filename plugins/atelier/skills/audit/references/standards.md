@@ -97,12 +97,12 @@ checklist.
 
 ## Access routes
 
-Every route below was probed on 23.10.2026 (the Stand or edition noted). A
+Every route below notes the Stand or edition it returned. A
 route that refuses follows the drift route in `SKILL.md` External sources.
 `eur-lex.europa.eu` and `data.europa.eu/eli` answer agents with a bot challenge
 (HTTP 202 or 307, empty body); do not use them.
 
-| Anchor | Taken on | Re-check |
+| Anchor | Stand or edition | Re-check |
 |---|---|---|
 | EU law, Publications Office Cellar | consolidated `02024R1689-20260727` (header "Consolidated TEXT ... 27.07.2026") | the Cellar command below |
 | EU consolidated versions, SPARQL | `02024R1689` lists `-20240712` and `-20260727` | the SPARQL command below |

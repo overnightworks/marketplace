@@ -263,7 +263,7 @@ for (const [what, args, answers] of wholeLaneRounds) {
   for (const [risk, deltaFrom] of [['normal'], ['material'], ['normal', resumeTip], ['material', resumeTip]]) {
     const gated = risk === 'material'
     const diffCommand = deltaFrom ? `git diff ${deltaFrom}..HEAD` : 'git diff origin/main...HEAD'
-    test(`defect: resume round (${risk}, ${what}${deltaFrom ? ', deltaFrom' : ''}) reviews ${gated ? 'and gates ' : ''}on ${diffCommand}`, async () => {
+    test(`resume round (${risk}, ${what}${deltaFrom ? ', deltaFrom' : ''}) reviews ${gated ? 'and gates ' : ''}on ${diffCommand}`, async () => {
       const gateAnswer = { 'r1-gate': { ...APPROVE, codexExit: 0 } }
       const { launchedAgents, agentCalls } = await runLane({ ...resumeArgs, ...args, risk, deltaFrom }, { ...gateAnswer, ...reachesTheEnd, ...answers })
       for (const label of gated ? ['r1-review', 'r1-gate'] : ['r1-review']) assert.ok(agentCalls[label].prompt.includes(diffCommand), `${label} in ${launchedAgents.join(',')}`)
@@ -274,7 +274,7 @@ for (const [what, args, answers] of wholeLaneRounds) {
   }
 }
 
-test('defect: a REVISE in the whole-lane round has the raiser re-check only the fixer delta', async () => {
+test('a REVISE in the whole-lane round has the raiser re-check only the fixer delta', async () => {
   const revise = { verdict: 'REVISE', blocking: [{ ...finding('y.py:2', 'a defect'), kind: 'docs' }], followups: [] }
   const { agentCalls } = await runLane({ ...resumeArgs, fixFirst: [defectWithoutDraft] }, { 'fix-1': { ...resumeFix, regression: [] }, 'r1-review': revise, 'fix-2': secondFix, 'r2-review': APPROVE })
   assert.match(agentCalls['r2-review'].prompt, /only this delta, the fixer's own commits: git log -p --first-parent --remerge-diff/)

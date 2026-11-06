@@ -37,7 +37,7 @@ and note "out of scope: agent-documentation" in the report.
   linked, with each fact kept in one place.
 - Content on write-docs' never-in-the-tree list
   ([Repository document set](../write-docs/references/document-types.md)),
-  other than a blessed mockup, is a finding. A plan, roadmap or unbuilt target
+  other than a blessed mockup, is a finding. A plan, roadmap, unbuilt target, concept or status table
   is `PROPOSE move-to-board <file:section>` naming its owning item
   (`gh issue list --state all --search`), whose body takes the open part; with
   `no owner`, the head decides between an idea and dropping it, and the pass

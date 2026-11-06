@@ -11,14 +11,14 @@ runs several apps; the composed pages decide, not this column.
 
 - GDPR, Regulation (EU) 2016/679, CELEX 32016R0679 ([EUR-Lex][gdpr]): read
   through the Publications Office at consolidated CELEX `02016R0679-20160504`,
-  200 on 05.11.2026, header "Consolidated TEXT: 32016R0679 — EN —
+  header "Consolidated TEXT: 32016R0679 — EN —
   04.05.2016", "Corrected by" listing only the corrigendum of OJ L 127,
   23.5.2018; the SPARQL listing for `02016R0679` returned only this version.
   The EUR-Lex link answered `curl` with 202 and an empty body, so its page is
   `unverified` beyond the CELEX number; whether later corrigenda exist outside
   the consolidated text is `unverified`.
-- TDDDG ([gesetze-im-internet.de][tdddg-25], slug `ttdsg`): `xml.zip` 200 on
-  05.11.2026, "Zuletzt geändert durch Art. 3 G v. 10.3.2026 I Nr. 64".
+- TDDDG ([gesetze-im-internet.de][tdddg-25], slug `ttdsg`): `xml.zip`,
+  "Zuletzt geändert durch Art. 3 G v. 10.3.2026 I Nr. 64".
 
 ## Which article applies
 

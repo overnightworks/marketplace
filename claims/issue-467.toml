@@ -1,7 +1,0 @@
-claim_id = "433c61d32b4e4df29f515c6dc6b32cca"
-agent = "Claude a5abe9e4-862b-4cac-94ed-68bd072edf38"
-role = "builder"
-base = "d616e9999a771da48e8554fe597decfce09b59e4"
-branch = "claude/issue-467-a-head-decides-the-kinds-of-question-the"
-scope = ["instructions/AGENTS.md", "instructions/HEAD.md"]
-opened_commit = "fece86e231c94cb0aa5fb6a49fa05ace9a66b9cf"

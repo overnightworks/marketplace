@@ -424,9 +424,9 @@ before the work is called done.
   its code or in the architecture overview.
 - Each document serves one named reader at one altitude and answers one
   question; the `write-docs` skill owns the document set and each type's
-  reader, content, length budget and picture. Agent documents carry only what an agent cannot derive
-  from the code; human overviews lead with the mental model and draw structure
-  as diagram-as-code instead of describing it.
+  reader, content, length budget and picture. Agent documents carry only what
+  an agent cannot derive from the code; human overviews lead with the mental
+  model and draw structure as diagram-as-code instead of describing it.
 - No stale-prone inventories, file maps, line references, command transcripts
   or trivia. A terminal step the operator runs is a command the repository
   ships, named with its purpose, never a copied shell sequence.

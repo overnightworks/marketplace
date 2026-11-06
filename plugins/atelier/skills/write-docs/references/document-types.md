@@ -5,8 +5,8 @@ Each document has exactly one type; a document that needs two becomes two
 documents that link each other. A document's path names its type; elsewhere its
 content does.
 
-Sources: Diátaxis <https://diataxis.fr/>; arc42 <https://arc42.org/>. The examples below use a
-fictional "Acme Notes" product.
+Sources: Diátaxis <https://diataxis.fr/>; arc42 <https://arc42.org/>. The
+examples below use a fictional "Acme Notes" product.
 
 ## Pick the type
 
@@ -104,8 +104,9 @@ rollback or escalation; explanation that belongs elsewhere.
 
 Use for: the structure and runtime picture an engineer needs before changing
 the system. arc42 defines twelve sections; "lite" here is a deliberate
-reduction to the sections that answer a change-maker's questions, in arc42's
-order; sections 6 and 7 are the fleet's own. Diagrams follow the visualize skill.
+reduction to the sections that answer a change-maker's questions, in
+arc42's order; sections 6 and 7 are the fleet's own. Diagrams follow the
+visualize skill.
 
 Skeleton:
 

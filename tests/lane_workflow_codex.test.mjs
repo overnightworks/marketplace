@@ -219,9 +219,11 @@ test('#456 usage-limit: a limited gate re-check after a fix hands back the tip b
   assert.match(result.answers, /gate finding/)
 })
 
+const olderTip = 'b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2'
+
 test('#456 usage-limit: a resumed run whose first round is limited returns the deltaFrom it was given', async () => {
-  const { result } = await runLane({ ...materialLane, deltaFrom: resumeTip, answers: 'earlier findings' }, limitedGate)
-  assert.equal(result.deltaFrom, resumeTip)
+  const { result } = await runLane({ ...materialLane, deltaFrom: olderTip, answers: 'earlier findings' }, limitedGate)
+  assert.equal(result.deltaFrom, olderTip)
   assert.match(result.answers, /earlier findings/)
 })
 
@@ -230,7 +232,7 @@ test('#456 usage-limit: a limited whole-lane first round returns no deltaFrom an
   assert.ok(!('deltaFrom' in result) && !('answers' in result))
 })
 
-for (const [name, extra, expected] of [['with deltaFrom', { deltaFrom: resumeTip }, resumeTip], ['without deltaFrom', {}, undefined]]) {
+for (const [name, extra, expected] of [['with deltaFrom', { deltaFrom: olderTip }, olderTip], ['without deltaFrom', {}, undefined]]) {
   test(`#456 usage-limit: a limited carried-batch round ${name} returns that deltaFrom, never the carried fix tip`, async () => {
     const { result } = await runLane({ ...resumeArgs, risk: 'material', fixFirst: [reviewFinding], ...extra }, { ...fixedOnce, 'r1-review': APPROVE, 'r1-gate': limited() })
     assert.equal(result.status, 'awaiting-head')

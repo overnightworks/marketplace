@@ -98,15 +98,14 @@ README owns how.
 
 ## The four classes
 
-Illustrated with the first atelier-2 run (04.09.2026, 131 open Sonar issues)
-and a measurement pull request of 05.09.2026.
+Illustrated with a first run on a repository with over a hundred open Sonar
+issues and a measurement pull request.
 
 - **(a) Noise an exclusion removes** — mockups, vendored assets, generated
   artefacts, fixtures: trees the rules were never written for. Action: one
   `sonar-project.properties` with `sonar.exclusions`; a code change, so it is a
-  slice. *Example: 52 of 131 findings sat in `docs/`, 35 of them accessibility
-  smells (`Web:S6853`) in the single mockup file
-  `docs/requirements/0003-ziel-ui-mockup-v8.html`.*
+  slice. *Example: over a third of the findings sat under `docs/`, most of them
+  accessibility smells (`Web:S6853`) in a single mockup HTML file.*
 - **(b) Tried and refused** — a finding whose code route was tried and
   measured; the PR's own SonarCloud analysis is the instrument, never a guess.
   The fix failed, or fixing it is judged counterproductive. This skill never
@@ -124,18 +123,18 @@ and a measurement pull request of 05.09.2026.
   `# NOSONAR(S8786) reason`, never a bare `# NOSONAR`, which silences every
   rule on the line. The reason is written next to the entry and on the
   distributor. *Example: `python:S5886`/`S5890` — the rule-level entry in
-  `sonar-project.properties` is allowed because pyright (#114, a planned CI
+  `sonar-project.properties` is allowed because pyright (a planned CI
   gate) is named and scheduled as the stronger owner for type consistency; the
-  entry carries `#114` next to it until that gate is actually in CI.*
+  entry names that gate next to it until that gate is actually in CI.*
 - **(c) Frozen code** — code built ahead of its caller (code policy rule: frozen,
   not deleted; no hardening, no new tests). Action: the finding **stays open**,
   named against the item that will delete or pull that code, so the scanner
   stops being asked the question the board already owns. *Example:
-  `pythonsecurity:S8707` in `src/atelier2/adapters/docker_carrier.py:925`.*
+  `pythonsecurity:S8707` in an adapter module.*
 - **(d) Real and small** — the scanner is right and the fix is cheap. Action:
   one slice per owning module; the first (d) slice is the measurement; the
   rest are cut after it. *Example:
-  `python:S5863`, six self-comparing assertions under `tests/domain/`.*
+  `python:S5863`, six self-comparing assertions under one test directory.*
 
 ## Results: what the SonarCloud analyzers accept
 

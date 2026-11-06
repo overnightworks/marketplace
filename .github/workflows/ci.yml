@@ -38,8 +38,8 @@ jobs:
       # local path, as plugins/atelier/bin/uv did.
       - name: Refuse tracked symlinks
         run: |
-          links=$(git ls-files -s | awk -F'\t' '$1 ~ /^120000 / { print $2 }')
-          [ -z "$links" ] || { printf '::error::tracked symlink: %s\n' "$links" >&2; exit 1; }
+          links=$(git ls-files -s | awk -F'\t' '$1 ~ /^120000 / { print "::error::tracked symlink: " $2 }')
+          [ -z "$links" ] || { printf '%s\n' "$links" >&2; exit 1; }
       # Codex reads an instruction file only up to project_doc_max_bytes (default 32,768 bytes).
       - name: Hold the global contract under the Codex size limit
         run: |

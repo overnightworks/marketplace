@@ -1,0 +1,8 @@
+claim_id = "16ca03203c4c4885abde5f076229a08f"
+agent = "Claude a5abe9e4-862b-4cac-94ed-68bd072edf38"
+role = "builder"
+base = "c50fe647702bb0b6c287ae5ce31c142d86ae82cf"
+branch = "claude/issue-525-brief-step-where-tracked"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/workflows/lane.js", "tests/lane_workflow_fix.test.mjs"]
+opened_commit = "da1f79838ff66ebb2e78c1412409067634944587"
+whole_reason = "Two sentences of one workflow, their pinning test and the release pins."

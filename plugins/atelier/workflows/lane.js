@@ -467,6 +467,12 @@ function acceptFix(fixed, blocking, foldIn) {
 // Only a docs finding is provably behaviour-neutral; whether a defect changes behaviour needs judgement.
 const fixerRole = (blocking, foldIn) => blocking.length > 0 && blocking.every(f => f.kind === 'docs') && !foldIn.length ? 'mechanical' : 'fix'
 
+// A carried batch starts from the head's deltaFrom; any other batch from the tip before its fixer ran.
+function scopeOrigin(carried, tipBeforeFix) {
+  if (carried) return { deltaFrom: A.deltaFrom, note: 'The batch was carried over from an earlier run, so the paths may come from earlier commits rather than its fixer; the git log shows which.' }
+  return { deltaFrom: tipBeforeFix, note: 'The tip carries fix commits no reviewer has seen.' }
+}
+
 async function fixBatch(blocking, source, budgetKey, carried = false) {
   const tipBeforeFix = tip
   const stop = fixRoundStop(blocking, budgetKey)
@@ -505,17 +511,15 @@ async function fixBatch(blocking, source, budgetKey, carried = false) {
   if (rejection) return unaccepted(openResult('failed', 'fix', rejection))
   const accepted = acceptFix(fixed, blocking, foldIn)
   if (accepted.stop) return unaccepted(accepted.stop)
-  const deltaFrom = carried ? A.deltaFrom : tipBeforeFix
-  const scopeStop = await pushAndCheckScope(`scope-${spent.total}`, carried
-    ? { note: 'The batch was carried over from an earlier run, so the paths may come from earlier commits rather than its fixer; the git log shows which.', deltaFrom }
-    : { note: 'The tip carries fix commits no reviewer has seen.', deltaFrom })
+  const { deltaFrom, note } = scopeOrigin(carried, tipBeforeFix)
+  const scopeStop = await pushAndCheckScope(`scope-${spent.total}`, { note, deltaFrom })
   if (scopeStop) return unaccepted(scopeStop.stop)
   // A clean merge of main alone carries no lane change, so it cannot carry a fold-in either; an unchanged tip carries
   // them only when the fixer proved each already satisfied. A scope stop folds nothing in.
   if (accepted.range || everyFoldInSatisfied(fixed, blocking, foldIn)) {
     foldIn.forEach(f => folded.set(findingKey(f), { ...f, tip: fixed.tip, ...(satisfiedEvidence(fixed, f) && { evidence: satisfiedEvidence(fixed, f) }) }))
   }
-  return { ...accepted, foldIn, tipBeforeFix, deltaFrom }
+  return { ...accepted, foldIn, deltaFrom }
 }
 
 // The script, not the builder or fixer, makes sure the remote branch carries the lane tip, before the claim-scope check
@@ -596,7 +600,7 @@ async function settleReview(rr) {
     if (!f.range) return openResult('failed', 'review', { reason: 'a review finding was answered by a merge alone', lastBlocking: blocking })
     const next = f.gateAgain && !raised.includes(GATE) ? raised.concat([GATE]) : raised
     phase('Review')
-    return settleReview(await reviewRound(next, f.range, f.tipBeforeFix))
+    return settleReview(await reviewRound(next, f.range, f.deltaFrom))
   }
   if (rr.verdict.state === 'failed') return openResult('failed', 'review', { reason: rr.verdict.reason })
   if (rr.verdict.state === 'architectural') return openResult('escalated', 'review', { reason: 'architectural verdict' })
@@ -732,7 +736,7 @@ while (true) {
   const f = await fixBatch(testBlocking.concat(ciBlocking), testBlocking.length ? 'the end-to-end test and CI' : 'CI', budgetKey)
   if (f.stop) return f.stop
   if (f.range) {
-    const stop = await reviewUntilClean(f.gateAgain ? ALL : [REVIEW], f.range, f.tipBeforeFix)
+    const stop = await reviewUntilClean(f.gateAgain ? ALL : [REVIEW], f.range, f.deltaFrom)
     if (stop) return stop
   }
   // The tester runs again when it had failed or when any fix since its last run (a review fix included) touched production.

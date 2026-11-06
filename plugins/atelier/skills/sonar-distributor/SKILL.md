@@ -150,7 +150,7 @@ issues and a measurement pull request.
 - A ruff `# noqa: <code>` takes no prose after the code. SonarPython raises
   `python:S7632` on such a line whose prose holds a comma, while the "SonarCloud
   Code Analysis" check still passes; only the repository's own findings step
-  catches it. The reason goes in a comment on the line above, comma-free or not.
+  catches it. The reason goes in a comment on the line above, whatever its prose holds.
 
 ### API access
 

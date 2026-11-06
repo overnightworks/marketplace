@@ -33,9 +33,8 @@ But: "Soll dein Song beim Sprung zum Ursprungs-Take offen bleiben?"
 
 A card's pictures are optional; the rules below apply to a picture that is given.
 
-The TODAY `picture` shows today as it is, in one of the forms the mockup draws
-([`docs/board/mockup.html` in overnightworks/aco](https://github.com/overnightworks/aco/blob/main/docs/board/mockup.html)).
-Describe the form in words; this file carries no SVG skeleton, because each card draws its own case.
+The TODAY `picture` shows today as it is. This file carries no SVG skeleton,
+because each card draws its own case.
 
 - The `caption` says what the picture shows ("Der Browser springt selbst, dabei geht der
   Song verloren"), never only "Heute".

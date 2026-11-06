@@ -1,0 +1,7 @@
+claim_id = "40bb3092fc2549c1973c85360e91b9e8"
+agent = "Claude a5abe9e4-862b-4cac-94ed-68bd072edf38"
+role = "builder"
+base = "92c5fbfe746bdaa7d68a4a70d39dc30a7ed95bb4"
+branch = "claude/issue-490-release-standard-entry"
+scope = ["docs/standards.md"]
+opened_commit = "cbf02a2575e5914d7e0522a392bd2e9c98cc5b7f"

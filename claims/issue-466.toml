@@ -1,0 +1,8 @@
+claim_id = "c5d0fa50b9414cf2bc33950df941ea32"
+agent = "Claude a5abe9e4-862b-4cac-94ed-68bd072edf38"
+role = "builder"
+base = "9ae744fc140e388ec852458407c8bc224759bf78"
+branch = "claude/issue-466-one-valid-proof-passes-the-fix-check"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/workflows/lane.js", "tests/lane_workflow_fix.test.mjs"]
+opened_commit = "d681cc98d3463ae145d823da4736e0a4077f8188"
+whole_reason = "One change to the fix check with its tests and the release pins."

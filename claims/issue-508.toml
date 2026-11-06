@@ -1,0 +1,7 @@
+claim_id = "5259cba500184d02801c0b867c371b6c"
+agent = "Claude a5abe9e4-862b-4cac-94ed-68bd072edf38"
+role = "builder"
+base = "5236af2f1b1cc367c3892e171696ed8dc1cb0cc6"
+branch = "claude/issue-508-marketplace-vision"
+scope = ["README.md", "docs/VISION.md"]
+opened_commit = "f1ac9bca71a45fd6d406bf56cf915aa67297c245"

@@ -62,3 +62,11 @@ python3 scripts/sync_agents.py --check
 python3 scripts/check_skills.py
 node scripts/check_workflow_meta.mjs plugins/*/workflows/*.js
 ```
+
+Locally, run only the test module your change touches; the full suites run in
+CI on the pushed branch.
+
+```bash
+uv run pytest tests/test_<module>.py
+node --test tests/<file>.test.mjs
+```

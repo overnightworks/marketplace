@@ -1,8 +1,0 @@
-claim_id = "0dd07a5adb93411f9b8aea150254de65"
-agent = "Claude a5abe9e4-862b-4cac-94ed-68bd072edf38"
-role = "builder"
-base = "81207dbd60439c94ca6746022bf01cd79a1e8c24"
-branch = "claude/issue-503-docs-set-leftovers"
-scope = [".claude-plugin/marketplace.json", ".github/dependabot.yml", "instructions/HEAD.md", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/skills/docs-cleanup/SKILL.md", "plugins/atelier/skills/write-docs/references/document-types.md", "plugins/atelier/workflows/lane-review.js", "plugins/atelier/workflows/lane.js", "sonar-project.properties"]
-opened_commit = "c1bf3671ace193af3c1b27fcaf321f7418776562"
-whole_reason = "One conformance pass over three documents and four comments, plus the release pins; each hunk is a few lines, and splitting would cost three releases."

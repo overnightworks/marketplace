@@ -3,12 +3,11 @@ name: docs-cleanup
 description: Clean and audit documentation trees. Use when asked to organize docs, move plans out of documentation into issues, fix documentation drift, reconcile contradictions, repair dead links, or review docs for stale claims. For AGENTS.md, CLAUDE.md, skills, custom agents, and hooks, use agent-documentation instead.
 ---
 
-Keep documentation honest. A document is current, generated, or a
-frozen mockup (the one target picture). A plan, roadmap, concept file or
-decision record is a finding: propose moving its open parts to their item,
-folding built parts and standing rules into the current document that owns
-them, and deleting the file. Code and
-configured contracts are the source of truth for implemented behavior.
+Keep documentation honest. A document is current, generated, or a frozen mockup
+(the one target picture). A plan, roadmap, concept file or decision record is a
+finding: propose moving its open parts to their item, folding built parts and
+standing rules into the current document that owns them, and deleting the file.
+Code and configured contracts are the source of truth for implemented behavior.
 
 Out of scope: `AGENTS.md`, `CLAUDE.md`, skills, agents, and hooks. Leave them
 and note "out of scope: agent-documentation" in the report.

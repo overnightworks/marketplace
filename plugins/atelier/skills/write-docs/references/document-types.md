@@ -6,8 +6,8 @@ documents that link each other. A document's path names its type; elsewhere its
 content does.
 
 Sources: Diátaxis <https://diataxis.fr/>; arc42 <https://arc42.org/>; Keep a
-Changelog <https://keepachangelog.com/en/1.1.0/>. The examples below use a fictional
-"Acme Notes" product.
+Changelog <https://keepachangelog.com/en/1.1.0/>. The examples below use a
+fictional "Acme Notes" product.
 
 ## Pick the type
 
@@ -25,7 +25,7 @@ Changelog <https://keepachangelog.com/en/1.1.0/>. The examples below use a ficti
 
 The first four are Diátaxis's types: tutorial (learning-oriented), how-to
 guide (goal-oriented), reference (information-oriented), explanation
-(understanding-oriented). In this skill's model, the other six are operational
+(understanding-oriented). In this skill's model, the other five are operational
 types that mix the Diátaxis modes in a fixed, conventional shape; a mockup is
 a picture, not text.
 

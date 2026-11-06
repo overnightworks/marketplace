@@ -156,6 +156,38 @@ test('courier-start-command: a failed append exits non-zero and starts no Codex'
   assert.equal(marker, undefined)
 })
 
+// ---- a courier whose Codex run could not read its output schema is retried once
+const schemaMissing = { verdict: 'failed', blocking: [], followups: [], codexExit: 1, note: 'Failed to read output schema file /x/lane-1/gate-schema.json: No such file or directory (os error 2)' }
+const gateAnswers = (...answers) => {
+  const queue = [...answers]
+  return { 'r0-review': APPROVE, 'r0-gate': () => queue.shift(), 'r0-gate-retry': () => queue.shift() }
+}
+const gateRuns = (launchedAgents) => launchedAgents.filter(label => label.startsWith('r0-gate'))
+
+test('courier-schema-retry: an answer that failed reading the output schema is retried once and the round is judged on the retry', async () => {
+  const { result, launchedAgents, agentCalls } = await runLane(materialLane, gateAnswers(schemaMissing, { ...APPROVE, codexExit: 0 }))
+  assert.deepEqual(gateRuns(launchedAgents), ['r0-gate', 'r0-gate-retry'])
+  assert.equal(agentCalls['r0-gate-retry'].prompt, agentCalls['r0-gate'].prompt)
+  assert.deepEqual(result.history.map(round => [round.by, round.verdict]), [['review', 'APPROVE'], ['gate', 'APPROVE']])
+})
+
+test('courier-schema-retry: a second answer that failed reading the output schema fails the round with no further retry', async () => {
+  const { result, launchedAgents } = await runLane(materialLane, gateAnswers(schemaMissing, schemaMissing))
+  assert.deepEqual(gateRuns(launchedAgents), ['r0-gate', 'r0-gate-retry'])
+  failedAtReview(result)
+})
+
+for (const [name, answer] of [
+  ['another failure note', { ...schemaMissing, note: 'Error: stream disconnected' }],
+  ['a clean Codex exit', { ...schemaMissing, codexExit: 0 }],
+  ['no Codex start', { ...schemaMissing, codexExit: -1 }],
+]) {
+  test(`courier-schema-retry: a failed answer with ${name} is not retried`, async () => {
+    const { launchedAgents } = await runLane(materialLane, gateAnswers(answer, answer))
+    assert.ok(!launchedAgents.includes('r0-gate-retry'))
+  })
+}
+
 // ---- a Codex reviewer or gate that hits its usage limit makes the lane wait
 const limitLine = 'You’ve hit your usage limit. Upgrade to Pro or try again at Nov 4th, 2026 7:57 AM.'
 const limited = (line = limitLine, resetsAt = 'Nov 4th, 2026 7:57 AM', codexExit = 1) => ({ verdict: 'failed', blocking: [], followups: [], codexExit, note: 'tail', limit: { line, resetsAt } })

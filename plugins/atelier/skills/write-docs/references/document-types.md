@@ -221,8 +221,8 @@ mockups of finished surfaces; prose that restates code; index files,
 CONTRIBUTING, TESTING and llms.txt. A library's API reference lives in its
 docstrings.
 
-A ruled sentence enters the spec with the landing whose test proves it; until
-then it lives in the item.
+A ruled sentence enters the reference with the landing whose test proves it;
+until then it lives in the item.
 
 One picture per question. A diagram is code inside the document, Mermaid where
 the host renders it (the visualize skill), never a binary image; a screenshot

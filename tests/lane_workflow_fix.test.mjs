@@ -5,16 +5,16 @@ import { runLane, APPROVE, PASS, greenCi, finding, followup, webauthTips, webaut
 
 const proofsByKind = [
   ['a resumed run whose findings carry no kind stops at the fix as before', { kind: undefined, testDraft: true, mutation: true }, false],
-  ['#103 AC-proof-matches-its-finding: a defect with a test draft whose test did not fail before stops at the fix', { kind: 'defect', testDraft: true, mutation: true }, false],
-  ['#284 a test-gap whose only proof is numbered for a neighbouring finding stops at the fix', { kind: 'test-gap', mutation: true, proofNumber: 2 }, false],
-  ['#103 AC-pre-fix-mutation: a test-gap whose test failed on the pre-fix code needs no named mutation and moves past the fix', { kind: 'test-gap', mutation: false, failedBefore: true }, true],
+  ['AC-proof-matches-its-finding: a defect with a test draft whose test did not fail before stops at the fix', { kind: 'defect', testDraft: true, mutation: true }, false],
+  ['a test-gap whose only proof is numbered for a neighbouring finding stops at the fix', { kind: 'test-gap', mutation: true, proofNumber: 2 }, false],
+  ['AC-pre-fix-mutation: a test-gap whose test failed on the pre-fix code needs no named mutation and moves past the fix', { kind: 'test-gap', mutation: false, failedBefore: true }, true],
   ['a test-gap without a named mutation stops at the fix', { kind: 'test-gap', mutation: false }, false],
   ['a test-gap whose test does not pass after the fix stops at the fix', { kind: 'test-gap', mutation: true, passesAfter: false }, false],
   ['a test-gap without any proof stops at the fix', { kind: 'test-gap', proof: 'omitted' }, false],
-  ['#284 a test-gap whose proof is numbered one past the list stops at the fix', { kind: 'test-gap', mutation: true, proofNumber: outOfRange }, false],
+  ['a test-gap whose proof is numbered one past the list stops at the fix', { kind: 'test-gap', mutation: true, proofNumber: outOfRange }, false],
   ['a test-gap proven by a named mutation moves past the fix', { kind: 'test-gap', mutation: true }, true],
   ['a failing proof numbered past the blocking list is ignored and the run moves past the fix', { kind: 'test-gap', mutation: true, strayProof: true }, true],
-  ['#90 AC-hygiene-defect: a hygiene defect proven by the diff needs no mutation and moves past the fix', { kind: 'defect', mutation: false, proof: 'omitted' }, true],
+  ['AC-hygiene-defect: a hygiene defect proven by the diff needs no mutation and moves past the fix', { kind: 'defect', mutation: false, proof: 'omitted' }, true],
   ['a docs finding needs no test and moves past the fix', { kind: 'docs', mutation: false }, true],
   ['a docs finding with a test draft needs no test either and moves past the fix', { kind: 'docs', testDraft: true, proof: 'omitted' }, true],
 ]
@@ -97,7 +97,7 @@ const fixBatchRouting = [
 ]
 
 for (const [batch, handedOver, model, effort] of fixBatchRouting) {
-  test(`#191 AC-docs-batch-mechanical: a fix batch with ${batch} runs on ${model} at ${effort} effort`, async () => {
+  test(`AC-docs-batch-mechanical: a fix batch with ${batch} runs on ${model} at ${effort} effort`, async () => {
     const { agentCalls } = await runLane({ ...resumeArgs, ...handedOver }, { 'fix-1': resumeFix })
     assert.deepEqual([agentCalls['fix-1'].options.model, agentCalls['fix-1'].options.effort], [model, effort])
   })
@@ -137,7 +137,7 @@ const satisfiedFoldIns = [
 ]
 
 for (const [what, foldIn, resolved] of satisfiedFoldIns) {
-  test(`#119 AC-satisfied-counts-as-folded: ${what} the fixer proves already satisfied at an unchanged tip are folded with its evidence and the lane goes on`, async () => {
+  test(`AC-satisfied-counts-as-folded: ${what} the fixer proves already satisfied at an unchanged tip are folded with its evidence and the lane goes on`, async () => {
     const { result, launchedAgents } = await runLane({ ...resumeArgs, foldIn }, { 'fix-1': { ...unchangedFix, resolved }, ...reachesTheEnd })
     assert.equal(result.status, 'ready-to-land', result.reason)
     assert.deepEqual(result.folded, foldIn.map((f, i) => ({ ...f, tip: resumeTip, evidence: resolved[i].evidence })))
@@ -152,7 +152,7 @@ const satisfiedAcrossMovedMain = [
 ]
 
 for (const [what, shape, goesOn] of satisfiedAcrossMovedMain) {
-  test(`#119 AC-satisfied-counts-as-folded: every fold-in satisfied with ${what} ${goesOn ? 'goes on with the merge as the tip' : 'stops at fix'}`, async () => {
+  test(`AC-satisfied-counts-as-folded: every fold-in satisfied with ${what} ${goesOn ? 'goes on with the merge as the tip' : 'stops at fix'}`, async () => {
     const answers = { 'fix-1': { ...unchangedFix, ...shape, resolved: [satisfied(tidy)] }, 'r1-review': APPROVE, 'e2e-0': PASS, 'ci-0': greenCi(mainMovedTip) }
     const { result, launchedAgents } = await runLane({ ...resumeArgs, foldIn: [tidy] }, answers)
     assert.deepEqual([result.status, result.stage], goesOn ? ['ready-to-land', undefined] : ['failed', 'fix'])
@@ -170,7 +170,7 @@ const stopsDespiteResolved = [
 ]
 
 for (const [what, args, resolved] of stopsDespiteResolved) {
-  test(`#119 AC-evidence-or-stop: a fixer that changes nothing with ${what} still stops at fix`, async () => {
+  test(`AC-evidence-or-stop: a fixer that changes nothing with ${what} still stops at fix`, async () => {
     const { result } = await runLane({ ...resumeArgs, ...args }, { 'fix-1': { ...unchangedFix, resolved } })
     assert.deepEqual([result.status, result.stage], ['failed', 'fix'])
     assert.match(result.reason, /the fixer changed nothing/)
@@ -179,14 +179,14 @@ for (const [what, args, resolved] of stopsDespiteResolved) {
   })
 }
 
-test('#119 AC-mixed-batch-folds-all: a batch with one fold-in committed and one already satisfied folds both, the satisfied one with its evidence', async () => {
+test('AC-mixed-batch-folds-all: a batch with one fold-in committed and one already satisfied folds both, the satisfied one with its evidence', async () => {
   const resolved = [satisfied(alsoTidy)]
   const { result } = await runLane({ ...resumeArgs, foldIn: [tidy, alsoTidy] }, { 'fix-1': { ...resumeFix, resolved }, 'r1-review': APPROVE, 'e2e-0': PASS, 'ci-0': greenCi(resumeFixedTip) })
   assert.equal(result.status, 'ready-to-land')
   assert.deepEqual(result.folded, [{ ...tidy, tip: resumeFixedTip }, { ...alsoTidy, tip: resumeFixedTip, evidence: resolved[0].evidence }])
 })
 
-test('#119 AC-resolved-carries-evidence: the fixer is told to list every fold-in already done with its evidence, and the schema requires it', async () => {
+test('AC-resolved-carries-evidence: the fixer is told to list every fold-in already done with its evidence, and the schema requires it', async () => {
   const { agentCalls } = await runLane({ ...resumeArgs, foldIn: [tidy] }, { 'fix-1': resumeFix })
   const { prompt, options } = agentCalls['fix-1']
   assert.match(prompt, /already satisfied[^]*resolved[^]*evidence/)
@@ -256,7 +256,7 @@ const proofsByNumber = [
 ]
 
 for (const [behaviour, fixFirst, regression, rejectedFor] of proofsByNumber) {
-  test(`#103 #284 defect:#284 proof guard: ${behaviour}`, async () => {
+  test(`defect: proof guard: ${behaviour}`, async () => {
     const { result, launchedAgents } = await runLane({ ...resumeArgs, fixFirst }, { 'fix-1': { ...resumeFix, regression } })
     if (rejectedFor) {
       assert.deepEqual([result.status, result.stage], ['failed', 'fix'])
@@ -267,7 +267,7 @@ for (const [behaviour, fixFirst, regression, rejectedFor] of proofsByNumber) {
   })
 }
 
-test('#284 defect:#284 a proof numbered 1 is judged as blocking finding 1 whatever it covers, and the fixer sees the fold-ins unnumbered', async () => {
+test('defect: a proof numbered 1 is judged as blocking finding 1 whatever it covers, and the fixer sees the fold-ins unnumbered', async () => {
   const { result, agentCalls } = await runLane({ ...resumeArgs, fixFirst: [testGap], foldIn: [tidy] }, { 'fix-1': { ...resumeFix, regression: [proofOf(1, { test: 'the fold-in test', passesAfter: false })] } })
   assert.deepEqual([result.status, result.stage], ['failed', 'fix'])
   assert.deepEqual(result.lastBlocking.map(f => f.where), [testGap.where])
@@ -278,7 +278,7 @@ test('#284 defect:#284 a proof numbered 1 is judged as blocking finding 1 whatev
   assert.match(prompt, /a follow-up needs no regression entry/)
 })
 
-test('#284 defect:#284 the numbers in the fixer prompt are the ones a proof is judged by, on a CI fix as on the first fix', async () => {
+test('defect: the numbers in the fixer prompt are the ones a proof is judged by, on a CI fix as on the first fix', async () => {
   const { agentCalls: first } = await runLane({ ...resumeArgs, fixFirst: [defectWithoutDraft, testGap] }, { 'fix-1': { ...resumeFix, regression: [proofOf(2, { mutation: 'drop the guard' })] } })
   assert.match(first['fix-1'].prompt, /^2\. t\.py:1 — a behaviour has no test$/m)
   const ci = { head: resumeTip, green: false, failing: [defectWithoutDraft, testGap] }
@@ -287,7 +287,7 @@ test('#284 defect:#284 the numbers in the fixer prompt are the ones a proof is j
   assert.equal(result.status, 'ready-to-land', result.reason)
 })
 
-test('#284 defect:#284 the fixer schema takes the finding as an integer from 1 and carries no kind', async () => {
+test('defect: the fixer schema takes the finding as an integer from 1 and carries no kind', async () => {
   const { agentCalls } = await runLane({ ...resumeArgs, fixFirst: [testGap] }, { 'fix-1': { ...resumeFix, regression: [proofOf(1, { mutation: 'm' })] } })
   const proofItem = agentCalls['fix-1'].options.schema.properties.regression.items
   assert.deepEqual([proofItem.properties.finding.type, proofItem.properties.finding.minimum], ['integer', 1])
@@ -301,7 +301,7 @@ const supportingProofNotes = [
 ]
 
 for (const [behaviour, answered, regression, gap] of supportingProofNotes) {
-  test(`#466 ${behaviour} reaches the re-check, whose prompt names the supporting proof and its gap`, async () => {
+  test(`${behaviour} reaches the re-check, whose prompt names the supporting proof and its gap`, async () => {
     const { result, agentCalls } = await runLane({ ...resumeArgs, fixFirst: [answered] }, { 'fix-1': { ...resumeFix, regression } })
     assert.notEqual(result.stage, 'fix', result.reason)
     const prompt = agentCalls['r1-review'].prompt
@@ -311,7 +311,7 @@ for (const [behaviour, answered, regression, gap] of supportingProofNotes) {
   })
 }
 
-test('#466 a carried batch whose fixer gave a supporting proof without evidence hands it to the delta re-check', async () => {
+test('a carried batch whose fixer gave a supporting proof without evidence hands it to the delta re-check', async () => {
   const regression = [proofOf(1, { mutation: 'drop the guard' }), proofOf(1, { test: 'supporting_test.py [image]' })]
   const { agentCalls } = await runLane({ ...resumeArgs, fixFirst: [testGap], deltaFrom: resumeTip, answers: 'fixed' }, { 'fix-1': { ...resumeFix, regression } })
   assert.match(agentCalls['r1-review'].prompt, /supporting_test\.py \[image\].*named no mutation/s)
@@ -325,7 +325,7 @@ const diffLessRemovalRanges = [
 ]
 
 for (const [range, rangeArgs] of diffLessRemovalRanges) {
-  test(`#466 ${range}: a removal without a diff beside a valid proof reaches the re-check once as a gap note, not as an evidenced removal`, async () => {
+  test(`${range}: a removal without a diff beside a valid proof reaches the re-check once as a gap note, not as an evidenced removal`, async () => {
     const { agentCalls } = await runLane({ ...resumeArgs, ...rangeArgs }, { 'fix-1': { ...resumeFix, regression: diffLessRemovalBesideValidProof } })
     const prompt = agentCalls['r1-review'].prompt
     assert.equal(prompt.split('removed_test.py [image]').length - 1, 1)
@@ -335,8 +335,8 @@ for (const [range, rangeArgs] of diffLessRemovalRanges) {
 }
 
 const removalsByFindingKind = [
-  ['#103 AC-removed-vacuous: the review after a removal answering a test-gap asks the reviewer to judge the removed test', testGap, true],
-  ['#71 AC-removal-answers-test-gap: a defect proof marked removed-vacuous is judged by the defect bar and shows no removal', defectWithoutDraft, false],
+  ['AC-removed-vacuous: the review after a removal answering a test-gap asks the reviewer to judge the removed test', testGap, true],
+  ['AC-removal-answers-test-gap: a defect proof marked removed-vacuous is judged by the defect bar and shows no removal', defectWithoutDraft, false],
 ]
 
 for (const [behaviour, answered, shownAsRemoval] of removalsByFindingKind) {
@@ -356,7 +356,7 @@ const reviseWith = (where, extra = {}) => ({ verdict: 'REVISE', blocking: [findi
 const fixFrom = (from, to) => ({ ...resumeFix, head: to, parents: [from], regression: [], files: ['src/x.py'] })
 const materialResume = { ...resumeArgs, risk: 'material' }
 
-test('#330 three consecutive gate REVISEs stop at review before the third fixer, handing the head the three findings', async () => {
+test('three consecutive gate REVISEs stop at review before the third fixer, handing the head the three findings', async () => {
   const { result, launchedAgents } = await runLane(materialResume, {
     'r0-review': APPROVE,
     'r0-gate': reviseWith('a.py:1'),
@@ -373,7 +373,7 @@ test('#330 three consecutive gate REVISEs stop at review before the third fixer,
   assert.match(result.reason, /gate returned REVISE three times in a row/)
 })
 
-test('#330 a gate APPROVE between REVISEs breaks the streak, so a later gate REVISE is fixed as before', async () => {
+test('a gate APPROVE between REVISEs breaks the streak, so a later gate REVISE is fixed as before', async () => {
   const { result, launchedAgents } = await runLane(materialResume, {
     'r0-review': APPROVE,
     'r0-gate': reviseWith('a.py:1'),
@@ -404,7 +404,7 @@ test('#330 a gate APPROVE between REVISEs breaks the streak, so a later gate REV
   assert.ok(afterApprove.launchedAgents.includes('fix-4'))
 })
 
-test('#330 three consecutive reviewer REVISEs with different findings do not stop at three', async () => {
+test('three consecutive reviewer REVISEs with different findings do not stop at three', async () => {
   const { result, launchedAgents } = await runLane(resumeArgs, {
     'r0-review': reviseWith('a.py:1', { codexExit: undefined }),
     'fix-1': fixFrom(resumeTip, tipAfter(1)),
@@ -420,9 +420,9 @@ test('#330 three consecutive reviewer REVISEs with different findings do not sto
 
 // The fix step's tip and merge shape come only from the printer line the fixer runs last: HEAD and its parents.
 const fixerShapes = [
-  ['#331 edge#531: a fix commit followed by a merge of main', { head: mergedOnlyTip, parents: [resumeFixedTip, mainMovedTip] }],
-  ['#331 a merge of main followed by a fix commit', { head: resumeFixedTip, parents: [mergedOnlyTip] }],
-  ['#331 a fix commit with no merge of main', { head: resumeFixedTip }],
+  ['a fix commit followed by a merge of main', { head: mergedOnlyTip, parents: [resumeFixedTip, mainMovedTip] }],
+  ['a merge of main followed by a fix commit', { head: resumeFixedTip, parents: [mergedOnlyTip] }],
+  ['a fix commit with no merge of main', { head: resumeFixedTip }],
 ]
 
 for (const [what, shape] of fixerShapes) {
@@ -433,27 +433,27 @@ for (const [what, shape] of fixerShapes) {
   })
 }
 
-test('#331 a fixer that only merged main fixes nothing when a review finding, not the merge, was the finding', async () => {
+test('a fixer that only merged main fixes nothing when a review finding, not the merge, was the finding', async () => {
   const { result, launchedAgents } = await runLane({ ...resumeArgs, fixFirst: [defectWithoutDraft] }, { 'fix-1': mergeOnlyFix })
   assert.deepEqual([result.status, result.stage, result.reason], ['failed', 'fix', 'the fixer only merged main and fixed nothing'])
   assert.ok(!launchedAgents.includes('r1-review'))
 })
 
-test('#439 a CI finding answered by a clean merge of main runs CI again and reaches ready-to-land when CI is green', async () => {
+test('a CI finding answered by a clean merge of main runs CI again and reaches ready-to-land when CI is green', async () => {
   const { result, launchedAgents } = await runLane(resumeArgs, { 'r0-review': APPROVE, 'e2e-0': PASS, 'ci-0': { head: resumeTip, green: false, failing: [defectWithoutDraft] }, 'fix-1': mergeOnlyFix, 'ci-1': greenCi(mergedOnlyTip) })
   assert.equal(result.status, 'ready-to-land', result.reason)
   assert.equal(result.tip, mergedOnlyTip)
   assert.ok(!launchedAgents.includes('r1-review'))
 })
 
-test('#439 a CI finding that stays red after a clean merge of main stops the lane', async () => {
+test('a CI finding that stays red after a clean merge of main stops the lane', async () => {
   const red = { green: false, failing: [defectWithoutDraft] }
   const { result } = await runLane(resumeArgs, { 'r0-review': APPROVE, 'e2e-0': PASS, 'ci-0': { head: resumeTip, ...red }, 'fix-1': mergeOnlyFix, 'ci-1': { head: mergedOnlyTip, ...red } })
   assert.notEqual(result.status, 'ready-to-land')
   assert.equal(result.stage, 'ci')
 })
 
-test('#331 the fixer is handed the sync relay line to run last and returns its report with it', async () => {
+test('the fixer is handed the sync relay line to run last and returns its report with it', async () => {
   const { agentCalls } = await runLane({ ...resumeArgs, fixFirst: [defectWithoutDraft] }, { 'fix-1': resumeFix })
   const { prompt, options } = agentCalls['fix-1']
   assert.match(prompt, /Last, whatever happened, run this one command line exactly as written[^]*' sync 'fix-1-c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0'$/)
@@ -471,7 +471,7 @@ const fixRelayFailures = [
 ]
 
 for (const [what, shape, problem] of fixRelayFailures) {
-  test(`#331 a fix relay line with ${what} stops at fix quoting the printed line, and no review starts`, async () => {
+  test(`a fix relay line with ${what} stops at fix quoting the printed line, and no review starts`, async () => {
     const { result, launchedAgents } = await runLane({ ...resumeArgs, fixFirst: [defectWithoutDraft] }, { 'fix-1': { ...resumeFix, ...shape, regression: [] } })
     assert.deepEqual([result.status, result.stage], ['failed', 'fix'])
     assert.match(result.reason, problem)
@@ -480,12 +480,12 @@ for (const [what, shape, problem] of fixRelayFailures) {
   })
 }
 
-test('#331 a blocked fixer that ran out of turns before the relay line stays escalated with its reason', async () => {
+test('a blocked fixer that ran out of turns before the relay line stays escalated with its reason', async () => {
   const { result } = await runLane({ ...resumeArgs, fixFirst: [defectWithoutDraft] }, { 'fix-1': { ...resumeFix, printed: '', blocked: true, blockedReason: 'out of turns' } })
   assert.deepEqual([result.status, result.stage, result.reason], ['escalated', 'fix', 'out of turns'])
 })
 
-test('#358 the builder and the fixer are told to run the static checks before pushing, the reviewer is not', async () => {
+test('the builder and the fixer are told to run the static checks before pushing, the reviewer is not', async () => {
   const { agentCalls } = await runLane({ ...resumeArgs, fixFirst: [defectWithoutDraft] }, { 'fix-1': resumeFix })
   const { agentCalls: buildCalls } = await runLane({ item: 358, worktree: '/w', branch: 'b', contract: 'c', e2e: 'e', scratch: '/s', build: 'recorded' }, { build: built })
   const localChecks = /After your last merge of origin\/main and before you push, run the static checks your `aco brief` step names[^]*`quality hygiene \.`/
@@ -494,7 +494,7 @@ test('#358 the builder and the fixer are told to run the static checks before pu
   assert.doesNotMatch(agentCalls['r1-review'].prompt, localChecks)
 })
 
-test('#370 AC-file-wide-rule-swept: the fixer prompt says a finding whose message covers the whole file is fixed at every occurrence in that file', async () => {
+test('AC-file-wide-rule-swept: the fixer prompt says a finding whose message covers the whole file is fixed at every occurrence in that file', async () => {
   const { agentCalls } = await runLane({ ...resumeArgs, fixFirst: [defectWithoutDraft] }, { 'fix-1': resumeFix })
   assert.match(agentCalls['fix-1'].prompt, /message covers the whole file[^.]*every occurrence in that file, not only at the reported line/)
 })
@@ -505,7 +505,7 @@ const answeredOutsideTheTree = [
 ]
 
 for (const [what, where] of answeredOutsideTheTree) {
-  test(`#430 AC-outside-answer-reaches-recheck: a docs finding answered by ${what} at an unchanged tip reaches the raiser's re-check, which reads it live`, async () => {
+  test(`AC-outside-answer-reaches-recheck: a docs finding answered by ${what} at an unchanged tip reaches the raiser's re-check, which reads it live`, async () => {
     const { result, agentCalls } = await runLane({ ...resumeArgs, fixFirst: [docsFinding] }, { 'fix-1': { ...unchangedFix, outside: [{ finding: 1, where }] }, ...reachesTheEnd })
     assert.equal(result.status, 'ready-to-land')
     assert.match(agentCalls['r1-review'].prompt, /read live what the fixer edited outside the tree/)
@@ -513,14 +513,14 @@ for (const [what, where] of answeredOutsideTheTree) {
   })
 }
 
-test('#430 AC-outside-recheck-names-repo: with repo set the re-check reads the body and the comment from that repository', async () => {
+test('AC-outside-recheck-names-repo: with repo set the re-check reads the body and the comment from that repository', async () => {
   const { agentCalls } = await runLane({ ...resumeArgs, repo: 'owner/name', fixFirst: [docsFinding] }, { 'fix-1': { ...unchangedFix, outside: [{ finding: 1, where: 'PR body' }] }, ...reachesTheEnd })
   const prompt = agentCalls['r1-review'].prompt
   assert.match(prompt, /gh pr view \S+ -R owner\/name --json body/)
   assert.match(prompt, /gh issue view \S+ -R owner\/name --comments/)
 })
 
-test('#430 AC-nothing-changed-stops: an unchanged tip whose outside answers leave a blocking finding unanswered still stops with the fixer changed nothing', async () => {
+test('AC-nothing-changed-stops: an unchanged tip whose outside answers leave a blocking finding unanswered still stops with the fixer changed nothing', async () => {
   const { result } = await runLane({ ...resumeArgs, fixFirst: [docsFinding, defectWithoutDraft] }, { 'fix-1': { ...unchangedFix, outside: [{ finding: 1, where: 'PR body' }, { finding: 2, where: ' ' }] } })
   assert.deepEqual([result.status, result.stage], ['failed', 'fix'])
   assert.match(result.reason, /the fixer changed nothing/)

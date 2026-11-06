@@ -139,11 +139,11 @@ it from its branch and claims after adoption.
   about twenty comments before the build means the item must be sliced.
 - **Findings.** A review or audit yields one distributor issue holding the
   numbered findings with evidence. A finding becomes its own item only when
-  dispatched, or sharpens an existing one; residual gaps a pull request names
-  go to their owning item, never into fresh issues. Items born from one review
+  dispatched, or sharpens an existing one; residual gaps a pull request names go
+  to their owning item, never into fresh issues. Items born from one review
   share a label naming it; the distributor closes once every finding is landed,
-  folded into an owner or retired. No finding
-  lives only in chat or task output; no review floods the board.
+  folded into an owner or retired. No finding lives only in chat or task output;
+  no review floods the board.
 
 ## Other repositories
 
@@ -161,11 +161,11 @@ it from its branch and claims after adoption.
   changed contract) goes to it live when this session can reach it, and always
   onto its board, where a later head still finds it. A release reaches each
   dependent as one work item with an aco block, opened or sharpened by the
-  releasing head (the release is its caller), naming the version and
-  what the dependent must change, as its release page lists it. The dependent's
-  head takes it ahead of new feature work (`--out-of-order` when `aco next`
-  names another item) and builds the version in unless an open item blocks it,
-  which it then records as a dependency.
+  releasing head (the release is its caller), naming the version and what the
+  dependent must change, as its release page lists it. The dependent's head
+  takes it ahead of new feature work (`--out-of-order` when `aco next` names
+  another item) and builds the version in unless an open item blocks it, which
+  it then records as a dependency.
 - **Fleet standards.** A due adoption trigger makes the covered head open or
   sharpen the conformance item, with the standard as caller, and take it ahead
   of new feature work like a release. A head that owns or proposes a standard,

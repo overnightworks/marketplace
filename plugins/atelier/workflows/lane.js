@@ -99,7 +99,7 @@ const MECHANICAL = { agentType: 'general-purpose', ...ROUTING.mechanical }
 const WATCHER = MECHANICAL
 const claudeRole = (role) => ({ model: ROUTING[role].model, effort: ROUTING[role].effort })
 
-// agent() with a schema THROWS when a subagent ends without a result (a builder hit its turn limit on 26.09.2026): every call goes
+// agent() with a schema THROWS when a subagent ends without a result: every call goes
 // through this wrapper, so such an end is a null the lane reports. Every prompt opens with the delegated line, as do the children's.
 const DELEGATED_LINE = 'This is a delegated step started by a head, not a main session: skip the session-start routine and do only this brief.'
 async function safeAgent(prompt, opts) {

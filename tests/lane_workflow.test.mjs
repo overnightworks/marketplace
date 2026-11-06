@@ -41,7 +41,7 @@ const refusedRoutings = [
 ]
 
 for (const [what, routing] of refusedRoutings) {
-  test(`#90 AC-routing-refusal: refuses a routing override with ${what} before any agent starts`, async () => {
+  test(`AC-routing-refusal: refuses a routing override with ${what} before any agent starts`, async () => {
     const { __reviewer, ...overrides } = routing
     const { result, launchedAgents } = await runLane({ ...resumedLane, risk: 'material', reviewer: __reviewer, routing: overrides })
     assert.deepEqual([result.status, result.stage], ['failed', 'input'])
@@ -54,7 +54,7 @@ const defaultRoutingByRole = [
 ]
 
 for (const [label, model, effort] of defaultRoutingByRole) {
-  test(`#90 AC-default-routing: ${label} runs on ${model} at ${effort} effort by default`, async () => {
+  test(`AC-default-routing: ${label} runs on ${model} at ${effort} effort by default`, async () => {
     const { agentCalls } = await runLane({ ...resumedLane, risk: 'material' })
     assert.deepEqual([agentCalls[label].options.model, agentCalls[label].options.effort], [model, effort])
   })
@@ -66,7 +66,7 @@ const reviewRoutingByRisk = [
 ]
 
 for (const [risk, reviewer, model, effort] of reviewRoutingByRisk) {
-  test(`#478 AC-review-by-risk: a ${risk} lane's ${reviewer} review runs on ${model} at ${effort} effort by default`, async () => {
+  test(`AC-review-by-risk: a ${risk} lane's ${reviewer} review runs on ${model} at ${effort} effort by default`, async () => {
     const { agentCalls, result } = await runLane({ ...resumedLane, risk, reviewer })
     assert.deepEqual(result.routing.review, { model, effort })
     const call = agentCalls['r0-review']
@@ -75,31 +75,31 @@ for (const [risk, reviewer, model, effort] of reviewRoutingByRisk) {
   })
 }
 
-test('#90 AC-default-routing: the build, fix and test agents run on sonnet at medium effort by default', async () => {
+test('AC-default-routing: the build, fix and test agents run on sonnet at medium effort by default', async () => {
   const { agentCalls } = await runLane({ ...webauthReplay.args, build: 'b' }, answersWith(webauthReplay, { kind: 'test-gap', mutation: true }))
   for (const label of ['build', 'fix-1', 'e2e-0']) {
     assert.deepEqual([agentCalls[label].options.model, agentCalls[label].options.effort], ['sonnet', 'medium'], label)
   }
 })
 
-test('#90 AC-gate-separation: a Claude builder gets the Codex gpt-6-astra gate at high effort', async () => {
+test('AC-gate-separation: a Claude builder gets the Codex gpt-6-astra gate at high effort', async () => {
   const { agentCalls } = await runLane({ ...resumedLane, risk: 'material' })
   const gatePrompt = agentCalls['r0-gate'].prompt
   assert.match(gatePrompt, /-m gpt-6-astra -c model_reasoning_effort=high/)
   assert.doesNotMatch(gatePrompt, /terra|sol/i)
 })
 
-test('#128 AC-gate-revise-kept: the courier brief returns a REVISE from a clean Codex exit unchanged and never as failed', async () => {
+test('AC-gate-revise-kept: the courier brief returns a REVISE from a clean Codex exit unchanged and never as failed', async () => {
   const { agentCalls } = await runLane({ ...resumedLane, risk: 'material' })
   assert.match(agentCalls['r0-gate'].prompt, /holds 0 and .* is valid JSON, return its verdict, blocking and followups UNCHANGED.*a REVISE with blocking findings is never failed/s)
 })
 
-test('#90 AC-override: a routing override sets a role\'s model and effort within the ceiling', async () => {
+test('AC-override: a routing override sets a role\'s model and effort within the ceiling', async () => {
   const { agentCalls } = await runLane({ ...resumedLane, routing: { review: { model: 'opus', effort: 'high' } } })
   assert.deepEqual([agentCalls['r0-review'].options.model, agentCalls['r0-review'].options.effort], ['opus', 'high'])
 })
 
-test('#90 AC-remeasure: every lane result records each role\'s model and effort and which stage found each blocking finding', async () => {
+test('AC-remeasure: every lane result records each role\'s model and effort and which stage found each blocking finding', async () => {
   const replay = webauthReplay
   const { result } = await runLane(replay.args, answersWith(replay, { kind: 'test-gap', mutation: true }))
   assert.deepEqual(result.routing.gate, { model: 'gpt-6-astra', effort: 'high' })
@@ -107,7 +107,7 @@ test('#90 AC-remeasure: every lane result records each role\'s model and effort 
   assert.deepEqual(result.history.find(entry => entry.by === 'gate').blocking, ['src/webauth/oidc.py:315'])
 })
 
-test('#103 AC-remeasure-test-and-ci: the e2e and CI history entries carry their blocking locations', async () => {
+test('AC-remeasure-test-and-ci: the e2e and CI history entries carry their blocking locations', async () => {
   const replay = webauthReplay
   const answers = answersWith(replay, { kind: 'test-gap', mutation: true })
   answers['e2e-0'] = { verdict: 'FAIL', blocking: [finding('probe: login redirect', 'the redirect loses the state')], followups: [] }
@@ -117,7 +117,7 @@ test('#103 AC-remeasure-test-and-ci: the e2e and CI history entries carry their 
   assert.deepEqual(result.history.find(entry => entry.by === 'ci-0').blocking, ['ci: lint'])
 })
 
-test('#90 AC-reviewer-stopgap: a reviewer brief carries the stopgap refusals and narrows test-gap to a behaviour without a test', async () => {
+test('AC-reviewer-stopgap: a reviewer brief carries the stopgap refusals and narrows test-gap to a behaviour without a test', async () => {
   const { agentCalls } = await runLane(resumedLane)
   const brief = agentCalls['r0-review'].prompt
   assert.match(brief, /800 lines or more/)
@@ -165,7 +165,7 @@ const courierAnswersByExit = [
 ]
 
 for (const [what, gateAnswer, rereadAnswer, outcome, reachesFixer, rereads] of courierAnswersByExit) {
-  test(`#128 AC-gate-revise-reaches-fixer: ${what}`, async () => {
+  test(`AC-gate-revise-reaches-fixer: ${what}`, async () => {
     const answers = { ...agentProvidersReplay.answers, 'r0-gate': gateAnswer, ...(rereadAnswer && { 'r0-gate-reread': rereadAnswer }) }
     const { result, launchedAgents } = await runLane(agentProvidersReplay.args, answers)
     assert.deepEqual([result.status, result.stage], outcome)
@@ -181,7 +181,7 @@ test('an empty REVISE that stays empty after the re-read fails naming the report
   assert.ok(result.reason.includes(emptyRevise.reportPath))
 })
 
-test('#128 AC-courier-final-action: the courier and its re-read name StructuredOutput as their only final action', async () => {
+test('AC-courier-final-action: the courier and its re-read name StructuredOutput as their only final action', async () => {
   const { agentCalls } = await runLane(agentProvidersReplay.args, { ...agentProvidersReplay.answers, 'r0-gate': contradictoryCourier, 'r0-gate-reread': { ...gateRevise, codexExit: 0 } })
   const copySentenceByLabel = { 'r0-gate': /verbatim from the out\.json into the StructuredOutput call/, 'r0-gate-reread': /verbatim into the StructuredOutput call/ }
   for (const [label, copySentence] of Object.entries(copySentenceByLabel)) {
@@ -190,7 +190,7 @@ test('#128 AC-courier-final-action: the courier and its re-read name StructuredO
   }
 })
 
-test('#412 delegated-line: every agent prompt the lane and its children start opens with the delegated line', async () => {
+test('delegated-line: every agent prompt the lane and its children start opens with the delegated line', async () => {
   const line = 'This is a delegated step started by a head, not a main session: skip the session-start routine and do only this brief.'
   const answers = { ...agentProvidersReplay.answers, 'r0-gate': contradictoryCourier, 'r0-gate-reread': { ...gateRevise, codexExit: 0 } }
   const unreadableSync = await runLane(resumedLane, { sync: { printed: '{"crc":"pending","v":"pending"}' }, 'sync-reread': {} })
@@ -263,7 +263,7 @@ for (const [what, args, answers] of wholeLaneRounds) {
   for (const [risk, deltaFrom] of [['normal'], ['material'], ['normal', resumeTip], ['material', resumeTip]]) {
     const gated = risk === 'material'
     const diffCommand = deltaFrom ? `git diff ${deltaFrom}..HEAD` : 'git diff origin/main...HEAD'
-    test(`#290 defect:#290 resume round (${risk}, ${what}${deltaFrom ? ', deltaFrom' : ''}) reviews ${gated ? 'and gates ' : ''}on ${diffCommand}`, async () => {
+    test(`defect: resume round (${risk}, ${what}${deltaFrom ? ', deltaFrom' : ''}) reviews ${gated ? 'and gates ' : ''}on ${diffCommand}`, async () => {
       const gateAnswer = { 'r1-gate': { ...APPROVE, codexExit: 0 } }
       const { launchedAgents, agentCalls } = await runLane({ ...resumeArgs, ...args, risk, deltaFrom }, { ...gateAnswer, ...reachesTheEnd, ...answers })
       for (const label of gated ? ['r1-review', 'r1-gate'] : ['r1-review']) assert.ok(agentCalls[label].prompt.includes(diffCommand), `${label} in ${launchedAgents.join(',')}`)
@@ -274,14 +274,14 @@ for (const [what, args, answers] of wholeLaneRounds) {
   }
 }
 
-test('#290 defect:#290 a REVISE in the whole-lane round has the raiser re-check only the fixer delta', async () => {
+test('defect: a REVISE in the whole-lane round has the raiser re-check only the fixer delta', async () => {
   const revise = { verdict: 'REVISE', blocking: [{ ...finding('y.py:2', 'a defect'), kind: 'docs' }], followups: [] }
   const { agentCalls } = await runLane({ ...resumeArgs, fixFirst: [defectWithoutDraft] }, { 'fix-1': { ...resumeFix, regression: [] }, 'r1-review': revise, 'fix-2': secondFix, 'r2-review': APPROVE })
   assert.match(agentCalls['r2-review'].prompt, /only this delta, the fixer's own commits: git log -p --first-parent --remerge-diff/)
   assert.ok(!agentCalls['r2-review'].prompt.includes('git diff origin/main...HEAD'))
 })
 
-test('#425 the e2e tester builds its environment in the lane worktree, removes its playground and keeps its evidence; no text says scratch is deleted', async () => {
+test('the e2e tester builds its environment in the lane worktree, removes its playground and keeps its evidence; no text says scratch is deleted', async () => {
   const { agentCalls } = await runLane(agentProvidersReplay.args, { ...agentProvidersReplay.answers, 'e2e-0': null, 'e2e-0-fallback': agentProvidersReplay.answers['e2e-0'] })
   for (const label of ['e2e-0', 'e2e-0-fallback']) {
     const { prompt, options } = agentCalls[label]
@@ -292,7 +292,7 @@ test('#425 the e2e tester builds its environment in the lane worktree, removes i
   }
 })
 
-test('#431 every e2e tester, the fallback and a later run create a directory of their own instead of sharing a named one', async () => {
+test('every e2e tester, the fallback and a later run create a directory of their own instead of sharing a named one', async () => {
   const { agentCalls } = await runLane(agentProvidersReplay.args, { ...agentProvidersReplay.answers, 'e2e-0': null, 'e2e-0-fallback': agentProvidersReplay.answers['e2e-0'] })
   for (const label of ['e2e-0', 'e2e-0-fallback']) {
     const { prompt } = agentCalls[label]

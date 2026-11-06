@@ -1,0 +1,8 @@
+claim_id = "1e94ce37fa2048ef85e0ae355ff49730"
+agent = "Claude a5abe9e4-862b-4cac-94ed-68bd072edf38"
+role = "builder"
+base = "b232319877133a4e8e0f6f962684bc4393df8f03"
+branch = "claude/issue-478-routing-by-risk"
+scope = [".claude-plugin/marketplace.json", "instructions/HEAD.md", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/skills/agent-documentation/references/skill-audit.md", "plugins/atelier/workflows/lane-review.js", "plugins/atelier/workflows/lane.js", "tests/lane_workflow.test.mjs"]
+opened_commit = "0517e58e00a5aa69aa756c03456be4e78d95d403"
+whole_reason = "One ruled routing rule: its contract sentences, the lane workflow's default review that follows them, their test and the release pins."

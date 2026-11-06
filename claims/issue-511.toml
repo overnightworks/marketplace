@@ -1,0 +1,8 @@
+claim_id = "5b675220e18c429e8ff7af6de5366e49"
+agent = "Claude a5abe9e4-862b-4cac-94ed-68bd072edf38"
+role = "builder"
+base = "e0c472834573209cc1f590a03894d7711cdfe15d"
+branch = "claude/issue-511-skill-reference-provenance"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/skills/aco/SKILL.md", "plugins/atelier/skills/agent-documentation/references/skill-audit.md", "plugins/atelier/skills/audit/SKILL.md", "plugins/atelier/skills/audit/references/standards.md", "plugins/atelier/skills/docs-cleanup/SKILL.md", "plugins/atelier/skills/legal-texts/references/privacy-duties.md", "plugins/atelier/skills/legal-texts/references/terms-duties.md", "plugins/atelier/skills/sonar-distributor/SKILL.md", "plugins/atelier/skills/sonar-distributor/references/pr-annotation.md", "plugins/atelier/skills/sonar-distributor/references/rules-by-language.md", "plugins/atelier/skills/sonar-distributor/references/write-route.md", "tests/lane_workflow.test.mjs", "tests/lane_workflow_fix.test.mjs"]
+opened_commit = "0c041376729414227d215fe96333d6ba93056554"
+whole_reason = "One provenance rule applied across atelier's skill references, plus two small follow-ups from #507 and #509, and the release pins. Each hunk is a few lines; splitting would cost a release per group."

@@ -4,7 +4,7 @@ Part of the sonar-distributor skill. Sections quoted by name ("API access", "Cle
 
 The pull request analysis writes its findings into the GitHub check run as
 annotations, so the caller's own GitHub credential reads them and no SonarCloud
-token is involved (measured 06.09.2026 in overnightworks/home-tools and
+token is involved (measured in overnightworks/home-tools and
 overnightworks/hopin, independently reproduced). The analysis mode is
 irrelevant: hopin runs the CI scanner and annotates exactly like home-tools on
 Automatic Analysis.
@@ -83,8 +83,8 @@ Three limits bound what a reader may conclude:
   annotated is not measured from this side — five claudebot pull requests
   returned zero annotations, and a zero is what this entry forbids reading as a
   cause.
-- **Only a push head carries a Sonar check run.** On home-tools PR #4 the five
-  commits pushed behind the head have none.
+- **Only a push head carries a Sonar check run.** Commits pushed behind the
+  head have none.
 
 The annotations listing pages too, hence `--paginate` on the second call.
 

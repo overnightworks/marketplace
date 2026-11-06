@@ -1,7 +1,7 @@
 # Skill audit pass
 
 Reader: an agent auditing one installed skill (a `SKILL.md` and its files).
-Sources, read 18.10.2026:
+Sources:
 - S1: https://code.claude.com/docs/en/skills.md
 - S2: https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices.md
 - S3: https://code.claude.com/docs/en/plugin-evals.md
@@ -82,7 +82,7 @@ Does the skill beat the no-skill baseline (S1-S3)?
   plugin's skills by the Usage count, never when `usage` is `UNKNOWN`;
   high-risk: it writes, lands, or decides scope): a trigger and outcome eval
   on Sonnet, with the skill-creator loop (S4) or `claude plugin eval` (S3).
-  Cost as read 18.10.2026: a toy case about $0.41 at 3 runs per arm (S3), the
+  Cost, per S3 and S4: a toy case about $0.41 at 3 runs per arm (S3), the
   skill-creator loop about 360 `claude -p` calls per skill (S4). Default when
   skill-creator is not installed: run only the Haiku round. Evidence: `eval`.
 - Default when no budget is named: Haiku round for all, evals for none.

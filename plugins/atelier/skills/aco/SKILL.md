@@ -139,7 +139,7 @@ contract and this skill.
   the judgement `aco check` cannot make.
 - Outside an option's `contract`, a card carries no issue numbers, paths, file names,
   backticks, code names or flags; the problem is at most 20 words and an option name
-  2 to 5 words (overnightworks/aco#13 line 14). `aco check -` refuses an open or
+  2 to 5 words. `aco check -` refuses an open or
   returned option line that breaks this (BODY-96..BODY-98 in `specs/body-block.spec.md`),
   and the item is malformed until the body is fixed: `aco next` lists it under SKIPPED
   (NEXT-36), `aco board` names it with its defect (BODY-50), and `aco claim` refuses it

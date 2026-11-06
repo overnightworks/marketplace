@@ -22,6 +22,10 @@ claimed, reviewed and landed; this says *how*.
    ideas are never named (ideas are listed apart under `ideas:`);
    an item with unruled expectations is refined first, not dispatched
    (`specs/next.spec.md`).
+   Code built ahead of its caller is listed in `.aco/ahead-of-caller.toml`
+   (`specs/ahead-of-caller.spec.md`). A red line in `aco next` names an entry
+   whose item is no longer open: delete that code, or, where an open item now
+   calls it, point the entry at that item.
 3. `aco board --json` reads the whole board, read-only (bare `aco board` refuses);
    the browser view for deciding expectation lines is `aco serve` (`specs/serve.spec.md`).
 

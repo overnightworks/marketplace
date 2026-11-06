@@ -134,6 +134,20 @@ test('#459 courier-start-command: the start command gives Codex a brief holding 
   assert.match(stdinOfCodex(), /BRIEF[\s\S]*ITEM BODY[\s\S]*PR BODY/)
 })
 
+test('#496 courier-writes-schema: the start command writes the Codex output schema itself before it starts Codex', async () => {
+  const { ran, scratch } = await runStartCommand({})
+  assert.equal(ran.status, 0)
+  const schemaFile = fs.readdirSync(scratch).find(name => name.endsWith('-schema.json'))
+  assert.ok(schemaFile, 'the start command left the schema file')
+  const schema = JSON.parse(fs.readFileSync(path.join(scratch, schemaFile), 'utf8'))
+  assert.deepEqual(schema.required, ['verdict', 'blocking', 'followups', 'checked_correct'])
+})
+
+test('#496 courier-writes-schema: the courier is not asked to write the schema by hand', async () => {
+  const { agentCalls } = await runLane({ ...bodyLane, risk: 'material' }, { 'r0-review': APPROVE })
+  assert.doesNotMatch(agentCalls['r0-gate'].prompt, /Write this JSON schema/)
+})
+
 test('#459 courier-start-command: a failed append exits non-zero and starts no Codex', async () => {
   const { ran, stdinOfCodex, marker } = await runStartCommand({ failingProgram: 'gh' })
   assert.notEqual(ran.status, 0)

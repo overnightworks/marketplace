@@ -282,7 +282,10 @@ needs no counter-check. Lane work keeps its own reviews.
 - **Re-checks.** A `REVISE` gets a delta re-check after a coherent fix batch:
   by the same reviewer while its reported lifetime context is under 200k
   tokens (unknown counts as over), else by a fresh reviewer of the same row and
-  provider column given the original findings verbatim.
+  provider column given the original findings verbatim. When the gate's
+  provider is at its usage limit, a fresh reviewer at the lane's review routing
+  re-checks a test-only delta, and the pull request names the range the gate
+  did not see.
 - **Repeat the gate** in fresh context when a later fix changes interaction,
   scope or risk (production behaviour, a data path, secrets, a public
   contract) or when the trunk pull or integration merge needed conflict

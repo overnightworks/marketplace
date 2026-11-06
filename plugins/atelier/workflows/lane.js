@@ -45,7 +45,6 @@ const GENERATED = Object.entries(A.generated || {})
 const MODEL_PROVIDER = { haiku: 'claude', sonnet: 'claude', opus: 'claude', fable: 'claude', 'gpt-6-astra': 'codex' }
 const EFFORT_CEILING = new Set(['low', 'medium', 'high'])
 const REVIEWER_PROVIDER = A.reviewer || 'claude'
-// The review row follows the reviewer provider and the lane's risk.
 function defaultReviewRouting() {
   if (REVIEWER_PROVIDER === 'codex') return { model: 'gpt-6-astra', effort: MATERIAL ? 'high' : 'medium' }
   if (MATERIAL) return { model: 'opus', effort: 'high' }
@@ -252,9 +251,12 @@ let tip = A.tip || null
 const spent = { review: 0, test: 0, ci: 0, total: 0 }
 const seen = new Map()  // finding key -> how often it came back after a fix
 let productionSinceTest = false  // any fix since the last end-to-end test touched production
+let productionSinceGate = false  // any fix since the last unlimited gate result touched production
+let gateUnseen = null  // the range a stand-in reviewer re-checked for a gate at its usage limit: {seenTip, findings, limit}
 const folded = new Map()  // follow-up key -> the follow-up, with the tip of the accepted fix that folded it in
 const REVIEW = { key: 'review', provider: REVIEWER_PROVIDER, role: 'independent reviewer' }
 const GATE = { key: 'gate', provider: MODEL_PROVIDER[ROUTING.gate.model], role: 'final gate (architecture, data safety, public contract)' }
+const STANDIN = { key: 'standin', provider: 'claude', role: "stand-in reviewer (the final gate's provider is at its usage limit)" }
 const ALL = MATERIAL ? [REVIEW, GATE] : [REVIEW]
 
 function openFollowups() {
@@ -267,7 +269,7 @@ const raisedBeforeTip = (open) => open.filter(f => f.tip && !sameCommit(f.tip, t
 const awaitRescope = (stage, rescope, reason = '', extra = {}, newRun = 'with pr and tip and fixFirst carrying the rescope entries as findings (an entry path becomes where, its change becomes text, its reason becomes evidence, rule the item sentence the change serves, kind defect), so a fixer makes the change') =>
   openResult('awaiting-head', stage, { reason: `the work needs paths outside the claim scope; run aco rescope for them and start a new run ${newRun}.${reason}`, rescope, ...extra })
 const openResult = (status, stage, extra) =>
-  ({ status, stage, pr, tip, spent, routing: ROUTING, history, followups: openFollowups(), raisedBeforeTip: raisedBeforeTip(openFollowups()), folded: [...folded.values()], disputed, ...extra })
+  ({ status, stage, pr, tip, spent, routing: ROUTING, history, followups: openFollowups(), raisedBeforeTip: raisedBeforeTip(openFollowups()), folded: [...folded.values()], disputed, ...(gateUnseen && { gateUnseen }), ...extra })
 
 // ---------------------------------------------------------------- build
 if (A.build) {
@@ -323,7 +325,10 @@ async function reviewRound(which, range, from) {
   results.forEach((v, i) => {
     if (!v) return
     history.push({ after: spent.total, by: which[i].key, verdict: v.verdict, blocking: (v.blocking || []).map(f => f.where), reportPath: v.reportPath || '' })
-    if (which[i] === GATE) gateRounds.push({ after: spent.total, verdict: v.verdict, blocking: v.blocking || [], reportPath: v.reportPath || '' })
+    if (which[i] === GATE && !v.limit) {
+      gateRounds.push({ after: spent.total, verdict: v.verdict, blocking: v.blocking || [], reportPath: v.reportPath || '', tip })
+      productionSinceGate = false
+    }
     followups.push(...(v.followups || []).map(f => ({ ...f, tip })))
   })
   return { which, results, verdict, range, from }
@@ -451,7 +456,7 @@ function acceptFix(fixed, blocking, foldIn) {
   if (outside.length) return { stop: openResult('failed', 'fix', { reason: `the fixer reported paths outside the worktree: ${outside.join(', ')}` }) }
   const touchesProduction = fixed.mergeResolvedLaneConflict || relative.some(f => PRODUCTION.some(prefix => f.startsWith(prefix)))
   tip = fixed.tip
-  if (touchesProduction) productionSinceTest = true
+  if (touchesProduction) productionSinceTest = productionSinceGate = true
   const outsideRange = fixed.unchanged && answeredOutside(fixed, blocking)
   if ((fixed.unchanged && !outsideRange) || (fixed.mergeOnly && !fixed.mergeResolvedLaneConflict)) {  // nothing of the lane changed to review: a clean merge of main answered the mergeable finding
     log(`fix ${spent.total}: no lane change to review`)
@@ -586,9 +591,25 @@ function awaitLimit(rr) {
   return openResult('awaiting-head', 'review', { limits, lastBlocking, ...(rr.from && { deltaFrom: rr.from, answers: rr.range }), reason: `a Codex reviewer hit its usage limit; the review never moves to another provider. ${reset} ${resume}` })
 }
 
+// A fresh Claude reviewer stands in for a gate at its usage limit only on a delta that touched no productionPaths prefix,
+// and only when every other result of the round is clean; anything else waits for the gate.
+function standInAllowed(rr) {
+  const gateResult = rr.results[rr.which.indexOf(GATE)]
+  const othersClean = rr.results.every(v => v === gateResult || (v && !v.limit && !(v.blocking || []).length))
+  return MATERIAL && REVIEWER_PROVIDER === 'claude' && A.productionPaths !== undefined && gateRounds.at(-1)?.verdict === 'REVISE' && !productionSinceGate && Boolean(gateResult?.limit) && othersClean
+}
+
+async function standIn(rr) {
+  const last = gateRounds.at(-1)
+  gateUnseen ||= { seenTip: last.tip, findings: last.blocking, limit: rr.results[rr.which.indexOf(GATE)].limit }
+  const range = `only this delta: git diff ${gateUnseen.seenTip}..HEAD — commits the final gate has not seen. They answer the gate's findings:\n${listFindings(last.blocking)}`
+  phase('Review')
+  return settleReview(await reviewRound([STANDIN], range, gateUnseen.seenTip))
+}
+
 // Each round judges the previous fix, so rounds run one after another; the fix budgets bound the recursion.
 async function settleReview(rr) {
-  if (rr.verdict.state === 'limited') return awaitLimit(rr)
+  if (rr.verdict.state === 'limited') return standInAllowed(rr) ? standIn(rr) : awaitLimit(rr)
   if (rr.verdict.state === 'revise') {
     const blocking = rr.results.filter(Boolean).flatMap(v => v.blocking || [])
     const raised = rr.which.filter((r, i) => rr.results[i] && (rr.results[i].blocking || []).length > 0)
@@ -750,8 +771,10 @@ while (true) {
 const stillOpen = openFollowups()
 return {
   status: 'ready-to-land', pr, tip, spent, routing: ROUTING, history, followups: stillOpen, raisedBeforeTip: raisedBeforeTip(stillOpen), folded: [...folded.values()], disputed,
+  ...(gateUnseen && { gateUnseen: { ...gateUnseen, tip } }),
   requiredHeadActions: [
     `land with \`aco land ${pr}\` only while the pull request head is still ${tip}`,
+    ...(gateUnseen ? [`name ${gateUnseen.seenTip}..${tip} in the body of pull request #${pr}: the final gate, at its usage limit, did not see that range`] : []),
     ...(raisedBeforeTip(stillOpen).length ? ['re-check the follow-ups in raisedBeforeTip against the returned tip before routing them'] : []),
     ...(stillOpen.length ? [`route ${stillOpen.length} follow-up(s) to their owning items before landing`] : []),
     `update the body of item #${A.item}'s parent and name what the landing freed`,

@@ -5,7 +5,7 @@ import path from 'node:path'
 import { spawnSync } from 'node:child_process'
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { runLane, resumedLane, installFake, APPROVE, finding, resumeArgs, resumeTip, resumeFix } from './lane_workflow_harness.mjs'
+import { runLane, resumedLane, installFake, APPROVE, PASS, greenCi, finding, resumeArgs, resumeTip, resumeFixedTip, resumeFix, secondFix } from './lane_workflow_harness.mjs'
 
 const readWorkflow = (name) => fs.readFileSync(new URL(`../plugins/atelier/workflows/${name}.js`, import.meta.url), 'utf8')
 const protocolOf = (source) => Number(source.match(/^const LANE_REVIEW_PROTOCOL = (\d+)$/m)?.[1])
@@ -282,3 +282,81 @@ for (const [name, content, printed] of [
     }
   })
 }
+
+// ---- #473: a limited gate re-check of a test-only delta is stood in for by a fresh reviewer at the review routing
+const gateRevise = { verdict: 'REVISE', blocking: [gateFinding], followups: [], codexExit: 0 }
+const standInLane = { ...resumeArgs, risk: 'material', productionPaths: ['src/'] }
+const testOnlyFix = { 'fix-1': { ...resumeFix, files: ['tests/x.py'] } }
+const standInAnswers = { 'r0-review': APPROVE, 'r0-gate': gateRevise, ...testOnlyFix, 'r1-gate': limited(), 'r1-standin': APPROVE, 'e2e-0': PASS, 'ci-0': greenCi(resumeFixedTip) }
+const standInRun = (args = {}, answers = {}) => runLane({ ...standInLane, ...args }, { ...standInAnswers, ...answers })
+const waitsAtReview = (result) => assert.deepEqual([result.status, result.stage], ['awaiting-head', 'review'])
+
+test('#473 gate-stand-in: a limited gate re-check of a test-only fix is re-checked by a fresh reviewer at the review routing, then the lane reaches ready-to-land naming the unseen range', async () => {
+  const { result, agentCalls, launchedAgents } = await standInRun()
+  assert.equal(result.status, 'ready-to-land')
+  const { model, effort } = agentCalls['r1-standin'].options
+  assert.deepEqual({ model, effort }, result.routing.review)
+  assert.match(agentCalls['r1-standin'].prompt, /gate finding/)
+  assert.ok(launchedAgents.includes('e2e-0') || launchedAgents.includes('ci-0'))
+  assert.deepEqual(result.gateUnseen, { seenTip: resumeTip, tip: resumeFixedTip, findings: [gateFinding], limit: { role: 'gate', model: result.routing.gate.model, line: limitLine, resetsAt: 'Nov 4th, 2026 7:57 AM' } })
+  assert.equal(result.requiredHeadActions.filter(line => line.includes(`${resumeTip}..${resumeFixedTip}`)).length, 1)
+})
+
+const standInRefused = [
+  ['the fix resolved a lane conflict', { 'fix-1': { ...resumeFix, files: ['tests/x.py'], mergeResolvedLaneConflict: true } }, {}],
+  ['the lane routes its review to Codex', { 'r0-review': { ...APPROVE, codexExit: 0 } }, { reviewer: 'codex' }],
+  ['productionPaths was not passed', {}, { productionPaths: undefined }],
+]
+for (const [name, answers, args] of standInRefused) {
+  test(`#473 gate-stand-in: the lane waits when ${name}`, async () => {
+    const { result, launchedAgents } = await standInRun(args, answers)
+    waitsAtReview(result)
+    assert.ok(!launchedAgents.includes('r1-standin'))
+  })
+}
+
+test('#473 gate-stand-in: the lane waits when the review raises a finding in the round beside the limited gate', async () => {
+  const { result, launchedAgents } = await standInRun({}, { 'r0-review': { verdict: 'REVISE', blocking: [reviewFinding], followups: [], codexExit: 0 }, 'r1-review': { verdict: 'REVISE', blocking: [reviewFinding], followups: [] } })
+  waitsAtReview(result)
+  assert.ok(!launchedAgents.includes('r1-standin'))
+})
+
+test('#473 gate-stand-in: a stand-in REVISE answered by a test-only fix and approved leaves the first seen tip and the final tip in gateUnseen', async () => {
+  const secondTestFix = { ...secondFix, files: ['tests/y.py'] }
+  const { result } = await standInRun({}, {
+    'r1-standin': { verdict: 'REVISE', blocking: [reviewFinding], followups: [] }, 'fix-2': secondTestFix, 'r2-standin': APPROVE, 'ci-0': greenCi(secondFix.head),
+  })
+  assert.equal(result.status, 'ready-to-land')
+  assert.deepEqual([result.gateUnseen.seenTip, result.gateUnseen.tip], [resumeTip, secondFix.head])
+})
+
+test('#473 gate-stand-in: a production fix after the stand-in with the gate limited again waits and carries gateUnseen', async () => {
+  const { result } = await standInRun({}, {
+    'r1-standin': { verdict: 'REVISE', blocking: [reviewFinding], followups: [] }, 'fix-2': { ...secondFix, files: ['src/y.py'] }, 'r2-gate': limited(), 'r2-standin': APPROVE,
+  })
+  waitsAtReview(result)
+  assert.equal(result.gateUnseen.seenTip, resumeTip)
+  assert.ok(!('requiredHeadActions' in result))
+})
+
+test('#473 gate-stand-in: a production fix after the stand-in runs the gate, and ready-to-land keeps the first seen tip', async () => {
+  const { result, launchedAgents } = await standInRun({}, {
+    'r1-standin': { verdict: 'REVISE', blocking: [reviewFinding], followups: [] }, 'fix-2': { ...secondFix, files: ['src/y.py'] }, 'r2-gate': { ...APPROVE, codexExit: 0 }, 'r2-standin': APPROVE,
+    'ci-0': greenCi(secondFix.head),
+  })
+  assert.ok(launchedAgents.includes('r2-gate'))
+  assert.equal(result.status, 'ready-to-land')
+  assert.equal(result.gateUnseen.seenTip, resumeTip)
+})
+
+test('#473 gate-stand-in: an architectural verdict from the stand-in escalates the lane', async () => {
+  const { result } = await standInRun({}, { 'r1-standin': { ...APPROVE, verdict: 'architectural' } })
+  assert.equal(result.status, 'escalated')
+})
+
+test('#473 gate-stand-in: a lane whose gate was never limited carries no gateUnseen', async () => {
+  const { result } = await standInRun({}, { 'r1-gate': { ...APPROVE, codexExit: 0 } })
+  assert.equal(result.status, 'ready-to-land')
+  assert.ok(!('gateUnseen' in result))
+  assert.ok(!result.requiredHeadActions.some(line => /usage limit/.test(line)))
+})

@@ -11,7 +11,7 @@ const readWorkflow = (name) => fs.readFileSync(new URL(`../plugins/atelier/workf
 const protocolOf = (source) => Number(source.match(/^const LANE_REVIEW_PROTOCOL = (\d+)$/m)?.[1])
 const driveGate = (options) => runLane({ ...resumedLane, risk: 'material' }, { 'r0-review': APPROVE }, { ...options, child: 'atelier:lane-review' })
 
-test('#340 lane-review-protocol: a child with another protocol number fails the lane at review naming both numbers', async () => {
+test('lane-review-protocol: a child with another protocol number fails the lane at review naming both numbers', async () => {
   const parentNumber = protocolOf(readWorkflow('lane'))
   const { result, launchedAgents } = await driveGate({ transformChild: (source) => source.replace(/^const LANE_REVIEW_PROTOCOL = \d+$/m, `const LANE_REVIEW_PROTOCOL = ${parentNumber + 1}`) })
   assert.deepEqual([result.status, result.stage], ['failed', 'review'])
@@ -19,13 +19,13 @@ test('#340 lane-review-protocol: a child with another protocol number fails the 
   assert.ok(!launchedAgents.includes('r0-gate'))
 })
 
-test('#340 lane-review-protocol: a call without the worktree fails the lane at review naming the missing args', async () => {
+test('lane-review-protocol: a call without the worktree fails the lane at review naming the missing args', async () => {
   const { result } = await driveGate({ alterChildArgs: ({ worktree: _worktree, scratch: _scratch, ...rest }) => rest })
   assert.deepEqual([result.status, result.stage], ['failed', 'review'])
   assert.match(result.reason, /missing args: .*worktree.*scratch/)
 })
 
-test('#400 lane-review-protocol: a child with another protocol number and a missing arg fails the lane with the skew sentence, not missing args', async () => {
+test('lane-review-protocol: a child with another protocol number and a missing arg fails the lane with the skew sentence, not missing args', async () => {
   const skewed = (source) => source.replace(/^const LANE_REVIEW_PROTOCOL = \d+$/m, `const LANE_REVIEW_PROTOCOL = ${protocolOf(readWorkflow('lane')) + 1}`)
   const { result } = await driveGate({ transformChild: skewed, alterChildArgs: ({ worktree: _worktree, ...rest }) => rest })
   assert.deepEqual([result.status, result.stage], ['failed', 'review'])
@@ -33,43 +33,43 @@ test('#400 lane-review-protocol: a child with another protocol number and a miss
   assert.doesNotMatch(result.reason, /missing args/)
 })
 
-test('#340 lane-review-protocol: a child that throws fails the lane at review naming the error', async () => {
+test('lane-review-protocol: a child that throws fails the lane at review naming the error', async () => {
   const { result } = await driveGate({ transformChild: () => "throw new Error('the child exploded')" })
   assert.deepEqual([result.status, result.stage], ['failed', 'review'])
   assert.match(result.reason, /the child exploded/)
 })
 
-test('#340 lane-review-protocol: an answer without results fails the lane at review naming what came back', async () => {
+test('lane-review-protocol: an answer without results fails the lane at review naming what came back', async () => {
   const { result } = await driveGate({ transformChild: () => "return { surprise: 'no verdict' }" })
   assert.deepEqual([result.status, result.stage], ['failed', 'review'])
   assert.match(result.reason, /lane-review answered without a valid result.*surprise/)
 })
 
-test('#475 lane-review-protocol: a child that answers nothing fails the lane at review naming the problem', async () => {
+test('lane-review-protocol: a child that answers nothing fails the lane at review naming the problem', async () => {
   const { result } = await driveGate({ transformChild: () => 'return undefined' })
   assert.deepEqual([result.status, result.stage], ['failed', 'review'])
   assert.match(result.reason, /lane-review answered without a valid result/)
 })
 
-test('#475 lane-review-protocol: an answer with results but no verdict fails the lane at review naming the problem', async () => {
+test('lane-review-protocol: an answer with results but no verdict fails the lane at review naming the problem', async () => {
   const { result } = await driveGate({ transformChild: () => 'return { results: [null, null] }' })
   assert.deepEqual([result.status, result.stage], ['failed', 'review'])
   assert.match(result.reason, /lane-review answered with an unknown round state/)
 })
 
-test('#475 lane-review-protocol: an answer whose verdict state is no round state fails the lane at review naming it', async () => {
+test('lane-review-protocol: an answer whose verdict state is no round state fails the lane at review naming it', async () => {
   const { result, launchedAgents } = await driveGate({ transformChild: () => "return { results: [null, null], verdict: { state: 'aprove' } }" })
   assert.deepEqual([result.status, result.stage], ['failed', 'review'])
   assert.match(result.reason, /lane-review[\s\S]*aprove/)
   assert.ok(!launchedAgents.includes('r0-gate'))
 })
 
-test('#340 lane-review-protocol: lane.js and lane-review.js hold the same protocol number', () => {
+test('lane-review-protocol: lane.js and lane-review.js hold the same protocol number', () => {
   assert.ok(Number.isInteger(protocolOf(readWorkflow('lane'))))
   assert.equal(protocolOf(readWorkflow('lane-review')), protocolOf(readWorkflow('lane')))
 })
 
-test('#340 lane-review-protocol: the review and the gate courier are launched by the lane-review child, not by lane.js', async () => {
+test('lane-review-protocol: the review and the gate courier are launched by the lane-review child, not by lane.js', async () => {
   const { launchedByChild, launchedAgents } = await driveGate({})
   assert.deepEqual(launchedByChild['atelier:lane-review'], ['r0-review', 'r0-gate'])
   assert.ok(launchedAgents.includes('r0-gate'))
@@ -78,12 +78,12 @@ test('#340 lane-review-protocol: the review and the gate courier are launched by
 const bodyCommands = (repoFlag) => [`gh issue view 7${repoFlag} --json body --jq .body`, `gh pr view 9${repoFlag} --json body --jq .body`]
 const bodyLane = { ...resumedLane, item: 7, pr: 9, repo: 'o/r' }
 
-test('#419 review-reads-body: the Claude reviewer brief names both gh commands with the repo flag', async () => {
+test('review-reads-body: the Claude reviewer brief names both gh commands with the repo flag', async () => {
   const { agentCalls } = await runLane(bodyLane, { 'r0-review': APPROVE })
   for (const command of bodyCommands(' -R o/r')) assert.ok(agentCalls['r0-review'].prompt.includes(command), command)
 })
 
-test('#419 review-reads-body: the Codex courier appends both gh outputs to the brief file through the shell, right before codex exec', async () => {
+test('review-reads-body: the Codex courier appends both gh outputs to the brief file through the shell, right before codex exec', async () => {
   const { agentCalls } = await runLane({ ...bodyLane, risk: 'material' }, { 'r0-review': APPROVE })
   const prompt = agentCalls['r0-gate'].prompt
   const [issueCommand, prCommand] = bodyCommands(' -R o/r')
@@ -92,13 +92,13 @@ test('#419 review-reads-body: the Codex courier appends both gh outputs to the b
   assert.match(prompt, /\{ cat \/s\/\S*-brief\.md[^\n]*gh issue view[^\n]*gh pr view[^\n]*\} > \S*-brief\.md\.tmp && mv \S*-brief\.md\.tmp \/s\/\S*-brief\.md/)
 })
 
-test('#419 review-reads-body: the Codex brief does not ask the networkless sandbox to run gh', async () => {
+test('review-reads-body: the Codex brief does not ask the networkless sandbox to run gh', async () => {
   const { agentCalls } = await runLane({ ...bodyLane, risk: 'material' }, { 'r0-review': APPROVE })
   const brief = agentCalls['r0-gate'].prompt.match(/-----\n([\s\S]*?)\n-----/)[1]
   assert.doesNotMatch(brief, /gh issue view/)
 })
 
-test('#419 review-reads-body: a lane-review call without the pull request number fails the lane naming it', async () => {
+test('review-reads-body: a lane-review call without the pull request number fails the lane naming it', async () => {
   const { result } = await driveGate({ alterChildArgs: ({ pr: _pr, ...rest }) => rest })
   assert.match(result.reason, /missing args: .*pr/)
 })
@@ -126,7 +126,7 @@ async function runStartCommand({ failingProgram }) {
   }
 }
 
-test('#459 courier-start-command: the start command gives Codex a brief holding both bodies', async () => {
+test('courier-start-command: the start command gives Codex a brief holding both bodies', async () => {
   const { ran, stdinOfCodex, scratch } = await runStartCommand({})
   assert.equal(ran.status, 0)
   const exitMarker = () => fs.readdirSync(scratch).find(name => name.endsWith('.exit'))
@@ -135,7 +135,7 @@ test('#459 courier-start-command: the start command gives Codex a brief holding 
   assert.match(stdinOfCodex(), /BRIEF[\s\S]*ITEM BODY[\s\S]*PR BODY/)
 })
 
-test('#496 courier-writes-schema: Codex finds the schema already written, byte for byte as the workflow holds it, when it starts', async () => {
+test('courier-writes-schema: Codex finds the schema already written, byte for byte as the workflow holds it, when it starts', async () => {
   const { ran, scratch, schemaInLine, schemaSeenByCodex } = await runStartCommand({})
   assert.equal(ran.status, 0)
   const exitMarker = () => fs.readdirSync(scratch).find(name => name.endsWith('.exit'))
@@ -144,19 +144,19 @@ test('#496 courier-writes-schema: Codex finds the schema already written, byte f
   assert.equal(schemaSeenByCodex(), schemaInLine)
 })
 
-test('#496 courier-writes-schema: the courier is not asked to write the schema by hand', async () => {
+test('courier-writes-schema: the courier is not asked to write the schema by hand', async () => {
   const { agentCalls } = await runLane({ ...bodyLane, risk: 'material' }, { 'r0-review': APPROVE })
   assert.doesNotMatch(agentCalls['r0-gate'].prompt, /Write this JSON schema/)
 })
 
-test('#459 courier-start-command: a failed append exits non-zero and starts no Codex', async () => {
+test('courier-start-command: a failed append exits non-zero and starts no Codex', async () => {
   const { ran, stdinOfCodex, marker } = await runStartCommand({ failingProgram: 'gh' })
   assert.notEqual(ran.status, 0)
   assert.equal(stdinOfCodex(), false)
   assert.equal(marker, undefined)
 })
 
-// ---- #456: a Codex reviewer or gate that hits its usage limit makes the lane wait
+// ---- a Codex reviewer or gate that hits its usage limit makes the lane wait
 const limitLine = 'You’ve hit your usage limit. Upgrade to Pro or try again at Nov 4th, 2026 7:57 AM.'
 const limited = (line = limitLine, resetsAt = 'Nov 4th, 2026 7:57 AM', codexExit = 1) => ({ verdict: 'failed', blocking: [], followups: [], codexExit, note: 'tail', limit: { line, resetsAt } })
 const materialLane = { ...resumedLane, risk: 'material', productionPaths: ['src/'] }
@@ -166,26 +166,26 @@ const reviewFinding = finding('a.py:1', 'review finding')
 const gateFinding = finding('b.py:2', 'gate finding')
 const fixedOnce = { 'fix-1': { ...resumeFix, files: ['src/x.py'] } }
 
-test('#456 usage-limit: a limited gate beside an approving review makes the lane await the head with the limit and starts nothing else', async () => {
+test('usage-limit: a limited gate beside an approving review makes the lane await the head with the limit and starts nothing else', async () => {
   const { result, launchedAgents } = await runLane(materialLane, limitedGate)
   assert.deepEqual([result.status, result.stage], ['awaiting-head', 'review'])
   assert.deepEqual(result.limits, [{ role: 'gate', model: result.routing.gate.model, line: limitLine, resetsAt: 'Nov 4th, 2026 7:57 AM' }])
   assert.ok(!launchedAgents.some(label => /^(fix|e2e|ci)/.test(label)), launchedAgents.join())
 })
 
-test('#456 usage-limit: a limited Codex review (reviewer codex) makes the lane await the head with role review', async () => {
+test('usage-limit: a limited Codex review (reviewer codex) makes the lane await the head with role review', async () => {
   const { result } = await runLane({ ...materialLane, reviewer: 'codex' }, { 'r0-review': limited(), 'r0-gate': { ...APPROVE, codexExit: 0 } })
   assert.deepEqual([result.status, result.stage], ['awaiting-head', 'review'])
   assert.deepEqual([result.limits[0].role, result.limits[0].model], ['review', result.routing.review.model])
 })
 
-test('#456 usage-limit: a limit line without a reset time gives resetsAt null and a reason that says no reset time was named', async () => {
+test('usage-limit: a limit line without a reset time gives resetsAt null and a reason that says no reset time was named', async () => {
   const { result } = await runLane(materialLane, { ...limitedGate, 'r0-gate': limited('You have hit your usage limit.', null) })
   assert.equal(result.limits[0].resetsAt, null)
   assert.match(result.reason, /named no reset time/)
 })
 
-test('#456 usage-limit: a limit beside a clean Codex exit is dropped and the lane fails at review', async () => {
+test('usage-limit: a limit beside a clean Codex exit is dropped and the lane fails at review', async () => {
   const { result } = await runLane(materialLane, { ...limitedGate, 'r0-gate': limited(limitLine, null, 0), 'r0-gate-reread': limited(limitLine, null, 0) })
   failedAtReview(result)
 })
@@ -194,33 +194,33 @@ for (const [name, answer] of [
   ['an exit of -1', limited(limitLine, null, -1)],
   ['a line without the phrase', limited('Error: stream disconnected', null)],
 ]) {
-  test(`#456 usage-limit: a limit with ${name} fails the lane at review`, async () => {
+  test(`usage-limit: a limit with ${name} fails the lane at review`, async () => {
     const { result } = await runLane(materialLane, { ...limitedGate, 'r0-gate': answer })
     failedAtReview(result)
   })
 }
 
-test('#456 usage-limit: a failed Claude review carrying a limit fails the lane at review', async () => {
+test('usage-limit: a failed Claude review carrying a limit fails the lane at review', async () => {
   const { result } = await runLane(resumedLane, { 'r0-review': limited() })
   failedAtReview(result)
 })
 
-test('#456 usage-limit: a real failure beside a limit fails the lane at review', async () => {
+test('usage-limit: a real failure beside a limit fails the lane at review', async () => {
   const { result } = await runLane({ ...resumedLane, risk: 'material', reviewer: 'codex' }, { 'r0-review': limited(), 'r0-gate': { verdict: 'failed', blocking: [], followups: [], codexExit: 2, note: 'boom' } })
   failedAtReview(result)
 })
 
-test('#456 usage-limit: an architectural verdict beside a limit escalates the lane', async () => {
+test('usage-limit: an architectural verdict beside a limit escalates the lane', async () => {
   const { result } = await runLane(materialLane, { 'r0-review': { ...APPROVE, verdict: 'architectural' }, 'r0-gate': limited() })
   assert.equal(result.status, 'escalated')
 })
 
-test('#456 usage-limit: an empty REVISE beside a limit fails the lane at review', async () => {
+test('usage-limit: an empty REVISE beside a limit fails the lane at review', async () => {
   const { result } = await runLane(materialLane, { 'r0-review': { verdict: 'REVISE', blocking: [], followups: [] }, 'r0-gate': limited() })
   failedAtReview(result)
 })
 
-test('#456 usage-limit: a limited review beside a gate REVISE after a fix hands back the fixer held tip, the gate findings and the review findings it answers', async () => {
+test('usage-limit: a limited review beside a gate REVISE after a fix hands back the fixer held tip, the gate findings and the review findings it answers', async () => {
   const { result } = await runLane({ ...resumeArgs, risk: 'material', reviewer: 'codex' }, {
     'r0-review': { verdict: 'REVISE', blocking: [reviewFinding], followups: [], codexExit: 0 }, 'r0-gate': { ...APPROVE, codexExit: 0 }, ...fixedOnce,
     'r1-review': limited(), 'r1-gate': { verdict: 'REVISE', blocking: [gateFinding], followups: [], codexExit: 0 },
@@ -231,7 +231,7 @@ test('#456 usage-limit: a limited review beside a gate REVISE after a fix hands 
   assert.match(result.answers, /review finding/)
 })
 
-test('#456 usage-limit: a limited gate re-check after a fix hands back the tip before the fix and the gate findings it answers', async () => {
+test('usage-limit: a limited gate re-check after a fix hands back the tip before the fix and the gate findings it answers', async () => {
   const { result } = await runLane({ ...resumeArgs, risk: 'material', productionPaths: ['src/'] }, {
     'r0-review': APPROVE, 'r0-gate': { verdict: 'REVISE', blocking: [gateFinding], followups: [], codexExit: 0 }, ...fixedOnce, 'r1-gate': limited(),
   })
@@ -241,26 +241,26 @@ test('#456 usage-limit: a limited gate re-check after a fix hands back the tip b
 
 const olderTip = 'b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2'
 
-test('#456 usage-limit: a resumed run whose first round is limited returns the deltaFrom it was given', async () => {
+test('usage-limit: a resumed run whose first round is limited returns the deltaFrom it was given', async () => {
   const { result } = await runLane({ ...materialLane, deltaFrom: olderTip, answers: 'earlier findings' }, limitedGate)
   assert.equal(result.deltaFrom, olderTip)
   assert.match(result.answers, /earlier findings/)
 })
 
-test('#456 usage-limit: a limited whole-lane first round returns no deltaFrom and no answers', async () => {
+test('usage-limit: a limited whole-lane first round returns no deltaFrom and no answers', async () => {
   const { result } = await runLane(materialLane, limitedGate)
   assert.ok(!('deltaFrom' in result) && !('answers' in result))
 })
 
 for (const [name, extra, expected] of [['with deltaFrom', { deltaFrom: olderTip }, olderTip], ['without deltaFrom', {}, undefined]]) {
-  test(`#456 usage-limit: a limited carried-batch round ${name} returns that deltaFrom, never the carried fix tip`, async () => {
+  test(`usage-limit: a limited carried-batch round ${name} returns that deltaFrom, never the carried fix tip`, async () => {
     const { result } = await runLane({ ...resumeArgs, risk: 'material', productionPaths: ['src/'], fixFirst: [reviewFinding], ...extra }, { 'fix-1': { ...resumeFix, files: ['tests/x.py'] }, 'r1-review': APPROVE, 'r1-gate': limited() })
     assert.equal(result.status, 'awaiting-head')
     assert.equal(result.deltaFrom, expected)
   })
 }
 
-test('#456 usage-limit: the reason names fixFirst only when there are findings to carry', async () => {
+test('usage-limit: the reason names fixFirst only when there are findings to carry', async () => {
   const empty = await runLane(materialLane, limitedGate)
   assert.deepEqual(empty.result.lastBlocking, [])
   assert.doesNotMatch(empty.result.reason, /fixFirst/)
@@ -270,7 +270,7 @@ test('#456 usage-limit: the reason names fixFirst only when there are findings t
 
 const lastLineCommand = (prompt) => prompt.match(/run: (grep -v \S+ \S+ \| tail -n 1)/)[1]
 
-test('#456 usage-limit: the courier clears run.log first, reads the last non-empty line, names the phrase and never retries a limit', async () => {
+test('usage-limit: the courier clears run.log first, reads the last non-empty line, names the phrase and never retries a limit', async () => {
   const { agentCalls } = await runLane(materialLane, limitedGate)
   const prompt = agentCalls['r0-gate'].prompt
   assert.match(prompt, /1\. rm -f [^\n]*-run\.log/)
@@ -283,7 +283,7 @@ for (const [name, content, printed] of [
   ['quotes the phrase earlier', `the brief says: you’ve hit your usage limit\nmore output\nError: stream closed\n\n  \n`, 'Error: stream closed\n'],
   ['ends on the phrase before blank lines', `more output\nYou’ve hit your usage limit.\n\n  \n`, 'You’ve hit your usage limit.\n'],
 ]) {
-  test(`#456 usage-limit: the courier last-line command prints only the last non-empty line of a run.log that ${name}`, async () => {
+  test(`usage-limit: the courier last-line command prints only the last non-empty line of a run.log that ${name}`, async () => {
     const { agentCalls } = await runLane(materialLane, limitedGate)
     const command = lastLineCommand(agentCalls['r0-gate'].prompt)
     const log = command.match(/(\/\S+-run\.log)/)[1]
@@ -298,7 +298,7 @@ for (const [name, content, printed] of [
   })
 }
 
-// ---- #473: a limited gate re-check of a test-only delta is stood in for by a fresh reviewer at the review routing
+// ---- a limited gate re-check of a test-only delta is stood in for by a fresh reviewer at the review routing
 const gateRevise = { verdict: 'REVISE', blocking: [gateFinding], followups: [], codexExit: 0 }
 const standInLane = { ...resumeArgs, risk: 'material', productionPaths: ['src/'] }
 const testOnlyFix = { 'fix-1': { ...resumeFix, files: ['tests/x.py'] } }
@@ -306,7 +306,7 @@ const standInAnswers = { 'r0-review': APPROVE, 'r0-gate': gateRevise, ...testOnl
 const standInRun = (args = {}, answers = {}) => runLane({ ...standInLane, ...args }, { ...standInAnswers, ...answers })
 const waitsAtReview = (result) => assert.deepEqual([result.status, result.stage], ['awaiting-head', 'review'])
 
-test('#473 gate-stand-in: a limited gate re-check of a test-only fix is re-checked by a fresh reviewer at the review routing, then the lane reaches ready-to-land naming the unseen range', async () => {
+test('gate-stand-in: a limited gate re-check of a test-only fix is re-checked by a fresh reviewer at the review routing, then the lane reaches ready-to-land naming the unseen range', async () => {
   const { result, agentCalls, launchedAgents } = await standInRun()
   assert.equal(result.status, 'ready-to-land')
   const { model, effort } = agentCalls['r1-standin'].options
@@ -324,20 +324,20 @@ const standInRefused = [
   ['productionPaths was not passed', {}, { productionPaths: undefined }],
 ]
 for (const [name, answers, args] of standInRefused) {
-  test(`#473 gate-stand-in: the lane waits when ${name}`, async () => {
+  test(`gate-stand-in: the lane waits when ${name}`, async () => {
     const { result, launchedAgents } = await standInRun(args, answers)
     waitsAtReview(result)
     assert.ok(!launchedAgents.includes('r1-standin'))
   })
 }
 
-test('#473 gate-stand-in: the lane waits when the review raises a finding in the round beside the limited gate', async () => {
+test('gate-stand-in: the lane waits when the review raises a finding in the round beside the limited gate', async () => {
   const { result, launchedAgents } = await standInRun({}, { 'r0-review': { verdict: 'REVISE', blocking: [reviewFinding], followups: [], codexExit: 0 }, 'r1-review': { verdict: 'REVISE', blocking: [reviewFinding], followups: [] } })
   waitsAtReview(result)
   assert.ok(!launchedAgents.includes('r1-standin'))
 })
 
-test('#473 gate-stand-in: a stand-in REVISE answered by a test-only fix and approved leaves the first seen tip and the final tip in gateUnseen', async () => {
+test('gate-stand-in: a stand-in REVISE answered by a test-only fix and approved leaves the first seen tip and the final tip in gateUnseen', async () => {
   const secondTestFix = { ...secondFix, files: ['tests/y.py'] }
   const { result } = await standInRun({}, {
     'r1-standin': { verdict: 'REVISE', blocking: [reviewFinding], followups: [] }, 'fix-2': secondTestFix, 'r2-standin': APPROVE, 'ci-0': greenCi(secondFix.head),
@@ -346,7 +346,7 @@ test('#473 gate-stand-in: a stand-in REVISE answered by a test-only fix and appr
   assert.deepEqual([result.gateUnseen.seenTip, result.gateUnseen.tip], [resumeTip, secondFix.head])
 })
 
-test('#473 gate-stand-in: a production fix after the stand-in with the gate limited again waits and carries gateUnseen', async () => {
+test('gate-stand-in: a production fix after the stand-in with the gate limited again waits and carries gateUnseen', async () => {
   const { result } = await standInRun({}, {
     'r1-standin': { verdict: 'REVISE', blocking: [reviewFinding], followups: [] }, 'fix-2': { ...secondFix, files: ['src/y.py'] }, 'r2-gate': limited(), 'r2-standin': APPROVE,
   })
@@ -355,7 +355,7 @@ test('#473 gate-stand-in: a production fix after the stand-in with the gate limi
   assert.ok(!('requiredHeadActions' in result))
 })
 
-test('#473 gate-stand-in: a production fix after the stand-in runs the gate, and ready-to-land keeps the first seen tip', async () => {
+test('gate-stand-in: a production fix after the stand-in runs the gate, and ready-to-land keeps the first seen tip', async () => {
   const { result, launchedAgents } = await standInRun({}, {
     'r1-standin': { verdict: 'REVISE', blocking: [reviewFinding], followups: [] }, 'fix-2': { ...secondFix, files: ['src/y.py'] }, 'r2-gate': { ...APPROVE, codexExit: 0 }, 'r2-standin': APPROVE,
     'ci-0': greenCi(secondFix.head),
@@ -369,7 +369,7 @@ const thirdFix = { ...secondFix, head: 'f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4
 const testGapFinding = { ...gateFinding, kind: 'test-gap' }
 const removalProof = { finding: 1, test: 'removed_test.py [case]', failedBefore: false, passesAfter: true, resolution: 'removed-vacuous', diff: '-    def test_asserts_nothing(): pass' }
 
-test('#473 gate-stand-in: the stand-in is given the removal diff and the fold-ins the limited gate re-check would have judged', async () => {
+test('gate-stand-in: the stand-in is given the removal diff and the fold-ins the limited gate re-check would have judged', async () => {
   const { result, agentCalls } = await standInRun({}, {
     'r0-review': { ...APPROVE, followups: [tidy] }, 'r0-gate': { ...gateRevise, blocking: [testGapFinding] }, 'fix-1': { ...resumeFix, files: ['tests/x.py'], regression: [removalProof] },
   })
@@ -380,7 +380,7 @@ test('#473 gate-stand-in: the stand-in is given the removal diff and the fold-in
   assert.ok(prompt.includes(tidy.text))
 })
 
-test('#473 gate-stand-in: a second stand-in re-checks from the tip of the latest gate round, not from the first unseen tip', async () => {
+test('gate-stand-in: a second stand-in re-checks from the tip of the latest gate round, not from the first unseen tip', async () => {
   const { result, agentCalls } = await standInRun({}, {
     'r1-standin': { verdict: 'REVISE', blocking: [reviewFinding], followups: [] }, 'fix-2': { ...secondFix, files: ['src/y.py'] },
     'r2-gate': { ...gateRevise, blocking: [finding('c.py:3', 'second gate finding')] }, 'r2-standin': APPROVE, 'fix-3': { ...thirdFix, files: ['tests/z.py'] }, 'r3-gate': limited(), 'r3-standin': APPROVE, 'ci-0': greenCi(thirdFix.head),
@@ -390,12 +390,12 @@ test('#473 gate-stand-in: a second stand-in re-checks from the tip of the latest
   assert.equal(result.gateUnseen.seenTip, resumeTip)
 })
 
-test('#473 gate-stand-in: an architectural verdict from the stand-in escalates the lane', async () => {
+test('gate-stand-in: an architectural verdict from the stand-in escalates the lane', async () => {
   const { result } = await standInRun({}, { 'r1-standin': { ...APPROVE, verdict: 'architectural' } })
   assert.equal(result.status, 'escalated')
 })
 
-test('#473 gate-stand-in: a lane whose gate was never limited carries no gateUnseen', async () => {
+test('gate-stand-in: a lane whose gate was never limited carries no gateUnseen', async () => {
   const { result } = await standInRun({}, { 'r1-gate': { ...APPROVE, codexExit: 0 } })
   assert.equal(result.status, 'ready-to-land')
   assert.ok(!('gateUnseen' in result))

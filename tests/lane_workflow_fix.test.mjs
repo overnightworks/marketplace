@@ -295,6 +295,45 @@ test('#284 defect:#284 the fixer schema takes the finding as an integer from 1 a
   assert.ok(!proofItem.required.includes('kind'))
 })
 
+const supportingProofNotes = [
+  ['a test-gap with one proof naming a mutation and a supporting proof naming none', testGap, [proofOf(1, { mutation: 'drop the guard' }), proofOf(1, { test: 'supporting_test.py [image]' })], /named no mutation/],
+  ['a defect with a test draft, one proof failed before and a supporting proof did not', defectWithDraft, [proofOf(1, { failedBefore: true }), proofOf(1, { test: 'supporting_test.py [image]' })], /did not fail before/],
+]
+
+for (const [behaviour, answered, regression, gap] of supportingProofNotes) {
+  test(`#466 ${behaviour} reaches the re-check, whose prompt names the supporting proof and its gap`, async () => {
+    const { result, agentCalls } = await runLane({ ...resumeArgs, fixFirst: [answered] }, { 'fix-1': { ...resumeFix, regression } })
+    assert.notEqual(result.stage, 'fix', result.reason)
+    const prompt = agentCalls['r1-review'].prompt
+    assert.ok(prompt.includes(answered.where))
+    assert.ok(prompt.includes('supporting_test.py [image]'))
+    assert.match(prompt, gap)
+  })
+}
+
+test('#466 a carried batch whose fixer gave a supporting proof without evidence hands it to the delta re-check', async () => {
+  const regression = [proofOf(1, { mutation: 'drop the guard' }), proofOf(1, { test: 'supporting_test.py [image]' })]
+  const { agentCalls } = await runLane({ ...resumeArgs, fixFirst: [testGap], deltaFrom: resumeTip, answers: 'fixed' }, { 'fix-1': { ...resumeFix, regression } })
+  assert.match(agentCalls['r1-review'].prompt, /supporting_test\.py \[image\].*named no mutation/s)
+})
+
+const diffLessRemovalBesideValidProof = [proofOf(1, { mutation: 'drop the guard' }), proofOf(1, { test: 'removed_test.py [image]', resolution: 'removed-vacuous' })]
+
+const diffLessRemovalRanges = [
+  ['first fix', { fixFirst: [testGap] }],
+  ['carried batch', { fixFirst: [testGap], deltaFrom: resumeTip, answers: 'fixed' }],
+]
+
+for (const [range, rangeArgs] of diffLessRemovalRanges) {
+  test(`#466 ${range}: a removal without a diff beside a valid proof reaches the re-check once as a gap note, not as an evidenced removal`, async () => {
+    const { agentCalls } = await runLane({ ...resumeArgs, ...rangeArgs }, { 'fix-1': { ...resumeFix, regression: diffLessRemovalBesideValidProof } })
+    const prompt = agentCalls['r1-review'].prompt
+    assert.equal(prompt.split('removed_test.py [image]').length - 1, 1)
+    assert.match(prompt, /removed_test\.py \[image\].*t\.py:1.*no diff/s)
+    assert.doesNotMatch(prompt, /by removing a vacuous test/)
+  })
+}
+
 const removalsByFindingKind = [
   ['#103 AC-removed-vacuous: the review after a removal answering a test-gap asks the reviewer to judge the removed test', testGap, true],
   ['#71 AC-removal-answers-test-gap: a defect proof marked removed-vacuous is judged by the defect bar and shows no removal', defectWithoutDraft, false],

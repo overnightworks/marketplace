@@ -8,10 +8,7 @@ load. The rules come from the Claude Code skills documentation and the Agent
 Skills best practices; the gate holds them where review would otherwise have to
 remember them.
 
-The 500-line body limit is a ratchet over `check_skills_baseline.json`, as
-the code policy asks for size limits: a skill over the limit may not grow, a new one
-may not appear, and an entry whose skill shrank to the limit or went away is
-red until it is deleted from the baseline.
+The body limit is a fixed 500 lines, the operator's standard for every skill.
 
 The frontmatter reader knows exactly two forms, `key: value` and a folded `>-`
 block, because those are the forms the skills use and a YAML dependency would
@@ -21,14 +18,12 @@ cost more than it removes. Anything else fails loudly instead of being guessed.
 
 from __future__ import annotations
 
-import json
 import re
 import sys
 from dataclasses import dataclass
 from pathlib import Path
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
-BASELINE_PATH = Path(__file__).with_name("check_skills_baseline.json")
 SKILL_PATTERN = "plugins/*/skills/*/SKILL.md"
 
 KNOWN_FIELDS = frozenset(
@@ -75,12 +70,6 @@ class Skill:
     @property
     def body_line_count(self) -> int:
         return len(self.body.splitlines())
-
-
-@dataclass(frozen=True)
-class Report:
-    problems: tuple[str, ...]
-    notes: tuple[str, ...]
 
 
 def split_frontmatter(text: str) -> tuple[list[str], str]:
@@ -186,54 +175,36 @@ def skill_problems(skill: Skill) -> list[str]:
         + name_problems(skill)
         + description_problems(skill)
         + link_problems(skill)
+        + size_problems(skill)
     )
 
 
-def size_ratchet(line_counts: dict[str, int], baseline: dict[str, int]) -> Report:
-    problems, notes = [], []
-    for name, lines in sorted(line_counts.items()):
-        if lines <= BODY_LINE_LIMIT:
-            continue
-        if name not in baseline:
-            problems.append(f"{name}: body {lines} lines > {BODY_LINE_LIMIT} limit and not in the baseline")
-        elif lines > baseline[name]:
-            problems.append(f"{name}: body {lines} lines > baseline {baseline[name]}")
-        elif lines < baseline[name]:
-            notes.append(f"{name}: body {lines} lines < baseline {baseline[name]}; lower the baseline entry to {lines}")
-    for name in sorted(baseline):
-        if line_counts.get(name, 0) <= BODY_LINE_LIMIT:
-            problems.append(f"{name}: baseline entry is orphaned, the skill is gone or has at most {BODY_LINE_LIMIT} lines")
-    return Report(tuple(problems), tuple(notes))
+def size_problems(skill: Skill) -> list[str]:
+    if skill.body_line_count <= BODY_LINE_LIMIT:
+        return []
+    return [f"{skill.name}: body has {skill.body_line_count} lines > {BODY_LINE_LIMIT}; split the skill"]
 
 
 def skill_files(repository_root: Path) -> list[Path]:
     return sorted(repository_root.glob(SKILL_PATTERN))
 
 
-def check_skills(repository_root: Path, baseline: dict[str, int]) -> Report:
+def check_skills(repository_root: Path) -> tuple[str, ...]:
     problems: list[str] = []
-    line_counts: dict[str, int] = {}
-    unreadable: set[str] = set()
     for skill_file in skill_files(repository_root):
         try:
             skill = parse_skill(skill_file)
         except FrontmatterError as error:
             problems.append(f"{skill_file.parent.name}: {error}")
-            unreadable.add(skill_file.parent.name)
             continue
         problems.extend(skill_problems(skill))
-        line_counts[skill.name] = skill.body_line_count
-    ratchet = size_ratchet(line_counts, {name: lines for name, lines in baseline.items() if name not in unreadable})
-    return Report(tuple(problems) + ratchet.problems, ratchet.notes)
+    return tuple(problems)
 
 
 def main() -> int:
-    baseline = json.loads(BASELINE_PATH.read_text(encoding="utf-8"))
-    report = check_skills(REPOSITORY_ROOT, baseline)
-    for note in report.notes:
-        print(note)
-    if report.problems:
-        print("skill check failed:\n  " + "\n  ".join(report.problems), file=sys.stderr)
+    problems = check_skills(REPOSITORY_ROOT)
+    if problems:
+        print("skill check failed:\n  " + "\n  ".join(problems), file=sys.stderr)
         return 1
     print(f"skill check passed: {len(skill_files(REPOSITORY_ROOT))} skills")
     return 0

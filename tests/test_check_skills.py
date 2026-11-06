@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 import pytest
@@ -79,9 +78,9 @@ def test_each_skill_rule_names_the_skill_and_the_value(
 ) -> None:
     write_skill(tmp_path, frontmatter=frontmatter, body=body)
 
-    report = check_skills.check_skills(tmp_path, {})
+    report = check_skills.check_skills(tmp_path)
 
-    assert report.problems == problems
+    assert report == problems
 
 
 def test_a_folded_description_and_an_existing_relative_link_pass(tmp_path: Path) -> None:
@@ -93,13 +92,13 @@ def test_a_folded_description_and_an_existing_relative_link_pass(tmp_path: Path)
     (directory / "references").mkdir()
     (directory / "references" / "guide.md").write_text("guide\n", encoding="utf-8")
 
-    assert check_skills.check_skills(tmp_path, {}) == check_skills.Report((), ())
+    assert check_skills.check_skills(tmp_path) == ()
 
 
 def test_a_skill_name_may_start_with_a_digit(tmp_path: Path) -> None:
     write_skill(tmp_path, name="1sample", frontmatter=VALID_FRONTMATTER.replace("name: sample", "name: 1sample"))
 
-    assert check_skills.check_skills(tmp_path, {}) == check_skills.Report((), ())
+    assert check_skills.check_skills(tmp_path) == ()
 
 
 @pytest.mark.parametrize(
@@ -114,61 +113,46 @@ def test_a_skill_name_may_start_with_a_digit(tmp_path: Path) -> None:
 def test_malformed_frontmatter_fails_loudly(tmp_path: Path, text: str, problem: str) -> None:
     write_skill(tmp_path, document=text)
 
-    assert check_skills.check_skills(tmp_path, {"sample": 600}).problems == (f"sample: {problem}",)
+    assert check_skills.check_skills(tmp_path) == (f"sample: {problem}",)
 
 
 @pytest.mark.parametrize(
-    ("body_lines", "baseline", "problems", "notes"),
+    ("body_lines", "problems"),
     [
-        (500, {}, (), ()),
-        (501, {}, ("sample: body 501 lines > 500 limit and not in the baseline",), ()),
-        (542, {"sample": 541}, ("sample: body 542 lines > baseline 541",), ()),
-        (541, {"sample": 541}, (), ()),
-        (520, {"sample": 541}, (), ("sample: body 520 lines < baseline 541; lower the baseline entry to 520",)),
-        (500, {"sample": 541}, ("sample: baseline entry is orphaned, the skill is gone or has at most 500 lines",), ()),
-        (10, {"gone": 600}, ("gone: baseline entry is orphaned, the skill is gone or has at most 500 lines",), ()),
+        (500, ()),
+        (501, ("sample: body has 501 lines > 500; split the skill",)),
     ],
-    ids=["at the limit", "new oversize skill", "growth", "unchanged", "shrinkage", "shrunk to the limit", "removed skill"],
+    ids=["at the limit", "one line over"],
 )
-def test_the_size_limit_is_a_ratchet_over_the_baseline(
-    tmp_path: Path, body_lines: int, baseline: dict[str, int], problems: tuple[str, ...], notes: tuple[str, ...]
+def test_a_skill_body_over_500_lines_fails_with_a_request_to_split_it(
+    tmp_path: Path, body_lines: int, problems: tuple[str, ...]
 ) -> None:
     write_skill(tmp_path, body=lines(body_lines))
 
-    assert check_skills.check_skills(tmp_path, baseline) == check_skills.Report(problems, notes)
+    assert check_skills.check_skills(tmp_path) == problems
 
 
 @pytest.fixture
-def repository_with_baseline(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    baseline_path = tmp_path / "baseline.json"
-    baseline_path.write_text(json.dumps({}), encoding="utf-8")
+def repository_root(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     monkeypatch.setattr(check_skills, "REPOSITORY_ROOT", tmp_path)
-    monkeypatch.setattr(check_skills, "BASELINE_PATH", baseline_path)
     return tmp_path
 
 
-def test_the_command_passes_a_clean_tree_and_prints_the_shrink_note(
-    repository_with_baseline: Path, capsys: pytest.CaptureFixture[str]
-) -> None:
-    write_skill(repository_with_baseline, body=lines(510))
-    check_skills.BASELINE_PATH.write_text(json.dumps({"sample": 520}), encoding="utf-8")
+def test_the_command_passes_a_clean_tree(repository_root: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    write_skill(repository_root)
 
     assert check_skills.main() == 0
-    output = capsys.readouterr().out
-    assert "lower the baseline entry to 510" in output
-    assert "skill check passed: 1 skills" in output
+    assert "skill check passed: 1 skills" in capsys.readouterr().out
 
 
 def test_the_command_exits_non_zero_and_names_the_failure(
-    repository_with_baseline: Path, capsys: pytest.CaptureFixture[str]
+    repository_root: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    write_skill(repository_with_baseline, frontmatter="name: other\ndescription: ok")
+    write_skill(repository_root, frontmatter="name: other\ndescription: ok")
 
     assert check_skills.main() == 1
     assert "sample: name 'other' differs from its directory 'sample'" in capsys.readouterr().err
 
 
-def test_every_skill_of_this_repository_passes_against_the_committed_baseline() -> None:
-    baseline = json.loads(check_skills.BASELINE_PATH.read_text(encoding="utf-8"))
-
-    assert check_skills.check_skills(check_skills.REPOSITORY_ROOT, baseline).problems == ()
+def test_every_skill_of_this_repository_passes() -> None:
+    assert check_skills.check_skills(check_skills.REPOSITORY_ROOT) == ()

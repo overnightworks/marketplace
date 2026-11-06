@@ -1,6 +1,6 @@
 {
   "name": "atelier",
-  "version": "0.7.119+codex.20261106045811",
+  "version": "0.7.120+codex.20261106132505",
   "description": "Portable Atelier-style skills, agents, and workflows.",
   "author": {
     "name": "Felix Hummert"
@@ -14,8 +14,7 @@
     "category": "Productivity",
     "capabilities": [
       "Skills",
-      "Agents",
-      "Hooks"
+      "Agents"
     ],
     "defaultPrompt": [
       "Audit this repository change.",

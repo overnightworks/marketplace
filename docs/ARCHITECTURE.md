@@ -48,9 +48,10 @@ flowchart LR
 - `plugins/atelier/` is the plugin: skills shared by both hosts, the Markdown
   source of every agent, and the Claude Code workflows. The Codex agent files
   are generated from that source.
-- `scripts/install.py` is the one installer: it links the contract and installs
-  the plugin into each host. The other scripts check the sources and generate
-  the Codex agents. The [README](../README.md) owns the layout and commands.
+- `scripts/install.py` is the one installer: it links the contract and has one
+  branch per host (link, marketplace and plugin commands). The Codex agents
+  come from `scripts/sync_agents.py`; the other scripts check the sources. The
+  [README](../README.md) owns the layout and commands.
 
 ## 3. Runtime View
 
@@ -89,14 +90,16 @@ published GitHub copy. CI runs on GitHub Actions.
 ## 5. Crosscutting Concepts
 
 **Trust.** The operator and his agents write the contract and the plugin; a
-change to a contract rule lands only with the operator's ruling, and `main` is
-protected by the org ruleset that requires the `quality / verdict` check. The
+change to a contract rule lands only with the operator's ruling, and the
+[README](../README.md) names the check that protects `main`. The
 installer is trusted with the operator's home directory: it replaces only the
 two contract links (and refuses to overwrite anything else there) and runs the
 `claude` and `codex` CLIs with fixed arguments, nothing built from external
-input. The plugin hosts are trusted to load what they install: skills, agents
-and workflows run with the permissions the operator gives the host, and this
-repository adds no sandbox around them. Dependencies are pinned: CI actions and
+input. The plugin hosts (Claude Code, Codex) and Grok, which reads the contract
+through its Claude compatibility, are trusted to load what they read. The
+installer adds the published GitHub copy by default (the operator's own remote,
+ref `main`), which is trusted likewise. Skills, agents and workflows run
+with the permissions the operator gives the host, and this repository adds no sandbox around them. Dependencies are pinned: CI actions and
 the shared quality workflows by commit SHA, `uv` and Python by version, test
 dependencies in `uv.lock`; Dependabot proposes monthly bumps that are reviewed
 like any change. No narrower trust model than the audit skill's default is
@@ -123,7 +126,7 @@ Documentation is proven by review.
 
 ## 7. Not chosen
 
-- Copying the contract into each repository: the copies drift. Reopen if a
+- Copying the contract into each repository: see section 6. Reopen if a
   host stops reading user-level instructions.
 - Loading `HEAD.md` through a provider: none loads it by itself. Reopen when a
   host offers a channel for one agent role only.

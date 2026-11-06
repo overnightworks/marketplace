@@ -1,8 +1,0 @@
-claim_id = "8ac72c128d304cdeb050a810d090af49"
-agent = "Claude a5abe9e4-862b-4cac-94ed-68bd072edf38"
-role = "builder"
-base = "81207dbd60439c94ca6746022bf01cd79a1e8c24"
-branch = "claude/issue-504-test-title-item-numbers"
-scope = ["tests/lane_workflow.test.mjs", "tests/lane_workflow_ci.test.mjs", "tests/lane_workflow_fix.test.mjs", "tests/lane_workflow_relay.test.mjs", "tests/lane_workflow_review.test.mjs", "tests/lane_workflow_scope.test.mjs", "tests/lane_workflow_tester.test.mjs"]
-opened_commit = "3a490b3c1e4b50deccfbf172b7c9a3a48553fa7c"
-whole_reason = "One mechanical rule applied to the titles of the lane workflow's seven test files."

@@ -91,19 +91,19 @@ published GitHub copy. CI runs on GitHub Actions.
 
 **Trust.** The operator and his agents write the contract and the plugin; a
 change to a contract rule lands only with the operator's ruling, and the
-[README](../README.md) names the check that protects `main`. The
-installer is trusted with the operator's home directory: it creates only the
-two contract links where they are missing and refuses to overwrite anything else there and runs the
-`claude` and `codex` CLIs with fixed arguments, nothing built from external
-input. The plugin hosts (Claude Code, Codex) and Grok, which reads the contract
-through its Claude compatibility, are trusted to load what they read. The
-installer adds the published GitHub copy by default (the operator's own remote,
-ref `main`), which is trusted likewise. Skills, agents and workflows run
-with the permissions the operator gives the host, and this repository adds no sandbox around them. Dependencies are pinned: CI actions and
-the shared quality workflows by commit SHA, `uv` and Python by version, test
-dependencies in `uv.lock`; Dependabot proposes monthly bumps that are reviewed
-like any change. No narrower trust model than the audit skill's default is
-declared.
+[README](../README.md) names the check that protects `main`. The installer is
+trusted with the operator's home directory: it creates only the two contract
+links where they are missing and refuses to overwrite anything else there and
+runs the `claude` and `codex` CLIs with fixed arguments, nothing built from
+external input. The plugin hosts (Claude Code, Codex) and Grok, which reads the
+contract through its Claude compatibility, are trusted to load what they read.
+The installer adds the published GitHub copy by default (the operator's own
+remote, ref `main`), which is trusted likewise. Skills, agents and workflows run
+with the permissions the operator gives the host, and this repository adds no
+sandbox around them. Dependencies are pinned: CI actions and the shared quality
+workflows by commit SHA, `uv` and Python by version, test dependencies in
+`uv.lock`; Dependabot proposes monthly bumps that are reviewed like any change.
+No narrower trust model than the audit skill's default is declared.
 
 **Proof strategy.** CI on every pull request checks that the generated Codex
 agents match their source, that no symlink is tracked, that the contract fits

@@ -16,7 +16,7 @@ examples below use a fictional "Acme Notes" product.
 | first-time visitor of a repo | what, how to start | README |
 | on call, something is wrong | actions under pressure | runbook |
 | engineer changing the system | structure and runtime picture | architecture overview |
-| anyone deciding what the product should do | why it exists, for whom, what it is not | vision |
+| anyone deciding what the product should do | what it does, for whom, what it is not | vision |
 
 Reference is a Diátaxis type; the other four are operational types that mix
 the Diátaxis modes in a fixed, conventional shape; a mockup is a picture, not
@@ -138,14 +138,14 @@ template headings.
 
 ## Vision
 
-Use for: the operator's intent for one product. It binds once the operator has
-blessed it; until then it is a draft.
+Use for: what one product does and should be able to do, explained on its own.
+It binds once the operator has blessed it; until then it is a draft.
 
 Skeleton:
 
 ```markdown
 # <Product> vision
-## The wish                 <- in the operator's words
+## What it does             <- what it can and should be able to do, phrased well, never quoted
 ## Who uses it today
 ## Deliberate non-goals
 ```
@@ -155,24 +155,28 @@ repositories: those are read from manifests (`instructions/HEAD.md`, Product),
 and only a dependency no manifest shows stands here. When nobody uses the
 product yet, the section says so in one line.
 
-Limits: the document set's budget. No plans, phases, status or technical
-choices, because those rot: plans, phases and status belong in items, technical
-choices in the architecture overview.
+Limits: the document set's budget. The vision explains the product on its own:
+it names no other app outside "Who uses it today", and no technical detail or
+how it works; the architecture overview holds those, and what spans apps
+belongs in the platform's vision. No plans, phases or status, because those
+rot: they belong in items.
 
-Example: "# Acme Notes vision. The wish: 'Notes my team can edit together
-without ever losing a line.' Who uses it today: the support team (daily editing)
-and the `acme-cli` repository (calls the sync API). Deliberate non-goals: not a
-wiki, no public pages."
+Example: "# Acme Notes vision. What it does: lets a team edit notes together
+without ever losing a line, and shows who changed what. Who uses it today: the
+support team (daily editing) and the `acme-cli` command-line client. Deliberate
+non-goals: not a wiki, no public pages."
 
 Picture: none.
 
 A blessed vision stays as blessed; a rewrite to this skeleton waits for the
-operator's blessing. A draft takes each section from the operator's words, the
-README or the rulings; a section none of them answers stays out and goes to the
-operator as a question with the draft, never invented.
+operator's blessing. A draft takes each section from the operator's intent, the
+README or the rulings and phrases it well; a section none of them answers stays
+out and goes to the operator as a question with the draft, never invented.
 
-Mistakes: a roadmap or status list; technical choices; a section invented or
-left as an empty heading; wording the operator never said or blessed.
+Mistakes: a roadmap or status list; quoting the operator instead of phrasing
+his intent; another app named outside "Who uses it today"; a technical detail
+or how it works; a section invented or left as an empty heading; wording the
+operator never blessed.
 
 ## Mockup
 

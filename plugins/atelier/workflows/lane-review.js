@@ -131,7 +131,7 @@ function codexReview(label, routing, role, range) {
 function guardLimit(answer, reviewer) {
   if (!answer?.limit) return answer
   const { limit, ...rest } = answer
-  const guarded = answer.verdict === 'failed' && answer.codexExit > 0 && typeof limit.line === 'string' && limit.line.includes(USAGE_LIMIT)
+  const guarded = reviewer.provider === 'codex' && answer.verdict === 'failed' && answer.codexExit > 0 && typeof limit.line === 'string' && limit.line.includes(USAGE_LIMIT)
   return guarded ? { ...rest, limit: { role: reviewer.key, model: reviewer.routing.model, line: limit.line, resetsAt: limit.resetsAt ?? null } } : rest
 }
 
@@ -139,7 +139,7 @@ const reviewBy = (reviewer, range) => {
   const label = `${A.label}-${reviewer.key}`
   return reviewer.provider === 'codex'
     ? codexReview(label, reviewer.routing, reviewer.role, range).then(answer => guardLimit(answer, reviewer))
-    : claudeReview(label, reviewer.routing, reviewer.role, range)
+    : claudeReview(label, reviewer.routing, reviewer.role, range).then(answer => guardLimit(answer, reviewer))
 }
 
 // One classifier for every review round: every started review must return, and verdict and findings must agree.

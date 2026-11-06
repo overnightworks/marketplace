@@ -185,6 +185,11 @@ for (const [name, answer] of [
   })
 }
 
+test('#456 usage-limit: a failed Claude review carrying a limit fails the lane at review', async () => {
+  const { result } = await runLane(resumedLane, { 'r0-review': limited() })
+  failedAtReview(result)
+})
+
 test('#456 usage-limit: a real failure beside a limit fails the lane at review', async () => {
   const { result } = await runLane({ ...resumedLane, risk: 'material', reviewer: 'codex' }, { 'r0-review': limited(), 'r0-gate': { verdict: 'failed', blocking: [], followups: [], codexExit: 2, note: 'boom' } })
   failedAtReview(result)
@@ -259,16 +264,21 @@ test('#456 usage-limit: the courier clears run.log first, reads the last non-emp
   assert.ok(lastLineCommand(prompt))
 })
 
-test('#456 usage-limit: the courier last-line command prints only the last non-empty line of a run.log that quotes the phrase earlier', async () => {
-  const { agentCalls } = await runLane(materialLane, limitedGate)
-  const command = lastLineCommand(agentCalls['r0-gate'].prompt)
-  const log = command.match(/(\/\S+-run\.log)/)[1]
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'lane-review-log-'))
-  try {
-    fs.writeFileSync(path.join(root, 'run.log'), `the brief says: you’ve hit your usage limit\nmore output\nError: stream closed\n\n  \n`)
-    const ran = spawnSync('sh', ['-c', command.replace(log, path.join(root, 'run.log'))], { encoding: 'utf8' })
-    assert.equal(ran.stdout, 'Error: stream closed\n')
-  } finally {
-    fs.rmSync(root, { recursive: true, force: true })
-  }
-})
+for (const [name, content, printed] of [
+  ['quotes the phrase earlier', `the brief says: you’ve hit your usage limit\nmore output\nError: stream closed\n\n  \n`, 'Error: stream closed\n'],
+  ['ends on the phrase before blank lines', `more output\nYou’ve hit your usage limit.\n\n  \n`, 'You’ve hit your usage limit.\n'],
+]) {
+  test(`#456 usage-limit: the courier last-line command prints only the last non-empty line of a run.log that ${name}`, async () => {
+    const { agentCalls } = await runLane(materialLane, limitedGate)
+    const command = lastLineCommand(agentCalls['r0-gate'].prompt)
+    const log = command.match(/(\/\S+-run\.log)/)[1]
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'lane-review-log-'))
+    try {
+      fs.writeFileSync(path.join(root, 'run.log'), content)
+      const ran = spawnSync('sh', ['-c', command.replace(log, path.join(root, 'run.log'))], { encoding: 'utf8' })
+      assert.equal(ran.stdout, printed)
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true })
+    }
+  })
+}

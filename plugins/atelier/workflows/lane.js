@@ -505,16 +505,17 @@ async function fixBatch(blocking, source, budgetKey, carried = false) {
   if (rejection) return unaccepted(openResult('failed', 'fix', rejection))
   const accepted = acceptFix(fixed, blocking, foldIn)
   if (accepted.stop) return unaccepted(accepted.stop)
+  const deltaFrom = carried ? A.deltaFrom : tipBeforeFix
   const scopeStop = await pushAndCheckScope(`scope-${spent.total}`, carried
-    ? { note: 'The batch was carried over from an earlier run, so the paths may come from earlier commits rather than its fixer; the git log shows which.', deltaFrom: A.deltaFrom }
-    : { note: 'The tip carries fix commits no reviewer has seen.', deltaFrom: tipBeforeFix })
+    ? { note: 'The batch was carried over from an earlier run, so the paths may come from earlier commits rather than its fixer; the git log shows which.', deltaFrom }
+    : { note: 'The tip carries fix commits no reviewer has seen.', deltaFrom })
   if (scopeStop) return unaccepted(scopeStop.stop)
   // A clean merge of main alone carries no lane change, so it cannot carry a fold-in either; an unchanged tip carries
   // them only when the fixer proved each already satisfied. A scope stop folds nothing in.
   if (accepted.range || everyFoldInSatisfied(fixed, blocking, foldIn)) {
     foldIn.forEach(f => folded.set(findingKey(f), { ...f, tip: fixed.tip, ...(satisfiedEvidence(fixed, f) && { evidence: satisfiedEvidence(fixed, f) }) }))
   }
-  return { ...accepted, foldIn, tipBeforeFix }
+  return { ...accepted, foldIn, tipBeforeFix, deltaFrom }
 }
 
 // The script, not the builder or fixer, makes sure the remote branch carries the lane tip, before the claim-scope check
@@ -632,7 +633,7 @@ if (carriesBatch) {
   const range = A.deltaFrom
     ? `only this delta: git diff ${A.deltaFrom}..HEAD — fixes no reviewer has seen yet. They answer:\n${A.answers || ''}\n${listFindings(carriedOver)}${f.proofNotes}${foldInsInRange(f.foldIn)}`
     : wholeLane
-  const stop = await reviewUntilClean(ALL, range, A.deltaFrom)
+  const stop = await reviewUntilClean(ALL, range, f.deltaFrom)
   if (stop) return stop
 } else {
   const first = await reviewUntilClean(ALL, firstRange, A.deltaFrom)

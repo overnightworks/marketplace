@@ -1,0 +1,8 @@
+claim_id = "a26352b0b8b442718d91069e264b6d34"
+agent = "Claude a5abe9e4-862b-4cac-94ed-68bd072edf38"
+role = "builder"
+base = "64731bd1090a45c627695744b0e0e0ee00a9c8cc"
+branch = "claude/issue-513-mockup-link-and-polish"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/skills/aco/references/decision-cards.md", "plugins/atelier/skills/docs-cleanup/SKILL.md", "plugins/atelier/skills/sonar-distributor/SKILL.md"]
+opened_commit = "4e2d1284fb846143de8adf58625e77d1ef5cc881"
+whole_reason = "Three one-sentence text fixes in three skills, plus the release pins they need."

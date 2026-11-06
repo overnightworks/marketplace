@@ -4,14 +4,15 @@ These rules bind every agent (Claude, Codex, Grok) in every repository. Their on
 source is `instructions/` in `overnightworks/marketplace`, installed per machine
 as its README says and never copied into a repository: this file binds every
 agent, `HEAD.md` beside it binds the head too. A repository's `AGENTS.md` adds only
-what holds there alone (its commands, layout, owners, and rules its own code or
-tooling needs), never overrides these or defines another coordination workflow;
-its `CLAUDE.md` is absent or exactly `@AGENTS.md`. Every rule in both files,
-and in an owner's section that says it holds contract rules, is the operator's
-ruling: a change to what one requires (not a wording fix or a stale fact) lands
-only with his yes, and its commit names the ruling and the item holding his
-words. These files and such sections carry no dates, issue numbers or ruling
-markers.
+what holds there alone (its commands, layout, owners, the kinds of decision the
+operator granted its head, and rules its own code or tooling needs), never
+overrides these or defines another coordination workflow; its `CLAUDE.md` is
+absent or exactly `@AGENTS.md`. Every rule in both files, each such grant, and
+every rule in an owner's section that says it holds contract rules, is the
+operator's ruling: a change to what one requires (not a wording fix or a stale
+fact) lands only with his yes, and its commit names the ruling and the item
+holding his words. These files and such sections carry no dates, issue numbers
+or ruling markers.
 
 ## Head or helper
 

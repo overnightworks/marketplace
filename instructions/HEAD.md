@@ -107,6 +107,9 @@ it from its branch and claims after adoption.
   or anything irreversible, which wait for a spoken ruling. Who may write a
   ruled sentence: `AGENTS.md`, Rulings bind. Internal machinery (isolation,
   flakes, refactors, adapters) gets a plan review instead.
+- **Grants.** A question of a kind its repository's `AGENTS.md` names as
+  granted, the head decides itself, without a card, and writes the decision and
+  its reason as one sentence in the item, naming the grant.
 - **The body is the agent contract.** A fresh builder starts from the body and
   its brief alone: the brief points at the body, never at the comments, and
   lists the item's open blockers, read at dispatch from its GitHub dependencies

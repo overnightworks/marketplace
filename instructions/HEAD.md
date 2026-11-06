@@ -277,8 +277,8 @@ needs no counter-check. Lane work keeps its own reviews.
   required verification: every implementation lane keeps its independent
   review. With no eligible gate provider, the gate waits. Each required review
   brief carries the contract core, with rulings and neighbours folded into the
-  body, never passed beside it. No override or escalation changes reviewer
-  independence, gate provider separation or the effort ceiling.
+  body, never passed beside it. No override changes reviewer independence,
+  gate provider separation or the effort ceiling.
 - **Re-checks.** A `REVISE` gets a delta re-check after a coherent fix batch:
   by the same reviewer while its reported lifetime context is under 200k
   tokens (unknown counts as over), else by a fresh reviewer of the same row and
@@ -308,43 +308,35 @@ the row says otherwise; a delegated agent runs only a model the table names.
 |---|---|---|---|---|
 | Mechanical: landing, body edits, search, repetition, a behaviour-neutral fix batch | Haiku 5.5 | — | 4.6 | low or medium |
 | Fact finding, normal build, fix, test, ordinary code/test/diff review | Sonnet 5.5 | gpt-6-astra | 4.6 (no reviews) | medium |
-| Required final gate (material risk only; its provider: `AGENTS.md`, Independence) | Opus 5.5 or Fable | gpt-6-astra | — | high |
+| Material lane: review and required final gate (gate provider: `AGENTS.md`, Independence) | Opus 5.5 or Fable | gpt-6-astra | — | high |
 | Architecture, security or product decision; the hardest proof | Opus 5.5 or Fable | gpt-6-astra | 4.6 (no reviews) | high |
 
 - A fix batch is behaviour-neutral when none of its findings can change
   behaviour: wording, a local rename, formatting, a one-line scanner fix. One
   finding that can, or that needs judgement, makes the whole batch a fix.
-- Grok 4.6 holds no review role (ordinary review, plan review, escalation
-  reviewer, final gate); it stays eligible for building, fixing, testing, fact
-  finding and mechanical work.
-- High is the one effort ceiling, for routine work, overrides and escalation.
+- Grok 4.6 holds no review role (ordinary review, plan review, final gate); it
+  stays eligible for building, fixing, testing, fact finding and mechanical
+  work.
+- High is the one effort ceiling, for routine work and overrides.
   Only the hardest proof, after high proved insufficient, may run at xhigh or
   above, for that single step, with the reason in the journal.
 - A lane's models may be set through the lane workflow's arguments. Before
   running the `codex` or `grok` CLI yourself outside it, load the `providers`
   skill.
-- **Escalation.** When a later stage (gate, E2E, CI or the operator) finds a
-  blocking defect or test gap in a range a review approved, that review role
-  moves one step up its ladder for the rest of the session: Claude Sonnet
-  medium, Sonnet high, Opus high; Codex Astra medium, Astra high; each ends at
-  high. A further miss at the top adds to that role, for the rest of the
-  session, a second independent reviewer from another eligible provider,
-  distinct from the lane's reviewers and its gate (with none eligible, the role
-  waits), and the next report to the operator names it. One journal line
-  records the missed finding and the old and new routing. The next review is a
-  fresh reviewer at the new routing, given the original findings verbatim,
-  even where Re-checks would pick the same reviewer.
-- **Not a miss:** a finding only a deterministic check caught (a size or
-  baseline ratchet, a clone pair, lint, format, a coverage floor, a Sonar
-  code-smell rule, a missing ID marker) whose fix changes no behaviour; it
-  moves no ladder, adds no reviewer, and its `Routing:` stage names that check.
-  A failing test, a secret or advisory scan, and a scanner bug or
-  vulnerability finding stay misses.
-- **Re-measurement.** The routing is provisional. Every landed or abandoned
-  lane's pull request body carries one `Routing:` line, written by you before
-  the landing (form: the `aco` skill): each role's model and effort and the
-  stage that found each blocking finding. After five lanes, compare misses per
-  routing and propose any change through Rule changes.
+- **Misses.** A blocking finding or test gap a later stage raises in a range a
+  review approved is a miss; it changes no model or effort and counts at
+  re-measurement. Not a miss: a finding only the final gate raised on a range
+  the review approved in the same round, or one only a deterministic check
+  caught (a size or baseline ratchet, a clone pair, lint, format, a coverage
+  floor, a Sonar code-smell rule, a missing ID marker) whose fix changes no
+  behaviour, its `Routing:` stage naming that check. A failing test, a secret
+  or advisory scan, and a scanner bug or vulnerability finding stay misses.
+- **Re-measurement.** Every landed or abandoned lane's pull request body
+  carries one `Routing:` line, written by you before the landing (form: the
+  `aco` skill): each role's model and effort and the stage that found each
+  blocking finding. Every two weeks, compare each risk class's misses with the
+  last measurement, propose any change through Rule changes, and open the next
+  measurement as an item.
 
 ## Landing
 

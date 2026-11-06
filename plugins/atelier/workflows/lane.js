@@ -199,8 +199,8 @@ const FIX = {
 const generatedCommands = GENERATED.map(([path, command]) => `${path}: ${command}`).join('; ')
 const laneFacts =
   `Work item #${A.item}${IN_REPO}. Worktree ${A.worktree}, branch ${A.branch}; run every command from inside that worktree (cd there first). The head holds the claim: never claim, release, rescope, merge a pull request or land. ` +
-  `Never use git stash and never touch the main checkout. Read the item body first (gh issue view ${A.item}${R} --json body --jq .body) and ` +
-  `\`aco brief ${A.item} --step <step>\` for the repository's RULES and CHECKS. Local runs stay targeted under PYTEST_XDIST_AUTO_NUM_WORKERS=4; ` +
+  `Never use git stash and never touch the main checkout. Read the item body first (gh issue view ${A.item}${R} --json body --jq .body), and where the worktree tracks \`.aco/brief.toml\`, run ` +
+  `\`aco brief ${A.item} --step <step>\` for the repository's RULES and CHECKS; elsewhere its AGENTS.md and README name them. Local runs stay targeted under PYTEST_XDIST_AUTO_NUM_WORKERS=4; ` +
   `read the 1-minute load average before any test run and wait while it is above 1.5 × cores. CI is the gate. ` +
   (LEDGERS.length ? `When you merge origin/main, a conflict in the append-only ledgers (${LEDGERS.join(' and ')}) keeps both sides, main's lines first. ` : '') +
   (GENERATED.length ? `A conflict in a generated file is not resolved by hand: take either side, resolve the other conflicts, then run its command from the worktree on the merged tree, \`git add\` its path, and commit the merge once. Generated files and commands: ${generatedCommands}. ` : '') +
@@ -213,7 +213,7 @@ const rescopeFacts =
 
 // For the builder and the fixer: the deterministic checks CI repeats run before the push, not after it.
 const localCheckFacts =
-  `After your last merge of origin/main and before you push, run the static checks your \`aco brief\` step names and, where quality/config.toml exists, \`quality hygiene .\` at the release the gate pins; fix what they report.`
+  `After your last merge of origin/main and before you push, run the static checks those RULES and CHECKS or your brief name and, where quality/config.toml exists, \`quality hygiene .\` at the release the gate pins; fix what they report.`
 
 const driveFacts = `Any drive you run keeps its pidfiles and evidence under ${A.scratch}.`
 

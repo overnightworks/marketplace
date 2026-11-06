@@ -50,13 +50,28 @@ for (const [what, routing] of refusedRoutings) {
 }
 
 const defaultRoutingByRole = [
-  ['sync', 'haiku', 'low'], ['r0-review', 'sonnet', 'medium'],
+  ['sync', 'haiku', 'low'],
 ]
 
 for (const [label, model, effort] of defaultRoutingByRole) {
   test(`#90 AC-default-routing: ${label} runs on ${model} at ${effort} effort by default`, async () => {
     const { agentCalls } = await runLane({ ...resumedLane, risk: 'material' })
     assert.deepEqual([agentCalls[label].options.model, agentCalls[label].options.effort], [model, effort])
+  })
+}
+
+const reviewRoutingByRisk = [
+  ['normal', 'claude', 'sonnet', 'medium'], ['material', 'claude', 'opus', 'high'],
+  ['normal', 'codex', 'gpt-6-astra', 'medium'], ['material', 'codex', 'gpt-6-astra', 'high'],
+]
+
+for (const [risk, reviewer, model, effort] of reviewRoutingByRisk) {
+  test(`#478 AC-review-by-risk: a ${risk} lane's ${reviewer} review runs on ${model} at ${effort} effort by default`, async () => {
+    const { agentCalls, result } = await runLane({ ...resumedLane, risk, reviewer })
+    assert.deepEqual(result.routing.review, { model, effort })
+    const call = agentCalls['r0-review']
+    const ran = reviewer === 'codex' ? call.prompt.match(/-m (\S+) -c model_reasoning_effort=(\w+)/).slice(1) : [call.options.model, call.options.effort]
+    assert.deepEqual(ran, [model, effort])
   })
 }
 

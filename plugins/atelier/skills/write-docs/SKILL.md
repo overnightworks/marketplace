@@ -1,6 +1,6 @@
 ---
 name: write-docs
-description: Author or restructure documentation calibrated to its audience, altitude, and document type (Diátaxis tutorial, how-to, reference, explanation; README, runbook, architecture overview, changelog). Use when asked to write documentation for humans or for AI agents, create an architecture overview, runbook, README, or changelog, document a feature, API, or process, decide where a piece of documentation belongs, or split docs by audience. For auditing existing doc trees use docs-cleanup; for AGENTS.md/skills/agents use agent-documentation.
+description: Author or restructure documentation calibrated to its audience, altitude, and document type (README, reference, runbook, architecture overview, vision; the Diátaxis modes guide the writing inside them). Use when asked to write documentation for humans or for AI agents, create an architecture overview, runbook, or README, document a feature, API, or process, decide where a piece of documentation belongs, or split docs by audience. For auditing existing doc trees use docs-cleanup; for AGENTS.md/skills/agents use agent-documentation.
 ---
 
 Everything a reader meets must have a reason to be read by *that* reader.
@@ -19,8 +19,8 @@ or ownerless information is a defect, not a style choice.
    the classic mistakes. A document that needs two types becomes two linked
    documents.
 3. Find the owner first. If the fact already lives somewhere, update or link
-   the owner — never copy. When a how-to overlaps a README section, move the
-   steps into the how-to and leave one linking line in the README. Copies
+   the owner — never copy. When a runbook overlaps a README section, move the
+   steps into the runbook and leave one linking line in the README. Copies
    drift; write views, not copies. A view states its source of truth and can be
    regenerated from it.
 4. Calibrate to the reader:
@@ -37,7 +37,7 @@ or ownerless information is a defect, not a style choice.
 5. For behavior, prefer linking the human-readable requirement to the
    executable test that proves it over re-describing the behavior in prose —
    a linked spec cannot silently rot; prose can. Requirements live where
-   the specs row of
+   the reference row of
    [the document set](references/document-types.md#repository-document-set)
    puts them.
 6. Verify every concrete claim (paths, names, commands, shapes) against

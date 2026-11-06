@@ -3,10 +3,11 @@ name: docs-cleanup
 description: Clean and audit documentation trees. Use when asked to organize docs, move plans out of documentation into issues, fix documentation drift, reconcile contradictions, repair dead links, or review docs for stale claims. For AGENTS.md, CLAUDE.md, skills, custom agents, and hooks, use agent-documentation instead.
 ---
 
-Keep documentation honest. A document is current, generated, or a frozen mockup
-(the one target picture). A plan, roadmap, concept file or decision record is a
-finding: propose moving its open parts to their item, folding built parts and
-standing rules into the current document that owns them, and deleting the file.
+Keep documentation honest. A document is current, generated, or the mockup
+of an unfinished surface. Whatever write-docs' document set keeps out of the
+tree is a finding: propose moving its open parts to their item and its reasons
+that still hold beside their code or into the architecture overview, and
+deleting the rest.
 Code and configured contracts are the source of truth for implemented behavior.
 
 Out of scope: `AGENTS.md`, `CLAUDE.md`, skills, agents, and hooks. Leave them
@@ -15,7 +16,7 @@ and note "out of scope: agent-documentation" in the report.
 ## Procedure
 
 1. Read the code policy's documentation rules and the repository's documentation facts
-   (`AGENTS.md`, `README.md`, a `docs/` index if present).
+   (`AGENTS.md`, `README.md`).
 2. Give each scoped document two labels. Its type is one of
    [write-docs' document types](../write-docs/references/document-types.md),
    taken from its path or its content. Its status is
@@ -31,24 +32,24 @@ and note "out of scope: agent-documentation" in the report.
 
 ## Checklist
 
-- The document stays within its type: a how-to that drifts into explanation,
-  or a reference that carries tutorial steps, is split into one document per
-  type, linked, with each fact kept in one place.
+- The document stays within its type: a runbook that drifts into explanation,
+  or a reference that carries steps, is split into one document per type,
+  linked, with each fact kept in one place.
 - A plan, roadmap, wish list, status table or unbuilt target other than a
-  frozen mockup is a finding (`PROPOSE move-to-board <file:section>`) naming its
+  blessed mockup is a finding (`PROPOSE move-to-board <file:section>`) naming its
   owning item (`gh issue list --state all --search`), whose body takes the open
   part; with `no owner`, the head decides between an idea and dropping it, and
   the pass opens no item.
-- A frozen mockup is checked only for being blessed (named in its item) and,
-  after the landing that built its surface, for being aligned with what was
-  built; it has no length budget.
+- A mockup is checked only for being blessed (named in its item); one whose
+  surface is finished is a finding to delete. It has no length budget.
 - Each part of a plan is sorted as built (current document), decided
   (the current document that owns it), open (its owning item's body)
   or obsolete (deleted).
-- A history section, or an issue number used as provenance, goes from a current
-  document; git and the items keep the history, and a fact the reader still
-  needs becomes plain words; an issue number that stays still names the item
-  it meant.
+- A history section, or a date, ruling marker or item number on a sentence,
+  goes; a fact the reader still needs becomes plain present-tense words. A spec
+  ID its tests cite stays.
+- Prose that restates code, and a Not chosen line whose reopen condition holds,
+  are findings.
 - Content for another reader moves to that reader's document.
 - A document over its type's length budget, or with a picture its type's
   `Picture` line in write-docs' document types does not allow, is a finding.

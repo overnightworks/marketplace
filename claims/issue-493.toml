@@ -1,0 +1,8 @@
+claim_id = "fccae703338546f1882fae2c079ba116"
+agent = "Claude a5abe9e4-862b-4cac-94ed-68bd072edf38"
+role = "builder"
+base = "44252502a182189148c1aaf565a98cff7fd79643"
+branch = "claude/issue-493-fleet-keeps-no-decision-records"
+scope = [".claude-plugin/marketplace.json", "instructions/AGENTS.md", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/.codex/agents/plan-reviewer.toml", "plugins/atelier/agents/plan-reviewer.md", "plugins/atelier/skills/agent-documentation/references/skill-audit.md", "plugins/atelier/skills/docs-cleanup/SKILL.md", "plugins/atelier/skills/plan-review/SKILL.md", "plugins/atelier/skills/write-docs/SKILL.md", "plugins/atelier/skills/write-docs/references/document-types.md"]
+opened_commit = "421731e05c055864c9326a9f5518757f49072bf2"
+whole_reason = "One rule, removed from every text that names it, plus the release pins; the pieces only make sense together."

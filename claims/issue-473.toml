@@ -1,0 +1,8 @@
+claim_id = "a65f934fdd1e4fa78490a9b84b350b74"
+agent = "Claude a5abe9e4-862b-4cac-94ed-68bd072edf38"
+role = "builder"
+base = "8f3f1ac9cf47f197970c33ae598cc662ead0c55d"
+branch = "claude/issue-473-gate-limit-stand-in-reviewer"
+scope = [".claude-plugin/marketplace.json", "instructions/HEAD.md", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/workflows/lane.js", "tests/lane_workflow_review.test.mjs"]
+opened_commit = "418af5ae9f02f1bf3dbdcaa29487558ccb2d9218"
+whole_reason = "One ruled behaviour of the lane when the gate's provider is limited, with its contract sentence, tests and release pins."

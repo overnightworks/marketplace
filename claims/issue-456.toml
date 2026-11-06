@@ -1,8 +1,0 @@
-claim_id = "2d2253451d6a4e71bb3bf615736648f2"
-agent = "Claude a5abe9e4-862b-4cac-94ed-68bd072edf38"
-role = "builder"
-base = "c0bf851820f7c867d6850e774e8156adf4ce54d9"
-branch = "claude/issue-456-a-codex-reviewer-or-gate-that-hits-its-u"
-scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/workflows/lane-review.js", "plugins/atelier/workflows/lane.js", "tests/lane_workflow_codex.test.mjs"]
-opened_commit = "1e4cb3cf2c43e1b4c1a3a2065fd6f9e8e3c4a24d"
-whole_reason = "One change to the courier's failure answer and the lane's reading of it, with its tests and the release pins."

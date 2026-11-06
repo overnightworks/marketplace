@@ -8,8 +8,7 @@ whole tree at once; the cheap win is one exclusion or one versioned exception
 that retires a whole class, and the expensive loss is a lane per finding. **This
 skill reads scanners and writes one issue; it changes no source file.** Every
 repository of the operator is on SonarCloud (organisation `overnightworks`,
-project keys `overnightworks_<repo>`) and on CodeQL default setup (operator
-ruling 04.09.2026).
+project keys `overnightworks_<repo>`) and on CodeQL default setup.
 
 ## Analysis mode
 
@@ -93,7 +92,7 @@ README owns how.
    time from the distributor. A finding becomes its own issue only when it is
    dispatched.
 5. **Re-measure main after every landing** while the distributor is open — the
-   default quality gate does not (measured 06.09.2026: three green-merged
+   default quality gate does not (three green-merged
    landings added 16 findings on main unnoticed).
 
 ## The four classes
@@ -141,20 +140,17 @@ issues and a measurement pull request.
 ### Marker grammar
 
 - The rule key in a marker is bare — `# NOSONAR(S7503) reason`. A
-  `language:`-prefixed key is not parsed as a key: the prefixed form raised
-  `python:S7632` ("Fix the syntax of this issue suppression comment.") three
-  times in overnightworks/hopin PR #8 and left `python:S7503` open, where the
-  repository's own zero-findings step caught it; the bare form cleared both.
+  `language:`-prefixed key is not parsed as a key: the prefixed form raises
+  `python:S7632` ("Fix the syntax of this issue suppression comment.") and
+  leaves `python:S7503` open; the bare form clears both.
 - The shell analyzer honours the same `# NOSONAR(<key>) reason` grammar —
-  measured in this repository's PR #24, where the marker took `shell:S8541`
-  out of the PR analysis.
+  the marker takes `shell:S8541` out of the PR analysis.
 - A `NOSONAR` marker is added only after the refused code route stands on the
   distributor — class (b) says how.
-- A ruff `# noqa: <code>` takes no prose after the code. SonarPython raised
-  `python:S7632` on such a line whose prose held a comma, measured in
-  overnightworks/hopin PR #20 (the comma-free prose on the next line raised
-  nothing). The "SonarCloud Code Analysis" check passed; only the repository's
-  own findings step caught it. The reason goes in a comment on the line above.
+- A ruff `# noqa: <code>` takes no prose after the code. SonarPython raises
+  `python:S7632` on such a line whose prose holds a comma, while the "SonarCloud
+  Code Analysis" check still passes; only the repository's own findings step
+  catches it. The reason goes in a comment on the line above, comma-free or not.
 
 ### API access
 
@@ -193,7 +189,7 @@ derived scope is encoded into the query, never interpolated into it.** A ref
 name may legally carry a `+`, which a query string decodes as a space — the
 scope proof catches that one, because a branch nobody named does not resolve.
 The sharper case is a `%` that starts no valid escape: measured against the
-live service on 07.09.2026, `api/measures/component` answered such a scope 200
+live service, `api/measures/component` answered such a scope 200
 with the project's measures, so the assertion passes and the findings query
 drops the scope it could not read — a zero that this section forbids reading as
 clean, waved through by the very call that exists to stop it. The scope proof
@@ -278,7 +274,7 @@ standing rulings, which every review of a Sonar finding inherits:
   the rulings, the frozen-code list. A finding reviewed without it is mostly
   rejection ware, and the reviewer will argue with the rule instead of the code.
 - The quality gate checks **ratings, not counts**: a PR can merge green while
-  adding findings — three landings added 16 unnoticed (measured 06.09.2026).
+  adding findings — three landings added 16 unnoticed.
   The control is a CI step in the sonar job, after the scan, that pages
   `api/issues/search?componentKeys=<key>&pullRequest=<n>` with the
   `issueStatuses`, the authentication, the scope proof, the timeout and the

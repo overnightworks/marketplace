@@ -10,7 +10,7 @@ contract.
 
 ## Edition read
 
-- BGB ([gesetze-im-internet.de][bgb-305]): `xml.zip` 200 on 05.11.2026, Stand
+- BGB ([gesetze-im-internet.de][bgb-305]): `xml.zip`, Stand
   "zuletzt geändert durch Art. 6 G v. 23.7.2026 I Nr. 226"; every paragraph
   page linked below answered 200.
 

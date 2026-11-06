@@ -159,7 +159,7 @@ test('#456 usage-limit: a limited gate beside an approving review makes the lane
 })
 
 test('#456 usage-limit: a limited Codex review (reviewer codex) makes the lane await the head with role review', async () => {
-  const { result } = await runLane({ ...resumedLane, reviewer: 'codex', productionPaths: ['src/'] }, { 'r0-review': limited() })
+  const { result } = await runLane({ ...materialLane, reviewer: 'codex' }, { 'r0-review': limited(), 'r0-gate': { ...APPROVE, codexExit: 0 } })
   assert.deepEqual([result.status, result.stage], ['awaiting-head', 'review'])
   assert.deepEqual([result.limits[0].role, result.limits[0].model], ['review', result.routing.review.model])
 })
@@ -217,7 +217,7 @@ test('#456 usage-limit: a limited review beside a gate REVISE after a fix hands 
 })
 
 test('#456 usage-limit: a limited gate re-check after a fix hands back the tip before the fix and the gate findings it answers', async () => {
-  const { result } = await runLane({ ...resumeArgs, risk: 'material' }, {
+  const { result } = await runLane({ ...resumeArgs, risk: 'material', productionPaths: ['src/'] }, {
     'r0-review': APPROVE, 'r0-gate': { verdict: 'REVISE', blocking: [gateFinding], followups: [], codexExit: 0 }, ...fixedOnce, 'r1-gate': limited(),
   })
   assert.equal(result.deltaFrom, resumeTip)
@@ -239,7 +239,7 @@ test('#456 usage-limit: a limited whole-lane first round returns no deltaFrom an
 
 for (const [name, extra, expected] of [['with deltaFrom', { deltaFrom: olderTip }, olderTip], ['without deltaFrom', {}, undefined]]) {
   test(`#456 usage-limit: a limited carried-batch round ${name} returns that deltaFrom, never the carried fix tip`, async () => {
-    const { result } = await runLane({ ...resumeArgs, risk: 'material', productionPaths: ['src/'], fixFirst: [reviewFinding], ...extra }, { ...fixedOnce, 'r1-review': APPROVE, 'r1-gate': limited() })
+    const { result } = await runLane({ ...resumeArgs, risk: 'material', productionPaths: ['src/'], fixFirst: [reviewFinding], ...extra }, { 'fix-1': { ...resumeFix, files: ['tests/x.py'] }, 'r1-review': APPROVE, 'r1-gate': limited() })
     assert.equal(result.status, 'awaiting-head')
     assert.equal(result.deltaFrom, expected)
   })

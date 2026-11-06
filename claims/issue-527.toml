@@ -1,8 +1,0 @@
-claim_id = "176ff7dd27ce4ec18f1794bd36defced"
-agent = "Claude a5abe9e4-862b-4cac-94ed-68bd072edf38"
-role = "builder"
-base = "3c09d713807517d4a6d809af0d93959a7ce4cf23"
-branch = "claude/issue-527-ahead-of-caller-skill"
-scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/skills/aco/SKILL.md"]
-opened_commit = "b2d329e5337884a3ab4b0c05590ae2c368d78b3c"
-whole_reason = "Two sentences of one skill and the release pins."

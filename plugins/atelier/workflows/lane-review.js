@@ -1,19 +1,18 @@
 export const meta = {
-  name: 'lane-codex',
-  description: 'Internal to the lane workflow, never started by a head: runs one independent Codex review through a courier and returns its verdict.',
+  name: 'lane-review',
+  description: 'Internal to the lane workflow, never started by a head: runs every reviewer of one review round (a fresh Claude reviewer, a Codex courier) in parallel and returns their results with the round verdict.',
 }
 
 // Both copies of this number (here and in lane.js) change together in any commit that changes the args or the return shape.
-const LANE_CODEX_PROTOCOL = 3
+const LANE_REVIEW_PROTOCOL = 1
 const A = args || {}
-const need = ['protocol', 'item', 'pr', 'delegatedLine', 'worktree', 'scratch', 'tag', 'label', 'routing', 'reviewerBrief', 'findingKinds', 'verdictSchema', 'mechanical']
-if (A.protocol !== LANE_CODEX_PROTOCOL) return { refused: `lane-codex speaks protocol ${JSON.stringify(LANE_CODEX_PROTOCOL)}, but the lane that started it speaks protocol ${JSON.stringify(A.protocol)}; the installed atelier differs from the running lane` }
+const need = ['protocol', 'item', 'pr', 'delegatedLine', 'worktree', 'branch', 'scratch', 'tag', 'label', 'range', 'contract', 'blockingLine', 'reviewers', 'findingKinds', 'finding', 'followup', 'mechanical']
+if (A.protocol !== LANE_REVIEW_PROTOCOL) return { refused: `lane-review speaks protocol ${JSON.stringify(LANE_REVIEW_PROTOCOL)}, but the lane that started it speaks protocol ${JSON.stringify(A.protocol)}; the installed atelier differs from the running lane` }
 const missing = need.filter(key => A[key] === undefined || A[key] === null || A[key] === '')
 if (missing.length) return { refused: `missing args: ${missing.join(', ')}` }
-const { label, routing } = A
-const COURIER_VERDICT = A.verdictSchema
 const MECHANICAL = A.mechanical
 const FINDING_KINDS = A.findingKinds
+const R = A.repo ? ` -R ${A.repo}` : ''
 
 // agent() with a schema throws when the subagent ends without a result; an end without one is a null the lane reports.
 async function safeAgent(prompt, opts) {
@@ -23,6 +22,43 @@ async function safeAgent(prompt, opts) {
     log(`${opts?.label || 'agent'} ended without a result: ${String(error).slice(0, 160)}`)
     return null
   }
+}
+
+const VERDICT = {
+  type: 'object',
+  required: ['verdict', 'blocking', 'followups'],
+  properties: {
+    verdict: { type: 'string', enum: ['APPROVE', 'REVISE', 'architectural', 'failed'] },
+    blocking: { type: 'array', items: A.finding },
+    followups: { type: 'array', items: A.followup },
+    reportPath: { type: 'string' },
+    note: { type: 'string' },
+    codexExit: { type: 'number', description: 'the exit status Codex wrote to the marker file (couriers only)' },
+  },
+}
+const COURIER_VERDICT = { ...VERDICT, required: [...VERDICT.required, 'codexExit'] }
+
+// The reviewer stopgap of the fleet roadmap (#80, Q0): the reviewer is the only brake until a ratchet checks these.
+const STOPGAP_LINE =
+  `Refuse (blocking defect) a new file of 800 lines or more; a new test whose name does not state the behaviour it pins; ` +
+  `and a new patch or monkeypatch at an import location or on a private attribute where a fake on PATH or an injected port works.`
+
+
+// ------------------------------------------------------------ reviewers
+// The ordinary review may come from the builder's own provider (the contract asks only for a fresh, independent agent);
+// a fresh Sonnet reviewer is the default. The final gate on a material lane must come from another provider than the
+// Claude builder, so it runs on Codex through a courier.
+function reviewerBrief(role, range) {
+  return `You are the ${role} for work item #${A.item}: a fresh, independent reviewer who did not write this change. ` +
+    `Contract:\n${A.contract}\n\nReview ${range}.\n\n${A.blockingLine}\n\n${STOPGAP_LINE}\n\n` +
+    `verdict is APPROVE with no blocking findings, REVISE with at least one, or architectural when the cut itself is wrong.`
+}
+
+function claudeReview(label, routing, role, range) {
+  return safeAgent(
+    `${A.delegatedLine}\nWork read-only in ${A.worktree} on branch ${A.branch}: read files and run read-only commands freely; do not run tests and do not edit anything.\n` +
+    `Before judging, read the current item body (gh issue view ${A.item}${R} --json body --jq .body) and the pull request body (gh pr view ${A.pr}${R} --json body --jq .body): the contract core and the verification evidence.\n` + reviewerBrief(role, range),
+    { label, phase: 'Review', schema: VERDICT, agentType: 'atelier:code-reviewer', ...routing })
 }
 
 const CODEX_SCHEMA = JSON.stringify({
@@ -53,11 +89,11 @@ function rereadContradictoryCourier(answer, label, base) {
   return rereading.then(v => (v?.verdict === 'failed' && !v.reportPath && answer.reportPath) ? { ...v, reportPath: answer.reportPath } : v)
 }
 
-function codexReview() {
+function codexReview(label, routing, role, range) {
   const base = `${A.scratch}/${A.tag}-${label}`
   const repoFlag = A.repo ? ` -R ${A.repo}` : ''
   const appendBodies = String.raw`{ cat ${base}-brief.md && printf '\n\n-----\nThe current item body (gh issue view):\n' && gh issue view ${A.item}${repoFlag} --json body --jq .body && printf '\n\n-----\nThe current pull request body (gh pr view):\n' && gh pr view ${A.pr}${repoFlag} --json body --jq .body; } > ${base}-brief.md.tmp && mv ${base}-brief.md.tmp ${base}-brief.md`
-  const brief = `${A.delegatedLine}\nRead-only sandbox: read files and run read-only commands freely; do not run tests. The item body and the pull request body follow this brief: they are the contract core and the verification evidence. The sandbox has no network and cannot write, /tmp included; report a command you cannot run as not verified, never as a blocking finding.\n` + A.reviewerBrief +
+  const brief = `${A.delegatedLine}\nRead-only sandbox: read files and run read-only commands freely; do not run tests. The item body and the pull request body follow this brief: they are the contract core and the verification evidence. The sandbox has no network and cannot write, /tmp included; report a command you cannot run as not verified, never as a blocking finding.\n` + reviewerBrief(role, range) +
     `\nGive every finding its file:line in "where".`
   return safeAgent(
     `${A.delegatedLine}\nYou are a courier for one independent Codex review. Do not review anything yourself and do not edit the repository.\n` +
@@ -79,4 +115,29 @@ function codexReview() {
     .then(v => (v && v.codexExit !== 0 && v.verdict !== 'failed') ? { ...v, verdict: 'failed', note: `courier returned a verdict without a clean Codex exit (${v.codexExit}): ${v.note || ''}` } : v)
 }
 
-return codexReview()
+const reviewBy = (reviewer, range) => {
+  const label = `${A.label}-${reviewer.key}`
+  return reviewer.provider === 'codex' ? codexReview(label, reviewer.routing, reviewer.role, range) : claudeReview(label, reviewer.routing, reviewer.role, range)
+}
+
+// One classifier for every review round: every started review must return, and verdict and findings must agree.
+function classify(results, expected) {
+  const got = results.filter(Boolean)
+  if (got.length !== expected) return { state: 'failed', reason: `${expected - got.length} review(s) returned nothing` }
+  if (got.some(v => v.verdict === 'failed')) {
+    const reportPaths = got.filter(v => v.verdict === 'failed' && v.reportPath).map(v => v.reportPath)
+    return { state: 'failed', reason: got.map(v => v.note || '').join(' | ') + (reportPaths.length ? '; read the report ' + reportPaths.join(' and ') : '') }
+  }
+  if (got.some(v => v.verdict === 'architectural')) return { state: 'architectural' }
+  // An evidenced blocking finding outranks its label (APPROVE with a finding counts as REVISE). A REVISE with nothing
+  // to fix stays broken: that is how a courier's placeholder was caught.
+  const emptyRevise = got.find(v => v.verdict === 'REVISE' && (v.blocking || []).length === 0)
+  if (emptyRevise) {
+    const readHint = emptyRevise.reportPath ? '; read the report ' + emptyRevise.reportPath : ''
+    return { state: 'failed', reason: 'a REVISE verdict came without any blocking finding' + readHint }
+  }
+  return { state: got.some(v => (v.blocking || []).length > 0) ? 'revise' : 'approve' }
+}
+
+const results = await parallel(A.reviewers.map(reviewer => () => reviewBy(reviewer, A.range)))
+return { results, verdict: classify(results, A.reviewers.length) }

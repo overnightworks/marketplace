@@ -1,4 +1,4 @@
-// The Codex courier runs as the lane-codex child under a protocol number; a refusal or a crash fails the lane naming it.
+// One review round runs as the lane-review child under a protocol number; a refusal or a crash fails the lane naming it.
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
@@ -8,51 +8,58 @@ import assert from 'node:assert/strict'
 import { runLane, resumedLane, installFake, APPROVE } from './lane_workflow_harness.mjs'
 
 const readWorkflow = (name) => fs.readFileSync(new URL(`../plugins/atelier/workflows/${name}.js`, import.meta.url), 'utf8')
-const protocolOf = (source) => Number(source.match(/^const LANE_CODEX_PROTOCOL = (\d+)$/m)?.[1])
-const driveGate = (options) => runLane({ ...resumedLane, risk: 'material' }, { 'r0-review': APPROVE }, { ...options, child: 'atelier:lane-codex' })
+const protocolOf = (source) => Number(source.match(/^const LANE_REVIEW_PROTOCOL = (\d+)$/m)?.[1])
+const driveGate = (options) => runLane({ ...resumedLane, risk: 'material' }, { 'r0-review': APPROVE }, { ...options, child: 'atelier:lane-review' })
 
-test('#340 lane-codex-protocol: a child with another protocol number fails the lane at review naming both numbers', async () => {
+test('#340 lane-review-protocol: a child with another protocol number fails the lane at review naming both numbers', async () => {
   const parentNumber = protocolOf(readWorkflow('lane'))
-  const { result, launchedAgents } = await driveGate({ transformChild: (source) => source.replace(/^const LANE_CODEX_PROTOCOL = \d+$/m, `const LANE_CODEX_PROTOCOL = ${parentNumber + 1}`) })
+  const { result, launchedAgents } = await driveGate({ transformChild: (source) => source.replace(/^const LANE_REVIEW_PROTOCOL = \d+$/m, `const LANE_REVIEW_PROTOCOL = ${parentNumber + 1}`) })
   assert.deepEqual([result.status, result.stage], ['failed', 'review'])
   assert.match(result.reason, new RegExp(`${parentNumber}[\\s\\S]*${parentNumber + 1}|${parentNumber + 1}[\\s\\S]*${parentNumber}`))
   assert.ok(!launchedAgents.includes('r0-gate'))
 })
 
-test('#340 lane-codex-protocol: a call without the worktree fails the lane at review naming the missing args', async () => {
+test('#340 lane-review-protocol: a call without the worktree fails the lane at review naming the missing args', async () => {
   const { result } = await driveGate({ alterChildArgs: ({ worktree: _worktree, scratch: _scratch, ...rest }) => rest })
   assert.deepEqual([result.status, result.stage], ['failed', 'review'])
   assert.match(result.reason, /missing args: .*worktree.*scratch/)
 })
 
-test('#400 lane-codex-protocol: a child with another protocol number and a missing arg fails the lane with the skew sentence, not missing args', async () => {
-  const skewed = (source) => source.replace(/^const LANE_CODEX_PROTOCOL = \d+$/m, `const LANE_CODEX_PROTOCOL = ${protocolOf(readWorkflow('lane')) + 1}`)
+test('#400 lane-review-protocol: a child with another protocol number and a missing arg fails the lane with the skew sentence, not missing args', async () => {
+  const skewed = (source) => source.replace(/^const LANE_REVIEW_PROTOCOL = \d+$/m, `const LANE_REVIEW_PROTOCOL = ${protocolOf(readWorkflow('lane')) + 1}`)
   const { result } = await driveGate({ transformChild: skewed, alterChildArgs: ({ worktree: _worktree, ...rest }) => rest })
   assert.deepEqual([result.status, result.stage], ['failed', 'review'])
   assert.match(result.reason, /the installed atelier differs from the running lane/)
   assert.doesNotMatch(result.reason, /missing args/)
 })
 
-test('#340 lane-codex-protocol: a child that throws fails the lane at review naming the error', async () => {
+test('#340 lane-review-protocol: a child that throws fails the lane at review naming the error', async () => {
   const { result } = await driveGate({ transformChild: () => "throw new Error('the child exploded')" })
   assert.deepEqual([result.status, result.stage], ['failed', 'review'])
   assert.match(result.reason, /the child exploded/)
 })
 
-test('#340 lane-codex-protocol: an answer without a verdict fails the lane at review naming what came back', async () => {
+test('#340 lane-review-protocol: an answer without results fails the lane at review naming what came back', async () => {
   const { result } = await driveGate({ transformChild: () => "return { surprise: 'no verdict' }" })
   assert.deepEqual([result.status, result.stage], ['failed', 'review'])
-  assert.match(result.reason, /lane-codex answered without a verdict.*surprise/)
+  assert.match(result.reason, /lane-review answered without a valid result.*surprise/)
 })
 
-test('#340 lane-codex-protocol: lane.js and lane-codex.js hold the same protocol number', () => {
+test('#475 lane-review-protocol: an answer whose verdict state is no round state fails the lane at review naming it', async () => {
+  const { result, launchedAgents } = await driveGate({ transformChild: () => "return { results: [null, null], verdict: { state: 'aprove' } }" })
+  assert.deepEqual([result.status, result.stage], ['failed', 'review'])
+  assert.match(result.reason, /lane-review[\s\S]*aprove/)
+  assert.ok(!launchedAgents.includes('r0-gate'))
+})
+
+test('#340 lane-review-protocol: lane.js and lane-review.js hold the same protocol number', () => {
   assert.ok(Number.isInteger(protocolOf(readWorkflow('lane'))))
-  assert.equal(protocolOf(readWorkflow('lane-codex')), protocolOf(readWorkflow('lane')))
+  assert.equal(protocolOf(readWorkflow('lane-review')), protocolOf(readWorkflow('lane')))
 })
 
-test('#340 lane-codex-protocol: the gate courier is launched by the lane-codex child, not by lane.js', async () => {
+test('#340 lane-review-protocol: the review and the gate courier are launched by the lane-review child, not by lane.js', async () => {
   const { launchedByChild, launchedAgents } = await driveGate({})
-  assert.deepEqual(launchedByChild['atelier:lane-codex'], ['r0-gate'])
+  assert.deepEqual(launchedByChild['atelier:lane-review'], ['r0-review', 'r0-gate'])
   assert.ok(launchedAgents.includes('r0-gate'))
 })
 
@@ -79,14 +86,14 @@ test('#419 review-reads-body: the Codex brief does not ask the networkless sandb
   assert.doesNotMatch(brief, /gh issue view/)
 })
 
-test('#419 review-reads-body: a lane-codex call without the pull request number fails the lane naming it', async () => {
+test('#419 review-reads-body: a lane-review call without the pull request number fails the lane naming it', async () => {
   const { result } = await driveGate({ alterChildArgs: ({ pr: _pr, ...rest }) => rest })
   assert.match(result.reason, /missing args: .*pr/)
 })
 
 // Runs the courier's start command as written in a scratch directory with stub gh and codex; the stub codex copies its stdin aside.
 async function runStartCommand({ failingProgram }) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'lane-codex-start-'))
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'lane-review-start-'))
   try {
     const [scratch, worktree, bin] = ['scratch', 'worktree', 'bin'].map(name => fs.mkdirSync(path.join(root, name)) ?? path.join(root, name))
     const failure = (program) => (program === failingProgram ? 'exit 1' : '')

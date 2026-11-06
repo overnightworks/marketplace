@@ -38,6 +38,8 @@ const VERDICT = {
 }
 // The phrase Codex prints when the account is out of usage (typographic apostrophe in "You’ve", so the match starts after it).
 const USAGE_LIMIT = 'hit your usage limit'
+// The error Codex prints when the courier started it without writing the output schema first.
+const SCHEMA_READ_ERROR = 'Failed to read output schema file'
 const LIMIT = {
   type: 'object',
   required: ['line', 'resetsAt'],
@@ -104,12 +106,20 @@ function rereadContradictoryCourier(answer, label, base) {
   return rereading.then(v => (v?.verdict === 'failed' && !v.reportPath && answer.reportPath) ? { ...v, reportPath: answer.reportPath } : v)
 }
 
+// A courier that dropped the schema write leaves Codex exiting at once; one fresh courier runs the same prompt again, never a second time.
+function retryMissingSchema(answer, runCourier, label) {
+  const unreadSchema = answer?.verdict === 'failed' && answer.codexExit > 0 && String(answer.note ?? '').includes(SCHEMA_READ_ERROR)
+  if (!unreadSchema) return answer
+  log(`${label}: Codex could not read its output schema; starting the courier once more`)
+  return runCourier(`${label}-retry`)
+}
+
 function codexReview(label, routing, role, range) {
   const base = `${A.scratch}/${A.tag}-${label}`
   const appendBodies = String.raw`{ cat ${base}-brief.md && printf '\n\n-----\nThe current item body (gh issue view):\n' && gh issue view ${A.item}${R} --json body --jq .body && printf '\n\n-----\nThe current pull request body (gh pr view):\n' && gh pr view ${A.pr}${R} --json body --jq .body; } > ${base}-brief.md.tmp && mv ${base}-brief.md.tmp ${base}-brief.md`
   const brief = `${A.delegatedLine}\nRead-only sandbox: read files and run read-only commands freely; do not run tests. The item body and the pull request body follow this brief: they are the contract core and the verification evidence. The sandbox has no network and cannot write, /tmp included; report a command you cannot run as not verified, never as a blocking finding.\n` + reviewerBrief(role, range) +
     `\nGive every finding its file:line in "where".`
-  return safeAgent(
+  const courierPrompt =
     `${A.delegatedLine}\nYou are a courier for one independent Codex review. Do not review anything yourself and do not edit the repository.\n` +
     `1. rm -f ${base}-out.json ${base}-out.json.exit ${base}-out.json.exit.tmp ${base}-brief.md.tmp ${base}-run.log\n` +
     `2. Write this brief verbatim to ${base}-brief.md:\n-----\n${brief}\n-----\n` +
@@ -124,8 +134,10 @@ function codexReview(label, routing, role, range) {
     `   Return verdict failed only when the 7 waits are spent without a marker (codexExit -1), the exit status is not 0 (codexExit = that number), or the file is missing or not valid JSON. ` +
     `Then give the last 20 lines of ${base}-run.log in note.\n` +
     `   When the exit status is above 0, also run: grep -v '^[[:space:]]*$' ${base}-run.log | tail -n 1\n` +
-    `   Only that last non-empty line counts, because the log echoes the brief. If it contains "${USAGE_LIMIT}", Codex is out of usage: add limit to the answer, with line that line verbatim and resetsAt the text after "try again at" (any case) to the end of the line without a final period, or null when the line has none. Never wait for the reset and never retry a limit.\n${STRUCTURED_OUTPUT_ONLY_LINE}`,
-    { label, phase: 'Review', schema: COURIER_VERDICT, ...MECHANICAL })
+    `   Only that last non-empty line counts, because the log echoes the brief. If it contains "${USAGE_LIMIT}", Codex is out of usage: add limit to the answer, with line that line verbatim and resetsAt the text after "try again at" (any case) to the end of the line without a final period, or null when the line has none. Never wait for the reset and never retry a limit.\n${STRUCTURED_OUTPUT_ONLY_LINE}`
+  const runCourier = courierLabel => safeAgent(courierPrompt, { label: courierLabel, phase: 'Review', schema: COURIER_VERDICT, ...MECHANICAL })
+  return runCourier(label)
+    .then(v => retryMissingSchema(v, runCourier, label))
     .then(v => rereadContradictoryCourier(v, label, base))
     .then(v => (v && v.codexExit !== 0 && v.verdict !== 'failed') ? { ...v, verdict: 'failed', note: `courier returned a verdict without a clean Codex exit (${v.codexExit}): ${v.note || ''}` } : v)
 }

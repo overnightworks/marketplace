@@ -3,11 +3,11 @@ name: docs-cleanup
 description: Clean and audit documentation trees. Use when asked to organize docs, move plans out of documentation into issues, fix documentation drift, reconcile contradictions, repair dead links, or review docs for stale claims. For AGENTS.md, CLAUDE.md, skills, custom agents, and hooks, use agent-documentation instead.
 ---
 
-Keep documentation honest. A document is current, a retained record,
-generated, or a frozen mockup (the one target picture). A plan, roadmap or
-concept file is a finding: propose moving its open parts to their item,
-folding built parts into the current document and taken decisions into the
-architecture overview or a decision record, and deleting the file. Code and
+Keep documentation honest. A document is current, generated, or a
+frozen mockup (the one target picture). A plan, roadmap, concept file or
+decision record is a finding: propose moving its open parts to their item,
+folding built parts and standing rules into the current document that owns
+them, and deleting the file. Code and
 configured contracts are the source of truth for implemented behavior.
 
 Out of scope: `AGENTS.md`, `CLAUDE.md`, skills, agents, and hooks. Leave them
@@ -20,7 +20,7 @@ and note "out of scope: agent-documentation" in the report.
 2. Give each scoped document two labels. Its type is one of
    [write-docs' document types](../write-docs/references/document-types.md),
    taken from its path or its content. Its status is
-   current, record, generated, mockup, or unknown, and its reader is the one
+   current, generated, mockup, or unknown, and its reader is the one
    its type names.
 3. Verify concrete claims against code, configuration, tests, or canonical
    docs. A claim you cannot check here (external service, version, vendor
@@ -44,7 +44,7 @@ and note "out of scope: agent-documentation" in the report.
   after the landing that built its surface, for being aligned with what was
   built; it has no length budget.
 - Each part of a plan is sorted as built (current document), decided
-  (architecture overview or a decision record), open (its owning item's body)
+  (the current document that owns it), open (its owning item's body)
   or obsolete (deleted).
 - A history section, or an issue number used as provenance, goes from a current
   document; git and the items keep the history, and a fact the reader still

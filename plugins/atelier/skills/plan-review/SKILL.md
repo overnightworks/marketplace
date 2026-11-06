@@ -38,7 +38,7 @@ done-when and does not block.
   a justified boundary change.
 - Reuse before invent: every new owner the plan creates (enum member, field,
   module, format, mechanism) is justified against a search for an existing one.
-  An existing contract or ADR that already owns the concept means reuse or
+  An existing contract that already owns the concept means reuse or
   extend it, not add a parallel one; a new boundary needs a stated reason no
   existing owner can honestly hold it. Flag the same concept (status, token,
   capability, link) modeled twice, not only duplicated guidance.

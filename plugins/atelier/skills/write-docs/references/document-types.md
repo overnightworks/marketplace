@@ -5,11 +5,8 @@ Each document has exactly one type; a document that needs two becomes two
 documents that link each other. A document's path names its type; elsewhere its
 content does.
 
-Sources: Diátaxis <https://diataxis.fr/>; ADR <https://adr.github.io/> and
-Michael Nygard, "Documenting Architecture Decisions"
-<https://cognitect.com/blog/2011/11/15/documenting-architecture-decisions>;
-arc42 <https://arc42.org/>; Keep a Changelog
-<https://keepachangelog.com/en/1.1.0/>. The examples below use a fictional
+Sources: Diátaxis <https://diataxis.fr/>; arc42 <https://arc42.org/>; Keep a
+Changelog <https://keepachangelog.com/en/1.1.0/>. The examples below use a fictional
 "Acme Notes" product.
 
 ## Pick the type
@@ -21,7 +18,6 @@ arc42 <https://arc42.org/>; Keep a Changelog
 | working, needs a fact | exact description | reference |
 | curious or deciding | context and reasons | explanation |
 | first-time visitor of a repo | what, how to start | README |
-| a future maintainer asking why | one decision and its reasons | ADR |
 | on call, something is wrong | actions under pressure | runbook |
 | engineer changing the system | structure and runtime picture | architecture overview |
 | anyone deciding what the product should do | why it exists, for whom, what it is not | vision |
@@ -156,33 +152,6 @@ Picture: at most one context diagram; a screenshot where there is a surface.
 Mistakes: a full manual in the README; install steps that were never run;
 duplicating facts that live in docs/.
 
-## ADR
-
-Use for: one significant architectural decision, kept as history. Immutable
-once accepted; a change is a new ADR that supersedes the old. Shape uses
-Nygard's sections; the skeleton moves status up to the header, where Nygard
-placed it after decision.
-
-Skeleton:
-
-```markdown
-# ADR-<n>: <decision as a short noun phrase>
-Status: proposed | accepted | superseded by ADR-<m>
-## Context       <- forces at play, value-neutral
-## Decision      <- "We will ..." in full sentences
-## Consequences  <- all of them, good and bad
-```
-
-Example: "ADR-7: Sync by operation log. Status: accepted. Context: concurrent
-edits were lost by whole-file merge. Decision: We will store edits as an
-append-only operation log. Consequences: no lost edits; the log needs nightly
-compaction."
-
-Picture: none.
-
-Mistakes: no alternatives or forces in the context; only upsides listed;
-editing an accepted ADR instead of superseding it; recording a trivial choice.
-
 ## Runbook
 
 Use for: a known operational situation, read under stress. One alert or task
@@ -226,7 +195,9 @@ Skeleton:
 5. Crosscutting Concepts    <- auth, errors, persistence, and Trust once a
                                security or deadweight decision needs one;
                                one paragraph each
-6. Architectural Decisions  <- links to ADRs
+6. Architectural Decisions  <- one line per standing choice: the rule, its
+                               reason and the rejected alternative that
+                               keeps coming back
 7. Risks and Technical Debt <- known weak points
 ```
 
@@ -328,7 +299,6 @@ Owner of which documents every repository carries.
 | `docs/VISION.md` | Vision | Why does it exist, for whom today, what is it deliberately not? | ≤ 40 lines | none | every repository, drafted when a decision first needs it |
 | `docs/ARCHITECTURE.md` | Architecture overview (arc42-lite) | Which parts, who talks to whom, where are the boundaries and the trust? | ≤ 200 lines | context and container diagram, one sequence diagram for the core flow | every repository, drafted when a decision first needs it; a small repository keeps it to a few lines and one diagram |
 | specs or requirements | Reference | What exactly must it do, and which test proves it? | one capability per file | state or sequence diagram only where the order is the rule | where others rely on ruled behaviour; harvested rulings live here; a repository without specs or requirements keeps a ruling in a reference document for the behaviour it rules |
-| a decisions directory | ADR | What was decided, why, what was rejected? | ≤ 120 lines | none | only where a decision with rejected alternatives keeps coming back; existing directories keep their names |
 | runbook or how-to | Runbook or how-to guide | Which command when, and how do I see it worked? | one task, one screen | flow chart for diagnosis | where a reader decides something with it |
 | mockup | Mockup | What does the blessed surface look like? | one file per surface | it is the picture | one per surface the operator has blessed |
 
@@ -349,13 +319,11 @@ holding contract rules, whose record the contract's preamble governs; the
 landing that removes a behaviour removes its ruled sentences and their tests.
 
 No roadmap, plan, wish-list or concept file: before the build it is the item
-body; at the landing its lasting part moves into the architecture overview or a
-decision record, and the rest closes with the item.
+body; at the landing its lasting part moves into the current document that
+owns it, and the rest closes with the item.
 
 A ruled sentence enters the spec with the landing whose test proves it; until
 then it lives in the item.
-
-A decision record is written when the decision is taken.
 
 One picture per question. A diagram is code inside the document, Mermaid where
 the host renders it (the visualize skill), never a binary image; a screenshot

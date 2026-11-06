@@ -5,79 +5,24 @@ Each document has exactly one type; a document that needs two becomes two
 documents that link each other. A document's path names its type; elsewhere its
 content does.
 
-Sources: Diátaxis <https://diataxis.fr/>; arc42 <https://arc42.org/>; Keep a
-Changelog <https://keepachangelog.com/en/1.1.0/>. The examples below use a
-fictional "Acme Notes" product.
+Sources: Diátaxis <https://diataxis.fr/>; arc42 <https://arc42.org/>. The
+examples below use a fictional "Acme Notes" product.
 
 ## Pick the type
 
 | Reader is... | Needs | Type |
 |---|---|---|
-| new, learning by doing | a guided first success | tutorial |
-| competent, has a goal | steps to reach it | how-to guide |
 | working, needs a fact | exact description | reference |
-| curious or deciding | context and reasons | explanation |
 | first-time visitor of a repo | what, how to start | README |
 | on call, something is wrong | actions under pressure | runbook |
 | engineer changing the system | structure and runtime picture | architecture overview |
 | anyone deciding what the product should do | why it exists, for whom, what it is not | vision |
-| user or operator upgrading | what changed per release | changelog |
 
-The first four are Diátaxis's types: tutorial (learning-oriented), how-to
-guide (goal-oriented), reference (information-oriented), explanation
-(understanding-oriented). In this skill's model, the other five are operational
-types that mix the Diátaxis modes in a fixed, conventional shape; a mockup is
-a picture, not text.
-
-## Tutorial
-
-Use for: a beginner's first guided success. The author is responsible for the
-learner succeeding.
-
-Skeleton:
-
-```markdown
-# Your first <thing>
-What you will build (one sentence, with the visible result).
-## Before you start   <- only what is truly required
-## Step 1 <action>    <- one action, then the expected output
-## Step 2 ...
-## What you built     <- link to how-to guides and explanation
-```
-
-Example: "Your first shared notebook. You will create a notebook and see a
-teammate's edit appear. 1. Run `acme new demo`. Expected: `Created demo`.
-2. Run `acme share demo --with ada`. Expected: `Shared with ada`."
-
-Picture: none, unless a screenshot shows the expected result.
-
-Mistakes: explaining why instead of guiding; offering choices; steps without
-visible expected output; unverified steps that fail on a clean machine.
-
-## How-to guide
-
-Use for: a competent reader with a concrete goal. Title states the goal.
-
-Skeleton:
-
-```markdown
-# How to <achieve goal>
-Prerequisites (one line each).
-1. <imperative step>
-2. <imperative step>
-Verify: <observable check>.
-Related: <link to reference / explanation>
-```
-
-Example: "How to rotate the API token. Prerequisite: admin role. 1. Run
-`acme token rotate`. 2. Update `ACME_TOKEN` in your secret store. Verify:
-`acme whoami` prints the new token's expiry."
-
-Picture: a flow chart for diagnosis; otherwise none.
-
-Mistakes: teaching basics; background paragraphs mid-steps; covering every
-option instead of one goal; a title that names the tool, not the goal; a shell
-sequence to copy by hand where the repository should ship one command.
+Reference is a Diátaxis type; the other four are operational types that mix
+the Diátaxis modes in a fixed, conventional shape; a mockup is a picture, not
+text. A tutorial, how-to guide or explanation is no file of its own: write it
+as a mode inside the README (the example), a runbook (the steps) or the
+architecture overview (the reasons).
 
 ## Reference
 
@@ -107,28 +52,6 @@ Mistakes: opinions, tutorials or rationale inside entries; hand-written copies
 of what a generator or the code already states; incomplete or inconsistent
 entry shape.
 
-## Explanation
-
-Use for: understanding, context, trade-offs, why it is this way. Read away from
-the keyboard.
-
-Skeleton:
-
-```markdown
-# About <topic>
-The question this answers. Context and constraints. The model, with an
-alternative considered and why it lost. Limits and open questions.
-```
-
-Example: "Why notebooks sync by operation log. Merging whole files loses
-concurrent edits; an operation log replays both. Cost: log growth, compacted
-nightly."
-
-Picture: one diagram when the model has parts; otherwise none.
-
-Mistakes: drifting into steps or option tables; no stated question; presenting
-a preference as a fact.
-
 ## README
 
 Use for: the front door of a repository or package. Answers what it is and how
@@ -140,7 +63,7 @@ Skeleton:
 # <name>
 One sentence: what it is, for whom.
 ## Install / Quick start   <- minimal working path
-## Documentation           <- links to tutorial, how-tos, reference
+## Documentation           <- links to the reference and runbooks
 ## Contributing / License  <- links
 ```
 
@@ -181,8 +104,9 @@ rollback or escalation; explanation that belongs elsewhere.
 
 Use for: the structure and runtime picture an engineer needs before changing
 the system. arc42 defines twelve sections; "lite" here is a deliberate
-reduction to the sections that answer a change-maker's questions, in arc42's
-order and naming. Diagrams follow the visualize skill.
+reduction to the sections that answer a change-maker's questions, in
+arc42's order; sections 6 and 7 are the fleet's own. Diagrams follow the
+visualize skill.
 
 Skeleton:
 
@@ -192,13 +116,14 @@ Skeleton:
 2. Building Block View      <- containers/components and their jobs
 3. Runtime View             <- the core flow as one sequence diagram
 4. Deployment View          <- where the blocks run
-5. Crosscutting Concepts    <- auth, errors, persistence, and Trust once a
-                               security or deadweight decision needs one;
-                               one paragraph each
-6. Architectural Decisions  <- one line per standing choice: the rule, its
-                               reason and the rejected alternative that
-                               keeps coming back
-7. Risks and Technical Debt <- known weak points
+5. Crosscutting Concepts    <- Trust, the proof strategy, and auth, errors or
+                               persistence where they matter; one paragraph each
+6. Constraints and reasons  <- invariants no single line carries, each with its
+                               reason
+7. Not chosen               <- one present-tense line per alternative that keeps
+                               coming back: why not, and the condition that
+                               reopens it
+8. Risks and Technical Debt <- known weak points
 ```
 
 Example for section 1: "Acme Notes serves editors in a browser and syncs
@@ -253,74 +178,48 @@ left as an empty heading; wording the operator never said or blessed.
 
 Use for: the blessed picture of one surface, frozen before its build. One file
 per surface; a newer blessed mockup replaces the older one in the same change,
-and the item names it, so there is no index. The landing that builds the
-surface aligns it or replaces it.
+and the item names it, so there is no index. The landing that finishes the
+surface deletes it; a later change starts from a screenshot of the real surface.
 
 Picture: it is the picture.
 
 Mistakes: an unblessed draft kept as current; a second file for the same
-surface; a mockup left unaligned after its surface was built.
-
-## Changelog
-
-Use for: per-release, human-readable changes for users and operators. Format
-per Keep a Changelog 1.1.0: newest release first, an `Unreleased` section, ISO
-dates, change groups Added, Changed, Deprecated, Removed, Fixed, Security.
-
-Skeleton:
-
-```markdown
-# Changelog
-## [Unreleased]
-## [1.2.0] - 2026-10-01
-### Added
-- <user-visible change>
-### Fixed
-- <user-visible change>
-```
-
-Example: "## [1.2.0] - 2026-10-01 / ### Added / - `acme token rotate` replaces
-manual token reissue. / ### Fixed / - Shared notebooks no longer drop
-simultaneous edits."
-
-Picture: none.
-
-Mistakes: dumping commit logs; no dates or versions; omitting breaking changes
-and deprecations; wording for developers, not for the reader upgrading.
+surface; a mockup kept after its surface was finished.
 
 ## Repository document set
 
-Owner of which documents every repository carries.
+This section holds contract rules: the fleet standard for which documents
+every repository carries. It covers every repository and is due at a
+repository's first landing after it that changes a tracked Markdown file.
 
 | File | Type | Reader's question | Length | Picture | Carried |
 |---|---|---|---|---|---|
 | `README.md` | README | What is this, for whom, how do I start, where do I read on? | ≤ 150 lines | at most one context diagram; a screenshot where there is a surface | every repository; quick start is a section, not its own file |
-| `AGENTS.md` | owned by the agent-documentation skill | What must I know here that the code does not tell me? | ≤ 100 lines | none | every repository |
-| `docs/VISION.md` | Vision | Why does it exist, for whom today, what is it deliberately not? | ≤ 40 lines | none | every repository, drafted when a decision first needs it |
-| `docs/ARCHITECTURE.md` | Architecture overview (arc42-lite) | Which parts, who talks to whom, where are the boundaries and the trust? | ≤ 200 lines | context and container diagram, one sequence diagram for the core flow | every repository, drafted when a decision first needs it; a small repository keeps it to a few lines and one diagram |
-| specs or requirements | Reference | What exactly must it do, and which test proves it? | one capability per file | state or sequence diagram only where the order is the rule | where others rely on ruled behaviour; harvested rulings live here; a repository without specs or requirements keeps a ruling in a reference document for the behaviour it rules |
-| runbook or how-to | Runbook or how-to guide | Which command when, and how do I see it worked? | one task, one screen | flow chart for diagnosis | where a reader decides something with it |
-| mockup | Mockup | What does the blessed surface look like? | one file per surface | it is the picture | one per surface the operator has blessed |
+| `AGENTS.md` | owned by the agent-documentation skill | What must I know here that neither the code nor the global contract tells me? | ≤ 100 lines and ≤ 4 KiB; `CLAUDE.md` = `@AGENTS.md` | none | every repository |
+| `docs/VISION.md` | Vision | Why does it exist, for whom today, what is it deliberately not? | ≤ 40 lines | none | every repository |
+| `docs/ARCHITECTURE.md` | Architecture overview (arc42-lite) | Which parts, who talks to whom, where are the boundaries and the trust? | ≤ 200 lines, with the sections of the skeleton above | context and container diagram, one sequence diagram for the core flow | every repository; a small repository keeps it to a few lines and one diagram |
+| `docs/<contract>.md` | Reference | What exactly does the contract promise, and which test proves each rule? | one contract per file | state or sequence diagram only where the order is the rule | where others implement a contract; generated where derivable; each rule carries the ID its test cites |
+| `docs/runbooks/<task>.md` | Runbook | Which command when, and how do I see it worked? | one task, one screen | flow chart for diagnosis | always for infrastructure, elsewhere where a reader operates something |
+| `docs/mockups/<surface>.html` | Mockup | What does the blessed surface look like? | one file per surface | it is the picture | from the operator's blessing until the landing that finishes its surface |
 
-The length budgets are the operator's ruling; quality's gate holds them as a
-ratchet.
-
-A repository that serves several readers (for example a library's host
-developer, a service's operator and a wire contract's app author) gives each
-reader their own documents under `docs/`, one type each, named for that reader
-or topic; the README routes each reader there. A document is written in its
-reader's language, one language per document; a quoted wish or ruling keeps the
-words it was spoken in.
+A repository that serves several readers gives each contract its own reference
+and each task its own runbook; the README routes each reader there. A document
+is written in its reader's language, one language per document; a quoted wish
+keeps the words it was spoken in.
 
 The set's paths are exact; a file under another name or case is renamed to it.
-Each ruled sentence names its ruling by date (operator ruling <date>), except
-in the global contract's two files and in an owner-document section marked as
-holding contract rules, whose record the contract's preamble governs; the
+No sentence carries its provenance (a date, a ruling marker, an item number),
+except the Stand date of a legal page; a spec ID its tests cite names a rule,
+not its origin. A section of ruled sentences says so in its first line, and the
 landing that removes a behaviour removes its ruled sentences and their tests.
 
-No roadmap, plan, wish-list or concept file: before the build it is the item
-body; at the landing its lasting part moves into the current document that
-owns it, and the rest closes with the item.
+Never in the tree: decision records; CHANGELOG, MIGRATING and HISTORY
+(breaking changes go on the release page and into each dependent's release
+item); plans, roadmaps, concepts and status tables (before the build they are
+the item body); evidence logs; citations of records, rulings or items;
+mockups of finished surfaces; prose that restates code; index files,
+CONTRIBUTING, TESTING and llms.txt. A library's API reference lives in its
+docstrings.
 
 A ruled sentence enters the spec with the landing whose test proves it; until
 then it lives in the item.
@@ -329,9 +228,6 @@ One picture per question. A diagram is code inside the document, Mermaid where
 the host renders it (the visualize skill), never a binary image; a screenshot
 shows only a real surface. The text beside a picture adds to it instead of
 reading it aloud.
-
-No `quickstart.md` or changelog by default; each needs a reader who decides
-something with it.
 
 Overview documents (vision, architecture overview, README) stay abstract and
 link down to the exact documents, never restating them.

@@ -4,6 +4,10 @@ Reader: a head asking which fleet standards cover its repository, or how a
 standard is ruled, recorded and deviated from. One entry per standard: name,
 repository kind, and a link to the owner's standard document.
 
+## Standards
+
+- **Document set**, every repository: [write-docs' document set](../plugins/atelier/skills/write-docs/references/document-types.md#repository-document-set).
+
 ## How a standard works
 
 This section holds contract rules: they bind like `instructions/AGENTS.md`

@@ -273,8 +273,7 @@ standing rulings, which every review of a Sonar finding inherits:
   has compared them against the repository's own gates. Until then, a gate red
   on a finding whose code route was tried and refused (its exception lands in
   the same PR) is not a merge blocker; a gate red on a finding whose code
-  route was never tried is one: try the code route first (operator ruling
-  05.09.2026).
+  route was never tried is one: try the code route first.
 - A review of a Sonar finding **needs the project context** — the owning item,
   the rulings, the frozen-code list. A finding reviewed without it is mostly
   rejection ware, and the reviewer will argue with the rule instead of the code.
@@ -320,8 +319,7 @@ standing rulings, which every review of a Sonar finding inherits:
 Re-run with the scheduled agent audit (weekly), and after any onboarding of a
 new repository. Each run updates the existing distributor's metrics line and
 class table rather than opening a second one. The distributor closes when every
-finding is landed, folded into an owning item, or retired — and its rulings are
-harvested into the owning repository document before it closes. If a run finds
+finding is landed, folded into an owning item, or retired. If a run finds
 no group outside classes (b) and (c) and both scanners were read (Sonar scope
 proven, CodeQL configured), output `SCANNERS QUIET` and update only the metrics
 line. A scanner that was not read makes the run unfinished, never quiet: say

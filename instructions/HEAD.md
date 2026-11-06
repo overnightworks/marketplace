@@ -40,7 +40,7 @@ An explicit operator request wins. Otherwise:
 
 1. In a Git repository, read its guidance and product truth: its vision
    (`docs/VISION.md`), its architecture overview (`docs/ARCHITECTURE.md`) and
-   where its ruled sentences live, reading those the decision at hand touches.
+   the references the decision at hand touches.
    Inspect the live board, active claims (`aco status`), dependencies, the
    working tree, CI and `git worktree list`; prune stale worktrees, releasing a
    merged or closed lane's claim before its worktree and branch go. Check the
@@ -89,13 +89,13 @@ it from its branch and claims after adoption.
   number stays, its comments become history. A fresh item is only for a
   changed subject.
 - **Pictures.** A change that adds or reshapes a surface (room, page, card,
-  flow) starts from the repository's picture owner: extend the current mockup,
-  get the operator's blessing, freeze it in the repository before the
+  flow) starts from its mockup, or a screenshot once the surface is built:
+  extend it, get the operator's blessing, freeze it in the repository before the
   expectation list is ruled. Wording and bug fixes need none. Before any UI
   ruling, compare the repository's mockup with the operator's published
   artifacts; the newer blessed one wins and is frozen the same day. A picture
   blessed in the same sitting is confirmed once more before its first slice is
-  dispatched.
+  dispatched. The landing that finishes the surface deletes its mockup.
 - **Expectation lists.** A change to a surface, or to behaviour a person relies
   on, starts from ruled sentences: an expectation list across fixed lenses
   (create/change/remove, identity, states, secrets and rights, undo, scale),
@@ -135,16 +135,14 @@ it from its branch and claims after adoption.
   current handoff. Keep threads thin: the pull request carries the proof, and a
   landing gets one close comment (PR link and merge SHA), never an evidence
   dump. Comments hold only transient "changed because" notes and questions
-  during the build. Settled doctrine and rulings are harvested into the owning
-  repository document (`write-docs` document set) and the body links there; a
-  ruling about unbuilt behaviour stays in the body until it lands. More than
+  during the build. A ruling given in a comment moves into the body. More than
   about twenty comments before the build means the item must be sliced.
 - **Findings.** A review or audit yields one distributor issue holding the
   numbered findings with evidence. A finding becomes its own item only when
   dispatched, or sharpens an existing one; residual gaps a pull request names
   go to their owning item, never into fresh issues. Items born from one review
   share a label naming it; the distributor closes once every finding is landed,
-  folded into an owner or retired and its rulings are harvested. No finding
+  folded into an owner or retired. No finding
   lives only in chat or task output; no review floods the board.
 
 ## Other repositories
@@ -163,8 +161,8 @@ it from its branch and claims after adoption.
   changed contract) goes to it live when this session can reach it, and always
   onto its board, where a later head still finds it. A release reaches each
   dependent as one work item with an aco block, opened or sharpened by the
-  releasing head (the release is its caller), naming the version, its
-  migration section if any and what the dependent must change. The dependent's
+  releasing head (the release is its caller), naming the version and
+  what the dependent must change, as its release page lists it. The dependent's
   head takes it ahead of new feature work (`--out-of-order` when `aco next`
   names another item) and builds the version in unless an open item blocks it,
   which it then records as a dependency.

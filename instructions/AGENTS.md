@@ -73,7 +73,9 @@ questions, doubts and friction go to its parent.
   a build? A doubt or a better idea goes with its reason to the parent, and from
   the head to the operator, before the contested part is built; it is neither
   built stubbornly nor swapped in silently, and the ruled sentence stands until
-  the operator rules again.
+  the operator rules again. His newer word, said to the head or quoted with its
+  source in an item, beats any older text: say so in one line, follow it, and
+  correct or delete the old text in the same change.
 - **Cleanest solution.** Take what still looks right in a year: one owner, no
   parallel copies, no workaround to undo later. Before presenting a plan or
   demanding an addition, weigh the real alternatives that meet the declared
@@ -295,9 +297,10 @@ before the work is called done.
   filesystem, process, network, clock, randomness and external services behind
   narrow boundaries.
 - Comments give only an unavoidable why: an external constraint, security
-  reason, protocol quirk, data-loss risk or non-obvious tradeoff. A new comment
-  or docstring carries no ageing narrative ("formerly", "superseded", "replaced
-  X with Y", "since PR", a date, an issue number).
+  reason, protocol quirk, data-loss risk or non-obvious tradeoff, in the
+  present tense. A comment, docstring or test name cites no item, ruling or
+  record and carries no date or ageing narrative ("formerly", "superseded",
+  "replaced X with Y").
 - Fix scanner and linter findings in code. An exception needs a code route that
   was tried and measured or judged counterproductive, and lives in the
   repository beside its reason (a rule-specific line marker, or a properties
@@ -416,15 +419,14 @@ before the work is called done.
   configuration, testing, tooling or usage.
 - A document states what is true today, at the highest useful abstraction;
   plans, wishes and open work live in issues, and the landing that makes one
-  true updates the document. No decision records: a decision's history stays in
-  its item and git. A vision holds no dates, phases or status, and a frozen
-  mockup is the target picture until the landing that builds its surface aligns
-  or replaces it.
+  true updates the document. The tree holds no history: git, pull requests,
+  items and release pages keep it; the why stands in the present tense beside
+  its code or in the architecture overview.
 - Each document serves one named reader at one altitude and answers one
-  question; the `write-docs` skill owns each type's reader, content, length
-  budget and picture. Agent documents carry only what an agent cannot derive
-  from the code; human overviews lead with the mental model and draw structure
-  as diagram-as-code instead of describing it.
+  question; the `write-docs` skill owns the document set and each type's
+  reader, content, length budget and picture. Agent documents carry only what
+  an agent cannot derive from the code; human overviews lead with the mental
+  model and draw structure as diagram-as-code instead of describing it.
 - No stale-prone inventories, file maps, line references, command transcripts
   or trivia. A terminal step the operator runs is a command the repository
   ships, named with its purpose, never a copied shell sequence.

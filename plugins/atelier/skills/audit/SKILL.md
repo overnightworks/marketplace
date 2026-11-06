@@ -59,11 +59,11 @@ names the call and its reason.
   section 5 (Crosscutting Concepts) declares a repository's trust model: for
   each boundary, who can reach it, what they control, and what the system
   trusts. Boundary statements elsewhere, such as a README's "local-only", are
-  leads for drafting it. A Trust paragraph narrows the default only when it
-  cites the operator ruling that blessed it; otherwise the lenses use the
-  default and name the draft. The default: assume that every input from outside
-  the process (files it did not write, network responses, user text, and any
-  argument or environment value that carries external content) is untrusted,
+  leads for drafting it. A Trust paragraph narrows the default only when
+  the commit that landed it names the operator's ruling; otherwise the lenses
+  use the default and name the draft. The default: assume that every input from
+  outside the process (files it did not write, network responses, user text, and
+  any argument or environment value that carries external content) is untrusted,
   and that the repository's own checked-in files and operator-supplied
   settings, including arguments and environment, are trusted. The Trust
   paragraph points to the components the tripwire ruling (global contract,

@@ -47,6 +47,8 @@ a new Codex thread or run `/reload-plugins` in Claude Code.
 
 ## Read On
 
+- [Vision](docs/VISION.md): why marketplace exists, who uses it today and what
+  it deliberately is not.
 - [Architecture](docs/ARCHITECTURE.md): where agent guidance lives and why it
   is never copied.
 - [Contract and code policy](instructions/AGENTS.md): the rules every agent

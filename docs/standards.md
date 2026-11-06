@@ -7,6 +7,7 @@ repository kind, and a link to the owner's standard document.
 ## Standards
 
 - **Document set**, every repository: [write-docs' document set](../plugins/atelier/skills/write-docs/references/document-types.md#repository-document-set).
+- **Release path**, repositories that publish a release and apps that ship an image; owner overnightworks/quality: [quality's release path](https://github.com/overnightworks/quality/blob/main/docs/release.md).
 
 ## How a standard works
 

@@ -108,7 +108,7 @@ No narrower trust model than the audit skill's default is declared.
 **Proof strategy.** CI on every pull request checks that the generated Codex
 agents match their source, that no symlink is tracked, that the contract fits
 Codex's instruction-file size limit, that every skill is valid and every
-workflow's metadata parses, and runs the workflow tests and the script tests
+workflow's metadata parses, and runs the workflow tests, and the script tests
 at 100 % branch coverage; the shared quality gate then judges the whole.
 Documentation is proven by review.
 

@@ -1,7 +1,0 @@
-claim_id = "3042648cdb394f4b866d49301ae7a3e0"
-agent = "Claude a5abe9e4-862b-4cac-94ed-68bd072edf38"
-role = "builder"
-base = "81207dbd60439c94ca6746022bf01cd79a1e8c24"
-branch = "claude/issue-505-architecture-skeleton"
-scope = ["docs/ARCHITECTURE.md"]
-opened_commit = "c2f4fb5168102320b4701a03eceb02e2193dbbf0"

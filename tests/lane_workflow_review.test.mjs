@@ -110,7 +110,7 @@ async function runStartCommand({ failingProgram }) {
     const [scratch, worktree, bin] = ['scratch', 'worktree', 'bin'].map(name => fs.mkdirSync(path.join(root, name)) ?? path.join(root, name))
     const failure = (program) => (program === failingProgram ? 'exit 1' : '')
     installFake(bin, 'gh', `#!/bin/sh\n${failure('gh')}\ncase "$1" in issue) printf 'ITEM BODY' ;; pr) printf 'PR BODY' ;; esac\n`)
-    installFake(bin, 'codex', `#!/bin/sh\ncat > ${root}/codex-stdin\n`)
+    installFake(bin, 'codex', `#!/bin/sh\nwhile [ $# -gt 0 ]; do [ "$1" = --output-schema ] && cp "$2" ${root}/codex-schema-at-start; shift; done\ncat > ${root}/codex-stdin\n`)
     const { agentCalls } = await runLane({ ...bodyLane, risk: 'material', scratch, worktree }, { 'r0-review': APPROVE })
     const prompt = agentCalls['r0-gate'].prompt
     const startLine = prompt.split('\n').find(line => line.includes('codex exec')).trim()
@@ -118,7 +118,8 @@ async function runStartCommand({ failingProgram }) {
     fs.writeFileSync(brief, 'BRIEF')
     const ran = spawnSync('sh', ['-c', startLine], { cwd: root, env: { ...process.env, PATH: `${bin}:${process.env.PATH}` }, encoding: 'utf8' })
     const marker = fs.readdirSync(scratch).find(name => name.endsWith('.exit'))
-    return { ran, stdinOfCodex: () => fs.existsSync(`${root}/codex-stdin`) && fs.readFileSync(`${root}/codex-stdin`, 'utf8'), scratch, marker }
+    const schemaInLine = startLine.match(/printf %s '(.*?)' > /)[1]
+    return { ran, schemaInLine, schemaSeenByCodex: () => fs.existsSync(`${root}/codex-schema-at-start`) && fs.readFileSync(`${root}/codex-schema-at-start`, 'utf8'), stdinOfCodex: () => fs.existsSync(`${root}/codex-stdin`) && fs.readFileSync(`${root}/codex-stdin`, 'utf8'), scratch, marker }
   } finally {
     // the detached codex stub ends on its own; the directory goes after the test reads it
     process.on('exit', () => fs.rmSync(root, { recursive: true, force: true }))
@@ -132,6 +133,20 @@ test('#459 courier-start-command: the start command gives Codex a brief holding 
   for (let waited = 0; !exitMarker() && waited < 100; waited++) await new Promise(resolve => setTimeout(resolve, 50))
   assert.ok(exitMarker(), 'codex ran and left its exit marker')
   assert.match(stdinOfCodex(), /BRIEF[\s\S]*ITEM BODY[\s\S]*PR BODY/)
+})
+
+test('#496 courier-writes-schema: Codex finds the schema already written, byte for byte as the workflow holds it, when it starts', async () => {
+  const { ran, scratch, schemaInLine, schemaSeenByCodex } = await runStartCommand({})
+  assert.equal(ran.status, 0)
+  const exitMarker = () => fs.readdirSync(scratch).find(name => name.endsWith('.exit'))
+  for (let waited = 0; !exitMarker() && waited < 100; waited++) await new Promise(resolve => setTimeout(resolve, 50))
+  assert.ok(exitMarker(), 'codex ran and left its exit marker')
+  assert.equal(schemaSeenByCodex(), schemaInLine)
+})
+
+test('#496 courier-writes-schema: the courier is not asked to write the schema by hand', async () => {
+  const { agentCalls } = await runLane({ ...bodyLane, risk: 'material' }, { 'r0-review': APPROVE })
+  assert.doesNotMatch(agentCalls['r0-gate'].prompt, /Write this JSON schema/)
 })
 
 test('#459 courier-start-command: a failed append exits non-zero and starts no Codex', async () => {

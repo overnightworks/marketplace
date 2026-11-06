@@ -1,8 +1,0 @@
-claim_id = "a7f5923421c14ba8aef90c184f5c547c"
-agent = "Claude a5abe9e4-862b-4cac-94ed-68bd072edf38"
-role = "builder"
-base = "ce0747dee893aeb4a9ab51ef6e4b26998e41c68c"
-branch = "claude/issue-479-remove-audit-ballast"
-scope = [".claude-plugin/marketplace.json", ".github/workflows/ci.yml", "README.md", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/skills/deeper", "plugins/atelier/skills/sonar-distributor/SKILL.md", "plugins/atelier/workflows/lane.js", "pyproject.toml", "scripts/check_skills.py", "scripts/check_skills_baseline.json", "scripts/check_symlinks.py", "tests/lane_workflow_codex.test.mjs", "tests/lane_workflow_review.test.mjs", "tests/test_check_skills.py", "tests/test_check_symlinks.py"]
-opened_commit = "baab7681101997aa596ca4bb5a875ede533019d9"
-whole_reason = "One ruled ballast removal from one audit; each row is a deletion or a shrink, and splitting would add six releases for under two hundred lines."

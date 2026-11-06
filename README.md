@@ -22,12 +22,12 @@ Licensed under the [MIT License](LICENSE).
   agent; `instructions/HEAD.md` beside it is the part only the head reads.
 - A head starts the lane by its name, `atelier:lane`, with the Workflow tool.
   The name, and each child the lane starts by name (`lane-ci`, `lane-codex`,
-  `lane-relay`), resolves to the plugin version the session loaded at its
+  `lane-relay`, `lane-test`), resolves to the plugin version the session loaded at its
   start: after an install, a running session runs the new version only once
   the operator types `/reload-plugins`, or in a new session. A run from a
   checkout first installs the checkout with
   `python3 scripts/install.py --from-checkout`; without that flag the
-  published copy runs. `lane-ci`, `lane-codex` and `lane-relay` are internal
+  published copy runs. `lane-ci`, `lane-codex`, `lane-relay` and `lane-test` are internal
   to `lane` and are never started by a head.
 
 ## Install And Update

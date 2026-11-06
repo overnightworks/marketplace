@@ -308,8 +308,8 @@ async function reviewRound(which, range) {
   const reviewers = which.map(r => ({ key: r.key, provider: r.provider, role: r.role, routing: r.provider === 'codex' ? ROUTING[r.key] : claudeRole('review') }))
   const answer = await startChild('lane-review', { protocol: LANE_REVIEW_PROTOCOL, item: A.item, pr, repo: A.repo, delegatedLine: DELEGATED_LINE, worktree: A.worktree, branch: A.branch, scratch: A.scratch, tag: TAG, label: `r${spent.total}`, range, contract: A.contract, blockingLine: BLOCKING_LINE, reviewers, findingKinds: FINDING_KINDS, finding: FINDING, followup: FOLLOWUP, mechanical: MECHANICAL })
   const unfit = answer?.problem ? `the review round ${answer.problem}`
-    : !Array.isArray(answer?.results) || answer.results.length !== which.length ? `lane-review answered without a valid result: ${JSON.stringify(answer).slice(0, 200)}`
-    : !ROUND_STATES.includes(answer.verdict?.state) ? `lane-review answered with an unknown round state: ${JSON.stringify(answer.verdict).slice(0, 200)}`
+    : !Array.isArray(answer?.results) || answer.results.length !== which.length ? `lane-review answered without a valid result: ${JSON.stringify(answer ?? null).slice(0, 200)}`
+    : !ROUND_STATES.includes(answer.verdict?.state) ? `lane-review answered with an unknown round state: ${JSON.stringify(answer.verdict ?? null).slice(0, 200)}`
     : null
   if (unfit) return { which, results: [], verdict: { state: 'failed', reason: unfit } }
   const { results, verdict } = answer

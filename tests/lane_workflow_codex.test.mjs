@@ -45,6 +45,18 @@ test('#340 lane-review-protocol: an answer without results fails the lane at rev
   assert.match(result.reason, /lane-review answered without a valid result.*surprise/)
 })
 
+test('#475 lane-review-protocol: a child that answers nothing fails the lane at review naming the problem', async () => {
+  const { result } = await driveGate({ transformChild: () => 'return undefined' })
+  assert.deepEqual([result.status, result.stage], ['failed', 'review'])
+  assert.match(result.reason, /lane-review answered without a valid result/)
+})
+
+test('#475 lane-review-protocol: an answer with results but no verdict fails the lane at review naming the problem', async () => {
+  const { result } = await driveGate({ transformChild: () => 'return { results: [null, null] }' })
+  assert.deepEqual([result.status, result.stage], ['failed', 'review'])
+  assert.match(result.reason, /lane-review answered with an unknown round state/)
+})
+
 test('#475 lane-review-protocol: an answer whose verdict state is no round state fails the lane at review naming it', async () => {
   const { result, launchedAgents } = await driveGate({ transformChild: () => "return { results: [null, null], verdict: { state: 'aprove' } }" })
   assert.deepEqual([result.status, result.stage], ['failed', 'review'])

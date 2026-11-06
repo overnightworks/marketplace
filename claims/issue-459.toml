@@ -1,0 +1,8 @@
+claim_id = "3fb4898f1c114393b8d085488a40402e"
+agent = "Claude a5abe9e4-862b-4cac-94ed-68bd072edf38"
+role = "builder"
+base = "d616e9999a771da48e8554fe597decfce09b59e4"
+branch = "claude/issue-459-the-codex-gate-starts-only-from-a-brief"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/workflows/lane-codex.js", "tests/lane_workflow_codex.test.mjs"]
+opened_commit = "d083e3fbcea4591cf361f4a7ff4b7c25ba09220c"
+whole_reason = "One courier command, its test and the release pins."

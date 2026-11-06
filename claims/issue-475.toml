@@ -1,0 +1,8 @@
+claim_id = "3bf722cb8afb4ebaae48ed8482cc4de0"
+agent = "Claude a5abe9e4-862b-4cac-94ed-68bd072edf38"
+role = "builder"
+base = "02929f0ec042634944c59c205616580e41235d17"
+branch = "claude/issue-475-one-review-round-runs-in-a-lane-review-c"
+scope = [".claude-plugin/marketplace.json", "README.md", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/skills/providers/SKILL.md", "plugins/atelier/workflows/lane-codex.js", "plugins/atelier/workflows/lane-review.js", "plugins/atelier/workflows/lane.js", "sonar-project.properties", "tests/lane_workflow_codex.test.mjs", "tests/lane_workflow_harness.mjs"]
+opened_commit = "93851aea1ec3c666bd2fd34c65596611e7ab5649"
+whole_reason = "One move of the review round out of lane.js into its child, with its tests, the name's pins and the release pins."

@@ -1,8 +1,0 @@
-claim_id = "3e456c92f5074cd7a415b6e56034211b"
-agent = "Claude a5abe9e4-862b-4cac-94ed-68bd072edf38"
-role = "builder"
-base = "3d7176486c544c9c6d63be96862a1585d83912b2"
-branch = "claude/issue-495-fleet-document-set"
-scope = [".claude-plugin/marketplace.json", "docs/standards.md", "instructions/AGENTS.md", "instructions/HEAD.md", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/skills/audit/SKILL.md", "plugins/atelier/skills/docs-cleanup/SKILL.md", "plugins/atelier/skills/sonar-distributor/SKILL.md", "plugins/atelier/skills/write-docs/SKILL.md", "plugins/atelier/skills/write-docs/references/document-types.md"]
-opened_commit = "66d4f048e2a0b99ff6bb3373603ec8989b86c805"
-whole_reason = "One doctrine that the contract, the head file, the documentation skills and the standards index must state alike, plus the release pins."

@@ -1,0 +1,7 @@
+claim_id = "9508d85dd0044174bfc83de87e499df5"
+agent = "Claude a5abe9e4-862b-4cac-94ed-68bd072edf38"
+role = "builder"
+base = "3875294dba6894b5efb4ad0127a042fabd502fae"
+branch = "claude/issue-486-readme-local-test-commands"
+scope = ["README.md"]
+opened_commit = "8a68dcae657ff028c9e4faa4a9a1825800d67b13"

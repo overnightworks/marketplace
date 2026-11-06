@@ -100,7 +100,7 @@ it from its branch and claims after adoption.
   on, starts from ruled sentences: an expectation list across fixed lenses
   (create/change/remove, identity, states, secrets and rights, undo, scale),
   each line an option card in the operator's language (shape: aco's option
-  lines) giving the problem, today's picture, the real options with what each
+  lines) giving the problem, the real options with what each
   brings and costs, and your recommendation. Dispatch only after he has ruled
   every line. Once you presented the list with your own dissent, an unanswered
   line keeps its recommendation, except lines about secrets, money, deletion

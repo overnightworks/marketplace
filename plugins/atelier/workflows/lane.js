@@ -237,8 +237,8 @@ const listFindings = (list) => list.map((f, i) =>
 // The ordinary review may come from the builder's own provider (the contract asks only for a fresh, independent agent);
 // a fresh Sonnet reviewer is the default. The final gate on a material lane must come from another provider than the
 // Claude builder, so it runs on Codex through a courier. The lane-review child runs one round and classifies it.
-const LANE_REVIEW_PROTOCOL = 1
-const ROUND_STATES = new Set(['approve', 'revise', 'failed', 'architectural'])
+const LANE_REVIEW_PROTOCOL = 2
+const ROUND_STATES = new Set(['approve', 'revise', 'failed', 'architectural', 'limited'])
 
 // ------------------------------------------------------------ state
 const history = []
@@ -310,7 +310,8 @@ function unfitRoundAnswer(answer, expectedResults) {
   if (!ROUND_STATES.has(answer.verdict?.state)) return `lane-review answered with an unknown round state: ${JSON.stringify(answer.verdict ?? null).slice(0, 200)}`
   return null
 }
-async function reviewRound(which, range) {
+// from is the tip where the round's delta starts (none for a whole-lane round); a limited round hands it back for the resume.
+async function reviewRound(which, range, from) {
   const reviewers = which.map(r => ({ key: r.key, provider: r.provider, role: r.role, routing: r.provider === 'codex' ? ROUTING[r.key] : claudeRole('review') }))
   const answer = await startChild('lane-review', { protocol: LANE_REVIEW_PROTOCOL, item: A.item, pr, repo: A.repo, delegatedLine: DELEGATED_LINE, worktree: A.worktree, branch: A.branch, scratch: A.scratch, tag: TAG, label: `r${spent.total}`, range, contract: A.contract, blockingLine: BLOCKING_LINE, reviewers, findingKinds: FINDING_KINDS, finding: FINDING, followup: FOLLOWUP, mechanical: MECHANICAL })
   const unfit = unfitRoundAnswer(answer, which.length)
@@ -322,7 +323,7 @@ async function reviewRound(which, range) {
     if (which[i] === GATE) gateRounds.push({ after: spent.total, verdict: v.verdict, blocking: v.blocking || [], reportPath: v.reportPath || '' })
     followups.push(...(v.followups || []).map(f => ({ ...f, tip })))
   })
-  return { which, results, verdict }
+  return { which, results, verdict, range, from }
 }
 
 // A finding that comes back unchanged after a fix meant for it is no progress; the second return stops the lane.
@@ -513,7 +514,7 @@ async function fixBatch(blocking, source, budgetKey, carried = false) {
   if (accepted.range || everyFoldInSatisfied(fixed, blocking, foldIn)) {
     foldIn.forEach(f => folded.set(findingKey(f), { ...f, tip: fixed.tip, ...(satisfiedEvidence(fixed, f) && { evidence: satisfiedEvidence(fixed, f) }) }))
   }
-  return { ...accepted, foldIn }
+  return { ...accepted, foldIn, tipBeforeFix }
 }
 
 // The script, not the builder or fixer, makes sure the remote branch carries the lane tip, before the claim-scope check
@@ -562,13 +563,24 @@ async function pushAndCheckScope(label, origin) {
 
 // Review until clean. After every fix the delta goes back to whoever raised a finding, and the gate returns on a
 // material lane when the fix touched production or resolved lane conflicts. REVISE is handled one way everywhere.
-async function reviewUntilClean(which, range) {
+async function reviewUntilClean(which, range, from) {
   phase('Review')
-  return settleReview(await reviewRound(which, range))
+  return settleReview(await reviewRound(which, range, from))
+}
+
+// A Codex reviewer out of usage waits for its reset; the resume repeats the limited round's range, so the review never moves to another provider.
+function awaitLimit(rr) {
+  const limits = rr.results.filter(v => v?.limit).map(v => v.limit)
+  const lastBlocking = rr.results.filter(Boolean).flatMap(v => v.blocking || [])
+  const named = limits.filter(l => l.resetsAt).map(l => `${l.role} (${l.model}) at ${l.resetsAt}`)
+  const reset = named.length ? `Codex named the reset time: ${named.join('; ')}.` : 'Codex named no reset time.'
+  const resume = `After the reset start a new run with pr and tip${rr.from ? ', deltaFrom and answers as returned' : ''}${lastBlocking.length ? ' and fixFirst carrying lastBlocking' : ''}.`
+  return openResult('awaiting-head', 'review', { limits, lastBlocking, ...(rr.from && { deltaFrom: rr.from, answers: rr.range }), reason: `a Codex reviewer hit its usage limit; the review never moves to another provider. ${reset} ${resume}` })
 }
 
 // Each round judges the previous fix, so rounds run one after another; the fix budgets bound the recursion.
 async function settleReview(rr) {
+  if (rr.verdict.state === 'limited') return awaitLimit(rr)
   if (rr.verdict.state === 'revise') {
     const blocking = rr.results.filter(Boolean).flatMap(v => v.blocking || [])
     const raised = rr.which.filter((r, i) => rr.results[i] && (rr.results[i].blocking || []).length > 0)
@@ -583,7 +595,7 @@ async function settleReview(rr) {
     if (!f.range) return openResult('failed', 'review', { reason: 'a review finding was answered by a merge alone', lastBlocking: blocking })
     const next = f.gateAgain && !raised.includes(GATE) ? raised.concat([GATE]) : raised
     phase('Review')
-    return settleReview(await reviewRound(next, f.range))
+    return settleReview(await reviewRound(next, f.range, f.tipBeforeFix))
   }
   if (rr.verdict.state === 'failed') return openResult('failed', 'review', { reason: rr.verdict.reason })
   if (rr.verdict.state === 'architectural') return openResult('escalated', 'review', { reason: 'architectural verdict' })
@@ -620,10 +632,10 @@ if (carriesBatch) {
   const range = A.deltaFrom
     ? `only this delta: git diff ${A.deltaFrom}..HEAD — fixes no reviewer has seen yet. They answer:\n${A.answers || ''}\n${listFindings(carriedOver)}${f.proofNotes}${foldInsInRange(f.foldIn)}`
     : wholeLane
-  const stop = await reviewUntilClean(ALL, range)
+  const stop = await reviewUntilClean(ALL, range, A.deltaFrom)
   if (stop) return stop
 } else {
-  const first = await reviewUntilClean(ALL, firstRange)
+  const first = await reviewUntilClean(ALL, firstRange, A.deltaFrom)
   if (first) return first
 }
 
@@ -719,7 +731,7 @@ while (true) {
   const f = await fixBatch(testBlocking.concat(ciBlocking), testBlocking.length ? 'the end-to-end test and CI' : 'CI', budgetKey)
   if (f.stop) return f.stop
   if (f.range) {
-    const stop = await reviewUntilClean(f.gateAgain ? ALL : [REVIEW], f.range)
+    const stop = await reviewUntilClean(f.gateAgain ? ALL : [REVIEW], f.range, f.tipBeforeFix)
     if (stop) return stop
   }
   // The tester runs again when it had failed or when any fix since its last run (a review fix included) touched production.

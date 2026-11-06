@@ -1,0 +1,8 @@
+claim_id = "c85c60ea473e4282849b5fb02b5d8157"
+agent = "Claude a5abe9e4-862b-4cac-94ed-68bd072edf38"
+role = "builder"
+base = "adf77d64a7cd01c0e42b7c0ce8d1b57a36c950c0"
+branch = "claude/issue-436-the-lane-s-end-to-end-tester-moves-into"
+scope = [".claude-plugin/marketplace.json", "README.md", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/workflows/lane-test.js", "plugins/atelier/workflows/lane.js", "sonar-project.properties", "tests/lane_workflow_harness.mjs", "tests/lane_workflow_tester.test.mjs"]
+opened_commit = "6d62602d18592f172cd131efc58fe14c7fa846c3"
+whole_reason = "One move of the tester out of lane.js into its child, with its tests, its Sonar and README entries and the release pins."

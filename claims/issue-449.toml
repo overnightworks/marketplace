@@ -1,7 +1,0 @@
-claim_id = "52699772a22e48fca7c0fae448a2b208"
-agent = "Claude a5abe9e4-862b-4cac-94ed-68bd072edf38"
-role = "builder"
-base = "3875294dba6894b5efb4ad0127a042fabd502fae"
-branch = "claude/issue-449-reason-binds-landed-commit"
-scope = ["instructions/AGENTS.md"]
-opened_commit = "21f3e3ea9945149cdee725cc5f311a7637133d6f"

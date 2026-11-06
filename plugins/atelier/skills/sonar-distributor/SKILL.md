@@ -143,20 +143,17 @@ and a measurement pull request of 05.09.2026.
 
 - The rule key in a marker is bare — `# NOSONAR(S7503) reason`. A
   `language:`-prefixed key is not parsed as a key: the prefixed form raised
-  `python:S7632` ("Fix the syntax of this issue suppression comment.") three
-  times in overnightworks/hopin PR #8 and left `python:S7503` open, where the
-  repository's own zero-findings step caught it; the bare form cleared both.
+  `python:S7632` ("Fix the syntax of this issue suppression comment.") and
+  left `python:S7503` open, where the repository's own zero-findings step
+  caught it; the bare form cleared both.
 - The shell analyzer honours the same `# NOSONAR(<key>) reason` grammar —
-  measured in this repository's PR #24 on
-  `plugins/atelier/hooks/pre_commit_gate.sh`, where the marker took
-  `shell:S8541` out of the PR analysis.
+  measured on a shell script, where the marker took `shell:S8541` out of the PR analysis.
 - A `NOSONAR` marker is added only after the refused code route stands on the
   distributor — class (b) says how.
 - A ruff `# noqa: <code>` takes no prose after the code. SonarPython raised
-  `python:S7632` on such a line whose prose held a comma, measured in
-  overnightworks/hopin PR #20 (`scripts/check_root_layout.py:78`; the
-  comma-free prose on the next line raised nothing). The "SonarCloud Code
-  Analysis" check passed; only the repository's own findings step caught it.
+  `python:S7632` on such a line whose prose held a comma, measured on a
+  Python script (the comma-free prose on the next line raised nothing). The
+  "SonarCloud Code Analysis" check passed; only the repository's own findings step caught it.
   The reason goes in a comment on the line above.
 
 ### API access

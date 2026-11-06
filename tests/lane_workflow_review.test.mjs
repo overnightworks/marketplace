@@ -5,7 +5,7 @@ import path from 'node:path'
 import { spawnSync } from 'node:child_process'
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { runLane, resumedLane, installFake, APPROVE, PASS, greenCi, finding, resumeArgs, resumeTip, resumeFixedTip, resumeFix, secondFix } from './lane_workflow_harness.mjs'
+import { runLane, resumedLane, installFake, APPROVE, PASS, greenCi, finding, resumeArgs, resumeTip, resumeFixedTip, resumeFix, secondFix, tidy } from './lane_workflow_harness.mjs'
 
 const readWorkflow = (name) => fs.readFileSync(new URL(`../plugins/atelier/workflows/${name}.js`, import.meta.url), 'utf8')
 const protocolOf = (source) => Number(source.match(/^const LANE_REVIEW_PROTOCOL = (\d+)$/m)?.[1])
@@ -144,7 +144,7 @@ test('#459 courier-start-command: a failed append exits non-zero and starts no C
 // ---- #456: a Codex reviewer or gate that hits its usage limit makes the lane wait
 const limitLine = 'You’ve hit your usage limit. Upgrade to Pro or try again at Nov 4th, 2026 7:57 AM.'
 const limited = (line = limitLine, resetsAt = 'Nov 4th, 2026 7:57 AM', codexExit = 1) => ({ verdict: 'failed', blocking: [], followups: [], codexExit, note: 'tail', limit: { line, resetsAt } })
-const materialLane = { ...resumedLane, risk: 'material' }
+const materialLane = { ...resumedLane, risk: 'material', productionPaths: ['src/'] }
 const limitedGate = { 'r0-review': APPROVE, 'r0-gate': limited() }
 const failedAtReview = (result) => assert.deepEqual([result.status, result.stage], ['failed', 'review'])
 const reviewFinding = finding('a.py:1', 'review finding')
@@ -159,7 +159,7 @@ test('#456 usage-limit: a limited gate beside an approving review makes the lane
 })
 
 test('#456 usage-limit: a limited Codex review (reviewer codex) makes the lane await the head with role review', async () => {
-  const { result } = await runLane({ ...resumedLane, reviewer: 'codex' }, { 'r0-review': limited() })
+  const { result } = await runLane({ ...resumedLane, reviewer: 'codex', productionPaths: ['src/'] }, { 'r0-review': limited() })
   assert.deepEqual([result.status, result.stage], ['awaiting-head', 'review'])
   assert.deepEqual([result.limits[0].role, result.limits[0].model], ['review', result.routing.review.model])
 })
@@ -239,7 +239,7 @@ test('#456 usage-limit: a limited whole-lane first round returns no deltaFrom an
 
 for (const [name, extra, expected] of [['with deltaFrom', { deltaFrom: olderTip }, olderTip], ['without deltaFrom', {}, undefined]]) {
   test(`#456 usage-limit: a limited carried-batch round ${name} returns that deltaFrom, never the carried fix tip`, async () => {
-    const { result } = await runLane({ ...resumeArgs, risk: 'material', fixFirst: [reviewFinding], ...extra }, { ...fixedOnce, 'r1-review': APPROVE, 'r1-gate': limited() })
+    const { result } = await runLane({ ...resumeArgs, risk: 'material', productionPaths: ['src/'], fixFirst: [reviewFinding], ...extra }, { ...fixedOnce, 'r1-review': APPROVE, 'r1-gate': limited() })
     assert.equal(result.status, 'awaiting-head')
     assert.equal(result.deltaFrom, expected)
   })
@@ -297,6 +297,7 @@ test('#473 gate-stand-in: a limited gate re-check of a test-only fix is re-check
   const { model, effort } = agentCalls['r1-standin'].options
   assert.deepEqual({ model, effort }, result.routing.review)
   assert.match(agentCalls['r1-standin'].prompt, /gate finding/)
+  assert.ok(agentCalls['r1-standin'].prompt.includes(`git diff ${resumeTip}..HEAD`))
   assert.ok(launchedAgents.includes('e2e-0') || launchedAgents.includes('ci-0'))
   assert.deepEqual(result.gateUnseen, { seenTip: resumeTip, tip: resumeFixedTip, findings: [gateFinding], limit: { role: 'gate', model: result.routing.gate.model, line: limitLine, resetsAt: 'Nov 4th, 2026 7:57 AM' } })
   assert.equal(result.requiredHeadActions.filter(line => line.includes(`${resumeTip}..${resumeFixedTip}`)).length, 1)
@@ -335,7 +336,7 @@ test('#473 gate-stand-in: a production fix after the stand-in with the gate limi
     'r1-standin': { verdict: 'REVISE', blocking: [reviewFinding], followups: [] }, 'fix-2': { ...secondFix, files: ['src/y.py'] }, 'r2-gate': limited(), 'r2-standin': APPROVE,
   })
   waitsAtReview(result)
-  assert.equal(result.gateUnseen.seenTip, resumeTip)
+  assert.deepEqual([result.gateUnseen.seenTip, result.gateUnseen.tip], [resumeTip, secondFix.head])
   assert.ok(!('requiredHeadActions' in result))
 })
 
@@ -346,6 +347,31 @@ test('#473 gate-stand-in: a production fix after the stand-in runs the gate, and
   })
   assert.ok(launchedAgents.includes('r2-gate'))
   assert.equal(result.status, 'ready-to-land')
+  assert.equal(result.gateUnseen.seenTip, resumeTip)
+})
+
+const thirdFix = { ...secondFix, head: 'f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4', parents: [secondFix.head] }
+const testGapFinding = { ...gateFinding, kind: 'test-gap' }
+const removalProof = { finding: 1, test: 'removed_test.py [case]', failedBefore: false, passesAfter: true, resolution: 'removed-vacuous', diff: '-    def test_asserts_nothing(): pass' }
+
+test('#473 gate-stand-in: the stand-in is given the removal diff and the fold-ins the limited gate re-check would have judged', async () => {
+  const { result, agentCalls } = await standInRun({}, {
+    'r0-review': { ...APPROVE, followups: [tidy] }, 'r0-gate': { ...gateRevise, blocking: [testGapFinding] }, 'fix-1': { ...resumeFix, files: ['tests/x.py'], regression: [removalProof] },
+  })
+  assert.equal(result.status, 'ready-to-land', result.reason)
+  const prompt = agentCalls['r1-standin'].prompt
+  assert.ok(prompt.includes(removalProof.diff))
+  assert.match(prompt, /judge whether the removed test pinned no behaviour/)
+  assert.ok(prompt.includes(tidy.text))
+})
+
+test('#473 gate-stand-in: a second stand-in re-checks from the tip of the latest gate round, not from the first unseen tip', async () => {
+  const { result, agentCalls } = await standInRun({}, {
+    'r1-standin': { verdict: 'REVISE', blocking: [reviewFinding], followups: [] }, 'fix-2': { ...secondFix, files: ['src/y.py'] },
+    'r2-gate': { ...gateRevise, blocking: [finding('c.py:3', 'second gate finding')] }, 'r2-standin': APPROVE, 'fix-3': { ...thirdFix, files: ['tests/z.py'] }, 'r3-gate': limited(), 'r3-standin': APPROVE, 'ci-0': greenCi(thirdFix.head),
+  })
+  assert.equal(result.status, 'ready-to-land', result.reason)
+  assert.ok(agentCalls['r3-standin'].prompt.includes(`git diff ${secondFix.head}..HEAD`))
   assert.equal(result.gateUnseen.seenTip, resumeTip)
 })
 

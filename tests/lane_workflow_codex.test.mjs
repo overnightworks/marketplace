@@ -1,8 +1,11 @@
 // The Codex courier runs as the lane-codex child under a protocol number; a refusal or a crash fails the lane naming it.
 import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
+import { spawnSync } from 'node:child_process'
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { runLane, resumedLane, APPROVE } from './lane_workflow_harness.mjs'
+import { runLane, resumedLane, installFake, APPROVE } from './lane_workflow_harness.mjs'
 
 const readWorkflow = (name) => fs.readFileSync(new URL(`../plugins/atelier/workflows/${name}.js`, import.meta.url), 'utf8')
 const protocolOf = (source) => Number(source.match(/^const LANE_CODEX_PROTOCOL = (\d+)$/m)?.[1])
@@ -79,4 +82,42 @@ test('#419 review-reads-body: the Codex brief does not ask the networkless sandb
 test('#419 review-reads-body: a lane-codex call without the pull request number fails the lane naming it', async () => {
   const { result } = await driveGate({ alterChildArgs: ({ pr: _pr, ...rest }) => rest })
   assert.match(result.reason, /missing args: .*pr/)
+})
+
+// Runs the courier's start command as written in a scratch directory with stub gh and codex; the stub codex copies its stdin aside.
+async function runStartCommand({ failingProgram }) {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'lane-codex-start-'))
+  try {
+    const [scratch, worktree, bin] = ['scratch', 'worktree', 'bin'].map(name => fs.mkdirSync(path.join(root, name)) ?? path.join(root, name))
+    const failure = (program) => (program === failingProgram ? 'exit 1' : '')
+    installFake(bin, 'gh', `#!/bin/sh\n${failure('gh')}\ncase "$1" in issue) printf 'ITEM BODY' ;; pr) printf 'PR BODY' ;; esac\n`)
+    installFake(bin, 'codex', `#!/bin/sh\ncat > ${root}/codex-stdin\n`)
+    const { agentCalls } = await runLane({ ...bodyLane, risk: 'material', scratch, worktree }, { 'r0-review': APPROVE })
+    const prompt = agentCalls['r0-gate'].prompt
+    const startLine = prompt.split('\n').find(line => line.includes('codex exec')).trim()
+    const brief = path.join(scratch, startLine.match(/< (\S+-brief\.md)/)[1].split('/').at(-1))
+    fs.writeFileSync(brief, 'BRIEF')
+    const ran = spawnSync('sh', ['-c', startLine], { cwd: root, env: { ...process.env, PATH: `${bin}:${process.env.PATH}` }, encoding: 'utf8' })
+    const marker = fs.readdirSync(scratch).find(name => name.endsWith('.exit'))
+    return { ran, stdinOfCodex: () => fs.existsSync(`${root}/codex-stdin`) && fs.readFileSync(`${root}/codex-stdin`, 'utf8'), scratch, marker }
+  } finally {
+    // the detached codex stub ends on its own; the directory goes after the test reads it
+    process.on('exit', () => fs.rmSync(root, { recursive: true, force: true }))
+  }
+}
+
+test('#459 courier-start-command: the start command gives Codex a brief holding both bodies', async () => {
+  const { ran, stdinOfCodex, scratch } = await runStartCommand({})
+  assert.equal(ran.status, 0)
+  const exitMarker = () => fs.readdirSync(scratch).find(name => name.endsWith('.exit'))
+  for (let waited = 0; !exitMarker() && waited < 100; waited++) await new Promise(resolve => setTimeout(resolve, 50))
+  assert.ok(exitMarker(), 'codex ran and left its exit marker')
+  assert.match(stdinOfCodex(), /BRIEF[\s\S]*ITEM BODY[\s\S]*PR BODY/)
+})
+
+test('#459 courier-start-command: a failed append exits non-zero and starts no Codex', async () => {
+  const { ran, stdinOfCodex, marker } = await runStartCommand({ failingProgram: 'gh' })
+  assert.notEqual(ran.status, 0)
+  assert.equal(stdinOfCodex(), false)
+  assert.equal(marker, undefined)
 })

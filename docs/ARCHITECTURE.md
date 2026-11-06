@@ -98,7 +98,7 @@ runs the `claude` and `codex` CLIs with fixed arguments, nothing built from
 external input. The plugin hosts (Claude Code, Codex) and Grok, which reads the
 contract through its Claude compatibility, are trusted to load what they read.
 The installer adds the published GitHub copy by default (the operator's own
-remote, ref `main`), which is trusted likewise. Skills, agents and workflows run
+remote), which is trusted likewise. Skills, agents and workflows run
 with the permissions the operator gives the host, and this repository adds no
 sandbox around them. Dependencies are pinned: CI actions and the shared quality
 workflows by commit SHA, `uv` and Python by version, test dependencies in

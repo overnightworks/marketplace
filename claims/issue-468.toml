@@ -1,0 +1,8 @@
+claim_id = "9aa4b489dcc84209bf4f35acba994bae"
+agent = "Claude a5abe9e4-862b-4cac-94ed-68bd072edf38"
+role = "builder"
+base = "210b3ec978336becd555323ba7952a4cf53e51ba"
+branch = "claude/issue-468-card-pictures-optional"
+scope = [".claude-plugin/marketplace.json", "instructions/HEAD.md", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/skills/aco/references/decision-cards.md"]
+opened_commit = "bbfa3eee11f581b3ad39cb6898fabc7e0bd85f6e"
+whole_reason = "One skill reference section, one contract clause and the release pins."

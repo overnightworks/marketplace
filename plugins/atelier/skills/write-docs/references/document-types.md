@@ -190,7 +190,9 @@ surface; a mockup kept after its surface was finished.
 
 This section holds contract rules: the fleet standard for which documents
 every repository carries. It covers every repository and is due at a
-repository's first landing after it that changes a tracked Markdown file.
+repository's first landing after it that changes a tracked Markdown file. hal
+is exempt until it is archived; the exemption ends if its cutover is abandoned
+or hal is unfrozen.
 
 | File | Type | Reader's question | Length | Picture | Carried |
 |---|---|---|---|---|---|

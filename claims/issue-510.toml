@@ -1,0 +1,8 @@
+claim_id = "f5ba234398ec475087402d11e2afb0cd"
+agent = "Claude a5abe9e4-862b-4cac-94ed-68bd072edf38"
+role = "builder"
+base = "5236af2f1b1cc367c3892e171696ed8dc1cb0cc6"
+branch = "claude/issue-510-surface-rule-references"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/skills/write-docs/references/document-types.md"]
+opened_commit = "0585df2e6c42bf499e5488b18fe7b019167805f6"
+whole_reason = "One row and one sentence of a ruled section, plus the release pins they need."

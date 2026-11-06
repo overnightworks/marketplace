@@ -36,7 +36,7 @@ unless stated.
 - Degrees of freedom: a fragile, order-dependent task gets exact steps or a
   command; an open task gets direction, not a script (S2).
 - No time-sensitive text: no "before <date>", "currently", version-bound
-  claims. Dated history belongs in a decision record (S2).
+  claims. Dated history stays in the item and git (S2).
 - Consistent terminology: one term per concept across the skill and its
   linked files (S2).
 - Works on Haiku, Sonnet and Opus: a step that only a stronger model can

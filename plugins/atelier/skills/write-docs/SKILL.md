@@ -1,6 +1,6 @@
 ---
 name: write-docs
-description: Author or restructure documentation calibrated to its audience, altitude, and document type (Diátaxis tutorial, how-to, reference, explanation; README, ADR, runbook, architecture overview, changelog). Use when asked to write documentation for humans or for AI agents, create an architecture overview, runbook, ADR, README, or changelog, document a feature, API, or process, decide where a piece of documentation belongs, or split docs by audience. For auditing existing doc trees use docs-cleanup; for AGENTS.md/skills/agents use agent-documentation.
+description: Author or restructure documentation calibrated to its audience, altitude, and document type (Diátaxis tutorial, how-to, reference, explanation; README, runbook, architecture overview, changelog). Use when asked to write documentation for humans or for AI agents, create an architecture overview, runbook, README, or changelog, document a feature, API, or process, decide where a piece of documentation belongs, or split docs by audience. For auditing existing doc trees use docs-cleanup; for AGENTS.md/skills/agents use agent-documentation.
 ---
 
 Everything a reader meets must have a reason to be read by *that* reader.

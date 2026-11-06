@@ -297,8 +297,7 @@ before the work is called done.
 - Comments give only an unavoidable why: an external constraint, security
   reason, protocol quirk, data-loss risk or non-obvious tradeoff. A new comment
   or docstring carries no ageing narrative ("formerly", "superseded", "replaced
-  X with Y", "since PR", a date, an issue number); a durable reason may cite a
-  decision record.
+  X with Y", "since PR", a date, an issue number).
 - Fix scanner and linter findings in code. An exception needs a code route that
   was tried and measured or judged counterproductive, and lives in the
   repository beside its reason (a rule-specific line marker, or a properties
@@ -417,9 +416,10 @@ before the work is called done.
   configuration, testing, tooling or usage.
 - A document states what is true today, at the highest useful abstraction;
   plans, wishes and open work live in issues, and the landing that makes one
-  true updates the document. A decision record keeps its history, a vision
-  holds no dates, phases or status, and a frozen mockup is the target picture
-  until the landing that builds its surface aligns or replaces it.
+  true updates the document. No decision records: a decision's history stays in
+  its item and git. A vision holds no dates, phases or status, and a frozen
+  mockup is the target picture until the landing that builds its surface aligns
+  or replaces it.
 - Each document serves one named reader at one altitude and answers one
   question; the `write-docs` skill owns each type's reader, content, length
   budget and picture. Agent documents carry only what an agent cannot derive

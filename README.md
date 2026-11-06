@@ -59,7 +59,6 @@ ruleset requires its `quality / verdict` check to merge into `main`.
 
 ```bash
 python3 scripts/sync_agents.py --check
-python3 scripts/check_symlinks.py
 python3 scripts/check_skills.py
 node scripts/check_workflow_meta.mjs plugins/*/workflows/*.js
 ```

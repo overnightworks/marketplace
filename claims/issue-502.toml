@@ -1,8 +1,0 @@
-claim_id = "d26ecf0da20c4f10909daaedd933e5e3"
-agent = "Claude a5abe9e4-862b-4cac-94ed-68bd072edf38"
-role = "builder"
-base = "92c5fbfe746bdaa7d68a4a70d39dc30a7ed95bb4"
-branch = "claude/issue-502-hal-document-set-exemption"
-scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/skills/write-docs/references/document-types.md"]
-opened_commit = "267cfb11d60d3ef6c0cda352fbba7028aef863fd"
-whole_reason = "One coverage sentence of a ruled section, plus the release pins it needs."

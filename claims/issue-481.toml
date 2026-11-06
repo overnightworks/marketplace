@@ -1,8 +1,0 @@
-claim_id = "439a4494e22d404cbb8bf6bf5aab3cc8"
-agent = "Claude a5abe9e4-862b-4cac-94ed-68bd072edf38"
-role = "builder"
-base = "0ae367c340acebcd3a643e92ae351cf4ea6a4d8f"
-branch = "claude/issue-481-aco-skill-rulings-item"
-scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/skills/aco/SKILL.md"]
-opened_commit = "b514364b018e0023590f24c607f20c39edcd61e8"
-whole_reason = "One stale skill sentence and the release pins that ship it."

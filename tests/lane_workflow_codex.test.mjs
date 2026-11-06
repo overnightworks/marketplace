@@ -5,7 +5,7 @@ import path from 'node:path'
 import { spawnSync } from 'node:child_process'
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { runLane, resumedLane, installFake, APPROVE } from './lane_workflow_harness.mjs'
+import { runLane, resumedLane, installFake, APPROVE, finding, resumeArgs, resumeTip, resumeFix } from './lane_workflow_harness.mjs'
 
 const readWorkflow = (name) => fs.readFileSync(new URL(`../plugins/atelier/workflows/${name}.js`, import.meta.url), 'utf8')
 const protocolOf = (source) => Number(source.match(/^const LANE_REVIEW_PROTOCOL = (\d+)$/m)?.[1])
@@ -140,3 +140,145 @@ test('#459 courier-start-command: a failed append exits non-zero and starts no C
   assert.equal(stdinOfCodex(), false)
   assert.equal(marker, undefined)
 })
+
+// ---- #456: a Codex reviewer or gate that hits its usage limit makes the lane wait
+const limitLine = 'You’ve hit your usage limit. Upgrade to Pro or try again at Nov 4th, 2026 7:57 AM.'
+const limited = (line = limitLine, resetsAt = 'Nov 4th, 2026 7:57 AM', codexExit = 1) => ({ verdict: 'failed', blocking: [], followups: [], codexExit, note: 'tail', limit: { line, resetsAt } })
+const materialLane = { ...resumedLane, risk: 'material' }
+const limitedGate = { 'r0-review': APPROVE, 'r0-gate': limited() }
+const failedAtReview = (result) => assert.deepEqual([result.status, result.stage], ['failed', 'review'])
+const reviewFinding = finding('a.py:1', 'review finding')
+const gateFinding = finding('b.py:2', 'gate finding')
+const fixedOnce = { 'fix-1': { ...resumeFix, files: ['src/x.py'] } }
+
+test('#456 usage-limit: a limited gate beside an approving review makes the lane await the head with the limit and starts nothing else', async () => {
+  const { result, launchedAgents } = await runLane(materialLane, limitedGate)
+  assert.deepEqual([result.status, result.stage], ['awaiting-head', 'review'])
+  assert.deepEqual(result.limits, [{ role: 'gate', model: result.routing.gate.model, line: limitLine, resetsAt: 'Nov 4th, 2026 7:57 AM' }])
+  assert.ok(!launchedAgents.some(label => /^(fix|e2e|ci)/.test(label)), launchedAgents.join())
+})
+
+test('#456 usage-limit: a limited Codex review (reviewer codex) makes the lane await the head with role review', async () => {
+  const { result } = await runLane({ ...resumedLane, reviewer: 'codex' }, { 'r0-review': limited() })
+  assert.deepEqual([result.status, result.stage], ['awaiting-head', 'review'])
+  assert.deepEqual([result.limits[0].role, result.limits[0].model], ['review', result.routing.review.model])
+})
+
+test('#456 usage-limit: a limit line without a reset time gives resetsAt null and a reason that says no reset time was named', async () => {
+  const { result } = await runLane(materialLane, { ...limitedGate, 'r0-gate': limited('You have hit your usage limit.', null) })
+  assert.equal(result.limits[0].resetsAt, null)
+  assert.match(result.reason, /named no reset time/)
+})
+
+test('#456 usage-limit: a limit beside a clean Codex exit is dropped and the lane fails at review', async () => {
+  const { result } = await runLane(materialLane, { ...limitedGate, 'r0-gate': limited(limitLine, null, 0), 'r0-gate-reread': limited(limitLine, null, 0) })
+  failedAtReview(result)
+})
+
+for (const [name, answer] of [
+  ['an exit of -1', limited(limitLine, null, -1)],
+  ['a line without the phrase', limited('Error: stream disconnected', null)],
+]) {
+  test(`#456 usage-limit: a limit with ${name} fails the lane at review`, async () => {
+    const { result } = await runLane(materialLane, { ...limitedGate, 'r0-gate': answer })
+    failedAtReview(result)
+  })
+}
+
+test('#456 usage-limit: a failed Claude review carrying a limit fails the lane at review', async () => {
+  const { result } = await runLane(resumedLane, { 'r0-review': limited() })
+  failedAtReview(result)
+})
+
+test('#456 usage-limit: a real failure beside a limit fails the lane at review', async () => {
+  const { result } = await runLane({ ...resumedLane, risk: 'material', reviewer: 'codex' }, { 'r0-review': limited(), 'r0-gate': { verdict: 'failed', blocking: [], followups: [], codexExit: 2, note: 'boom' } })
+  failedAtReview(result)
+})
+
+test('#456 usage-limit: an architectural verdict beside a limit escalates the lane', async () => {
+  const { result } = await runLane(materialLane, { 'r0-review': { ...APPROVE, verdict: 'architectural' }, 'r0-gate': limited() })
+  assert.equal(result.status, 'escalated')
+})
+
+test('#456 usage-limit: an empty REVISE beside a limit fails the lane at review', async () => {
+  const { result } = await runLane(materialLane, { 'r0-review': { verdict: 'REVISE', blocking: [], followups: [] }, 'r0-gate': limited() })
+  failedAtReview(result)
+})
+
+test('#456 usage-limit: a limited review beside a gate REVISE after a fix hands back the fixer held tip, the gate findings and the review findings it answers', async () => {
+  const { result } = await runLane({ ...resumeArgs, risk: 'material', reviewer: 'codex' }, {
+    'r0-review': { verdict: 'REVISE', blocking: [reviewFinding], followups: [], codexExit: 0 }, 'r0-gate': { ...APPROVE, codexExit: 0 }, ...fixedOnce,
+    'r1-review': limited(), 'r1-gate': { verdict: 'REVISE', blocking: [gateFinding], followups: [], codexExit: 0 },
+  })
+  assert.equal(result.status, 'awaiting-head')
+  assert.equal(result.deltaFrom, resumeTip)
+  assert.deepEqual(result.lastBlocking, [gateFinding])
+  assert.match(result.answers, /review finding/)
+})
+
+test('#456 usage-limit: a limited gate re-check after a fix hands back the tip before the fix and the gate findings it answers', async () => {
+  const { result } = await runLane({ ...resumeArgs, risk: 'material' }, {
+    'r0-review': APPROVE, 'r0-gate': { verdict: 'REVISE', blocking: [gateFinding], followups: [], codexExit: 0 }, ...fixedOnce, 'r1-gate': limited(),
+  })
+  assert.equal(result.deltaFrom, resumeTip)
+  assert.match(result.answers, /gate finding/)
+})
+
+const olderTip = 'b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2'
+
+test('#456 usage-limit: a resumed run whose first round is limited returns the deltaFrom it was given', async () => {
+  const { result } = await runLane({ ...materialLane, deltaFrom: olderTip, answers: 'earlier findings' }, limitedGate)
+  assert.equal(result.deltaFrom, olderTip)
+  assert.match(result.answers, /earlier findings/)
+})
+
+test('#456 usage-limit: a limited whole-lane first round returns no deltaFrom and no answers', async () => {
+  const { result } = await runLane(materialLane, limitedGate)
+  assert.ok(!('deltaFrom' in result) && !('answers' in result))
+})
+
+for (const [name, extra, expected] of [['with deltaFrom', { deltaFrom: olderTip }, olderTip], ['without deltaFrom', {}, undefined]]) {
+  test(`#456 usage-limit: a limited carried-batch round ${name} returns that deltaFrom, never the carried fix tip`, async () => {
+    const { result } = await runLane({ ...resumeArgs, risk: 'material', fixFirst: [reviewFinding], ...extra }, { ...fixedOnce, 'r1-review': APPROVE, 'r1-gate': limited() })
+    assert.equal(result.status, 'awaiting-head')
+    assert.equal(result.deltaFrom, expected)
+  })
+}
+
+test('#456 usage-limit: the reason names fixFirst only when there are findings to carry', async () => {
+  const empty = await runLane(materialLane, limitedGate)
+  assert.deepEqual(empty.result.lastBlocking, [])
+  assert.doesNotMatch(empty.result.reason, /fixFirst/)
+  const carrying = await runLane({ ...materialLane, reviewer: 'codex' }, { 'r0-review': limited(), 'r0-gate': { verdict: 'REVISE', blocking: [gateFinding], followups: [], codexExit: 0 } })
+  assert.match(carrying.result.reason, /fixFirst/)
+})
+
+const lastLineCommand = (prompt) => prompt.match(/run: (grep -v \S+ \S+ \| tail -n 1)/)[1]
+
+test('#456 usage-limit: the courier clears run.log first, reads the last non-empty line, names the phrase and never retries a limit', async () => {
+  const { agentCalls } = await runLane(materialLane, limitedGate)
+  const prompt = agentCalls['r0-gate'].prompt
+  assert.match(prompt, /1\. rm -f [^\n]*-run\.log/)
+  assert.match(prompt, /hit your usage limit/)
+  assert.match(prompt, /never retry a limit/i)
+  assert.ok(lastLineCommand(prompt))
+})
+
+for (const [name, content, printed] of [
+  ['quotes the phrase earlier', `the brief says: you’ve hit your usage limit\nmore output\nError: stream closed\n\n  \n`, 'Error: stream closed\n'],
+  ['ends on the phrase before blank lines', `more output\nYou’ve hit your usage limit.\n\n  \n`, 'You’ve hit your usage limit.\n'],
+]) {
+  test(`#456 usage-limit: the courier last-line command prints only the last non-empty line of a run.log that ${name}`, async () => {
+    const { agentCalls } = await runLane(materialLane, limitedGate)
+    const command = lastLineCommand(agentCalls['r0-gate'].prompt)
+    const log = command.match(/(\/\S+-run\.log)/)[1]
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'lane-review-log-'))
+    try {
+      fs.writeFileSync(path.join(root, 'run.log'), content)
+      const ran = spawnSync('sh', ['-c', command.replace(log, path.join(root, 'run.log'))], { encoding: 'utf8' })
+      assert.equal(ran.stdout, printed)
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true })
+    }
+  })
+}

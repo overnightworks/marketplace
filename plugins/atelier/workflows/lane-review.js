@@ -4,7 +4,7 @@ export const meta = {
 }
 
 // Both copies of this number (here and in lane.js) change together in any commit that changes the args or the return shape.
-const LANE_REVIEW_PROTOCOL = 1
+const LANE_REVIEW_PROTOCOL = 2
 const A = args || {}
 const need = ['protocol', 'item', 'pr', 'delegatedLine', 'worktree', 'branch', 'scratch', 'tag', 'label', 'range', 'contract', 'blockingLine', 'reviewers', 'findingKinds', 'finding', 'followup', 'mechanical']
 if (A.protocol !== LANE_REVIEW_PROTOCOL) return { refused: `lane-review speaks protocol ${JSON.stringify(LANE_REVIEW_PROTOCOL)}, but the lane that started it speaks protocol ${JSON.stringify(A.protocol)}; the installed atelier differs from the running lane` }
@@ -36,7 +36,18 @@ const VERDICT = {
     codexExit: { type: 'number', description: 'the exit status Codex wrote to the marker file (couriers only)' },
   },
 }
-const COURIER_VERDICT = { ...VERDICT, required: [...VERDICT.required, 'codexExit'] }
+// The phrase Codex prints when the account is out of usage (typographic apostrophe in "You’ve", so the match starts after it).
+const USAGE_LIMIT = 'hit your usage limit'
+const LIMIT = {
+  type: 'object',
+  required: ['line', 'resetsAt'],
+  properties: { line: { type: 'string' }, resetsAt: { type: ['string', 'null'] } },
+}
+const COURIER_VERDICT = {
+  ...VERDICT,
+  required: [...VERDICT.required, 'codexExit'],
+  properties: { ...VERDICT.properties, limit: LIMIT },
+}
 
 // The reviewer stopgap of the fleet roadmap (#80, Q0): the reviewer is the only brake until a ratchet checks these.
 const STOPGAP_LINE =
@@ -96,7 +107,7 @@ function codexReview(label, routing, role, range) {
     `\nGive every finding its file:line in "where".`
   return safeAgent(
     `${A.delegatedLine}\nYou are a courier for one independent Codex review. Do not review anything yourself and do not edit the repository.\n` +
-    `1. rm -f ${base}-out.json ${base}-out.json.exit ${base}-out.json.exit.tmp ${base}-brief.md.tmp\n` +
+    `1. rm -f ${base}-out.json ${base}-out.json.exit ${base}-out.json.exit.tmp ${base}-brief.md.tmp ${base}-run.log\n` +
     `2. Write this brief verbatim to ${base}-brief.md:\n-----\n${brief}\n-----\n` +
     `3. Write this JSON schema verbatim to ${base}-schema.json:\n${CODEX_SCHEMA}\n` +
     `4. Append the current item body and pull request body to the brief and start Codex detached, recording its exit status in a marker file, with this one shell command line, exactly as written, never retyped from memory, split or summarised. Codex starts only if the append succeeded. If the line exits non-zero, Codex did not start: return verdict failed with codexExit -1 and the error in note.\n` +
@@ -104,26 +115,38 @@ function codexReview(label, routing, role, range) {
     `5. Wait in the foreground — you cannot be woken later, your task ends when you answer. Run this Bash command (timeout 600000 ms) and repeat it until the marker exists, at most 7 times:\n` +
     `   timeout 540 bash -c 'until [ -f ${base}-out.json.exit ]; do sleep 30; done'; ls ${base}-out.json.exit\n` +
     `   Never answer before the marker exists or the 7 waits are spent. Never return a placeholder or a pending result.\n` +
-    `6. If ${base}-run.log says the model is at capacity, wait 5 minutes and start again from step 1, once, with the same model. Never switch models: a gate stays on its model.\n` +
+    `6. If ${base}-run.log says the model is at capacity, wait 5 minutes and start again from step 1, once, with the same model. Never switch models: a gate stays on its model. Never retry a usage limit (step 7).\n` +
     `7. Decide by the exit status first. If ${base}-out.json.exit holds 0 and ${base}-out.json is valid JSON, return its verdict, blocking and followups UNCHANGED, ` +
     `reportPath ${base}-out.json and codexExit 0: APPROVE, REVISE and architectural are all valid review results, and a REVISE with blocking findings is never failed — the lane sends those findings to a fixer. Copy them verbatim from the out.json into the StructuredOutput call.\n` +
     `   Return verdict failed only when the 7 waits are spent without a marker (codexExit -1), the exit status is not 0 (codexExit = that number), or the file is missing or not valid JSON. ` +
-    `Then give the last 20 lines of ${base}-run.log in note.\n${STRUCTURED_OUTPUT_ONLY_LINE}`,
+    `Then give the last 20 lines of ${base}-run.log in note.\n` +
+    `   When the exit status is above 0, also run: grep -v '^[[:space:]]*$' ${base}-run.log | tail -n 1\n` +
+    `   Only that last non-empty line counts, because the log echoes the brief. If it contains "${USAGE_LIMIT}", Codex is out of usage: add limit to the answer, with line that line verbatim and resetsAt the text after "try again at" (any case) to the end of the line without a final period, or null when the line has none. Never wait for the reset and never retry a limit.\n${STRUCTURED_OUTPUT_ONLY_LINE}`,
     { label, phase: 'Review', schema: COURIER_VERDICT, ...MECHANICAL })
     .then(v => rereadContradictoryCourier(v, label, base))
     .then(v => (v && v.codexExit !== 0 && v.verdict !== 'failed') ? { ...v, verdict: 'failed', note: `courier returned a verdict without a clean Codex exit (${v.codexExit}): ${v.note || ''}` } : v)
 }
 
+// A limit counts only as the reason of a failed Codex run that exited above 0; anywhere else it is a courier's mistake and dropped.
+function guardLimit(answer, reviewer) {
+  if (!answer?.limit) return answer
+  const { limit, ...rest } = answer
+  const guarded = reviewer.provider === 'codex' && answer.verdict === 'failed' && answer.codexExit > 0 && typeof limit.line === 'string' && limit.line.includes(USAGE_LIMIT)
+  return guarded ? { ...rest, limit: { role: reviewer.key, model: reviewer.routing.model, line: limit.line, resetsAt: limit.resetsAt ?? null } } : rest
+}
+
 const reviewBy = (reviewer, range) => {
   const label = `${A.label}-${reviewer.key}`
-  return reviewer.provider === 'codex' ? codexReview(label, reviewer.routing, reviewer.role, range) : claudeReview(label, reviewer.routing, reviewer.role, range)
+  return reviewer.provider === 'codex'
+    ? codexReview(label, reviewer.routing, reviewer.role, range).then(answer => guardLimit(answer, reviewer))
+    : claudeReview(label, reviewer.routing, reviewer.role, range).then(answer => guardLimit(answer, reviewer))
 }
 
 // One classifier for every review round: every started review must return, and verdict and findings must agree.
 function classify(results, expected) {
   const got = results.filter(Boolean)
   if (got.length !== expected) return { state: 'failed', reason: `${expected - got.length} review(s) returned nothing` }
-  if (got.some(v => v.verdict === 'failed')) {
+  if (got.some(v => v.verdict === 'failed' && !v.limit)) {
     const reportPaths = got.filter(v => v.verdict === 'failed' && v.reportPath).map(v => v.reportPath)
     return { state: 'failed', reason: got.map(v => v.note || '').join(' | ') + (reportPaths.length ? '; read the report ' + reportPaths.join(' and ') : '') }
   }
@@ -135,6 +158,7 @@ function classify(results, expected) {
     const readHint = emptyRevise.reportPath ? '; read the report ' + emptyRevise.reportPath : ''
     return { state: 'failed', reason: 'a REVISE verdict came without any blocking finding' + readHint }
   }
+  if (got.some(v => v.limit)) return { state: 'limited' }
   return { state: got.some(v => (v.blocking || []).length > 0) ? 'revise' : 'approve' }
 }
 

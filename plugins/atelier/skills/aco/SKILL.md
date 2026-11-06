@@ -145,7 +145,7 @@ contract and this skill.
   (NEXT-36), `aco board` names it with its defect (BODY-50), and `aco claim` refuses it
   (BODY-52).
 - Transcribe a chat answer with `aco rule <n> --line <k> --option <letter> --via chat
-  --card-hash <hash>`, the hash being the line's `card_hash` in `aco rulings --json`;
+  --card-hash <hash>`, the hash being the line's `card_hash` in `aco rulings <n> --json`;
   an answer that fits no option uses `--other "<the operator's words>"` instead of
   `--option`, and "unclear" uses `aco rule <n> --line <k> --unclear --card-hash <hash>
   [--note "<the operator's words>"]` without `--via`: the line stays open and returns

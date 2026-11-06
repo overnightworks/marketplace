@@ -6,7 +6,7 @@ import { spawnSync } from 'node:child_process'
 
 const workflowSource = (file) => fs.readFileSync(new URL(`../plugins/atelier/workflows/${file}`, import.meta.url), 'utf8').replace(/^export const meta/m, 'const meta')
 // The plugin workflows a workflow can start by name, as the Workflow runtime resolves them.
-const CHILD_WORKFLOWS = { 'atelier:lane-ci': 'lane-ci.js', 'atelier:lane-codex': 'lane-codex.js', 'atelier:lane-relay': 'lane-relay.js', 'atelier:lane-test': 'lane-test.js' }
+const CHILD_WORKFLOWS = { 'atelier:lane-ci': 'lane-ci.js', 'atelier:lane-review': 'lane-review.js', 'atelier:lane-relay': 'lane-relay.js', 'atelier:lane-test': 'lane-test.js' }
 const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor
 
 // Stand-ins for the three programs the printer runs, steered by environment variables the harness sets for the child only.

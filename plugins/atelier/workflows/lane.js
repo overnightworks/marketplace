@@ -168,19 +168,6 @@ function mergedOnto(values, base) {
   return Boolean(mergedIn) && sameCommit(firstParent, base)
 }
 const failedCommand = (values) => values.head.code !== 0 || ![0, 1].includes(values.main.code)
-const VERDICT = {
-  type: 'object',
-  required: ['verdict', 'blocking', 'followups'],
-  properties: {
-    verdict: { type: 'string', enum: ['APPROVE', 'REVISE', 'architectural', 'failed'] },
-    blocking: { type: 'array', items: FINDING },
-    followups: { type: 'array', items: FOLLOWUP },
-    reportPath: { type: 'string' },
-    note: { type: 'string' },
-    codexExit: { type: 'number', description: 'the exit status Codex wrote to the marker file (couriers only)' },
-  },
-}
-const COURIER_VERDICT = { ...VERDICT, required: [...VERDICT.required, 'codexExit'] }
 const FIX = {
   type: 'object',
   required: ['mergeResolvedLaneConflict', 'files', 'disputed', 'blocked'],
@@ -239,11 +226,6 @@ const BLOCKING_LINE =
   `and then it is **docs**, as is any finding where only documentation or a comment is wrong; **test-gap** when the code already does what the contract says ` +
   `and a behaviour has no test that pins it. Hygiene in test code (a needless monkeypatch, a new test whose name does not state the behaviour it pins) is a **defect** whose proof is the diff, not a mutation.`
 
-// The reviewer stopgap of the fleet roadmap (#80, Q0): the reviewer is the only brake until a ratchet checks these.
-const STOPGAP_LINE =
-  `Refuse (blocking defect) a new file of 800 lines or more; a new test whose name does not state the behaviour it pins; ` +
-  `and a new patch or monkeypatch at an import location or on a private attribute where a fake on PATH or an injected port works.`
-
 const findingKey = (f) => `${f.where}::${f.text}`
 // A finding from a run that predates kinds (a resumed run) keeps the rule it was raised under.
 const kindOf = (f) => f.kind || 'defect'
@@ -254,50 +236,9 @@ const listFindings = (list) => list.map((f, i) =>
 // ------------------------------------------------------------ reviewers
 // The ordinary review may come from the builder's own provider (the contract asks only for a fresh, independent agent);
 // a fresh Sonnet reviewer is the default. The final gate on a material lane must come from another provider than the
-// Claude builder, so it runs on Codex through a courier.
-function reviewerBrief(role, range) {
-  return `You are the ${role} for work item #${A.item}: a fresh, independent reviewer who did not write this change. ` +
-    `Contract:\n${A.contract}\n\nReview ${range}.\n\n${BLOCKING_LINE}\n\n${STOPGAP_LINE}\n\n` +
-    `verdict is APPROVE with no blocking findings, REVISE with at least one, or architectural when the cut itself is wrong.`
-}
-
-function claudeReview(label, role, range) {
-  return safeAgent(
-    `Work read-only in ${A.worktree} on branch ${A.branch}: read files and run read-only commands freely; do not run tests and do not edit anything.\n` +
-    `Before judging, read the current item body (gh issue view ${A.item}${R} --json body --jq .body) and the pull request body (gh pr view ${pr}${R} --json body --jq .body): the contract core and the verification evidence.\n` + reviewerBrief(role, range),
-    { label, phase: 'Review', schema: VERDICT, agentType: 'atelier:code-reviewer', ...claudeRole('review') })
-}
-
-// The lane-codex child's refusal, crash or malformed answer is a failed verdict that names it.
-const LANE_CODEX_PROTOCOL = 3
-async function codexReview(label, routing, role, range) {
-  const failed = (note) => ({ verdict: 'failed', blocking: [], followups: [], codexExit: -1, note })
-  const answer = await startChild('lane-codex', { protocol: LANE_CODEX_PROTOCOL, item: A.item, pr, repo: A.repo, delegatedLine: DELEGATED_LINE, worktree: A.worktree, scratch: A.scratch, tag: TAG, label, routing, reviewerBrief: reviewerBrief(role, range), findingKinds: FINDING_KINDS, verdictSchema: COURIER_VERDICT, mechanical: MECHANICAL })
-  if (answer?.problem) return failed(`the Codex courier ${answer.problem}`)
-  if (answer && typeof answer.verdict !== 'string') return failed(`lane-codex answered without a verdict: ${JSON.stringify(answer).slice(0, 200)}`)
-  return answer
-}
-
-const reviewBy = (r, label, range) => r.provider === 'codex' ? codexReview(label, ROUTING[r.key], r.role, range) : claudeReview(label, r.role, range)
-
-// One classifier for every review round: every started review must return, and verdict and findings must agree.
-function classify(results, expected) {
-  const got = results.filter(Boolean)
-  if (got.length !== expected) return { state: 'failed', reason: `${expected - got.length} review(s) returned nothing` }
-  if (got.some(v => v.verdict === 'failed')) {
-    const reportPaths = got.filter(v => v.verdict === 'failed' && v.reportPath).map(v => v.reportPath)
-    return { state: 'failed', reason: got.map(v => v.note || '').join(' | ') + (reportPaths.length ? '; read the report ' + reportPaths.join(' and ') : '') }
-  }
-  if (got.some(v => v.verdict === 'architectural')) return { state: 'architectural' }
-  // An evidenced blocking finding outranks its label (APPROVE with a finding counts as REVISE). A REVISE with nothing
-  // to fix stays broken: that is how a courier's placeholder was caught.
-  const emptyRevise = got.find(v => v.verdict === 'REVISE' && (v.blocking || []).length === 0)
-  if (emptyRevise) {
-    const readHint = emptyRevise.reportPath ? '; read the report ' + emptyRevise.reportPath : ''
-    return { state: 'failed', reason: 'a REVISE verdict came without any blocking finding' + readHint }
-  }
-  return { state: got.some(v => (v.blocking || []).length > 0) ? 'revise' : 'approve' }
-}
+// Claude builder, so it runs on Codex through a courier. The lane-review child runs one round and classifies it.
+const LANE_REVIEW_PROTOCOL = 1
+const ROUND_STATES = new Set(['approve', 'revise', 'failed', 'architectural'])
 
 // ------------------------------------------------------------ state
 const history = []
@@ -363,15 +304,25 @@ if (A.build) {
 
 // ------------------------------------------------------- review / fix
 const gateRounds = []
+function unfitRoundAnswer(answer, expectedResults) {
+  if (answer?.problem) return `the review round ${answer.problem}`
+  if (!Array.isArray(answer?.results) || answer.results.length !== expectedResults) return `lane-review answered without a valid result: ${JSON.stringify(answer ?? null).slice(0, 200)}`
+  if (!ROUND_STATES.has(answer.verdict?.state)) return `lane-review answered with an unknown round state: ${JSON.stringify(answer.verdict ?? null).slice(0, 200)}`
+  return null
+}
 async function reviewRound(which, range) {
-  const results = await parallel(which.map(r => () => reviewBy(r, `r${spent.total}-${r.key}`, range)))
+  const reviewers = which.map(r => ({ key: r.key, provider: r.provider, role: r.role, routing: r.provider === 'codex' ? ROUTING[r.key] : claudeRole('review') }))
+  const answer = await startChild('lane-review', { protocol: LANE_REVIEW_PROTOCOL, item: A.item, pr, repo: A.repo, delegatedLine: DELEGATED_LINE, worktree: A.worktree, branch: A.branch, scratch: A.scratch, tag: TAG, label: `r${spent.total}`, range, contract: A.contract, blockingLine: BLOCKING_LINE, reviewers, findingKinds: FINDING_KINDS, finding: FINDING, followup: FOLLOWUP, mechanical: MECHANICAL })
+  const unfit = unfitRoundAnswer(answer, which.length)
+  if (unfit) return { which, results: [], verdict: { state: 'failed', reason: unfit } }
+  const { results, verdict } = answer
   results.forEach((v, i) => {
     if (!v) return
     history.push({ after: spent.total, by: which[i].key, verdict: v.verdict, blocking: (v.blocking || []).map(f => f.where), reportPath: v.reportPath || '' })
     if (which[i] === GATE) gateRounds.push({ after: spent.total, verdict: v.verdict, blocking: v.blocking || [], reportPath: v.reportPath || '' })
     followups.push(...(v.followups || []).map(f => ({ ...f, tip })))
   })
-  return { which, results, verdict: classify(results, which.length) }
+  return { which, results, verdict }
 }
 
 // A finding that comes back unchanged after a fix meant for it is no progress; the second return stops the lane.
@@ -746,7 +697,7 @@ while (true) {
   const testBlocking = e2e.blocking || []
   if (e2e.verdict === 'PASS' && !e2e.skipped && !(e2e.cells || []).some(c => c.result === 'held')) return openResult('failed', 'test', { reason: 'a PASS without driven cells: the tester named no held cell' })
   if (e2e.verdict === 'FAIL' && testBlocking.length === 0) return openResult('failed', 'test', { reason: 'a FAIL verdict came without any blocking finding' })
-  // A blocking finding outranks a PASS label, as in the review classifier.
+  // A blocking finding outranks a PASS label, as in the classifier of lane-review.js.
   if (!sameCommit(ci.head, tip)) return openResult('failed', 'ci', { reason: `the pull request head ${ci.head} is not the lane tip ${tip}` })
   const { unproven } = ci
   history.push(

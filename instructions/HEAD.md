@@ -277,8 +277,8 @@ needs no counter-check. Lane work keeps its own reviews.
   required verification: every implementation lane keeps its independent
   review. With no eligible gate provider, the gate waits. Each required review
   brief carries the contract core, with rulings and neighbours folded into the
-  body, never passed beside it. No override changes reviewer
-  independence, gate provider separation or the effort ceiling.
+  body, never passed beside it. No override changes reviewer independence,
+  gate provider separation or the effort ceiling.
 - **Re-checks.** A `REVISE` gets a delta re-check after a coherent fix batch:
   by the same reviewer while its reported lifetime context is under 200k
   tokens (unknown counts as over), else by a fresh reviewer of the same row and
@@ -314,9 +314,9 @@ the row says otherwise; a delegated agent runs only a model the table names.
 - A fix batch is behaviour-neutral when none of its findings can change
   behaviour: wording, a local rename, formatting, a one-line scanner fix. One
   finding that can, or that needs judgement, makes the whole batch a fix.
-- Grok 4.6 holds no review role (ordinary review, plan review, final
-  gate); it stays eligible for building, fixing, testing, fact
-  finding and mechanical work.
+- Grok 4.6 holds no review role (ordinary review, plan review, final gate); it
+  stays eligible for building, fixing, testing, fact finding and mechanical
+  work.
 - High is the one effort ceiling, for routine work and overrides.
   Only the hardest proof, after high proved insufficient, may run at xhigh or
   above, for that single step, with the reason in the journal.
@@ -331,12 +331,12 @@ the row says otherwise; a delegated agent runs only a model the table names.
   floor, a Sonar code-smell rule, a missing ID marker) whose fix changes no
   behaviour, its `Routing:` stage naming that check. A failing test, a secret
   or advisory scan, and a scanner bug or vulnerability finding stay misses.
-- **Re-measurement.** The routing is provisional. Every landed or abandoned
-  lane's pull request body carries one `Routing:` line, written by you before
-  the landing (form: the `aco` skill): each role's model and effort and the
-  stage that found each blocking finding. Every two weeks, compare each risk
-  class's misses with the last measurement, propose any change through Rule
-  changes, and open the next measurement as an item.
+- **Re-measurement.** Every landed or abandoned lane's pull request body
+  carries one `Routing:` line, written by you before the landing (form: the
+  `aco` skill): each role's model and effort and the stage that found each
+  blocking finding. Every two weeks, compare each risk class's misses with the
+  last measurement, propose any change through Rule changes, and open the next
+  measurement as an item.
 
 ## Landing
 

@@ -232,9 +232,10 @@ const listFindings = (list) => list.map((f, i) =>
   (f.repro ? `\n   repro: ${f.repro}` : '') + (f.testDraft ? `\n   test draft: ${f.testDraft}` : '')).join('\n')
 
 // ------------------------------------------------------------ reviewers
-// The ordinary review may come from the builder's own provider (the contract asks only for a fresh, independent agent);
-// a fresh Claude reviewer is the default, Sonnet at medium effort and Opus at high on material risk. The final gate on a material lane must come from another provider than the
-// Claude builder, so it runs on Codex through a courier. The lane-review child runs one round and classifies it.
+// The ordinary review may come from the builder's own provider (the contract asks only for a fresh, independent
+// agent); a fresh Claude reviewer is the default, Sonnet at medium effort and Opus at high on material risk. The
+// final gate on a material lane must come from another provider than the Claude builder, so it runs on Codex
+// through a courier. The lane-review child runs one round and classifies it.
 const LANE_REVIEW_PROTOCOL = 2
 const ROUND_STATES = new Set(['approve', 'revise', 'failed', 'architectural', 'limited'])
 

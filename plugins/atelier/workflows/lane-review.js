@@ -56,9 +56,10 @@ const STOPGAP_LINE =
 
 
 // ------------------------------------------------------------ reviewers
-// The ordinary review may come from the builder's own provider (the contract asks only for a fresh, independent agent);
-// a fresh Claude reviewer is the default, Sonnet at medium effort and Opus at high on material risk. The final gate on a material lane must come from another provider than the
-// Claude builder, so it runs on Codex through a courier.
+// The ordinary review may come from the builder's own provider (the contract asks only for a fresh, independent
+// agent); a fresh Claude reviewer is the default, Sonnet at medium effort and Opus at high on material risk. The
+// final gate on a material lane must come from another provider than the Claude builder, so it runs on Codex
+// through a courier.
 function reviewerBrief(role, range) {
   return `You are the ${role} for work item #${A.item}: a fresh, independent reviewer who did not write this change. ` +
     `Contract:\n${A.contract}\n\nReview ${range}.\n\n${A.blockingLine}\n\n${STOPGAP_LINE}\n\n` +

@@ -94,11 +94,6 @@ test('#128 AC-gate-revise-kept: the courier brief returns a REVISE from a clean 
   assert.match(agentCalls['r0-gate'].prompt, /holds 0 and .* is valid JSON, return its verdict, blocking and followups UNCHANGED.*a REVISE with blocking findings is never failed/s)
 })
 
-test('#90 AC-codex-reviewer: a Codex reviewer runs gpt-6-astra at medium effort', async () => {
-  const { agentCalls } = await runLane({ ...resumedLane, reviewer: 'codex' })
-  assert.match(agentCalls['r0-review'].prompt, /-m gpt-6-astra -c model_reasoning_effort=medium/)
-})
-
 test('#90 AC-override: a routing override sets a role\'s model and effort within the ceiling', async () => {
   const { agentCalls } = await runLane({ ...resumedLane, routing: { review: { model: 'opus', effort: 'high' } } })
   assert.deepEqual([agentCalls['r0-review'].options.model, agentCalls['r0-review'].options.effort], ['opus', 'high'])

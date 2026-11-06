@@ -90,8 +90,8 @@ Does the skill beat the no-skill baseline (S1-S3)?
 ## Gaps
 
 Missing rules or checks come from misses: findings a later stage caught after
-an earlier review approved (the `Routing:` lines in the pull request
-bodies, per the head contract's "Model routing": `instructions/HEAD.md` in the
+an earlier review approved (the `Routing:` lines of landed pull requests, per
+the head contract's "Model routing": `instructions/HEAD.md` in the
 marketplace repository, else `HEAD.md` beside the resolved target of the
 installed contract link `~/.claude/CLAUDE.md`;
 default when neither exists: the reviews and CI failures of the last landed

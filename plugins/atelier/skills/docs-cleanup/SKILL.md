@@ -35,11 +35,13 @@ and note "out of scope: agent-documentation" in the report.
 - The document stays within its type: a runbook that drifts into explanation,
   or a reference that carries steps, is split into one document per type,
   linked, with each fact kept in one place.
-- A plan, roadmap, wish list, status table or unbuilt target other than a
-  blessed mockup is a finding (`PROPOSE move-to-board <file:section>`) naming
-  its owning item (`gh issue list --state all --search`), whose body takes
-  the open part; with `no owner`, the head decides between an idea and
-  dropping it, and the pass opens no item.
+- Content on write-docs' never-in-the-tree list
+  ([Repository document set](../write-docs/references/document-types.md)),
+  other than a blessed mockup, is a finding. A plan, roadmap or unbuilt target
+  is `PROPOSE move-to-board <file:section>` naming its owning item
+  (`gh issue list --state all --search`), whose body takes the open part; with
+  `no owner`, the head decides between an idea and dropping it, and the pass
+  opens no item.
 - A mockup is checked only for being blessed (named in its item); one whose
   surface is finished is a finding to delete. It has no length budget.
 - Each part of a plan is sorted as built (current document), decided

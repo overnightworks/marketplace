@@ -49,7 +49,7 @@ const COURIER_VERDICT = {
   properties: { ...VERDICT.properties, limit: LIMIT },
 }
 
-// The reviewer stopgap of the fleet roadmap (#80, Q0): the reviewer is the only brake until a ratchet checks these.
+// The reviewer is the only brake until a ratchet checks these.
 const STOPGAP_LINE =
   `Refuse (blocking defect) a new file of 800 lines or more; a new test whose name does not state the behaviour it pins; ` +
   `and a new patch or monkeypatch at an import location or on a private attribute where a fake on PATH or an injected port works.`

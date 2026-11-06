@@ -3,7 +3,7 @@ updates:
   # Every action this repository pins by commit SHA lives in
   # .github/workflows/*.yml; directory "/" is GitHub's documented value for
   # the github-actions ecosystem and covers that directory plus any
-  # root-level action.yml (see overnightworks/marketplace#47).
+  # root-level action.yml.
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:

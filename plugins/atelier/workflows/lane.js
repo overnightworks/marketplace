@@ -454,10 +454,17 @@ const satisfiedEvidence = (fixed, foldIn) => (fixed.resolved || []).find(r => r.
 const everyFoldInSatisfied = (fixed, blocking, foldIn) => !blocking.length && foldIn.length > 0 && foldIn.every(f => satisfiedEvidence(fixed, f))
 // An unchanged tip is a fix too when each blocking finding is answered in the pull request body or an item comment.
 const answeredOutside = (fixed, blocking) => blocking.length > 0 && blocking.every((_, index) => (fixed.outside || []).some(o => o.finding === index + 1 && (o.where || '').trim()))
+// Each proof paired with the blocking finding it names and what it still lacks. A finding another proof covers
+// without a gap counts as proven, so a proof with a gap beside it is only supporting evidence.
+function judgedProofs(fixed, blocking) {
+  const judged = (fixed.regression || []).flatMap(proof => blocking.map((finding, index) => ({ proof, finding, index })).filter(({ index }) => proves(proof, index)).map(({ finding, index }) => ({ proof, finding, index, gap: proofGap(proof, finding) })))
+  const provenIndexes = new Set(judged.filter(({ gap }) => !gap).map(({ index }) => index))
+  return judged.map(entry => ({ ...entry, proven: provenIndexes.has(entry.index) }))
+}
 function fixRejection(fixed, blocking, foldIn, ciOnly) {
   const proofs = fixed.regression || []
-  const gaps = proofs.flatMap(proof => blocking.map((finding, index) => ({ proof, finding, index })).filter(({ index }) => proves(proof, index)).map(({ finding }) => ({ proof, finding, gap: proofGap(proof, finding) })))
-    .filter(checked => checked.gap)
+  // A proof red after the fix is evidence against the fix, even beside a valid proof.
+  const gaps = judgedProofs(fixed, blocking).filter(checked => checked.gap && (!checked.proven || !checked.proof.passesAfter))
   if (gaps.length) return { reason: [...new Set(gaps.map(checked => checked.gap))].join('; '), regression: gaps.map(checked => checked.proof), lastBlocking: gaps.map(checked => checked.finding) }
   const unproven = blocking.map((finding, index) => ({ finding, index })).filter(({ finding, index }) => needsProof(finding) && !proofs.some(r => proves(r, index)))
   const unprovenList = unproven.map(({ finding, index }) => (index + 1) + '. ' + finding.where).join(', ')
@@ -474,9 +481,13 @@ function fixRejection(fixed, blocking, foldIn, ciOnly) {
 const worktreeRelative = (files) => files.map(f => f.startsWith(`${A.worktree}/`) ? f.slice(A.worktree.length + 1) : f.replace(/^\.\//, ''))
 
 // A removal answers a test-gap only if the reviewer agrees the removed test pinned nothing; a defect proof is judged by the defect bar.
-const testGapAnswered = (proof, blocking) => blocking.find((f, index) => kindOf(f) === 'test-gap' && proves(proof, index))
-const removalsInRange = (fixed, blocking) => (fixed.regression || []).filter(proof => proof.resolution === 'removed-vacuous' && testGapAnswered(proof, blocking))
-  .map(proof => `\nThe fixer answered ${testGapAnswered(proof, blocking).where} by removing a vacuous test instead of adding one; judge whether the removed test pinned no behaviour:\n${proof.diff}`).join('')
+// A proof with a gap beside a valid proof for its finding reaches the raiser as a note, so it can judge whether the proof misleads.
+const removalNote = ({ proof, finding }) => `\nThe fixer answered ${finding.where} by removing a vacuous test instead of adding one; judge whether the removed test pinned no behaviour:\n${proof.diff}`
+const supportingNote = ({ proof, finding, gap }) => `\nThe fixer also offered the test ${proof.test} for ${finding.where}, though it shows less than the bar: ${gap}; judge whether it misleads.`
+const proofNotes = (fixed, blocking) => judgedProofs(fixed, blocking).map(entry => {
+  if (entry.proof.resolution === 'removed-vacuous' && kindOf(entry.finding) === 'test-gap' && !entry.gap) return removalNote(entry)
+  return entry.gap && entry.proven ? supportingNote(entry) : ''
+}).join('')
 
 // Takes the fixer's tip and names the delta the reviewers see next, or none when a clean merge of main was the whole fix.
 function acceptFix(fixed, blocking, foldIn) {
@@ -489,15 +500,16 @@ function acceptFix(fixed, blocking, foldIn) {
   const outsideRange = fixed.unchanged && answeredOutside(fixed, blocking)
   if ((fixed.unchanged && !outsideRange) || (fixed.mergeOnly && !fixed.mergeResolvedLaneConflict)) {  // nothing of the lane changed to review: a clean merge of main answered the mergeable finding
     log(`fix ${spent.total}: no lane change to review`)
-    return { range: null, gateAgain: false, touchesProduction: false }
+    return { range: null, proofNotes: '', gateAgain: false, touchesProduction: false }
   }
   const edited = outsideRange ? fixed.outside.map(o => 'finding ' + o.finding + ': ' + o.where).join('; ') : ''
   let delta = `only this delta, the fixer's own commits: git log -p --first-parent --remerge-diff ${fixed.heldTip}..${fixed.tip} (main's clean changes are not shown; a lane edit inside a merge of main is)`
   if (outsideRange) delta = `no commit changed: read live what the fixer edited outside the tree (${edited}), the pull request body with gh pr view ${pr}${R} --json body and an item comment with gh issue view ${A.item}${R} --comments`
   else if (fixed.mergeResolvedLaneConflict) delta = `only this delta: git diff ${fixed.heldTip}..${fixed.tip} (it includes a merge of main whose conflicts in this lane's files were resolved by hand)`
-  const range = `${delta}. It answers these findings:\n${listFindings(blocking)}${removalsInRange(fixed, blocking)}${foldInsInRange(foldIn)}`
+  const notes = proofNotes(fixed, blocking)
+  const range = `${delta}. It answers these findings:\n${listFindings(blocking)}${notes}${foldInsInRange(foldIn)}`
   log(`fix ${spent.total}: ${fixed.heldTip.slice(0, 7)}..${tip.slice(0, 7)}`)
-  return { range, gateAgain: MATERIAL && touchesProduction, touchesProduction }
+  return { range, proofNotes: notes, gateAgain: MATERIAL && touchesProduction, touchesProduction }
 }
 
 // Only a docs finding is provably behaviour-neutral; whether a defect changes behaviour needs judgement.
@@ -655,7 +667,7 @@ if (carriesBatch) {
     ? `${firstRange}. It includes the fixer's commits for the head's carried-over findings, described next as a delta to look at closely; review the whole lane, not only that delta:\n${f.range}`
     : `${firstRange}${foldInsInRange(f.foldIn)}`
   const range = A.deltaFrom
-    ? `only this delta: git diff ${A.deltaFrom}..HEAD — fixes no reviewer has seen yet. They answer:\n${A.answers || ''}\n${listFindings(carriedOver)}${foldInsInRange(f.foldIn)}`
+    ? `only this delta: git diff ${A.deltaFrom}..HEAD — fixes no reviewer has seen yet. They answer:\n${A.answers || ''}\n${listFindings(carriedOver)}${f.proofNotes}${foldInsInRange(f.foldIn)}`
     : wholeLane
   const stop = await reviewUntilClean(ALL, range)
   if (stop) return stop

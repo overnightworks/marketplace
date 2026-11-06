@@ -445,9 +445,9 @@ before the work is called done.
 - Verify before you say anything is done, and report the exact verification
   command; say exactly what you could not verify, after you tried. Report
   larger problems separately instead of refactoring unrelated code.
-- A commit's first line says what changes, without a type prefix; its body says
-  why (the problem, the decision, any rejected alternative, the item or ruling
-  it serves). Check results belong in the pull request.
+- A commit's first line says what changes, without a type prefix; a landed
+  commit's body says why (the problem, the decision, any rejected alternative,
+  the item or ruling it serves). Check results belong in the pull request.
 - Self-improvement reports the problem removed, its proof, the complexity
   added, the verification and what can now be deleted or simplified; pure
   growth is a defect.

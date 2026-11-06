@@ -1,8 +1,0 @@
-claim_id = "baeb9decd1e04b2ebd384674d0e61cf4"
-agent = "Claude a5abe9e4-862b-4cac-94ed-68bd072edf38"
-role = "builder"
-base = "53649efc5be17011f07e4182f94b96e41d10053a"
-branch = "claude/issue-517-vision-type"
-scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/skills/write-docs/references/document-types.md"]
-opened_commit = "c5c2c46af92e2689abd712e73c2f7a95347ca7bc"
-whole_reason = "One section of one skill reference, plus the release pins it needs."

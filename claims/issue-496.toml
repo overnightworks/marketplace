@@ -1,0 +1,8 @@
+claim_id = "4862485141e14254b1a34e54c030913f"
+agent = "Claude a5abe9e4-862b-4cac-94ed-68bd072edf38"
+role = "builder"
+base = "26f6d069b5baa151c63b4900bdb2adc711ef1879"
+branch = "claude/issue-496-courier-writes-codex-schema"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/workflows/lane-review.js", "tests/lane_workflow_review.test.mjs"]
+opened_commit = "84fca952c497383fb3e86a465c3daaf9fcff9f01"
+whole_reason = "One courier step, its test and the release pins."

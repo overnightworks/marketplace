@@ -1,8 +1,0 @@
-claim_id = "0748192acbde4fa89e14dc1e29be00ad"
-agent = "Claude a5abe9e4-862b-4cac-94ed-68bd072edf38"
-role = "builder"
-base = "111f0e0ff0b4b41b12fad6f56f96ce0dbc7fd41d"
-branch = "claude/issue-540-hygiene-where-gate-exists"
-scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/workflows/lane.js"]
-opened_commit = "17add0290a7659ad65a8711758e8cbc1735e6c11"
-whole_reason = "One sentence of one workflow brief and the release pins."

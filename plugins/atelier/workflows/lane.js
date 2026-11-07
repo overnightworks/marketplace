@@ -293,12 +293,12 @@ if (A.build) {
   const nonce = `sync-${tip}`
   const quotedNonce = `'${nonce}'`
   const synced = await relay({ label: 'sync', phase: 'Sync', step: 'sync', relayArgs: [quotedNonce], nonce, requiredKeys: ['head', 'parents', 'main'], answerSchema: SYNC_ANSWER, brief:
-    `${laneFacts}\nBring the lane up to date with main and change nothing else. Run each command exactly as written, with its -C option. ${git} fetch origin; if ${git} merge-base --is-ancestor origin/main HEAD succeeds, change nothing. ` +
-    `Otherwise ${git} merge origin/main; when it merges cleanly, ${git} push. ` +
-    (LEDGERS.length || GENERATED.length ? `Conflicts only in the append-only ledgers${andGeneratedFiles}: resolve them as the lane facts say, commit the merge, ${git} push. ` : '') +
-    (GENERATED.length ? `When a generated file's command fails or leaves its path dirty or unmerged, run ${git} merge --abort and put the command and its output in note. ` : '') +
+    `${laneFacts}\nBring the lane up to date with main and change nothing else. Run each command exactly as written, with its -C option. Run \`${git} fetch origin && ${git} merge-base --is-ancestor origin/main HEAD\`; when it exits 0, the lane already contains main: change nothing. ` +
+    `Otherwise run \`${git} merge origin/main\`; when it merges cleanly, run \`${git} push\`. ` +
+    (LEDGERS.length || GENERATED.length ? `Conflicts only in the append-only ledgers${andGeneratedFiles}: resolve them as the lane facts say, commit the merge, run \`${git} push\`. ` : '') +
+    (GENERATED.length ? `When a generated file's command fails or leaves its path dirty or unmerged, run \`${git} merge --abort\` and put the command and its output in note. ` : '') +
     (LEDGERS.length || GENERATED.length ? `Any other conflict: ` : `Any conflict: `) +
-    `run ${git} merge --abort, confirm \`${git} status --porcelain\` is empty, push nothing, and put the conflicting paths in note. Last, whatever happened,`
+    `run \`${git} merge --abort\`, confirm \`${git} status --porcelain\` is empty, push nothing, and put the conflicting paths in note. Last, whatever happened,`
   })
   if (!synced) return openResult('failed', 'sync')
   const { values, problem } = synced

@@ -213,7 +213,7 @@ const rescopeFacts =
 
 // For the builder and the fixer: the deterministic checks CI repeats run before the push, not after it.
 const localCheckFacts =
-  `After your last merge of origin/main and before you push, run the static checks those RULES and CHECKS or your brief name and, where quality/config.toml exists, \`quality hygiene .\` at the release the gate pins; fix what they report.`
+  `After your last merge of origin/main and before you push, run the static checks those RULES and CHECKS or your brief name and, where the quality gate exists, \`quality hygiene .\` at the release it pins; fix what they report.`
 
 const driveFacts = `Any drive you run keeps its pidfiles and evidence under ${A.scratch}.`
 

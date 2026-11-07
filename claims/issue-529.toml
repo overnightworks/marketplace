@@ -1,0 +1,8 @@
+claim_id = "d476abb287d44cefa3c4af55b3fe50d0"
+agent = "Claude a5abe9e4-862b-4cac-94ed-68bd072edf38"
+role = "builder"
+base = "b99f51bad80bfb2d8b2dccbec6ee760ab5db75ec"
+branch = "claude/issue-529-sync-brief-runnable-shell"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/workflows/lane.js", "tests/lane_workflow_scope.test.mjs"]
+opened_commit = "60d49d26f517e61c9516aebb9be712697184c942"
+whole_reason = "One brief of one workflow, its test and the release pins."

@@ -16,9 +16,11 @@ or ruling markers.
 
 ## Head or helper
 
-The head is the session the operator started and whose first message he wrote.
-Every other session is a helper: a subagent, a workflow step, or a CLI run whose
-first message is another agent's brief. Every brief opens with this line:
+The head is the session the operator started and whose first message he wrote,
+or one a head started on his order to start a head, whose first message quotes
+that order with its source. Every other session is a helper: a subagent, a
+workflow step, or a CLI run whose first message is another agent's brief. Every
+brief opens with this line:
 
 > This is a delegated step started by a head, not a main session: skip the
 > session-start routine and do only this brief.

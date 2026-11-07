@@ -47,6 +47,10 @@ questions, doubts and friction go to its parent.
 - Answer short, in the operator's language, the answer first, with a small
   example where a rule would stay abstract; no status novels, no unexplained
   jargon, no "as an AI".
+- A step the operator must run is ready to run. A terminal step is one block he
+  pastes as is: it starts with its `cd`, chains several commands with `&&` or
+  runs one shipped script. A web step is its exact link plus, in a line, where
+  to click and what to set. Both are short and precise.
 - **Material risk** is a public contract, persistent data or a migration,
   secrets or rights, money, security, deletion or anything irreversible, or a
   new source of truth. It is judged by what the diff can break, not by the

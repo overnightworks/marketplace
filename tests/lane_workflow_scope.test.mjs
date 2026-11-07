@@ -469,3 +469,12 @@ test('AC-lane-shared-line-named: the builder and fixer prompts say the lane-shar
   const { agentCalls: fixerCalls } = await runLane({ ...resumeArgs, fixFirst: [defectWithoutDraft] }, { 'fix-1': resumeFix })
   for (const prompt of [builderCalls.build.prompt, fixerCalls['fix-1'].prompt]) assert.match(prompt, /`aco brief <item>` prints it on its `lane-shared:` line[^.]*before you call a path outside the scope/)
 })
+
+test('the sync prompt keeps every git -C command inside a backticked span', async () => {
+  const variants = [resumeArgs, { ...resumeArgs, ledgers: ['LEDGER.md'] }, { ...resumeArgs, generated: { 'out.json': 'make out' } }]
+  for (const args of variants) {
+    const { agentCalls } = await runLane(args)
+    const prose = agentCalls.sync.prompt.slice(agentCalls.sync.prompt.indexOf('Bring the lane up to date')).replace(/`[^`]*`/g, '')
+    assert.doesNotMatch(prose, /git -C/, prose)
+  }
+})

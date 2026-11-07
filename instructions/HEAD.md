@@ -1,8 +1,8 @@
 # Head contract
 
-Read by the head, the session the operator started, after `AGENTS.md`, which
-binds in full. A session whose first message is another agent's brief is a
-helper: it reads only a section its brief names and acts on nothing else here.
+Read by the head (`AGENTS.md`, Head or helper) after `AGENTS.md`, which binds
+in full. A helper reads only a section its brief names and acts on nothing else
+here.
 
 Start your first reply with exactly this line, which acknowledges the read to
 the operator; never repeat it, not after a re-read either:

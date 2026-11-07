@@ -1,7 +1,0 @@
-claim_id = "8d9e118ffedb4c61be7185be691201f0"
-agent = "Claude a5abe9e4-862b-4cac-94ed-68bd072edf38"
-role = "builder"
-base = "5c4f397350d3f0c1ba387ea8573050a6f086c4d3"
-branch = "claude/issue-533-head-starts-head"
-scope = ["instructions/AGENTS.md", "instructions/HEAD.md"]
-opened_commit = "e0a684eb7d06f20eedbf5bf21e45022a599deb76"

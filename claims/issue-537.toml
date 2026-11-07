@@ -1,0 +1,7 @@
+claim_id = "47bc38cfd03144f294d109c4398ae6e3"
+agent = "Claude a5abe9e4-862b-4cac-94ed-68bd072edf38"
+role = "builder"
+base = "ed4a3e52043554eebbe03e023b4ec20959c7e936"
+branch = "claude/issue-537-standards-app-on-platform"
+scope = ["docs/standards.md"]
+opened_commit = "35e276c561a5413602daf9f0abc70f354f0aeb06"

@@ -1,0 +1,7 @@
+claim_id = "dace2cf528ba4d67910924a05d1c11b3"
+agent = "Claude a5abe9e4-862b-4cac-94ed-68bd072edf38"
+role = "builder"
+base = "51a91ae6d1c990aac9970f2d7ca7e850ee269dc4"
+branch = "claude/issue-534-operator-steps-ready-to-run"
+scope = ["instructions/AGENTS.md"]
+opened_commit = "58b29ad3d20c3ff1992f495aea1892e6b8739c6b"

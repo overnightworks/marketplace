@@ -124,21 +124,32 @@ const CRC_TABLE = Array.from({ length: 256 }, (_, n) => {
   for (let bit = 0; bit < 8; bit++) crc = crc & 1 ? 0xedb88320 ^ (crc >>> 1) : crc >>> 1
   return crc >>> 0
 })
+function utf8BytesOf(text) {
+  const bytes = []
+  for (const character of text) {
+    const codePoint = character.codePointAt(0)
+    if (codePoint < 0x80) bytes.push(codePoint)
+    else if (codePoint < 0x800) bytes.push(0xc0 | (codePoint >> 6), 0x80 | (codePoint & 63))
+    else if (codePoint < 0x10000) bytes.push(0xe0 | (codePoint >> 12), 0x80 | ((codePoint >> 6) & 63), 0x80 | (codePoint & 63))
+    else bytes.push(0xf0 | (codePoint >> 18), 0x80 | ((codePoint >> 12) & 63), 0x80 | ((codePoint >> 6) & 63), 0x80 | (codePoint & 63))
+  }
+  return bytes
+}
 // CRC32 over the UTF-8 bytes, as Python's zlib.crc32 computes it for the file the courier wrote.
 function crc32OfUtf8(text) {
   let crc = 0xffffffff
-  for (const byte of new TextEncoder().encode(text)) crc = CRC_TABLE[(crc ^ byte) & 255] ^ (crc >>> 8)
+  for (const byte of utf8BytesOf(text)) crc = CRC_TABLE[(crc ^ byte) & 255] ^ (crc >>> 8)
   return ((crc ^ 0xffffffff) >>> 0).toString(16).padStart(8, '0')
 }
-// The shell side of that check reads the brief file without its trailing whitespace, since a model may end the file with a newline.
-const BRIEF_CRC_PRINTER = 'import sys,zlib;print("%08x"%zlib.crc32(sys.stdin.buffer.read().rstrip()))'
+// Both sides compare the words of the brief: the Workflow runtime indents every line of a computed prompt and a model retyping the text adds blank lines, and neither changes what Codex reads.
+const BRIEF_CRC_PRINTER = 'import sys,zlib;print("%08x"%zlib.crc32(b" ".join(sys.stdin.buffer.read().split())))'
 
 function codexReview(label, routing, role, range) {
   const base = `${A.scratch}/${A.tag}-${label}`
   const appendBodies = String.raw`{ cat ${base}-brief.md && printf '\n\n-----\nThe current item body (gh issue view):\n' && gh issue view ${A.item}${R} --json body --jq .body && printf '\n\n-----\nThe current pull request body (gh pr view):\n' && gh pr view ${A.pr}${R} --json body --jq .body; } > ${base}-brief.md.tmp && mv ${base}-brief.md.tmp ${base}-brief.md`
   const brief = `${A.delegatedLine}\nRead-only sandbox: read files and run read-only commands freely; do not run tests. The item body and the pull request body follow this brief: they are the contract core and the verification evidence. The sandbox has no network and cannot write, /tmp included; report a command you cannot run as not verified, never as a blocking finding.\n` + reviewerBrief(role, range) +
     `\nGive every finding its file:line in "where".`
-  const checkBrief = `{ [ "$(python3 -c '${BRIEF_CRC_PRINTER}' < ${base}-brief.md)" = ${crc32OfUtf8(brief.trimEnd())} ] || { echo '${BRIEF_MISMATCH}' >&2; false; }; }`
+  const checkBrief = `{ [ "$(python3 -c '${BRIEF_CRC_PRINTER}' < ${base}-brief.md)" = ${crc32OfUtf8(brief.split(/[ \t\n\r\f\v]+/).filter(Boolean).join(' '))} ] || { echo '${BRIEF_MISMATCH}' >&2; false; }; }`
   const courierPrompt =
     `${A.delegatedLine}\nYou are a courier for one independent Codex review. Do not review anything yourself and do not edit the repository.\n` +
     `1. rm -f ${base}-out.json ${base}-out.json.exit ${base}-out.json.exit.tmp ${base}-brief.md.tmp ${base}-run.log\n` +

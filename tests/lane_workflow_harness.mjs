@@ -3,11 +3,11 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { spawnSync } from 'node:child_process'
+import vm from 'node:vm'
 
 const workflowSource = (file) => fs.readFileSync(new URL(`../plugins/atelier/workflows/${file}`, import.meta.url), 'utf8').replace(/^export const meta/m, 'const meta')
 // The plugin workflows a workflow can start by name, as the Workflow runtime resolves them.
 const CHILD_WORKFLOWS = { 'atelier:lane-ci': 'lane-ci.js', 'atelier:lane-review': 'lane-review.js', 'atelier:lane-relay': 'lane-relay.js', 'atelier:lane-test': 'lane-test.js' }
-const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor
 
 // Stand-ins for the three programs the printer runs, steered by environment variables the harness sets for the child only.
 const FAKE_GIT = `#!/bin/sh
@@ -116,11 +116,12 @@ export async function runLane(args, answers = {}, options = {}) {
     const { pr_head: _prHead, checks: _checks, required: _required, base_runs: _baseRuns, head: _head, parents: _parents, head_code: _headCode, main_code: _mainCode, nonce: _nonce, edit: _edit, printerMode: _printerMode, push_error: _pushError, remote_tip: _remoteTip, brief_error: _briefError, outside_claim: _outsideClaim, printed: _printed, ...report } = answer
     return reread ? { printed } : { ...report, printed }
   }
-  const agent = async (prompt, agentOptions = {}) => { launchedAgents.push(agentOptions.label); launchedPrompts.push(prompt); agentCalls[agentOptions.label] = { prompt, options: agentOptions }; return answerFor(agentOptions.label, prompt) }
+  const agent = async (prompt, agentOptions = {}) => { launchedAgents.push(agentOptions.label); launchedPrompts.push(prompt); agentCalls[agentOptions.label] = { prompt, options: structuredClone(agentOptions) }; return answerFor(agentOptions.label, prompt) }
   // A thunk that throws resolves to null, as in the Workflow runtime.
   const parallel = async thunks => Promise.all(thunks.map(thunk => thunk().catch(() => null)))
   const ignore = () => {}
-  const compile = (body) => new AsyncFunction('args', 'agent', 'parallel', 'pipeline', 'phase', 'log', 'workflow', body)
+  // A fresh context holds only the ECMAScript built-ins, so a script naming a Node or web global fails with a ReferenceError as in the Workflow runtime.
+  const compile = (body) => vm.runInContext(`(async function (args, agent, parallel, pipeline, phase, log, workflow) {\n${body}\n})`, vm.createContext({}))
   const startWorkflow = async (name, childArgs) => {
     if (!Object.hasOwn(CHILD_WORKFLOWS, name)) throw new Error(`unknown workflow ${name}`)
     const childSource = name === options.child && options.transformChild ? options.transformChild(workflowSource(CHILD_WORKFLOWS[name])) : workflowSource(CHILD_WORKFLOWS[name])
@@ -131,7 +132,7 @@ export async function runLane(args, answers = {}, options = {}) {
   }
   try {
     const result = await compile(source)(args, agent, parallel, async () => [], ignore, ignore, startWorkflow)
-    return { result, launchedAgents, launchedPrompts, agentCalls, launchedByChild }
+    return { result: structuredClone(result), launchedAgents, launchedPrompts, agentCalls, launchedByChild }
   } finally {
     if (fakeBin) fs.rmSync(fakeBin, { recursive: true })
   }

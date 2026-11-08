@@ -173,6 +173,7 @@ for (const [name, options] of [
 
 for (const [name, options] of [
   ['trailing blank lines', { fileFromBrief: brief => `${brief}\n\n  \n` }],
+  ['every line indented and blank lines between lines', { fileFromBrief: brief => brief.split('\n').map(line => `  ${line}`).join('\n\n') }],
   ['non-ASCII text', { contract: 'Prüfe 5 € und 日本語 😀 genau' }],
 ]) {
   test(`courier-brief-check: a brief with ${name} starts Codex`, async () => {
@@ -481,4 +482,32 @@ test('review-reads-body: without repo the Codex courier line enters the worktree
   const { agentCalls } = await runLane({ ...laneWithoutRepo, risk: 'material', worktree: '/w/tree' }, { 'r0-review': APPROVE })
   const line = agentCalls['r0-gate'].prompt.split('\n').find(text => text.includes('codex exec'))
   assert.ok(line.indexOf('cd /w/tree') > 0 && line.indexOf('cd /w/tree') < line.indexOf('gh issue view'))
+})
+
+test('workflow-runtime: a workflow script naming a Node or web global fails under the harness with a ReferenceError', async () => {
+  const { result } = await driveGate({ transformChild: (source) => `new TextEncoder()\n${source}` })
+  assert.deepEqual([result.status, result.stage], ['failed', 'review'])
+  assert.match(result.reason, /TextEncoder is not defined/)
+})
+
+test('review-brief-checksum: the checksum in the Codex courier command equals what its printer prints for a brief with two-, three- and four-byte characters', async () => {
+  const contract = 'Größe é, 日本語 の契約, 🙂 and 𝔘𝔫𝔦𝔠𝔬𝔡𝔢'
+  const { agentCalls } = await runLane({ ...resumedLane, contract, risk: 'material' }, { 'r0-review': APPROVE })
+  const prompt = agentCalls['r0-gate'].prompt
+  const brief = prompt.match(/-----\n([\s\S]*?)\n-----\n3\. /)[1]
+  const printer = prompt.match(/python3 -c '([^']*)'/)[1]
+  const checksum = prompt.match(/= ([0-9a-f]{8}) \] \|\|/)[1]
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'brief-checksum-'))
+  try {
+    const briefFile = path.join(directory, 'brief.md')
+    fs.writeFileSync(briefFile, `${brief}\n`)
+    const stdin = fs.openSync(briefFile, 'r')
+    const printed = spawnSync('python3', ['-c', printer], { stdio: [stdin, 'pipe', 'pipe'], encoding: 'utf8' })
+    fs.closeSync(stdin)
+    assert.ok(brief.includes('🙂') && brief.includes('日本語') && brief.includes('é'))
+    assert.equal(printed.status, 0, printed.stderr)
+    assert.equal(printed.stdout.trim(), checksum)
+  } finally {
+    fs.rmSync(directory, { recursive: true })
+  }
 })

@@ -125,9 +125,20 @@ const CRC_TABLE = Array.from({ length: 256 }, (_, n) => {
   return crc >>> 0
 })
 // CRC32 over the UTF-8 bytes, as Python's zlib.crc32 computes it for the file the courier wrote.
+function utf8BytesOf(text) {
+  const bytes = []
+  for (const character of text) {
+    const codePoint = character.codePointAt(0)
+    if (codePoint < 0x80) bytes.push(codePoint)
+    else if (codePoint < 0x800) bytes.push(0xc0 | (codePoint >> 6), 0x80 | (codePoint & 63))
+    else if (codePoint < 0x10000) bytes.push(0xe0 | (codePoint >> 12), 0x80 | ((codePoint >> 6) & 63), 0x80 | (codePoint & 63))
+    else bytes.push(0xf0 | (codePoint >> 18), 0x80 | ((codePoint >> 12) & 63), 0x80 | ((codePoint >> 6) & 63), 0x80 | (codePoint & 63))
+  }
+  return bytes
+}
 function crc32OfUtf8(text) {
   let crc = 0xffffffff
-  for (const byte of new TextEncoder().encode(text)) crc = CRC_TABLE[(crc ^ byte) & 255] ^ (crc >>> 8)
+  for (const byte of utf8BytesOf(text)) crc = CRC_TABLE[(crc ^ byte) & 255] ^ (crc >>> 8)
   return ((crc ^ 0xffffffff) >>> 0).toString(16).padStart(8, '0')
 }
 // The shell side of that check reads the brief file without its trailing whitespace, since a model may end the file with a newline.

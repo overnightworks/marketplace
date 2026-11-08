@@ -1,0 +1,7 @@
+claim_id = "74ac81d7222746deb7d43b04ad87e805"
+agent = "Claude a5abe9e4-862b-4cac-94ed-68bd072edf38"
+role = "builder"
+base = "e7db8fa972e5c1df6a509b1344bdd916fdb86fe8"
+branch = "claude/issue-544-agents-run-all-without-sudo"
+scope = ["instructions/AGENTS.md"]
+opened_commit = "016e1ac6e97de1021d3acf8c85814c02700a38a7"

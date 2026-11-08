@@ -373,6 +373,7 @@ const notTheDoor = [
   ['a verdict log whose read failed', { logLines: [], logCode: 1 }, redVerdict],
   ['a loosenings log without a merge command', { logLines: [loosened[0]] }, redVerdict],
   ['another red check next to the verdict', { logLines: loosened }, [...redVerdict, { name: 'Python: tests', bucket: 'fail', link: 'https://github.com/o/n/actions/runs/11/job/24' }]],
+  ['a merge line whose owner is shell text, not a command shape', { logLines: [loosened[0], loosenLine('next: quality merge o/r$(id);`x`#9')] }, redVerdict],
   ['a verdict that is red without a job link', { logLines: loosened }, [{ name: required, bucket: 'fail', link: '' }]],
 ]
 for (const [what, gh, checks] of notTheDoor) {

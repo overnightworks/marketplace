@@ -1,0 +1,8 @@
+claim_id = "91ce1bfea2784a70b024f153bdb2c351"
+agent = "Claude a5abe9e4-862b-4cac-94ed-68bd072edf38"
+role = "builder"
+base = "15c49754f8c24b6d95ddc8427917a6dcb99d4684"
+branch = "claude/issue-487-quality-v0-10-0"
+scope = [".claude-plugin/marketplace.json", ".github/workflows/ci.yml", ".github/workflows/codeql.yml", "instructions/AGENTS.md", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/skills/audit/SKILL.md", "plugins/atelier/workflows/lane.js", "quality/baseline.toml", "tests/lane_workflow_fix.test.mjs"]
+opened_commit = "9041664ac753f14ba2031e1dff69de757d4abbfc"
+whole_reason = "One release's cut-over: its pin, the words it removes in the contract and the plugin, their test and the release pins land together, or the gate and the words disagree."

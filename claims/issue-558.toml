@@ -1,8 +1,0 @@
-claim_id = "c39e421ab2874f1882404cf20807da4e"
-agent = "Claude a5abe9e4-862b-4cac-94ed-68bd072edf38"
-role = "builder"
-base = "abfc5000576bfbe6ba0a79c6000a1361f4cb23e8"
-branch = "claude/issue-558-teardown-removes-built-images"
-scope = [".claude-plugin/marketplace.json", "instructions/AGENTS.md", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/.codex/agents/code-fixer.toml", "plugins/atelier/.codex/agents/code-worker.toml", "plugins/atelier/.codex/agents/explorative-tester.toml", "plugins/atelier/agents/code-fixer.md", "plugins/atelier/agents/code-worker.md", "plugins/atelier/agents/explorative-tester.md", "plugins/atelier/workflows/lane-test.js"]
-opened_commit = "604440b450e7cb11ba08ca9855b0ef124909cd6c"
-whole_reason = "One ruled clause and its verbatim copies in the helper agents that start containers, with the release that delivers them."

@@ -1,4 +1,4 @@
-// The lane workflow reports CI green only from the copied check listing of the tip, never from the CI agent's word.
+// The lane workflow reports CI green only from the printed check values of the tip, never from the CI agent's word.
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'

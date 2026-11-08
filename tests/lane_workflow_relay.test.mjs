@@ -423,38 +423,52 @@ test('AC-relay-reread: a readable line starts no re-read', async () => {
   assert.deepEqual(reread(run), [])
 })
 
-// The CI read: the relaying agent edits the checks.list of the printed line and keeps the printed CRC.
-const withListing = (change) => (line) => {
+// The CI read: the relaying agent edits the checks.open of the printed line and keeps the printed CRC.
+const withOpenChecks = (change) => (line) => {
   const [, crc, payload] = /^\{"crc":"(\w+)","v":(.*)\}$/.exec(line)
   const values = JSON.parse(payload)
-  values.checks.list = change(values.checks.list)
+  values.checks.open = change(values.checks.open)
   return `{"crc":"${crc}","v":${JSON.stringify(values)}}`
 }
 const listing = [{ name: 'quality / verdict', bucket: 'pass' }, { name: 'a', bucket: 'pass' }, { name: 'b', bucket: 'pass' }]
+const redListing = [...listing, { name: 'c', bucket: 'fail' }, { name: 'd', bucket: 'pending' }]
 const driveCiRead = (edit, checks = listing) => runLane({ ...resumeArgs, foldIn: [tidy] }, { ...reachesTheEnd, 'fix-1': { ...unchangedFix, resolved: [satisfied(tidy)] }, 'ci-0': { ...greenCi(resumeTip), checks }, 'ci-read-0': { edit } })
+const swapFirstTwo = withOpenChecks(([first, second, ...rest]) => [second, first, ...rest])
 
-test('AC-relay-list-order: a relay line whose checks.list entries were swapped verifies, with no re-read', async () => {
-  const { result, launchedAgents } = await driveCiRead(withListing(([first, second, ...rest]) => [second, first, ...rest]))
-  assert.equal(result.status, 'ready-to-land', result.reason)
+test('AC-relay-list-order: a relay line whose checks.open entries were swapped verifies, with no re-read', async () => {
+  const { result, launchedAgents } = await driveCiRead(swapFirstTwo, redListing)
+  assert.deepEqual([result.status, result.stage], ['failed', 'ci'])
+  assert.doesNotMatch(result.reason, /relay line/)
   assert.deepEqual(reread({ launchedAgents }), [])
 })
 
 for (const [what, edit] of [
-  ['a dropped entry', withListing(([, ...rest]) => rest)],
-  ['a changed bucket', withListing(([first, ...rest]) => [{ ...first, bucket: 'fail' }, ...rest])],
+  ['a dropped entry', withOpenChecks(([, ...rest]) => rest)],
+  ['a changed bucket', withOpenChecks(([first, ...rest]) => [{ ...first, bucket: 'pass' }, ...rest])],
   ['a changed nonce', (line) => line.replace(/"nonce":"[^"]*"/, '"nonce":"other"')],
 ]) {
   test(`AC-relay-list-order: ${what} still fails the relay check`, async () => {
-    const { result } = await driveCiRead(edit)
+    const { result } = await driveCiRead(edit, redListing)
     assert.deepEqual([result.status, result.stage], ['failed', 'ci'])
     assert.match(result.reason, /relay line/)
   })
 }
 
 test('AC-relay-list-order: swapped entries with non-ASCII names verify', async () => {
-  const names = [{ name: 'ünï / 日本語 😀', bucket: 'pass' }, ...listing]
-  const { result } = await driveCiRead(withListing(([first, second, ...rest]) => [second, first, ...rest]), names)
+  const names = [{ name: 'ünï / 日本語 😀', bucket: 'fail' }, ...redListing]
+  const { result } = await driveCiRead(swapFirstTwo, names)
+  assert.doesNotMatch(result.reason, /relay line/)
+  assert.match(result.reason, /ünï \/ 日本語 😀/)
+})
+
+test('AC-relay-line-length: a green line of fourteen checks names no passing check and is read with no re-read', async () => {
+  const many = Array.from({ length: 14 }, (_, n) => ({ name: `a long check name number ${n}`, bucket: 'pass' }))
+  let printed
+  const { result, launchedAgents } = await driveCiRead((line) => (printed = line), [...listing, ...many])
   assert.equal(result.status, 'ready-to-land', result.reason)
+  assert.deepEqual(reread({ launchedAgents }), [])
+  assert.doesNotMatch(printed, /a long check name/)
+  assert.ok(printed.length < 400, `${printed.length} characters`)
 })
 
 // The closing braces at the end of the CI line, where the payload's last entry is the nested view entry.
@@ -470,7 +484,7 @@ for (const [what, change] of [['one more', (count) => count + 1], ['one fewer', 
 
 for (const [what, edit] of [
   ['a brace added elsewhere', (line) => line.replace('"code":0', '"code":0}')],
-  ['a changed value', (line) => line.replace('"err":""}', '"err":"x"}')],
+  ['a changed value', (line) => line.replace('"code":0', '"code":7')],
 ]) {
   test(`AC-relay-brace-count: ${what} still fails the relay check`, async () => {
     const { result } = await driveCiRead(edit)

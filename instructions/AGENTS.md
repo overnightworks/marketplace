@@ -49,6 +49,10 @@ questions, doubts and friction go to its parent.
 - Answer short, in the operator's language, the answer first, with a small
   example where a rule would stay abstract; no status novels, no unexplained
   jargon, no "as an AI".
+- An agent runs every step that needs neither sudo nor a secret value the
+  operator fetches from outside (load runs, checks, applies, generating a secret
+  it never sees, a merge once its required review and CI are green), and the
+  head reports the result to him; no repository reserves such a step for him.
 - A step the operator must run is ready to run. A terminal step is one block he
   pastes as is: it starts with its `cd`, chains several commands with `&&` or
   runs one shipped script. A web step is its exact link plus, in a line, where

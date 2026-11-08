@@ -5,7 +5,7 @@ export const meta = {
 }
 
 // Both copies of this number (here and in lane.js) change together in any commit that changes the args or the return shape.
-const LANE_RELAY_PROTOCOL = 7
+const LANE_RELAY_PROTOCOL = 8
 const A = args || {}
 const need = ['protocol', 'delegatedLine', 'worktree', 'label', 'phase', 'brief', 'step', 'relayArgs', 'nonce', 'requiredKeys', 'agentOptions', 'mechanical']
 if (A.protocol !== LANE_RELAY_PROTOCOL) return { refused: `lane-relay speaks protocol ${JSON.stringify(LANE_RELAY_PROTOCOL)}, but the lane that started it speaks protocol ${JSON.stringify(A.protocol)}; the installed atelier differs from the running lane` }
@@ -26,7 +26,7 @@ async function safeAgent(prompt, opts) {
 // A value a command prints reaches a decision only through one line the PRINTER wrote: the agent runs it and relays the
 // line unchanged, and a retyped or edited line fails its CRC32. The printer holds no single quote, so the shell passes
 // it as one argument. Its first argument names the step whose commands it runs; the scope step never forces a push,
-// relays HEAD's parents and whether its second parent is in origin/main, at most 50 paths and no text of aco brief but its exit code and error output, the sync step reports the lane tip, its parents and whether it contains origin/main, and the ci step reports the pull request head, the check listing, the required contexts of the base with the exit code of each gh call, and the checks red on head that failed on the base tip too; a failed gh pr view ends its reads.
+// relays HEAD's parents and whether its second parent is in origin/main, at most 50 paths and no text of aco brief but its exit code and error output, the sync step reports the lane tip, its parents and whether it contains origin/main, and the ci step reports the pull request head, the count of listed checks, the checks that are neither pass nor skipping, each required context of the base with its bucket or missing, the exit code of each gh call and its error output where it is not empty, and the checks red on head that failed on the base tip too; a failed gh pr view ends its reads.
 const PRINTER = [
   'import json,shutil,subprocess,sys,zlib',
   'step,*rest,nonce=sys.argv[1:]',
@@ -40,12 +40,14 @@ const PRINTER = [
   'brief=json.loads(ran["brief"].stdout) if "brief" in ran and ran["brief"].returncode==0 else None',
   'shared=[] if brief is None or brief.get("claim",{}).get("lane_shared_unavailable") else [e["path"] for e in brief.get("claim",{}).get("lane_shared",[]) if e["names_a_file"]]',
   'claim=[p for p in brief["outside_claim"] if p not in shared] if brief and isinstance(brief["outside_claim"],list) else brief and brief["outside_claim"]',
-  'values={n:{"code":p.returncode,"err":" ".join(l for l in p.stderr.splitlines() if l[:5]!="hint:")[-300:],**({} if n in("brief","view","checks","rules","runs") else {"out":p.stdout.strip()[:100]})} for n,p in ran.items()}',
+  'values={n:{"code":p.returncode,**({"err":e} if (e:=" ".join(l for l in p.stderr.splitlines() if l[:5]!="hint:")[-300:]) or step!="ci" else {}),**({} if n in("brief","view","checks","rules","runs") else {"out":p.stdout.strip()[:100]})} for n,p in ran.items()}',
   'parsed=lambda n:json.loads(ran[n].stdout) if n in ran and ran[n].returncode==0 else None',
   'view,listing,rules,pages=parsed("view"),parsed("checks"),parsed("rules"),parsed("runs")',
   'listing=listing and sorted(listing,key=lambda c:(c["name"],c["bucket"]))',
   'failed_on_base={r["name"] for page in pages or [] for r in page["check_runs"] if r["conclusion"]=="failure"}',
-  'values.update({n:{**values[n],k:v} for n,k,v in(("checks","list",listing),("rules","contexts",None if rules is None else [c["context"] for r in rules if r["type"]=="required_status_checks" for c in r["parameters"]["required_status_checks"]])) if v is not None})',
+  'buckets={c["name"]:c["bucket"] for c in listing or []}',
+  'contexts=None if rules is None else [c["context"] for r in rules if r["type"]=="required_status_checks" for c in r["parameters"]["required_status_checks"]]',
+  'values.update({n:{**values[n],**x} for n,x in(("checks",None if listing is None else dict(count=len(listing),open=[c for c in listing if c["bucket"] not in("pass","skipping")])),("rules",None if contexts is None else dict(required={c:buckets.get(c,"missing") for c in contexts}))) if x is not None})',
   'values.update(**(dict(head=view["headRefOid"],shared=[c["name"] for c in listing or [] if c["bucket"]=="fail" and c["name"] in failed_on_base]) if view else {}))',
   'values.update(nonce=nonce,**(dict(outside_claim=claim[:50] if isinstance(claim,list) else claim,count=len(claim) if isinstance(claim,list) else None) if "brief" in ran else {}))',
   'payload=json.dumps(values,ensure_ascii=True,separators=(",",":"),sort_keys=True)',
@@ -64,14 +66,14 @@ const crc32 = (text) => {
   for (let i = 0; i < text.length; i++) crc = CRC_TABLE[(crc ^ text.codePointAt(i)) & 255] ^ (crc >>> 8)
   return ((crc ^ 0xffffffff) >>> 0).toString(16).padStart(8, '0')
 }
-// The printer sorts checks.list by name and bucket, because the order of the listing decides nothing and a model that
+// The printer sorts checks.open by name and bucket, because the order of the listing decides nothing and a model that
 // tidies it must not fail the check: a mismatching line is read again with the list in the printer's order, in the printer's JSON form.
 const compareText = (a, b) => Number(a > b) - Number(a < b)
 const sortedListing = (values) => {
-  const list = values?.checks?.list
+  const list = values?.checks?.open
   if (!Array.isArray(list)) return values
   const byNameThenBucket = (a, b) => compareText(a?.name, b?.name) || compareText(a?.bucket, b?.bucket)
-  return { ...values, checks: { ...values.checks, list: [...list].sort(byNameThenBucket) } }
+  return { ...values, checks: { ...values.checks, open: [...list].sort(byNameThenBucket) } }
 }
 const printerPair = (value, key) => printerText(key) + ':' + printerText(value[key])
 const printerText = (value) => {

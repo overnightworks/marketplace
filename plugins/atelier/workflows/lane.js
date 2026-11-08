@@ -153,7 +153,7 @@ async function startChild(name, childArgs) {
   }
 }
 // A value a command prints reaches a decision only through the line the lane-relay child reads back and checks.
-const LANE_RELAY_PROTOCOL = 7
+const LANE_RELAY_PROTOCOL = 8
 const SYNC_ANSWER = { properties: { note: { type: 'string', description: 'what stopped the merge: the conflicting paths, or the failed command and its output' } } }
 const relay = (request) => startChild('lane-relay', { protocol: LANE_RELAY_PROTOCOL, delegatedLine: DELEGATED_LINE, worktree: A.worktree, agentOptions: MECHANICAL, mechanical: MECHANICAL, ...request })
 // The failure reasons name the printed line only when the command printed one.
@@ -685,13 +685,12 @@ function explore(n) {
 
 // A throw inside parallel() would reach the loop as a bare null, so the lane-ci child's failure returns as {problem}.
 const LANE_CI_PROTOCOL = 4
-// The printed listing, not the watcher's word, decides whether CI counts as green; null means the listing proves it.
+// The printed values, not the watcher's word, decide whether CI counts as green; null means they prove it.
 function unprovenGreen({ checks, rules }) {
-  if (checks.code !== 0 || !checks.list.length) return `no checks are listed for the pull request head (gh pr checks exited ${checks.code}: ${checks.err})`
-  const bucketOf = new Map(checks.list.map(c => [c.name, c.bucket]))
+  if (checks.code !== 0 || !checks.count) return `no checks are listed for the pull request head (gh pr checks exited ${checks.code}: ${checks.err ?? ''})`
   return [
-    ...checks.list.filter(c => !['pass', 'skipping'].includes(c.bucket)).map(c => `check "${c.name}" is ${c.bucket}, not pass or skipping`),
-    ...(rules.contexts || []).filter(name => bucketOf.get(name) !== 'pass').map(name => bucketOf.has(name) ? `required check "${name}" is ${bucketOf.get(name)}, not pass` : `required check "${name}" is missing from the listing`),
+    ...checks.open.map(c => `check "${c.name}" is ${c.bucket}, not pass or skipping`),
+    ...Object.entries(rules.required || {}).filter(([, bucket]) => bucket !== 'pass').map(([name, bucket]) => bucket === 'missing' ? `required check "${name}" is missing from the listing` : `required check "${name}" is ${bucket}, not pass`),
   ].join('; ') || null
 }
 
@@ -703,8 +702,8 @@ async function watchCi(n) {
   if (!read) return { problem: 'ended without reading the CI values' }
   if (read.problem) return { problem: `read the CI values, but their relay line ${read.problem}${printedLine(read)}` }
   const { view, checks, rules, head, shared } = read.values
-  if (view.code !== 0) return { problem: `could not read the pull request: gh pr view exited ${view.code}: ${view.err}` }
-  return { ...watched, head, shared, rulesError: rules.code === 0 ? null : `gh api exited ${rules.code}: ${rules.err}`, unproven: watched.green ? unprovenGreen({ checks, rules }) : null }
+  if (view.code !== 0) return { problem: `could not read the pull request: gh pr view exited ${view.code}: ${view.err ?? ''}` }
+  return { ...watched, head, shared, rulesError: rules.code === 0 ? null : `gh api exited ${rules.code}: ${rules.err ?? ''}`, unproven: watched.green ? unprovenGreen({ checks, rules }) : null }
 }
 
 function lockQueueCiState(ci) {

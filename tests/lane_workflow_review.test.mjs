@@ -433,3 +433,10 @@ test('gate-stand-in: a lane whose gate was never limited carries no gateUnseen',
   assert.ok(!('gateUnseen' in result))
   assert.ok(!result.requiredHeadActions.some(line => /usage limit/.test(line)))
 })
+
+test('review-reads-body: without repo the Codex courier line enters the worktree before its first gh call', async () => {
+  const { repo: _repo, ...laneWithoutRepo } = bodyLane
+  const { agentCalls } = await runLane({ ...laneWithoutRepo, risk: 'material', worktree: '/w/tree' }, { 'r0-review': APPROVE })
+  const line = agentCalls['r0-gate'].prompt.split('\n').find(text => text.includes('codex exec'))
+  assert.ok(line.indexOf('cd /w/tree') > 0 && line.indexOf('cd /w/tree') < line.indexOf('gh issue view'))
+})

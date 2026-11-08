@@ -189,7 +189,7 @@ const FIX = {
     regression: {
       type: 'array',
       description: "every test you add, strengthen or keep for a blocking finding, and every probe cell you run for it, under that finding's number in the blocking list you were given",
-      items: { type: 'object', required: ['finding', 'test', 'failedBefore', 'passesAfter'], properties: { finding: { type: 'integer', minimum: 1, description: 'the number of the blocking finding in the list you were given' }, resolution: { type: 'string', enum: ['removed-vacuous'], description: 'for a test-gap finding whose test pins no behaviour: the fix removed that test instead of adding one' }, diff: { type: 'string', description: 'for removed-vacuous: the removal diff' }, test: { type: 'string' }, failedBefore: { type: 'boolean' }, passesAfter: { type: 'boolean' }, mutation: { type: 'string', description: 'for a test-gap finding: the production change, made and reverted, under which the test fails' } } },
+      items: { type: 'object', required: ['finding', 'test', 'failedBefore', 'passesAfter'], properties: { finding: { type: 'integer', minimum: 1, description: 'the number of the blocking finding in the list you were given' }, resolution: { type: 'string', enum: ['removed-vacuous'], description: 'for a test-gap finding whose test pins no behaviour: the fix removed that test instead of adding one' }, diff: { type: 'string', description: 'for removed-vacuous: the removal diff' }, test: { type: 'string' }, failedBefore: { type: 'boolean' }, passesAfter: { type: 'boolean' }, notRun: { type: 'string', description: 'why this machine could not run the test (a refused command, a machine another lane holds); CI on the pushed tip is its proof. Not for a test you ran and saw fail: that is passesAfter false' }, mutation: { type: 'string', description: 'for a test-gap finding: the production change, made and reverted, under which the test fails' } } },
     },
     summary: { type: 'string' }, blocked: { type: 'boolean' }, blockedReason: { type: 'string' }, rescope: RESCOPE,
   },
@@ -394,12 +394,14 @@ function awaitHeadOnDispute(fixed, blocking) {
 function proofGap(proof, finding) {
   const kind = kindOf(finding)
   if (kind === 'docs') return null
+  if ((proof.notRun || '').trim()) return needsProof(finding) ? `a test for ${finding.where} was not run here (${proof.test}: ${proof.notRun.trim()}); CI on the pushed tip is its proof` : null
   if (kind === 'test-gap') {
     if (proof.resolution === 'removed-vacuous') return (proof.diff || '').trim() ? null : `the removal of a vacuous test for ${finding.where} carried no diff`
     if (!proof.passesAfter) return `a test-gap test for ${finding.where} did not pass after the fix`
     return (proof.mutation || '').trim() || proof.failedBefore ? null : `a test-gap test for ${finding.where} named no mutation under which it fails and did not fail before the fix`
   }
-  return (proof.failedBefore || !needsProof(finding)) && proof.passesAfter ? null : 'a regression test did not fail before and pass after its fix'
+  const missing = [!proof.failedBefore && needsProof(finding) && 'fail before', !proof.passesAfter && 'pass after'].filter(Boolean)
+  return missing.length ? `a regression test did not ${missing.join(' and ')} its fix` : null
 }
 
 // Whether a fix must prove the finding with a test: a test-gap is nothing but a missing test, a defect's test draft
@@ -425,7 +427,7 @@ function judgedProofs(fixed, blocking) {
 function fixRejection(fixed, blocking, foldIn, ciOnly) {
   const proofs = fixed.regression || []
   // A proof red after the fix is evidence against the fix, even beside a valid proof.
-  const gaps = judgedProofs(fixed, blocking).filter(checked => checked.gap && (!checked.proven || !checked.proof.passesAfter))
+  const gaps = judgedProofs(fixed, blocking).filter(checked => checked.gap && (!checked.proven || (!checked.proof.passesAfter && !(checked.proof.notRun || '').trim())))
   if (gaps.length) return { reason: [...new Set(gaps.map(checked => checked.gap))].join('; '), regression: gaps.map(checked => checked.proof), lastBlocking: gaps.map(checked => checked.finding) }
   const unproven = blocking.map((finding, index) => ({ finding, index })).filter(({ finding, index }) => needsProof(finding) && !proofs.some(r => proves(r, index)))
   const unprovenList = unproven.map(({ finding, index }) => (index + 1) + '. ' + finding.where).join(', ')
@@ -499,7 +501,7 @@ async function fixBatch(blocking, source, budgetKey, carried = false) {
     `resolve other conflicts only when you can do so without changing behaviour, and set mergeResolvedLaneConflict true when files this lane changed needed resolution). If the worktree already carries commits or uncommitted changes past that tip from an earlier fixer that ran out of turns, judge them, keep what is right, and continue from there. Commit each finding as soon as it is green; if you run short of turns, commit what is green and return what is left in blockedReason with blocked true. ${fixerTask}${foldInBrief(foldIn)}\n\n` +
     `Each finding names the rule it breaks and its evidence. A scanner finding whose message covers the whole file (for example "in this file") is fixed at every occurrence in that file, not only at the reported line. Check the evidence yourself first. If it does not hold — the rule is not broken, or the evidence is wrong — ` +
     `do not change code for it: list it in disputed with your counter-evidence. Report every test you add, strengthen or keep for a blocking finding, and every probe cell you run for it, in regression under that finding's number in the list above; the number counts only for the blocking list, a follow-up needs no regression entry. Run the mutation you name, do not reason about it. ` +
-    `A defect's test fails before your fix and passes after it; a defect with a test draft needs one. A defect in test code (hygiene) needs no regression test: the diff is its proof. A test-gap finding means a behaviour has no test, the code is already right, and it always needs a test: it passes before and after, ` +
+    `A defect's test fails before your fix and passes after it; a defect with a test draft needs one. A defect in test code (hygiene) needs no regression test: the diff is its proof. A test you could not run on this machine is reported with notRun, the reason, and passesAfter false is kept for a test you ran and saw fail; CI on the pushed tip proves a not-run test. A test-gap finding means a behaviour has no test, the code is already right, and it always needs a test: it passes before and after, ` +
     `so name in mutation the production change, made and reverted, under which the test fails; a test that fails on the pre-fix code counts as such a mutation (failedBefore true). When a test-gap's cell pins no behaviour at all, you may remove it instead: report resolution removed-vacuous with the removal diff in diff. A docs finding needs no test. When the only finding is that the pull request conflicts with main, the merge is the whole fix. ` +
     `Otherwise one commit per finding. Push, patch the PR body where it became false or where a finding is about it (REST PATCH with --input, never gh pr edit --body-file); a finding the body or an item comment answers goes in outside, and commit nothing for it; run \`aco check ${pr}\` from the worktree. ` +
     `Return files: the output of \`${git} log --name-only --format= --first-parent --remerge-diff ${tipBeforeFix}..HEAD\` (of \`${git} diff --name-only ${tipBeforeFix}..HEAD\` when mergeResolvedLaneConflict is true). Last, whatever happened,` })

@@ -1,8 +1,0 @@
-claim_id = "ca0b066f40ce402ab6a74b5dc5ab5a93"
-agent = "Claude a5abe9e4-862b-4cac-94ed-68bd072edf38"
-role = "builder"
-base = "509dde5fba6d1a4a57dc00300b25988082bd914a"
-branch = "claude/issue-551-loosenings-await-operator-door"
-scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/workflows/lane-relay.js", "plugins/atelier/workflows/lane.js", "tests/lane_workflow_ci.test.mjs", "tests/lane_workflow_relay.test.mjs"]
-opened_commit = "94cb2050c78b36f888fe4c759f15731c1f2687b4"
-whole_reason = "One CI outcome read by the relay printer and decided in lane.js, with its test and the release pins."

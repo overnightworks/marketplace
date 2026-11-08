@@ -394,7 +394,7 @@ function awaitHeadOnDispute(fixed, blocking) {
 function proofGap(proof, finding) {
   const kind = kindOf(finding)
   if (kind === 'docs') return null
-  if ((proof.notRun || '').trim()) return needsProof(finding) ? `a test for ${finding.where} was not run here (${proof.test}: ${proof.notRun.trim()}); CI on the pushed tip is its proof` : null
+  if (isNotRun(proof)) return null  // reaches the delta re-check as a note, see notRunNote
   if (kind === 'test-gap') return testGapProofGap(proof, finding)
   const missing = [!proof.failedBefore && needsProof(finding) && 'fail before', !proof.passesAfter && 'pass after'].filter(Boolean)
   return missing.length ? `a regression test did not ${missing.join(' and ')} its fix` : null
@@ -405,6 +405,8 @@ function testGapProofGap(proof, finding) {
   if (!proof.passesAfter) return `a test-gap test for ${finding.where} did not pass after the fix`
   return (proof.mutation || '').trim() || proof.failedBefore ? null : `a test-gap test for ${finding.where} named no mutation under which it fails and did not fail before the fix`
 }
+
+const isNotRun = (proof) => Boolean((proof.notRun || '').trim())
 
 // Whether a fix must prove the finding with a test: a test-gap is nothing but a missing test, a defect's test draft
 // asks for one, and a docs finding needs none even when a draft came with it.
@@ -449,7 +451,13 @@ const worktreeRelative = (files) => files.map(f => f.startsWith(`${A.worktree}/`
 // A proof with a gap beside a valid proof for its finding reaches the raiser as a note, so it can judge whether the proof misleads.
 const removalNote = ({ proof, finding }) => `\nThe fixer answered ${finding.where} by removing a vacuous test instead of adding one; judge whether the removed test pinned no behaviour:\n${proof.diff}`
 const supportingNote = ({ proof, finding, gap }) => `\nThe fixer also offered the test ${proof.test} for ${finding.where}, though it shows less than the bar: ${gap}; judge whether it misleads.`
+// The half of a proof the fixer did not run, for the raiser to judge from the test's text; CI on the tip runs the test.
+const notRunNote = ({ proof, finding }) => {
+  const unrunHalf = kindOf(finding) === 'test-gap' ? `fails under the mutation ${(proof.mutation || '').trim() ? `"${proof.mutation.trim()}"` : 'it names'}` : 'fails on the pre-fix code'
+  return `\nThe fixer did not run the test ${proof.test} for ${finding.where} (${proof.notRun.trim()}); read its text and judge the half that was not run: it ${unrunHalf}.`
+}
 const proofNotes = (fixed, blocking) => judgedProofs(fixed, blocking).map(entry => {
+  if (isNotRun(entry.proof) && needsProof(entry.finding)) return notRunNote(entry)
   if (entry.proof.resolution === 'removed-vacuous' && kindOf(entry.finding) === 'test-gap' && !entry.gap) return removalNote(entry)
   return entry.gap && entry.proven ? supportingNote(entry) : ''
 }).join('')
@@ -503,7 +511,7 @@ async function fixBatch(blocking, source, budgetKey, carried = false) {
     `resolve other conflicts only when you can do so without changing behaviour, and set mergeResolvedLaneConflict true when files this lane changed needed resolution). If the worktree already carries commits or uncommitted changes past that tip from an earlier fixer that ran out of turns, judge them, keep what is right, and continue from there. Commit each finding as soon as it is green; if you run short of turns, commit what is green and return what is left in blockedReason with blocked true. ${fixerTask}${foldInBrief(foldIn)}\n\n` +
     `Each finding names the rule it breaks and its evidence. A scanner finding whose message covers the whole file (for example "in this file") is fixed at every occurrence in that file, not only at the reported line. Check the evidence yourself first. If it does not hold — the rule is not broken, or the evidence is wrong — ` +
     `do not change code for it: list it in disputed with your counter-evidence. Report every test you add, strengthen or keep for a blocking finding, and every probe cell you run for it, in regression under that finding's number in the list above; the number counts only for the blocking list, a follow-up needs no regression entry. Run the mutation you name, do not reason about it. ` +
-    `A defect's test fails before your fix and passes after it; a defect with a test draft needs one. A defect in test code (hygiene) needs no regression test: the diff is its proof. A test you could not run on this machine is reported with notRun, the reason, and passesAfter false is kept for a test you ran and saw fail; CI on the pushed tip proves a not-run test. A test-gap finding means a behaviour has no test, the code is already right, and it always needs a test: it passes before and after, ` +
+    `A defect's test fails before your fix and passes after it; a defect with a test draft needs one. A defect in test code (hygiene) needs no regression test: the diff is its proof. A test you could not run on this machine is reported with notRun, the reason, and passesAfter false is kept for a test you ran and saw fail; the delta re-check judges a not-run test from its text and CI on the pushed tip runs it. A test-gap finding means a behaviour has no test, the code is already right, and it always needs a test: it passes before and after, ` +
     `so name in mutation the production change, made and reverted, under which the test fails; a test that fails on the pre-fix code counts as such a mutation (failedBefore true). When a test-gap's cell pins no behaviour at all, you may remove it instead: report resolution removed-vacuous with the removal diff in diff. A docs finding needs no test. When the only finding is that the pull request conflicts with main, the merge is the whole fix. ` +
     `Otherwise one commit per finding. Push, patch the PR body where it became false or where a finding is about it (REST PATCH with --input, never gh pr edit --body-file); a finding the body or an item comment answers goes in outside, and commit nothing for it; run \`aco check ${pr}\` from the worktree. ` +
     `Return files: the output of \`${git} log --name-only --format= --first-parent --remerge-diff ${tipBeforeFix}..HEAD\` (of \`${git} diff --name-only ${tipBeforeFix}..HEAD\` when mergeResolvedLaneConflict is true). Last, whatever happened,` })

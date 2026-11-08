@@ -40,6 +40,8 @@ const VERDICT = {
 const USAGE_LIMIT = 'hit your usage limit'
 // The error Codex prints when the courier started it without writing the output schema first.
 const SCHEMA_READ_ERROR = 'Failed to read output schema file'
+// What the courier's start command prints when the brief file is not the brief the script wrote.
+const BRIEF_MISMATCH = 'brief file differs from the brief the script wrote'
 const LIMIT = {
   type: 'object',
   required: ['line', 'resetsAt'],
@@ -107,24 +109,42 @@ function rereadContradictoryCourier(answer, label, base) {
 }
 
 // A courier that dropped the schema write leaves Codex exiting at once; one fresh courier runs the same prompt again, never a second time.
-function retryMissingSchema(answer, runCourier, label) {
-  const unreadSchema = answer?.verdict === 'failed' && answer.codexExit > 0 && String(answer.note ?? '').includes(SCHEMA_READ_ERROR)
-  if (!unreadSchema) return answer
-  log(`${label}: Codex could not read its output schema; starting the courier once more`)
+// The same one retry covers a courier that wrote a different brief, which starts no Codex.
+function retryFailedStart(answer, runCourier, label) {
+  const note = String(answer?.note ?? '')
+  const unreadSchema = answer?.verdict === 'failed' && answer.codexExit > 0 && note.includes(SCHEMA_READ_ERROR)
+  const miscopiedBrief = answer?.verdict === 'failed' && answer.codexExit === -1 && note.includes(BRIEF_MISMATCH)
+  if (!unreadSchema && !miscopiedBrief) return answer
+  log(`${label}: ${unreadSchema ? 'Codex could not read its output schema' : 'the courier wrote a different brief'}; starting the courier once more`)
   return runCourier(`${label}-retry`)
 }
+
+const CRC_TABLE = Array.from({ length: 256 }, (_, n) => {
+  let crc = n
+  for (let bit = 0; bit < 8; bit++) crc = crc & 1 ? 0xedb88320 ^ (crc >>> 1) : crc >>> 1
+  return crc >>> 0
+})
+// CRC32 over the UTF-8 bytes, as Python's zlib.crc32 computes it for the file the courier wrote.
+function crc32OfUtf8(text) {
+  let crc = 0xffffffff
+  for (const byte of new TextEncoder().encode(text)) crc = CRC_TABLE[(crc ^ byte) & 255] ^ (crc >>> 8)
+  return ((crc ^ 0xffffffff) >>> 0).toString(16).padStart(8, '0')
+}
+// The shell side of that check reads the brief file without its trailing whitespace, since a model may end the file with a newline.
+const BRIEF_CRC_PRINTER = 'import sys,zlib;print("%08x"%zlib.crc32(sys.stdin.buffer.read().rstrip()))'
 
 function codexReview(label, routing, role, range) {
   const base = `${A.scratch}/${A.tag}-${label}`
   const appendBodies = String.raw`{ cat ${base}-brief.md && printf '\n\n-----\nThe current item body (gh issue view):\n' && gh issue view ${A.item}${R} --json body --jq .body && printf '\n\n-----\nThe current pull request body (gh pr view):\n' && gh pr view ${A.pr}${R} --json body --jq .body; } > ${base}-brief.md.tmp && mv ${base}-brief.md.tmp ${base}-brief.md`
   const brief = `${A.delegatedLine}\nRead-only sandbox: read files and run read-only commands freely; do not run tests. The item body and the pull request body follow this brief: they are the contract core and the verification evidence. The sandbox has no network and cannot write, /tmp included; report a command you cannot run as not verified, never as a blocking finding.\n` + reviewerBrief(role, range) +
     `\nGive every finding its file:line in "where".`
+  const checkBrief = `{ [ "$(python3 -c '${BRIEF_CRC_PRINTER}' < ${base}-brief.md)" = ${crc32OfUtf8(brief.trimEnd())} ] || { echo '${BRIEF_MISMATCH}' >&2; false; }; }`
   const courierPrompt =
     `${A.delegatedLine}\nYou are a courier for one independent Codex review. Do not review anything yourself and do not edit the repository.\n` +
     `1. rm -f ${base}-out.json ${base}-out.json.exit ${base}-out.json.exit.tmp ${base}-brief.md.tmp ${base}-run.log\n` +
     `2. Write this brief verbatim to ${base}-brief.md:\n-----\n${brief}\n-----\n` +
-    `3. Write the output schema, append the current item body and pull request body to the brief and start Codex detached, recording its exit status in a marker file, with this one shell command line, exactly as written, never retyped from memory, split or summarised. Codex starts only if the schema write and the append succeeded. If the line exits non-zero, Codex did not start: return verdict failed with codexExit -1 and the error in note.\n` +
-    `   printf %s '${CODEX_SCHEMA}' > ${base}-schema.json && cd ${A.worktree} && ${appendBodies} && { setsid nohup bash -c 'codex exec -s read-only -C ${A.worktree} -m ${routing.model} -c model_reasoning_effort=${routing.effort} --output-schema ${base}-schema.json -o ${base}-out.json - < ${base}-brief.md; echo $? > ${base}-out.json.exit.tmp && mv ${base}-out.json.exit.tmp ${base}-out.json.exit' > ${base}-run.log 2>&1 & }\n` +
+    `3. Write the output schema, check the brief file against its checksum, append the current item body and pull request body to the brief and start Codex detached, recording its exit status in a marker file, with this one shell command line, exactly as written, never retyped from memory, split or summarised. Codex starts only if the schema write, the brief check and the append succeeded. If the line exits non-zero, Codex did not start: return verdict failed with codexExit -1 and the error in note.\n` +
+    `   printf %s '${CODEX_SCHEMA}' > ${base}-schema.json && cd ${A.worktree} && ${checkBrief} && ${appendBodies} && { setsid nohup bash -c 'codex exec -s read-only -C ${A.worktree} -m ${routing.model} -c model_reasoning_effort=${routing.effort} --output-schema ${base}-schema.json -o ${base}-out.json - < ${base}-brief.md; echo $? > ${base}-out.json.exit.tmp && mv ${base}-out.json.exit.tmp ${base}-out.json.exit' > ${base}-run.log 2>&1 & }\n` +
     `4. Wait in the foreground — you cannot be woken later, your task ends when you answer. Run this Bash command (timeout 600000 ms) and repeat it until the marker exists, at most 7 times:\n` +
     `   timeout 540 bash -c 'until [ -f ${base}-out.json.exit ]; do sleep 30; done'; ls ${base}-out.json.exit\n` +
     `   Never answer before the marker exists or the 7 waits are spent. Never return a placeholder or a pending result.\n` +
@@ -137,7 +157,7 @@ function codexReview(label, routing, role, range) {
     `   Only that last non-empty line counts, because the log echoes the brief. If it contains "${USAGE_LIMIT}", Codex is out of usage: add limit to the answer, with line that line verbatim and resetsAt the text after "try again at" (any case) to the end of the line without a final period, or null when the line has none. Never wait for the reset and never retry a limit.\n${STRUCTURED_OUTPUT_ONLY_LINE}`
   const runCourier = courierLabel => safeAgent(courierPrompt, { label: courierLabel, phase: 'Review', schema: COURIER_VERDICT, ...MECHANICAL })
   return runCourier(label)
-    .then(v => retryMissingSchema(v, runCourier, label))
+    .then(v => retryFailedStart(v, runCourier, label))
     .then(v => rereadContradictoryCourier(v, label, base))
     .then(v => (v && v.codexExit !== 0 && v.verdict !== 'failed') ? { ...v, verdict: 'failed', note: `courier returned a verdict without a clean Codex exit (${v.codexExit}): ${v.note || ''}` } : v)
 }

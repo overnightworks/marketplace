@@ -104,18 +104,19 @@ test('review-reads-body: a lane-review call without the pull request number fail
 })
 
 // Runs the courier's start command as written in a scratch directory with stub gh and codex; the stub codex copies its stdin aside.
-async function runStartCommand({ failingProgram }) {
+async function runStartCommand({ failingProgram, contract = 'c', fileFromBrief = brief => brief }) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'lane-review-start-'))
   try {
     const [scratch, worktree, bin] = ['scratch', 'worktree', 'bin'].map(name => fs.mkdirSync(path.join(root, name)) ?? path.join(root, name))
     const failure = (program) => (program === failingProgram ? 'exit 1' : '')
     installFake(bin, 'gh', `#!/bin/sh\n${failure('gh')}\ncase "$1" in issue) printf 'ITEM BODY' ;; pr) printf 'PR BODY' ;; esac\n`)
     installFake(bin, 'codex', `#!/bin/sh\nwhile [ $# -gt 0 ]; do [ "$1" = --output-schema ] && cp "$2" ${root}/codex-schema-at-start; shift; done\ncat > ${root}/codex-stdin\n`)
-    const { agentCalls } = await runLane({ ...bodyLane, risk: 'material', scratch, worktree }, { 'r0-review': APPROVE })
+    const { agentCalls } = await runLane({ ...bodyLane, contract, risk: 'material', scratch, worktree }, { 'r0-review': APPROVE })
     const prompt = agentCalls['r0-gate'].prompt
     const startLine = prompt.split('\n').find(line => line.includes('codex exec')).trim()
     const brief = path.join(scratch, startLine.match(/< (\S+-brief\.md)/)[1].split('/').at(-1))
-    fs.writeFileSync(brief, 'BRIEF')
+    const writtenBrief = prompt.match(/verbatim to \S+:\n-----\n([\s\S]*)\n-----\n3\. /)[1]
+    fs.writeFileSync(brief, fileFromBrief(writtenBrief))
     const ran = spawnSync('sh', ['-c', startLine], { cwd: root, env: { ...process.env, PATH: `${bin}:${process.env.PATH}` }, encoding: 'utf8' })
     const marker = fs.readdirSync(scratch).find(name => name.endsWith('.exit'))
     const schemaInLine = startLine.match(/printf %s '(.*?)' > /)[1]
@@ -132,7 +133,7 @@ test('courier-start-command: the start command gives Codex a brief holding both 
   const exitMarker = () => fs.readdirSync(scratch).find(name => name.endsWith('.exit'))
   for (let waited = 0; !exitMarker() && waited < 100; waited++) await new Promise(resolve => setTimeout(resolve, 50))
   assert.ok(exitMarker(), 'codex ran and left its exit marker')
-  assert.match(stdinOfCodex(), /BRIEF[\s\S]*ITEM BODY[\s\S]*PR BODY/)
+  assert.match(stdinOfCodex(), /Read-only sandbox[\s\S]*ITEM BODY[\s\S]*PR BODY/)
 })
 
 test('courier-writes-schema: Codex finds the schema already written, byte for byte as the workflow holds it, when it starts', async () => {
@@ -156,6 +157,33 @@ test('courier-start-command: a failed append exits non-zero and starts no Codex'
   assert.equal(marker, undefined)
 })
 
+for (const [name, options] of [
+  ['a brief with one word changed', { fileFromBrief: brief => brief.replace('independent', 'dependent') }],
+  ['the courier\'s own prompt instead of the brief', { fileFromBrief: () => 'You are a courier for one independent Codex review.' }],
+  ['a non-ASCII brief retyped with a different character', { contract: 'Prüfe 5 € genau', fileFromBrief: brief => brief.replace('€', 'EUR') }],
+]) {
+  test(`courier-brief-check: ${name} exits non-zero, names the mismatch and starts no Codex`, async () => {
+    const { ran, stdinOfCodex, marker } = await runStartCommand(options)
+    assert.notEqual(ran.status, 0)
+    assert.match(ran.stderr, /brief file differs from the brief the script wrote/)
+    assert.equal(stdinOfCodex(), false)
+    assert.equal(marker, undefined)
+  })
+}
+
+for (const [name, options] of [
+  ['trailing blank lines', { fileFromBrief: brief => `${brief}\n\n  \n` }],
+  ['non-ASCII text', { contract: 'Prüfe 5 € und 日本語 😀 genau' }],
+]) {
+  test(`courier-brief-check: a brief with ${name} starts Codex`, async () => {
+    const { ran, scratch } = await runStartCommand(options)
+    assert.equal(ran.status, 0)
+    const exitMarker = () => fs.readdirSync(scratch).find(name => name.endsWith('.exit'))
+    for (let waited = 0; !exitMarker() && waited < 100; waited++) await new Promise(resolve => setTimeout(resolve, 50))
+    assert.ok(exitMarker(), 'codex ran and left its exit marker')
+  })
+}
+
 // ---- a courier whose Codex run could not read its output schema is retried once
 const schemaMissing = { verdict: 'failed', blocking: [], followups: [], codexExit: 1, note: 'Failed to read output schema file /x/lane-1/gate-schema.json: No such file or directory (os error 2)' }
 const gateAnswers = (...answers) => {
@@ -173,6 +201,20 @@ test('courier-schema-retry: an answer that failed reading the output schema is r
 
 test('courier-schema-retry: a second answer that failed reading the output schema fails the round with no further retry', async () => {
   const { result, launchedAgents } = await runLane(materialLane, gateAnswers(schemaMissing, schemaMissing))
+  assert.deepEqual(gateRuns(launchedAgents), ['r0-gate', 'r0-gate-retry'])
+  failedAtReview(result)
+})
+
+const briefMismatch = { verdict: 'failed', blocking: [], followups: [], codexExit: -1, note: 'brief file differs from the brief the script wrote' }
+
+test('courier-brief-retry: an answer that started no Codex for a mismatching brief is retried once and the round is judged on the retry', async () => {
+  const { result, launchedAgents } = await runLane(materialLane, gateAnswers(briefMismatch, { ...APPROVE, codexExit: 0 }))
+  assert.deepEqual(gateRuns(launchedAgents), ['r0-gate', 'r0-gate-retry'])
+  assert.deepEqual(result.history.map(round => [round.by, round.verdict]), [['review', 'APPROVE'], ['gate', 'APPROVE']])
+})
+
+test('courier-brief-retry: a second mismatching brief fails the round with no further retry', async () => {
+  const { result, launchedAgents } = await runLane(materialLane, gateAnswers(briefMismatch, briefMismatch))
   assert.deepEqual(gateRuns(launchedAgents), ['r0-gate', 'r0-gate-retry'])
   failedAtReview(result)
 })

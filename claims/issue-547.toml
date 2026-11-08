@@ -1,0 +1,8 @@
+claim_id = "66817365d42a404eb3eeb3a40cc3e7c8"
+agent = "Claude a5abe9e4-862b-4cac-94ed-68bd072edf38"
+role = "builder"
+base = "eca0dbb6557a69017ee248240fee1567b19ae3cd"
+branch = "claude/issue-547-courier-gh-from-worktree"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/workflows/lane-review.js", "tests/lane_workflow_review.test.mjs"]
+opened_commit = "54112846dc59470d40364d4e28e8843b1f6e7f1a"
+whole_reason = "One command line of one workflow, its test and the release pins."

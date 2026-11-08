@@ -1,8 +1,0 @@
-claim_id = "f48946fd52f84f9b8357e580a442b13f"
-agent = "Claude a5abe9e4-862b-4cac-94ed-68bd072edf38"
-role = "builder"
-base = "d1f1b87f1ae7dd28c366355150cf40e0395b14fc"
-branch = "claude/issue-554-codex-courier-brief-check"
-scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/workflows/lane-review.js", "tests/lane_workflow_review.test.mjs"]
-opened_commit = "87db0a90e2475681b9fe8eaadd3c72863b8f5d63"
-whole_reason = "One check in the courier's start command with its retry and test, and the release pins."

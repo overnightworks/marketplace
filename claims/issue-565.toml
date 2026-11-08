@@ -1,0 +1,8 @@
+claim_id = "5518804d4d9044ed84b1a057fc857f39"
+agent = "Claude a5abe9e4-862b-4cac-94ed-68bd072edf38"
+role = "builder"
+base = "725c7fa9123f1255f1579b759d6fd79a56206f97"
+branch = "claude/issue-565-not-run-proof-goes-on"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/workflows/lane.js", "tests/lane_workflow_fix.test.mjs"]
+opened_commit = "37c32b97d66e73c00f90f51d1283a9fcbde8453d"
+whole_reason = "One check of one workflow, its test and the release pins."

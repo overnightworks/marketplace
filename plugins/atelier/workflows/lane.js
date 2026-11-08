@@ -395,13 +395,15 @@ function proofGap(proof, finding) {
   const kind = kindOf(finding)
   if (kind === 'docs') return null
   if ((proof.notRun || '').trim()) return needsProof(finding) ? `a test for ${finding.where} was not run here (${proof.test}: ${proof.notRun.trim()}); CI on the pushed tip is its proof` : null
-  if (kind === 'test-gap') {
-    if (proof.resolution === 'removed-vacuous') return (proof.diff || '').trim() ? null : `the removal of a vacuous test for ${finding.where} carried no diff`
-    if (!proof.passesAfter) return `a test-gap test for ${finding.where} did not pass after the fix`
-    return (proof.mutation || '').trim() || proof.failedBefore ? null : `a test-gap test for ${finding.where} named no mutation under which it fails and did not fail before the fix`
-  }
+  if (kind === 'test-gap') return testGapProofGap(proof, finding)
   const missing = [!proof.failedBefore && needsProof(finding) && 'fail before', !proof.passesAfter && 'pass after'].filter(Boolean)
   return missing.length ? `a regression test did not ${missing.join(' and ')} its fix` : null
+}
+
+function testGapProofGap(proof, finding) {
+  if (proof.resolution === 'removed-vacuous') return (proof.diff || '').trim() ? null : `the removal of a vacuous test for ${finding.where} carried no diff`
+  if (!proof.passesAfter) return `a test-gap test for ${finding.where} did not pass after the fix`
+  return (proof.mutation || '').trim() || proof.failedBefore ? null : `a test-gap test for ${finding.where} named no mutation under which it fails and did not fail before the fix`
 }
 
 // Whether a fix must prove the finding with a test: a test-gap is nothing but a missing test, a defect's test draft

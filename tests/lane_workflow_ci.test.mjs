@@ -5,7 +5,7 @@ import path from 'node:path'
 import { spawnSync } from 'node:child_process'
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { runLane } from './lane_workflow_harness.mjs'
+import { runLane, runCommandLine, installFake } from './lane_workflow_harness.mjs'
 
 const tip = 'c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0'
 const lane = { item: 1, worktree: '/w', branch: 'b', contract: 'c', e2e: 'e', scratch: '/s', pr: 1, tip }
@@ -315,4 +315,85 @@ test('the cells of a tester PASS reach the result history, held, failed and not 
   const { result } = await runLane({ ...lane, foldIn: [tidy] }, { ...reachesCi, 'e2e-0': testerAnswer(cells), 'ci-0': ciAnswer([check(required, 'pass')]) })
   assert.equal(result.status, 'ready-to-land', result.reason)
   assert.deepEqual(result.history.find(entry => entry.by === 'e2e-0').cells, cells)
+})
+
+// A lane whose only red is the verdict of declared loosenings: the printer reads that job log through a fake gh.
+const verdictLink = 'https://github.com/o/n/actions/runs/11/job/22'
+const loosenLine = (text) => `verdict\tUNKNOWN STEP\t2026-11-08T04:00:00.0000000Z \u001b[31m${text}\u001b[0m`
+const loosened = [loosenLine('! red · only declared loosenings · only the operator merges it · 3s'), loosenLine('next: quality merge o/n#905')]
+const door = /merge door[\s\S]*quality merge o\/n#905/
+const fakeGhWithLog = (t, { logLines, logCode = 0 }) => {
+  const bin = fs.mkdtempSync(path.join(os.tmpdir(), 'lane-ci-gh-'))
+  t.after(() => fs.rmSync(bin, { recursive: true }))
+  const calls = path.join(bin, 'calls')
+  fs.writeFileSync(path.join(bin, 'log'), logLines.join('\n'))
+  installFake(bin, 'gh', `#!/bin/sh
+echo "$*" >> '${calls}'
+case "$1 $2" in
+  "pr view") printf '{"baseRefName":"main","headRefOid":"%s"}' "$FAKE_PR_HEAD" ;;
+  "pr checks") printf '%s' "$FAKE_CHECKS" ;;
+  "run view") [ ${logCode} = 0 ] || { echo 'HTTP 410: logs expired' >&2; exit ${logCode}; }; cat '${path.join(bin, 'log')}' ;;
+  *) printf '[]' ;;
+esac
+`)
+  return { bin, calls }
+}
+const printingWith = (bin, checks) => (prompt) => ({
+  printed: runCommandLine(prompt.split('\n').at(-1).replace(/^cd '[^']*' && /, ''), { cwd: os.tmpdir(), env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, FAKE_PR_HEAD: tip, FAKE_CHECKS: JSON.stringify(checks) } }),
+})
+const redVerdict = [{ name: required, bucket: 'fail', link: verdictLink }, { name: 'Python: tests', bucket: 'pass', link: 'https://github.com/o/n/actions/runs/11/job/23' }]
+const verdictFailing = [{ where: required, kind: 'defect', text: 'red', rule: 'CI check quality / verdict', evidence: 'red' }]
+const verdictRedCi = ciAnswer([], { green: false, failing: verdictFailing })
+
+test('ci-operator-door: a verdict red by declared loosenings alone ends the lane awaiting-head at ci with the quality merge command and no fixer', async (t) => {
+  const { bin, calls } = fakeGhWithLog(t, { logLines: loosened })
+  const { result, launchedAgents } = await driveCi(verdictRedCi, lane, printingWith(bin, redVerdict))
+  assert.deepEqual([result.status, result.stage], ['awaiting-head', 'ci'])
+  assert.match(result.reason, door)
+  assert.ok(!launchedAgents.includes('fix-2'))
+  assert.match(fs.readFileSync(calls, 'utf8'), /run view --job 22 .*--log/)
+})
+
+test('ci-operator-door: the two log lines in the other order, with the next line first, end the same way', async (t) => {
+  const { bin } = fakeGhWithLog(t, { logLines: [...loosened].reverse() })
+  const { result } = await driveCi(verdictRedCi, lane, printingWith(bin, redVerdict))
+  assert.deepEqual([result.status, result.stage], ['awaiting-head', 'ci'])
+  assert.match(result.reason, door)
+})
+
+test('ci-operator-door: the relay line carries neither log text nor escape bytes', async (t) => {
+  const { bin } = fakeGhWithLog(t, { logLines: loosened })
+  const { agentCalls } = await driveCi(verdictRedCi, lane, printingWith(bin, redVerdict))
+  const line = printingWith(bin, redVerdict)(agentCalls['ci-read-0'].prompt).printed
+  assert.doesNotMatch(line, /UNKNOWN STEP|u001b|declared/)
+})
+
+const notTheDoor = [
+  ['a verdict log without the loosenings line', { logLines: [loosenLine('! red · 2 findings · 3s')] }, redVerdict],
+  ['a verdict log whose read failed', { logLines: [], logCode: 1 }, redVerdict],
+  ['a loosenings log without a merge command', { logLines: [loosened[0]] }, redVerdict],
+  ['another red check next to the verdict', { logLines: loosened }, [...redVerdict, { name: 'Python: tests', bucket: 'fail', link: 'https://github.com/o/n/actions/runs/11/job/24' }]],
+  ['a verdict that is red without a job link', { logLines: loosened }, [{ name: required, bucket: 'fail', link: '' }]],
+]
+for (const [what, gh, checks] of notTheDoor) {
+  test(`ci-operator-door: ${what} still goes to a fixer`, async (t) => {
+    const { bin } = fakeGhWithLog(t, gh)
+    const { launchedAgents } = await driveCi(verdictRedCi, lane, printingWith(bin, checks))
+    assert.ok(launchedAgents.includes('fix-2'))
+  })
+}
+
+test('ci-operator-door: a log that names the loosenings of another check than the verdict is never read', async (t) => {
+  const { bin, calls } = fakeGhWithLog(t, { logLines: loosened })
+  const checks = [{ name: required, bucket: 'pass', link: verdictLink }, { name: 'Python: tests', bucket: 'fail', link: 'https://github.com/o/n/actions/runs/11/job/23' }]
+  const { launchedAgents } = await driveCi(ciAnswer([], { green: false, failing: verdictFailing }), lane, printingWith(bin, checks))
+  assert.ok(launchedAgents.includes('fix-2'))
+  assert.ok(!fs.existsSync(calls) || !/run view/.test(fs.readFileSync(calls, 'utf8')))
+})
+
+test('ci-operator-door: a blocking end-to-end finding sends the lane to the fixer even when the only red is the operator door', async (t) => {
+  const { bin } = fakeGhWithLog(t, { logLines: loosened })
+  const blocked = { verdict: 'FAIL', blocking: [{ where: 'x', text: 't', rule: 'r', evidence: 'e', kind: 'defect' }], followups: [], cells: [{ cell: 'c', result: 'failed', command: 'run', exit: '1' }] }
+  const { launchedAgents } = await runLane({ ...lane, foldIn: [tidy] }, { ...reachesCi, 'e2e-0': blocked, 'ci-0': verdictRedCi, 'ci-read-0': printingWith(bin, redVerdict) })
+  assert.ok(launchedAgents.includes('fix-2'))
 })

@@ -25,8 +25,10 @@ Before asking the operator anything, look up what the code, the board and the
 rulings answer. Then ask at most one short question at a time, only for a
 product choice, genuine uncertainty or a material-risk decision that cannot
 safely be inferred, never guessing one, with a recommendation and two or three
-concrete options. The session-start list and expectation lists follow their
-own rules below.
+concrete options. The question goes onto an open item through aco's `ask` tool
+and the chat says only that a card waits; a card is hand-written only without
+the tool or to revise a returned line. The session-start list and expectation
+lists follow their own rules below.
 
 ## Session start
 

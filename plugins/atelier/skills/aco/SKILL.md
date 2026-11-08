@@ -137,8 +137,11 @@ contract and this skill.
 - `aco check <issue>` judges a written issue body's contract.
 - A slice becomes an item with `aco cut` (`specs/cut.spec.md`).
 - An operator question is written only as an option line in the item body (shape:
-  `specs/body-block.spec.md`, "Option lines"), never as a yes/no line. Pipe the new body through `aco check -` first, then write it with
-  `gh issue edit` under `storage = "github"` or `aco item edit` under state-ref.
+  `specs/body-block.spec.md`, "Option lines"), never as a yes/no line: put the option line on an existing open item with the
+  `ask` tool of `aco mcp` (`specs/mcp.spec.md`, which holds the facts); a session
+  without the tool, or a revision of a returned line, writes it by hand: pipe the
+  new body through `aco check -`, then write it with `gh issue edit` under
+  `storage = "github"` or `aco item edit` under state-ref.
   Read `references/decision-cards.md` before writing or revising a card: it holds
   the judgement `aco check` cannot make.
 - Outside an option's `contract`, a card carries no issue numbers, paths, file names,

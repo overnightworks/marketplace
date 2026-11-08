@@ -13,6 +13,8 @@ Licensed under the [MIT License](LICENSE).
 - `plugins/atelier/` is the plugin: `skills/` is shared by both hosts,
   `agents/` holds the Markdown source of every agent (loaded directly by Claude
   Code), and `workflows/` holds the Claude Code workflows.
+- `plugins/atelier/.mcp.json` registers aco's MCP server (`aco mcp`) for both
+  hosts.
 - `plugins/atelier/.codex/agents/` is generated from `agents/`; change the
   Markdown source and run `python3 scripts/sync_agents.py`, never edit the
   generated files.

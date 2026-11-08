@@ -1,0 +1,8 @@
+claim_id = "181f53bec1d54cb7b9cf6360c52734c3"
+agent = "Claude a5abe9e4-862b-4cac-94ed-68bd072edf38"
+role = "builder"
+base = "3e1b657955858924b89fc714c12281c9d1e1505a"
+branch = "claude/issue-550-short-ci-relay-line"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/workflows/lane-relay.js", "plugins/atelier/workflows/lane.js", "tests/lane_workflow_ci.test.mjs", "tests/lane_workflow_relay.test.mjs"]
+opened_commit = "d1ebe6d748ae872d5bebdfbae497dfaec8a91db2"
+whole_reason = "One relay line's printer and its one reader change together under one protocol number, with their tests and the release pins."

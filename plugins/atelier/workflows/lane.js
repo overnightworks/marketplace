@@ -565,13 +565,13 @@ async function pushAndCheckScope(label, origin) {
   const adoptedMerge = push.code === 0 && !sameCommit(remote.out, tip) && sameCommit(remote.out, head.out) && mergedOnto(values, tip) &&
     values.parents.out.split('\n').length === 2 && values.second_parent_in_main.code === 0
   if (push.code !== 0 || !(adoptedMerge || sameCommit(remote.out, tip))) {
-    return fail('push', `the remote branch ${A.branch} does not carry the lane tip ${tip}: git push exited ${push.code} (${push.err ?? ''}), origin/${A.branch} is ${remote.out}, HEAD is ${head.out}`)
+    return fail('push', `the remote branch ${A.branch} does not carry the lane tip ${tip}: git push exited ${push.code} (${push.err}), origin/${A.branch} is ${remote.out}, HEAD is ${head.out}`)
   }
   if (adoptedMerge) {
     history.push({ by: 'scope', adoptedMerge: head.out, from: tip })
     tip = head.out
   }
-  if (brief.code !== 0) return fail('scope', `aco brief ${A.item} --json exited ${brief.code}: ${brief.err ?? ''}`)
+  if (brief.code !== 0) return fail('scope', `aco brief ${A.item} --json exited ${brief.code}: ${brief.err}`)
   const paths = values.outside_claim
   if (paths === null) return fail('scope', 'the lane holds no live claim (outside_claim is null); a lane without a claim does not reach review')
   if (!Array.isArray(paths) || !paths.every(path => typeof path === 'string')) return fail('scope', `aco's outside_claim is neither null nor a list of paths: ${JSON.stringify(paths)}`)

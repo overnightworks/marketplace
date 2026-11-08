@@ -40,7 +40,7 @@ const PRINTER = [
   'brief=json.loads(ran["brief"].stdout) if "brief" in ran and ran["brief"].returncode==0 else None',
   'shared=[] if brief is None or brief.get("claim",{}).get("lane_shared_unavailable") else [e["path"] for e in brief.get("claim",{}).get("lane_shared",[]) if e["names_a_file"]]',
   'claim=[p for p in brief["outside_claim"] if p not in shared] if brief and isinstance(brief["outside_claim"],list) else brief and brief["outside_claim"]',
-  'values={n:{"code":p.returncode,**({"err":e} if (e:=" ".join(l for l in p.stderr.splitlines() if l[:5]!="hint:")[-300:]) else {}),**({} if n in("brief","view","checks","rules","runs") else {"out":p.stdout.strip()[:100]})} for n,p in ran.items()}',
+  'values={n:{"code":p.returncode,**({"err":e} if (e:=" ".join(l for l in p.stderr.splitlines() if l[:5]!="hint:")[-300:]) or step!="ci" else {}),**({} if n in("brief","view","checks","rules","runs") else {"out":p.stdout.strip()[:100]})} for n,p in ran.items()}',
   'parsed=lambda n:json.loads(ran[n].stdout) if n in ran and ran[n].returncode==0 else None',
   'view,listing,rules,pages=parsed("view"),parsed("checks"),parsed("rules"),parsed("runs")',
   'listing=listing and sorted(listing,key=lambda c:(c["name"],c["bucket"]))',

@@ -92,6 +92,15 @@ test('AC-scope-relay: the printer pushes the lane tip to a real remote and the l
   }
 })
 
+test('AC-scope-relay: the scope line keeps an empty err for the push and the brief', async (t) => {
+  const lane = laneRepository(t)
+  const printedLines = []
+  await runScopeStep(lane, [], printedLines)
+  const { push, brief } = JSON.parse(printedLines[0]).v
+  assert.equal(brief.err, '')
+  assert.equal(typeof push.err, 'string')
+})
+
 test('AC-scope-relay: a rejected push stops the lane at push quoting git, and the remote branch stays as it was', async (t) => {
   const lane = laneRepository(t)
   const other = path.join(lane.root, 'other')

@@ -173,6 +173,7 @@ for (const [name, options] of [
 
 for (const [name, options] of [
   ['trailing blank lines', { fileFromBrief: brief => `${brief}\n\n  \n` }],
+  ['every line indented and blank lines between lines', { fileFromBrief: brief => brief.split('\n').map(line => `  ${line}`).join('\n\n') }],
   ['non-ASCII text', { contract: 'Prüfe 5 € und 日本語 😀 genau' }],
 ]) {
   test(`courier-brief-check: a brief with ${name} starts Codex`, async () => {

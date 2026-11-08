@@ -1,0 +1,8 @@
+claim_id = "2fe9257cbd854c2f9296301b48208fe3"
+agent = "Claude a5abe9e4-862b-4cac-94ed-68bd072edf38"
+role = "builder"
+base = "e7db8fa972e5c1df6a509b1344bdd916fdb86fe8"
+branch = "claude/issue-545-fixer-reports-test-not-run"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/workflows/lane.js", "tests/lane_workflow_fix.test.mjs"]
+opened_commit = "80ada16b6cf94306cd50fbafe23db29451a127e4"
+whole_reason = "One check of one workflow, its test and the release pins."

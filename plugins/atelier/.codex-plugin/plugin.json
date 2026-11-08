@@ -1,6 +1,6 @@
 {
   "name": "atelier",
-  "version": "0.7.147+codex.20261108214411",
+  "version": "0.7.148+codex.20261108214900",
   "description": "Portable Atelier-style skills, agents, and workflows.",
   "author": {
     "name": "Felix Hummert"

@@ -1,8 +1,0 @@
-claim_id = "e6371aa590a44407b1392d02b1f39841"
-agent = "Claude a5abe9e4-862b-4cac-94ed-68bd072edf38"
-role = "builder"
-base = "a359323bb0596a229b446aae8fea0d0eb0163b9e"
-branch = "claude/issue-560-codex-gate-textencoder"
-scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/workflows/lane-review.js", "tests/lane_workflow_harness.mjs", "tests/lane_workflow_review.test.mjs"]
-opened_commit = "9dfa5f456265522592aa5585221d2a34288a17b4"
-whole_reason = "The fix, the harness that would have caught it and the release that delivers it are one change."

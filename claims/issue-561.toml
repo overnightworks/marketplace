@@ -1,8 +1,0 @@
-claim_id = "1591f927e12a464bb29a2f1238700456"
-agent = "Claude a5abe9e4-862b-4cac-94ed-68bd072edf38"
-role = "builder"
-base = "abfc5000576bfbe6ba0a79c6000a1361f4cb23e8"
-branch = "claude/issue-561-legal-texts-names-platform"
-scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/skills/legal-texts/SKILL.md"]
-opened_commit = "db42b0963625face887a732c2719f40a115ca4f2"
-whole_reason = "One skill sentence and the release pins that deliver it."

@@ -153,7 +153,7 @@ async function startChild(name, childArgs) {
   }
 }
 // A value a command prints reaches a decision only through the line the lane-relay child reads back and checks.
-const LANE_RELAY_PROTOCOL = 8
+const LANE_RELAY_PROTOCOL = 9
 const SYNC_ANSWER = { properties: { note: { type: 'string', description: 'what stopped the merge: the conflicting paths, or the failed command and its output' } } }
 const relay = (request) => startChild('lane-relay', { protocol: LANE_RELAY_PROTOCOL, delegatedLine: DELEGATED_LINE, worktree: A.worktree, agentOptions: MECHANICAL, mechanical: MECHANICAL, ...request })
 // The failure reasons name the printed line only when the command printed one.
@@ -701,9 +701,11 @@ async function watchCi(n) {
   const read = await relay({ label: `ci-read-${n}`, phase: 'Test and CI', step: 'ci', relayArgs: [pr, `'${A.repo || ''}'`, `'${nonce}'`], nonce, requiredKeys: ['view'], brief: `${laneFacts}\nChange nothing in the files;` })
   if (!read) return { problem: 'ended without reading the CI values' }
   if (read.problem) return { problem: `read the CI values, but their relay line ${read.problem}${printedLine(read)}` }
-  const { view, checks, rules, head, shared } = read.values
+  const { view, checks, rules, head, shared, log } = read.values
   if (view.code !== 0) return { problem: `could not read the pull request: gh pr view exited ${view.code}: ${view.err ?? ''}` }
-  return { ...watched, head, shared, rulesError: rules.code === 0 ? null : `gh api exited ${rules.code}: ${rules.err ?? ''}`, unproven: watched.green ? unprovenGreen({ checks, rules }) : null }
+  // The printer reads a job log only for the red verdict check; its two values name the red a fixer may not remove.
+  const operatorDoor = checks.open?.length === 1 && log?.code === 0 && log.loosenings && log.merge ? log.merge : null
+  return { ...watched, head, shared, operatorDoor, rulesError: rules.code === 0 ? null : `gh api exited ${rules.code}: ${rules.err ?? ''}`, unproven: watched.green ? unprovenGreen({ checks, rules }) : null }
 }
 
 function lockQueueCiState(ci) {
@@ -761,6 +763,9 @@ while (true) {
   if (shared.length && testBlocking.length === 0) {
     const checkList = shared.map(name => `"${name}"`).join(', ')
     return openResult('awaiting-head', 'ci', { reason: `the CI check(s) ${checkList} are red on the base branch tip too: the red is shared with main and is fixed there, so no fixer was launched. If this lane's item is that repair, start a new run with pr and tip and fixFirst.` })
+  }
+  if (ci.operatorDoor && testBlocking.length === 0 && e2e.verdict === 'PASS') {
+    return openResult('awaiting-head', 'ci', { reason: `the only red check is the quality verdict, red because the diff holds only declared loosenings, which only the operator merges, so no fixer was launched. It waits at the operator's merge door: run \`${ci.operatorDoor}\`.` })
   }
   const ciBlocking = ci.green || shared.length ? [] : (ci.failing || [])
   const budgetKey = testBlocking.length ? 'test' : 'ci'

@@ -501,3 +501,9 @@ for (const [what, edit] of [
     assert.match(result.reason, /relay line/)
   })
 }
+
+test('AC-ci-printer-quotes: the ci printer text holds no single quote, so the shell passes it as one argument', async () => {
+  const { agentCalls } = await driveCiRead((line) => line)
+  const commandLine = agentCalls['ci-read-0'].prompt.split('\n').at(-1)
+  assert.match(commandLine, /^cd '[^']*' && python3 -c '[^']+' ci 1 '[^']*' 'ci-0-[^']*'$/)
+})

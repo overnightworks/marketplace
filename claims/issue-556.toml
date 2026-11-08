@@ -1,0 +1,8 @@
+claim_id = "69bffd4998914fcda1d9eaf289072171"
+agent = "Claude a5abe9e4-862b-4cac-94ed-68bd072edf38"
+role = "builder"
+base = "c6570111da8698782e7828cba55e0f438cfad2f7"
+branch = "claude/issue-556-aco-mcp-through-atelier"
+scope = [".claude-plugin/marketplace.json", "README.md", "instructions/HEAD.md", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/.mcp.json", "plugins/atelier/skills/aco/SKILL.md"]
+opened_commit = "697e2ced0109857736dbd31ac28a95ebf55fa69e"
+whole_reason = "One plugin registration with its release pins, and the sentences that make its ask tool the usual way, in the contract and the aco skill."

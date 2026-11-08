@@ -198,8 +198,9 @@ Every review finding is marked **blocking** or **follow-up**.
   unless the operator asked. A repository's `AGENTS.md` may name cheaper
   commands, never looser ones.
 - A builder or fixer, after its last merge of the default branch and before it
-  pushes, runs those static checks and, where the quality gate exists,
-  `quality hygiene .` at the release it pins, and fixes what they report.
+  pushes, runs those static checks and, where the quality gate exists, its
+  local check at the release it pins, as quality's README names it, and fixes
+  what they report.
 - No repository makes `-n auto` its pytest default (CI passes it); every local
   shell keeps `PYTEST_XDIST_AUTO_NUM_WORKERS=4`, never higher. Frontend runs
   name their files, never `pnpm test` over the whole tree.

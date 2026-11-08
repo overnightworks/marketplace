@@ -72,7 +72,7 @@ names the call and its reason.
   the ruling) or default.
 - **Quality gate.** With `quality/config.toml` and a workflow using
   `overnightworks/quality/.github/workflows/gate.yml`, the shared gate owns
-  the thresholds only (its `size` rule). Its `quality scoreboard` is not a
+  the thresholds only (its `size` rule). Its `quality report` is not a
   measurement of this area: measure and say so.
 - **Refute before reporting.** Every subagent's mandate is to disprove the
   claim or suspicion: read the code, trace the path, then look for the check,

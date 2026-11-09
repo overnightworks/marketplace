@@ -14,7 +14,7 @@
 
 ## Owners
 
-- The operator owns `instructions/`; the plugin under `plugins/atelier/` belongs to this repository's head.
+- The operator owns `instructions/`.
 
 ## Documents
 

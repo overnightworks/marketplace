@@ -232,7 +232,8 @@ where the lane has an open pull request, the line goes into that body as usual.
 
 The head runs this, in this order; the operator takes only the steps marked so, each
 as the ready step given here. The head fills in the real repository names (`OLD`, `NEW`)
-and Sonar keys (`KEY_OLD`, `KEY_NEW`) in the first line of each block and in each link
+Sonar keys (`KEY_OLD`, `KEY_NEW`) and the file name of the workflow that runs the quality
+gate (`WORKFLOW`, from `gh workflow list`) in the first line of each block and in each link
 before handing it over; the blocks use them as shell variables. The Sonar key and binding follow hal's
 `docs/naming.md`, P2 (until quality's naming document holds it). aco's trap is
 PIN-52 and E-PIN-42 in `specs/storage-pin.spec.md` of aco: every clone whose `origin`
@@ -248,22 +249,35 @@ still names the old repository refuses a cross-repository read until step 5 re-p
    GitHub settings) change and apply first.
 3. Disable CI (operator; auto mode refuses it to an agent as a CI bypass):
    ```sh
-   OLD=old-name && cd ~/git/$OLD && gh workflow disable ci
+   OLD=old-name && cd ~/git/$OLD && gh workflow disable WORKFLOW
    ```
-4. Rename (agent): `gh repo rename NEW`. Then the Sonar key (operator, web): open
+4. Rename (agent): `gh repo rename NEW -R overnightworks/OLD --yes`. Then the Sonar key (operator, web): open
    `https://sonarcloud.io/project/key?id=KEY_OLD`, field Update Key, set `KEY_NEW` and
    save, once its Background Tasks show nothing
    pending.
-5. Local move, while nothing runs inside the clone: the repository's own sessions
-   end first and the move runs from a session outside it (operator, until #586 proves an
-   agent's auto mode allows each part):
+5. Local move (agent), while nothing runs inside the clone: the repository's own sessions
+   end first and the move runs from a session outside it. The block stops at the first
+   failure and `-x` shows where; a missing worktrees directory is skipped. Each `origin`
+   keeps its URL form and changes only the repository name. Claude project directories
+   of worktrees (`<P>-OLD-worktrees-*`) stay: with no worktree open they belong to
+   removed worktrees. If auto mode refuses a part, the operator takes that part (#586):
    ```sh
-   OLD=old-name; NEW=new-name; P=~/.claude/projects/${HOME//\//-}-git
-   cd ~/git && mv $OLD $NEW && mv $OLD-worktrees $NEW-worktrees \
-     && for d in $NEW $NEW-worktrees/*; do git -C "$d" remote set-url origin "git@github.com:overnightworks/$NEW.git"; done \
-     && git -C $NEW worktree repair $NEW-worktrees/* \
-     && mv $P-$OLD $P-$NEW \
-     && for d in $NEW $NEW-worktrees/*; do [ -f "$d/uv.lock" ] && (cd "$d" && uv venv --allow-existing && uv sync --locked --reinstall); done
+   OLD=old-name NEW=new-name bash -euxo pipefail -c '
+   shopt -s nullglob
+   P=~/.claude/projects/${HOME//\//-}-git
+   cd ~/git
+   mv $OLD $NEW
+   if [ -d $OLD-worktrees ]; then mv $OLD-worktrees $NEW-worktrees; fi
+   dirs=($NEW $NEW-worktrees/*)
+   for d in "${dirs[@]}"; do
+     url=$(git -C "$d" remote get-url origin)
+     git -C "$d" remote set-url origin "${url%/*}/$NEW.git"
+   done
+   if [ -d $NEW-worktrees ]; then git -C $NEW worktree repair $NEW-worktrees/*; fi
+   mv $P-$OLD $P-$NEW
+   for d in "${dirs[@]}"; do
+     if [ -f "$d/uv.lock" ]; then (cd "$d" && uv venv --allow-existing && uv sync --locked --reinstall); fi
+   done'
    ```
    Never re-clone: `refs/aco/state` and its fetch refspec must survive. Also set the
    `origin` of any deploy checkout outside `~/git`. The agent reports user units, links
@@ -274,7 +288,7 @@ still names the old repository refuses a cross-repository read until step 5 re-p
    is stale. Peer session addresses follow the directory: tell the peers the new one.
 7. Re-enable CI (operator):
    ```sh
-   NEW=new-name && cd ~/git/$NEW && gh workflow enable ci
+   NEW=new-name && cd ~/git/$NEW && gh workflow enable WORKFLOW
    ```
    Then an agent pushes the key commit and the head lands it. The operator re-saves the
    binding at `https://sonarcloud.io/project/settings?id=KEY_NEW`: General Settings ›
@@ -285,8 +299,8 @@ still names the old repository refuses a cross-repository read until step 5 re-p
    any repository takes it, because a reuse ends the redirect; closed items and comments
    stay, a named risk. The old image package is deleted only on the operator's yes.
 
-Open risk: without `hal rename`, whether an agent's auto mode allows each move in step 5
-is unverified; the first run (#586, marketplace to atelier) proves it or names the step
+Open risk: without `hal rename`, whether an agent's auto mode allows each part of step 5
+is unverified; the first run (#586, marketplace to atelier) proves it or names the part
 as the operator's.
 
 ## Friction

@@ -1,0 +1,8 @@
+claim_id = "cc5ea45dea784534b27faf17eb48bc3b"
+agent = "Claude a5abe9e4-862b-4cac-94ed-68bd072edf38"
+role = "builder"
+base = "742ffde6386d5186aacc9943d76ade09ca5b6ba0"
+branch = "claude/issue-566-aco-skill-record-answer-step"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/skills/aco/SKILL.md"]
+opened_commit = "66c2b94710ec945dc211ffb67a529ba9b119a2a6"
+whole_reason = "Two skill bullets for aco's new tools and the atelier release pins that ship them."

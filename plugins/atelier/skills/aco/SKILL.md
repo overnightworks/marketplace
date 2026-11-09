@@ -283,7 +283,7 @@ still names the old repository refuses a cross-repository read until step 5 re-p
      if [ -f "$d/uv.lock" ]; then (cd "$d" && uv venv --allow-existing && uv sync --locked --reinstall); fi
    done'
    ```
-   Never re-clone: `refs/aco/state` and its fetch refspec must survive. Also set the
+   Never re-clone: open worktrees, local branches and unpushed commits live only in the clone; aco's claims live on the remote. Where `.aco/board.toml` names a canonical remote other than `origin`, re-point that one the same way. Also set the
    `origin` of any deploy checkout outside `~/git`. The agent reports user units, links
    in `~/.local/bin`, `~` and `~/srv`, and uv tools that point into the old path to the
    repository's head.

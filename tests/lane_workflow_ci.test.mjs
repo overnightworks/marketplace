@@ -15,7 +15,7 @@ const reachesCi = { 'fix-1': alreadySatisfied, 'r1-review': { verdict: 'APPROVE'
 const required = 'quality / verdict'
 const check = (name, bucket) => ({ name, bucket })
 const ciAnswer = (checks, extra = {}) => ({ head: tip, green: true, failing: [], checks, requiredChecks: [required], ...extra })
-const driveCi = (ci, args = lane, read) => runLane({ ...args, foldIn: [tidy] }, { ...reachesCi, 'ci-0': ci, ...(read && { 'ci-read-0': read }) })
+const driveCi = (ci, args = lane, read, more = {}) => runLane({ ...args, foldIn: [tidy] }, { ...reachesCi, 'ci-0': ci, ...(read && { 'ci-read-0': read }), ...more })
 
 const unproven = [
   ['a pending check', [check(required, 'pass'), check('Python: tests', 'pending')], /Python: tests/],
@@ -397,4 +397,57 @@ test('ci-operator-door: a blocking end-to-end finding sends the lane to the fixe
   const blocked = { verdict: 'FAIL', blocking: [{ where: 'x', text: 't', rule: 'r', evidence: 'e', kind: 'defect' }], followups: [], cells: [{ cell: 'c', result: 'failed', command: 'run', exit: '1' }] }
   const { launchedAgents } = await runLane({ ...lane, foldIn: [tidy] }, { ...reachesCi, 'e2e-0': blocked, 'ci-0': verdictRedCi, 'ci-read-0': printingWith(bin, redVerdict) })
   assert.ok(launchedAgents.includes('fix-2'))
+})
+
+const redJob = (name, failingStep, ids = ['11', '22']) => ({ name, link: `https://github.com/o/n/actions/runs/${ids[0]}/job/${ids[1]}`, runId: ids[0], jobId: ids[1], failingStep, findings: [redOnHead(name)] })
+const redWatch = (jobs, checks = jobs.map(job => check(job.name, 'fail'))) => ciAnswer([check(required, 'pass'), ...checks], { green: false, failing: jobs.flatMap(job => job.findings), red: jobs })
+const rerunLabels = (launchedAgents) => launchedAgents.filter(label => label.startsWith('ci-0-rerun'))
+
+test('ci-fail-fast: two red checks are both handed to the fixer and nothing is re-run', async () => {
+  const { agentCalls, launchedAgents } = await driveCi(redWatch([redJob('Node: tests', 'Run the node tests'), redJob('Python: tests', 'Run the python tests', ['11', '23'])]))
+  assert.match(agentCalls['fix-2'].prompt, /Node: tests/)
+  assert.match(agentCalls['fix-2'].prompt, /Python: tests/)
+  assert.deepEqual(rerunLabels(launchedAgents), [])
+})
+
+for (const [what, step] of [['a test step', 'Run the node tests'], ['an unreadable step', null], ['a step whose name only contains a setup step name', 'Set up job and run tests']]) {
+  test(`ci-fail-fast: a job that failed in ${what} is reported at once without a second agent call`, async () => {
+    const { agentCalls, launchedAgents } = await driveCi(redWatch([redJob('Node: tests', step)]))
+    assert.match(agentCalls['fix-2'].prompt, /Node: tests fails/)
+    assert.deepEqual(rerunLabels(launchedAgents), [])
+  })
+}
+
+test('ci-fail-fast: a setup failure next to a test failure is reported at once without a re-run', async () => {
+  const { launchedAgents } = await driveCi(redWatch([redJob('Node: tests', 'Set up job'), redJob('Python: tests', 'Run the python tests', ['11', '23'])]))
+  assert.deepEqual(rerunLabels(launchedAgents), [])
+})
+
+test('ci-fail-fast: a setup failure is re-run once with --job and a changed link takes the second finding', async () => {
+  const second = { ...redOnHead('Node: tests'), text: 'Node: tests fails again after the re-run' }
+  const rerun = { link: 'https://github.com/o/n/actions/runs/11/job/99', bucket: 'fail', findings: [second] }
+  const { agentCalls, launchedAgents } = await driveCi(redWatch([redJob('Node: tests', 'Set up job')]), lane, undefined, { 'ci-0-rerun-1': rerun })
+  assert.deepEqual(rerunLabels(launchedAgents), ['ci-0-rerun-1'])
+  assert.match(agentCalls['ci-0-rerun-1'].prompt, /gh run rerun 11 --job 22/)
+  assert.match(agentCalls['fix-2'].prompt, /fails again after the re-run/)
+  assert.doesNotMatch(agentCalls['fix-2'].prompt, /Node: tests fails\b(?! again)/)
+})
+
+test('ci-fail-fast: a setup failure whose re-run link is unchanged keeps the first finding', async () => {
+  const job = redJob('Node: tests', 'Set up job')
+  const rerun = { link: job.link, bucket: 'pass', findings: [] }
+  const { agentCalls } = await driveCi(redWatch([job]), lane, undefined, { 'ci-0-rerun-1': rerun })
+  assert.match(agentCalls['fix-2'].prompt, /Node: tests fails/)
+})
+
+test('ci-fail-fast: a setup failure whose re-run passes under a changed link reaches ready-to-land', async () => {
+  const job = redJob('Node: tests', 'Set up job')
+  const rerun = { link: 'https://github.com/o/n/actions/runs/11/job/99', bucket: 'pass', findings: [] }
+  const { result } = await driveCi(redWatch([job], [check('Node: tests', 'pass')]), lane, undefined, { 'ci-0-rerun-1': rerun })
+  assert.equal(result.status, 'ready-to-land', result.reason)
+})
+
+test('ci-fail-fast: a re-run agent that ends without a result keeps the first finding', async () => {
+  const { agentCalls } = await driveCi(redWatch([redJob('Node: tests', 'Set up job')]))
+  assert.match(agentCalls['fix-2'].prompt, /Node: tests fails/)
 })

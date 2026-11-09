@@ -1,0 +1,8 @@
+claim_id = "630256e3a8ac4c5e83fe6d0a515f47b0"
+agent = "Claude a5abe9e4-862b-4cac-94ed-68bd072edf38"
+role = "builder"
+base = "9676f627c684866d833d3557ecc2223fe93376d9"
+branch = "claude/issue-591-lane-build-child"
+scope = [".claude-plugin/marketplace.json", "README.md", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/workflows/lane-build.js", "plugins/atelier/workflows/lane.js", "sonar-project.properties", "tests"]
+opened_commit = "671e6da1a0659991da22cae8b604fb81ad1669d6"
+whole_reason = "One extraction: the builder's step leaves lane.js for a child, with the files that name the lane's children."

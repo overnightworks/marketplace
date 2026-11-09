@@ -18,8 +18,9 @@
 
 ## Documents
 
-- `README.md`: read to install, update, verify or find where parts live.
-- `docs/ARCHITECTURE.md`: read for where agent guidance lives and why it is never copied.
-- `docs/VISION.md`: read for what this repository is for and is not.
-- `docs/standards.md`: read to find which fleet standards cover a repository.
-- `instructions/AGENTS.md`: the contract and code policy; `instructions/HEAD.md`: what only the head reads.
+- `README.md`: read when you install, update or verify the plugin or look for where its parts live.
+- `docs/ARCHITECTURE.md`: read when you need to know where agent guidance lives and why it is never copied.
+- `docs/VISION.md`: read when you need to know what this repository is for and is not.
+- `docs/standards.md`: read when you need to find which fleet standards cover a repository.
+- `instructions/AGENTS.md`: read when you need the contract and code policy every agent follows.
+- `instructions/HEAD.md`: read when you are the head, for the coordination only the head reads.

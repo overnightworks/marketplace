@@ -215,8 +215,9 @@ or hal is unfrozen.
    between it and the first section.
 2. Then these sections in this order, each left out when empty:
    - `## Commands`: the task runner's own lister once (for example
-     `mise tasks`), then one line for each check command and each command that
-     is the operator's: the exact command, its purpose and its precondition.
+     `mise tasks`), then one line for each check command and each command the
+     operator must run (one that needs sudo or a secret he fetches): the exact
+     command, its purpose and its precondition.
    - `## Rules`: one checkable sentence per rule an agent would break by reading
      the code alone: how a file or value changes, a generated file, a trap.
    - `## Owners`: who decides (a person, a head or another repository) and the

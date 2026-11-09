@@ -1,0 +1,8 @@
+claim_id = "33301f2afc0640a3ac45d83fe5c37042"
+agent = "Claude a5abe9e4-862b-4cac-94ed-68bd072edf38"
+role = "builder"
+base = "53aab2347d25a62da1b2ae8656807adbac084327"
+branch = "claude/issue-580-review-test-volume-and-tests-lens"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/skills/audit", "plugins/atelier/workflows/lane-review.js", "tests/lane_workflow_review.test.mjs"]
+opened_commit = "97613acba399ba443c6312b2bd6eb0b54009dfdf"
+whole_reason = "Two small #576 cards bundled into one release: a review-brief line and the audit skill's tests lens."

@@ -26,7 +26,7 @@ async function agentOrNull(prompt, opts) {
 }
 
 // A job qualifies for the one re-run only when the step it failed in is listed here; any other step, or none known, never does.
-const SETUP_STEPS = ['Set up job']
+const SETUP_STEPS = new Set(['Set up job'])
 
 const REDCHECK = {
   type: 'object',
@@ -90,12 +90,13 @@ function rerunJob(red, index) {
     { label: `ci-${A.n}-rerun-${index + 1}`, phase: 'Test and CI', schema: RERUN, ...WATCHER })
 }
 
-const canRerun = red => SETUP_STEPS.includes(red.failingStep) && Boolean(red.runId) && Boolean(red.jobId)
+const canRerun = red => SETUP_STEPS.has(red.failingStep) && Boolean(red.runId) && Boolean(red.jobId)
 
 // The first finding stands unless the re-run reached the check, which shows as another link.
 function afterRerun(red, rerun) {
   if (!rerun || rerun.link === red.link) return red.findings
-  return rerun.bucket === 'pass' ? [] : rerun.findings.length ? rerun.findings : red.findings
+  if (rerun.bucket === 'pass') return []
+  return rerun.findings.length ? rerun.findings : red.findings
 }
 
 async function ciFindings() {

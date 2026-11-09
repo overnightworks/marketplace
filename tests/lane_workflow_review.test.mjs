@@ -87,8 +87,8 @@ test('test-volume: the Claude reviewer brief carries the ratio rule naming D1 an
   const { agentCalls } = await runLane(bodyLane, { 'r0-review': APPROVE })
   const prompt = agentCalls['r0-review'].prompt
   assert.match(prompt, /more than three test lines for each source line/)
-  assert.match(prompt, /D1 \(is one behaviour proven once[^)]*\)/)
-  assert.match(prompt, /D3 \(are cases that differ only in data one parametrized test\?\)/)
+  assert.match(prompt, /D1 \(one behaviour, one test, at the lowest layer that can prove it; a flow test proves a path once, its variants are parametrized unit or integration tests; a branch a flow test reaches gets no mirror unit test\)/)
+  assert.match(prompt, /D3 \(cases that differ only in data are one parametrized test; shared arrangement lives in fixtures and builders\)/)
 })
 
 test('review-reads-body: the Codex courier appends both gh outputs to the brief file through the shell, right before codex exec', async () => {

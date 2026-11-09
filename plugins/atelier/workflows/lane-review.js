@@ -60,7 +60,8 @@ const STOPGAP_LINE =
 
 const TEST_VOLUME_LINE =
   `If the range adds more than three test lines for each source line (git diff --numstat over the range; test files are those under a tests directory or named as tests), ` +
-  `name your verdict on D1 (is one behaviour proven once, at the lowest layer that can prove it?) and on D3 (are cases that differ only in data one parametrized test?); under that ratio say nothing about them.`
+  `name your verdict on D1 (one behaviour, one test, at the lowest layer that can prove it; a flow test proves a path once, its variants are parametrized unit or integration tests; a branch a flow test reaches gets no mirror unit test) ` +
+  `and on D3 (cases that differ only in data are one parametrized test; shared arrangement lives in fixtures and builders); under that ratio say nothing about them.`
 
 // ------------------------------------------------------------ reviewers
 // The ordinary review may come from the builder's own provider (the contract asks only for a fresh, independent

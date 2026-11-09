@@ -5,7 +5,7 @@ import path from 'node:path'
 import { spawnSync } from 'node:child_process'
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { runLane, runCommandLine, installFake } from './lane_workflow_harness.mjs'
+import { runLane, runCommandLine, installFake, resumeArgs, resumeFix, mergeOnlyFix, mainMovedTip, defectWithoutDraft, PASS, APPROVE, greenCi } from './lane_workflow_harness.mjs'
 
 const tip = 'c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0'
 const lane = { item: 1, worktree: '/w', branch: 'b', contract: 'c', e2e: 'e', scratch: '/s', pr: 1, tip }
@@ -450,4 +450,69 @@ test('ci-fail-fast: a setup failure whose re-run passes under a changed link rea
 test('ci-fail-fast: a re-run agent that ends without a result keeps the first finding', async () => {
   const { agentCalls } = await driveCi(redWatch([redJob('Node: tests', 'Set up job')]))
   assert.match(agentCalls['fix-2'].prompt, /Node: tests fails/)
+})
+
+// The fixer starts at once when CI is red; the tester is awaited only when CI has nothing of its own to fix.
+const roundTip = (round) => String(round).repeat(40)
+const roundRed = (round, extra = () => {}) => () => { extra(); return { head: roundTip(round), green: false, failing: [defectWithoutDraft] } }
+const roundFix = (round) => ({ ...mergeOnlyFix, head: roundTip(round), parents: [round === 1 ? resumeArgs.tip : roundTip(round - 1), mainMovedTip] })
+const heldTester = () => { let resolve; const promise = new Promise(done => { resolve = done }); return { promise, resolve, answer: () => promise } }
+const testerLabels = (launchedAgents) => launchedAgents.filter(label => /^e2e-\d+$/.test(label))
+const ciWatches = (launchedAgents) => launchedAgents.filter(label => /^ci-\d+$/.test(label))
+const tolerates = { timeout: 5000 }
+
+test('ci-fixer-at-once: CI red for several rounds starts a fixer each round and issues exactly one tester call', tolerates, async () => {
+  const tester = heldTester()
+  const answers = {
+    'r0-review': APPROVE, 'e2e-0': tester.answer,
+    'ci-0': roundRed(0), 'ci-1': roundRed(1), 'ci-2': roundRed(2), 'ci-3': roundRed(3, () => tester.resolve(PASS)), 'ci-4': greenCi(roundTip(4)),
+    'fix-1': roundFix(1), 'fix-2': roundFix(2), 'fix-3': roundFix(3), 'fix-4': roundFix(4),
+  }
+  const { result, launchedAgents } = await runLane({ ...resumeArgs, budgets: { ci: 5 } }, answers)
+  assert.equal(result.status, 'ready-to-land', result.reason)
+  assert.deepEqual(testerLabels(launchedAgents), ['e2e-0'])
+  assert.deepEqual(launchedAgents.filter(label => /^fix-\d+$/.test(label)), ['fix-1', 'fix-2', 'fix-3', 'fix-4'])
+})
+
+test('ci-fixer-at-once: a tester answering with blocking findings after two CI-only fix rounds puts them into the next fix batch', tolerates, async () => {
+  const tester = heldTester()
+  const late = { where: 'flow.py:9', kind: 'defect', text: 'the flow loses data', rule: 'no data loss', evidence: 'repro' }
+  const answers = {
+    'r0-review': APPROVE, 'e2e-0': tester.answer, 'e2e-1': PASS,
+    'ci-0': roundRed(0), 'ci-1': roundRed(1), 'ci-2': roundRed(2, () => tester.resolve({ verdict: 'FAIL', blocking: [late], followups: [] })), 'ci-3': greenCi(roundTip(3)),
+    'fix-1': roundFix(1), 'fix-2': roundFix(2), 'fix-3': { ...roundFix(3), head: roundTip(3), mergeResolvedLaneConflict: false, files: ['flow.py'], regression: [{ finding: 1, test: 't.py::t', failedBefore: true, passesAfter: true }] },
+    'r1-review': APPROVE, 'ci-4': greenCi(roundTip(3)),
+  }
+  const { agentCalls, launchedAgents, result } = await runLane(resumeArgs, answers)
+  assert.doesNotMatch(agentCalls['fix-1'].prompt, /flow\.py:9/)
+  assert.doesNotMatch(agentCalls['fix-2'].prompt, /flow\.py:9/)
+  assert.match(agentCalls['fix-3'].prompt, /flow\.py:9/)
+  assert.deepEqual(testerLabels(launchedAgents), ['e2e-0', 'e2e-1'])
+  assert.equal(result.status, 'ready-to-land', result.reason)
+})
+
+test('ci-fixer-at-once: CI green with a tester PASS holding a cell ends ready-to-land after one tester and one CI watch', tolerates, async () => {
+  const { result, launchedAgents } = await runLane(resumeArgs, { 'r0-review': APPROVE, 'e2e-0': PASS, 'ci-0': greenCi(resumeArgs.tip) })
+  assert.equal(result.status, 'ready-to-land', result.reason)
+  assert.deepEqual([testerLabels(launchedAgents), ciWatches(launchedAgents)], [['e2e-0'], ['ci-0']])
+})
+
+test('ci-fixer-at-once: a lock-busy tester is retried inline without another CI watch', tolerates, async () => {
+  const { result, launchedAgents } = await runLane(resumeArgs, { 'r0-review': APPROVE, 'e2e-0': lockBusy, 'e2e-1': PASS, 'ci-0': greenCi(resumeArgs.tip), 'ci-1': greenCi(resumeArgs.tip) })
+  assert.equal(result.status, 'ready-to-land', result.reason)
+  assert.deepEqual(testerLabels(launchedAgents), ['e2e-0', 'e2e-1'])
+  assert.deepEqual(ciWatches(launchedAgents), ['ci-0'])
+})
+
+test('ci-fixer-at-once: a tester PASS on a tip a later fix changed in production starts a new tester before ready-to-land', tolerates, async () => {
+  const tester = heldTester()
+  const answers = {
+    'r0-review': APPROVE, 'e2e-0': tester.answer, 'e2e-1': PASS,
+    'ci-0': roundRed(0), 'ci-1': roundRed(1, () => tester.resolve(PASS)), 'ci-2': greenCi(roundTip(2)),
+    'fix-1': { ...resumeFix, head: roundTip(1), files: ['src/x.py'], regression: [] }, 'r1-review': APPROVE, 'fix-2': roundFix(2),
+  }
+  const { result, launchedAgents } = await runLane(resumeArgs, answers)
+  assert.equal(result.status, 'ready-to-land', result.reason)
+  assert.deepEqual(testerLabels(launchedAgents), ['e2e-0', 'e2e-1'])
+  assert.equal(result.tip, roundTip(2))
 })

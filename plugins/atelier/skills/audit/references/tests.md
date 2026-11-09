@@ -7,8 +7,8 @@ altitude; passing is not enough.
 
 Standing audit: every ~50 trunk landings or weekly. Standing-item subject:
 tests. It judges D1, D3, D4 and D5 of marketplace#576 (labelled in the
-checklist) per repository; D2 is struck there: every flow test keeps running
-in every browser and viewport its app has set up.
+checklist) per repository. #576 struck D2, so a flow test running in every browser and
+viewport its app has set up is no finding.
 
 Hand-offs: depth.md (Test size shape check), deadweight.md.
 

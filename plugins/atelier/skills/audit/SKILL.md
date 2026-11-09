@@ -18,7 +18,7 @@ item or executes a cut.** Pick the goal, run its lenses, return one report.
 | Change audit: hygiene and tests on a diff | `hygiene`, `tests` |
 | Platform: how far each operational area reaches across the operator's repositories | `platform` |
 | Standards: which laws and standards apply, and where each requirement stands | `standards`, run as two passes: applicability, then the map |
-| Scheduled standing audit | `architecture`, `deadweight` (with the `tests` Test size check), `ownership`, `platform` or `standards`, each on its own cadence |
+| Scheduled standing audit | `architecture`, `deadweight`, `tests`, `ownership`, `platform` or `standards`, each on its own cadence |
 
 ## Dispatch
 

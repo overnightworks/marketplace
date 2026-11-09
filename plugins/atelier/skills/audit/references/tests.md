@@ -5,6 +5,11 @@ Audit tests against the code policy's "Tests" section (guidance lookup in
 whether the suite proves behavior clearly, deterministically and at the right
 altitude; passing is not enough.
 
+Standing audit: every ~50 trunk landings or weekly. Standing-item subject:
+tests. It judges D1, D3, D4 and D5 of marketplace#576 (labelled in the
+checklist) per repository; D2 is struck there: every flow test keeps running
+in every browser and viewport its app has set up.
+
 Hand-offs: depth.md (Test size shape check), deadweight.md.
 
 ## Procedure
@@ -31,19 +36,20 @@ The code policy owns the rules; each line is what this audit adds.
   justified reason it cannot. Code with no production caller (frozen or dead),
   or a gap on a branch the trust model or the types rule out, is no coverage
   finding: hand it to `deadweight.md` as a cut.
-- Right altitude and assertions: pure logic is tested directly; integration
+- Right altitude and assertions (D1: one behaviour, proven once, at the lowest layer that can prove it): pure logic is tested directly; integration
   paths use real entry points without reimplementing production flow; tests
   assert user-visible output, state, errors or contracts, not private details.
 - Dependency control: a test in a unit file that needs a live dependency is a
   finding: it belongs in the integration suite (or a separate marker or
   directory where there is no integration split).
-- Determinism: no sleeps, wall-clock races, shared mutable state or order
-  dependence.
+- Determinism (D4: wait through one helper or an event, judged by reading, since a poll
+  loop or shell probe is no `sleep`): no
+  sleeps, wall-clock races, shared mutable state or order dependence.
 - Parallel safety: tests run concurrently without shared filesystem,
   environment, port, process or global-state collisions; judge it from the
   source (fixed paths, ports, environment writes, module-level state) when no
   parallel run command is documented.
-- Maintainability: repeated scenarios are data-driven or fixture-backed when
+- Maintainability (D3): repeated scenarios are data-driven or fixture-backed when
   repetition would hide intent; a builder a test file writes privately for a
   contract another test file already builds is a duplication finding.
 - Spec traceability: when the repository defines a human-readable requirements
@@ -66,6 +72,8 @@ One owner for judging whether tests are too large:
   is a quality finding here. A case that runs today's code path again is
   ballast only when it pins no stated behaviour (its name, docstring or a
   requirement) that a plausible regression would break.
+- Slowest (D5): name the slowest tests of each layer; examine a unit test over
+  one second and a flow test over thirty.
 - Cuts: a test that proves a ruled sentence, a spec criterion or a defect
   reference is never cut for length alone; it may merge into a table-driven
   test that proves the same. Judge lines per proven behaviour, not in total: a

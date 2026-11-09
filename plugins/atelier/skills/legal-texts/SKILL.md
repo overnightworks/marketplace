@@ -17,16 +17,15 @@ belong to the repository that composes them.
 1. **Read the current pages first.** The repository that owns the legal
    pages' contract says what an app ships (file, format, allowed links), how a
    part is validated, where the pages are served and which shared sections
-   exist with their ids. In this fleet overnightworks/platform owns what an
+   exist with their ids. In this fleet overnightworks/platform owns the pages: what an
    app ships and how a part is validated (its `docs/legal-sections.md`,
-   checked with `mise run legal:check <key> <dir>`), while hal still
-   assembles and serves the pages and holds the shared sections (its
-   architecture overview's section on the legal pages) until platform's
-   assembler lands. Elsewhere, take it from the dispatch or the app's
-   `README.md`; when neither names one, stop and ask whoever dispatched the
-   run. Read each owner's document at its default branch, never from a
-   working tree. This skill copies none of their paths, ids or URLs beyond
-   these two pointers, because they go stale: read them there each run.
+   checked with `mise run legal:check <key> <dir>`), and it assembles and
+   serves the pages and holds the shared sections. Elsewhere, take it from the
+   dispatch or the app's `README.md`; when neither names one, stop and ask
+   whoever dispatched the run. Read the owner's document at its default
+   branch, never from a working tree. This skill copies none of its paths, ids
+   or URLs beyond this one pointer, because they go stale: read them there
+   each run.
    Then fetch the composed privacy and terms pages into scratch, and read
    every shared section and the app's current part, if any, in full (the app's
    part at the lane tree, or at `origin/main` after a fetch for a run without a

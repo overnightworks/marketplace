@@ -228,6 +228,85 @@ Abandoned: `aco release <n> --abandoned REASON`; the item stays open. The head
 puts the lane's `Routing:` line, in the form of a PR body, into the reason;
 where the lane has an open pull request, the line goes into that body as usual.
 
+## Rename a repository
+
+The head runs this, in this order; the operator takes only the steps marked so, each
+as the ready step given here. The head fills in the real repository names (`OLD`, `NEW`)
+Sonar keys (`KEY_OLD`, `KEY_NEW`) and the file name of the workflow that runs the quality
+gate (`WORKFLOW`, from `gh workflow list`) in the first line of each block and in each link
+before handing it over; the blocks use them as shell variables. The Sonar key and binding follow hal's
+`docs/naming.md`, P2 (until quality's naming document holds it). aco's trap is
+PIN-52 and E-PIN-42 in `specs/storage-pin.spec.md` of aco: every clone whose `origin`
+still names the old repository refuses a cross-repository read until step 5 re-points it.
+
+1. Drain (agent): `aco status` shows no claim and no live lane but the rename's own, and
+   no lane worktree is open (`uv sync --reinstall` can fail on one). Move the callers
+   of the repository's actions and reusable workflows first: GitHub redirects git and
+   web URLs, not `uses:`.
+2. One pull request (agent) carries every name change (package, CLI, config
+   variables, image name, documents) except the Sonar key, green under the old name;
+   the key commit (the change of `sonar.projectKey` in `sonar-project.properties`) stays local. Settings another repository owns (platform's OpenTofu
+   GitHub settings) change and apply first.
+3. Disable CI (operator; auto mode refuses it to an agent as a CI bypass):
+   ```sh
+   OLD=old-name && cd ~/git/$OLD && gh workflow disable WORKFLOW
+   ```
+4. Rename (agent): `gh repo rename NEW -R overnightworks/OLD --yes`. Then the Sonar key (operator, web): open
+   `https://sonarcloud.io/project/key?id=KEY_OLD`, field Update Key, set `KEY_NEW` and
+   save, once its Background Tasks show nothing
+   pending.
+5. Local move (agent), while nothing runs inside the clone: the repository's own sessions
+   end first and the move runs from a session outside it. The block stops at the first
+   failure and `-x` shows where; it stops before moving anything when a target exists; a
+   missing worktrees or Claude project directory is skipped. Each `origin`
+   keeps its URL form and changes only the repository name. Claude project directories
+   of worktrees (`<P>-OLD-worktrees-*`) stay: with no worktree open they belong to
+   removed worktrees. If auto mode refuses a part, the operator takes that part (#586):
+   ```sh
+   OLD=old-name NEW=new-name bash -euxo pipefail -c '
+   shopt -s nullglob
+   P=~/.claude/projects/${HOME//\//-}-git
+   cd ~/git
+   for target in $NEW $NEW-worktrees $P-$NEW; do
+     if [ -e $target ]; then echo "$target exists, nothing moved" >&2; exit 1; fi
+   done
+   mv $OLD $NEW
+   if [ -d $OLD-worktrees ]; then mv $OLD-worktrees $NEW-worktrees; fi
+   dirs=($NEW $NEW-worktrees/*)
+   for d in "${dirs[@]}"; do
+     url=$(git -C "$d" remote get-url origin)
+     git -C "$d" remote set-url origin "${url%/*}/$NEW.git"
+   done
+   if [ -d $NEW-worktrees ]; then git -C ~/git/$NEW worktree repair ~/git/$NEW-worktrees/*; fi
+   if [ -d $P-$OLD ]; then mv $P-$OLD $P-$NEW; fi
+   for d in "${dirs[@]}"; do
+     if [ -f "$d/uv.lock" ]; then (cd "$d" && uv venv --allow-existing && uv sync --locked --reinstall); fi
+   done'
+   ```
+   Never re-clone: open worktrees, local branches and unpushed commits live only in the clone; aco's claims live on the remote. Where `.aco/board.toml` names a canonical remote other than `origin`, re-point that one the same way. Also set the
+   `origin` of any deploy checkout outside `~/git`. The agent reports user units, links
+   in `~/.local/bin`, `~` and `~/srv`, and uv tools that point into the old path to the
+   repository's head.
+6. Resume (head): `claude --resume` from the new clone, never with `--fork-session`, keeps the session id, so the
+   claim holder stays valid. Scratchpads do not move: a brief naming one's absolute path
+   is stale. Peer session addresses follow the directory: tell the peers the new one.
+7. Re-enable CI (operator):
+   ```sh
+   NEW=new-name && cd ~/git/$NEW && gh workflow enable WORKFLOW
+   ```
+   Then an agent pushes the key commit (`sonar.projectKey` set to `KEY_NEW`) and the head lands it. The operator re-saves the
+   binding at `https://sonarcloud.io/project/settings?id=KEY_NEW`: General Settings ›
+   Repository binding, Save. An agent checks that SonarCloud lists no project with `KEY_OLD`.
+8. Aftermath (agent): `gh repo edit NEW --description "…"`. Each dependent gets one
+   release item for what names the old repository (dependency pins, images, imports,
+   config variables, documents). Rewrite open item bodies that link the old name before
+   any repository takes it, because a reuse ends the redirect; closed items and comments
+   stay, a named risk. The old image package is deleted only on the operator's yes.
+
+Open risk: without `hal rename`, whether an agent's auto mode allows each part of step 5
+is unverified; the first run (#586, marketplace to atelier) proves it or names the part
+as the operator's.
+
 ## Friction
 
 A refusal this skill did not predict is a defect in the skill or in aco. Resolve it

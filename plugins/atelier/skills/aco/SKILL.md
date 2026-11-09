@@ -231,8 +231,9 @@ where the lane has an open pull request, the line goes into that body as usual.
 ## Rename a repository
 
 The head runs this, in this order; the operator takes only the steps marked so, each
-as the ready step given here. Set `OLD`, `NEW` (repository names) and `KEY_OLD`,
-`KEY_NEW` (Sonar keys) in each block. The Sonar key and binding follow hal's
+as the ready step given here. The head fills in the real repository names (`OLD`, `NEW`)
+and Sonar keys (`KEY_OLD`, `KEY_NEW`) in the first line of each block and in each link
+before handing it over; the blocks use them as shell variables. The Sonar key and binding follow hal's
 `docs/naming.md`, P2 (until quality's naming document holds it). aco's trap is
 PIN-52 and E-PIN-42 in `specs/storage-pin.spec.md` of aco: every clone whose `origin`
 still names the old repository refuses a cross-repository read until step 5 re-points it.
@@ -247,21 +248,22 @@ still names the old repository refuses a cross-repository read until step 5 re-p
    GitHub settings) change and apply first.
 3. Disable CI (operator; auto mode refuses it to an agent as a CI bypass):
    ```sh
-   cd ~/git/OLD && gh workflow disable ci
+   OLD=old-name && cd ~/git/$OLD && gh workflow disable ci
    ```
-4. Rename (agent): `gh repo rename NEW`. Then the Sonar key (operator, web): open the
-   project at `https://sonarcloud.io/summary/overall?id=KEY_OLD` (link unverified), then
-   Administration › Update Key, set `KEY_NEW`, once its Background Tasks show nothing
+4. Rename (agent): `gh repo rename NEW`. Then the Sonar key (operator, web): open
+   `https://sonarcloud.io/project/key?id=KEY_OLD`, field Update Key, set `KEY_NEW` and
+   save, once its Background Tasks show nothing
    pending.
 5. Local move, while nothing runs inside the clone: the repository's own sessions
    end first and the move runs from a session outside it (operator, until #586 proves an
    agent's auto mode allows each part):
    ```sh
-   cd ~/git && mv OLD NEW && mv OLD-worktrees NEW-worktrees \
-     && for d in NEW NEW-worktrees/*; do git -C "$d" remote set-url origin "git@github.com:overnightworks/NEW.git"; done \
-     && git -C NEW worktree repair NEW-worktrees/* \
-     && mv ~/.claude/projects/-home-USER-git-OLD ~/.claude/projects/-home-USER-git-NEW \
-     && for d in NEW NEW-worktrees/*; do [ -f "$d/uv.lock" ] && (cd "$d" && uv venv --allow-existing && uv sync --locked --reinstall); done
+   OLD=old-name; NEW=new-name; P=~/.claude/projects/${HOME//\//-}-git
+   cd ~/git && mv $OLD $NEW && mv $OLD-worktrees $NEW-worktrees \
+     && for d in $NEW $NEW-worktrees/*; do git -C "$d" remote set-url origin "git@github.com:overnightworks/$NEW.git"; done \
+     && git -C $NEW worktree repair $NEW-worktrees/* \
+     && mv $P-$OLD $P-$NEW \
+     && for d in $NEW $NEW-worktrees/*; do [ -f "$d/uv.lock" ] && (cd "$d" && uv venv --allow-existing && uv sync --locked --reinstall); done
    ```
    Never re-clone: `refs/aco/state` and its fetch refspec must survive. Also set the
    `origin` of any deploy checkout outside `~/git`. The agent reports user units, links
@@ -272,11 +274,11 @@ still names the old repository refuses a cross-repository read until step 5 re-p
    is stale. Peer session addresses follow the directory: tell the peers the new one.
 7. Re-enable CI (operator):
    ```sh
-   cd ~/git/NEW && gh workflow enable ci
+   NEW=new-name && cd ~/git/$NEW && gh workflow enable ci
    ```
    Then an agent pushes the key commit and the head lands it. The operator re-saves the
-   binding (web, link unverified): Administration › General Settings › Repository
-   binding, Save. An agent checks that SonarCloud lists no project with `KEY_OLD`.
+   binding at `https://sonarcloud.io/project/settings?id=KEY_NEW`: General Settings ›
+   Repository binding, Save. An agent checks that SonarCloud lists no project with `KEY_OLD`.
 8. Aftermath (agent): `gh repo edit NEW --description "…"`. Each dependent gets one
    release item for what names the old repository (dependency pins, images, imports,
    config variables, documents). Rewrite open item bodies that link the old name before

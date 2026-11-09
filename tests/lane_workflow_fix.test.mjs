@@ -253,8 +253,8 @@ const proofsByNumber = [
   ['a number pointing at a docs finding adds no pass for the test-gap behind it', [docsFinding, testGap], [proofOf(1)], rejectedForNoProof],
   ['two proofs for one number, one of them bad, are still rejected', [testGap], [proofOf(1, { mutation: 'drop the guard' }), proofOf(1, { mutation: 'drop the guard', passesAfter: false })], /did not pass/],
   ['a not-run proof is no gap for a defect without a test draft', [defectWithoutDraft], [proofOf(1, { passesAfter: false, notRun: 'the probe stack was held by another lane' })], null],
-  ['a not-run proof for a defect with a test draft is refused naming the test and the reason', [defectWithDraft], [proofOf(1, { passesAfter: false, notRun: 'the probe stack was held by another lane' })], /t\.py \[case\].*probe stack was held by another lane/],
-  ['a not-run proof for a test-gap is refused naming the reason', [testGap], [proofOf(1, { passesAfter: false, notRun: 'permission refused' })], /not run here.*permission refused/],
+  ['a not-run proof for a defect with a test draft goes on to the delta re-check', [defectWithDraft], [proofOf(1, { passesAfter: false, notRun: 'the probe stack was held by another lane' })], null],
+  ['a not-run proof for a test-gap goes on to the delta re-check', [testGap], [proofOf(1, { passesAfter: false, notRun: 'permission refused' })], null],
   ['a test run red after the fix is refused as not passing, not as not failing before', [defectWithoutDraft], [proofOf(1, { passesAfter: false })], /did not pass after its fix$/],
   ['a defect with a test draft that passed after but did not fail before is refused for the missing half only', [defectWithDraft], [proofOf(1)], /did not fail before its fix$/],
   ...[0, 1.5, '1', 2].map(number => [`a proof numbered ${JSON.stringify(number)} is ignored and the test-gap stays unproven`, [testGap], [proofOf(number, { mutation: 'drop the guard' })], rejectedForNoProof]),
@@ -315,6 +315,14 @@ for (const [behaviour, answered, regression, gap] of supportingProofNotes) {
     assert.match(prompt, gap)
   })
 }
+
+test('the delta re-check names each not-run test, its reason and the half that was not run', async () => {
+  const notRun = (finding, overrides) => proofOf(finding, { passesAfter: false, notRun: `lock held for ${finding}`, test: `test_${finding}.py`, ...overrides })
+  const { agentCalls } = await runLane({ ...resumeArgs, fixFirst: [defectWithDraft, testGap] }, { 'fix-1': { ...resumeFix, regression: [notRun(1), notRun(2, { mutation: 'drop the guard' })] } })
+  const prompt = agentCalls['r1-review'].prompt
+  assert.match(prompt, /test_1\.py.*lock held for 1.*fails on the pre-fix code/)
+  assert.match(prompt, /test_2\.py.*lock held for 2.*fails under the mutation "drop the guard"/)
+})
 
 test('a carried batch whose fixer gave a supporting proof without evidence hands it to the delta re-check', async () => {
   const regression = [proofOf(1, { mutation: 'drop the guard' }), proofOf(1, { test: 'supporting_test.py [image]' })]

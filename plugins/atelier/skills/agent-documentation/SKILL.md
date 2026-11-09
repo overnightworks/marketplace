@@ -12,8 +12,9 @@ what is shared policy versus project fact.
 
 When a repository has no `AGENTS.md`, or one that is not facts-only, seed:
 
-- `AGENTS.md` with only the facts the global contract's preamble defines as
-  that repository's own;
+- `AGENTS.md` in the shape
+  [write-docs' document set](../write-docs/references/document-types.md#repository-document-set)
+  gives it;
 - `CLAUDE.md` containing exactly `@AGENTS.md`.
 
 Generic rules live in the global contract (`instructions/AGENTS.md` for every
@@ -68,12 +69,7 @@ distributor issue.
 - Update duty: project owners say what must be updated when facts change; shared
   files change only when the reusable rule or skill improves.
 - Token economy: every line adds a decision, boundary, trigger, invariant, or
-  verification rule. `AGENTS.md` carries only what an agent cannot derive from
-  the code: commands, repository-specific traps, owners, pointers. No overview,
-  directory tree, version pin or copied shell sequence: overview and tree serve
-  humans in the README and the architecture overview, a version lives in its
-  manifest, and a terminal step is a command the repository ships.
-  `AGENTS.md` stays within its length budget in
+  verification rule. `AGENTS.md` follows the shape, length budget and exclusions in
   [write-docs' document set](../write-docs/references/document-types.md#repository-document-set).
 - Duplication: generic policy appears only in the global contract; project facts
   appear only in their project owner. A copy of the contract in a repository is a

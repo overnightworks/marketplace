@@ -151,15 +151,23 @@ contract and this skill.
   and the item is malformed until the body is fixed: `aco next` lists it under SKIPPED
   (NEXT-36), `aco board` names it with its defect (BODY-50), and `aco claim` refuses it
   (BODY-52).
-- Transcribe a chat answer with `aco rule <n> --line <k> --option <letter> --via chat
+- Record a chat answer with the `record_answer` tool of `aco mcp`, from `option` or
+  `other` and the `card_hash` that `read_inbox` shows (`specs/mcp.spec.md`). A session
+  without the tool transcribes it with `aco rule <n> --line <k> --option <letter> --via chat
   --card-hash <hash>`, the hash being the line's `card_hash` in `aco rulings <n> --json`;
   an answer that fits no option uses `--other "<the operator's words>"` instead of
-  `--option`, and "unclear" uses `aco rule <n> --line <k> --unclear --card-hash <hash>
+  `--option`. "Unclear" has no `record_answer` form: it uses
+  `aco rule <n> --line <k> --unclear --card-hash <hash>
   [--note "<the operator's words>"]` without `--via`: the line stays open and returns
   to its head (`specs/rule.spec.md`). `aco rule` only transcribes the operator's word;
   `aco rulings` prints the line index `--line` takes. `aco rulings <n>` (also `--json`)
   shows that one item, open or closed, and refuses a pull request number
   (`specs/rulings.spec.md`).
+- Mark a step only the operator can take with the `step` tool of `aco mcp`, on the item
+  it belongs to, or with a `title` when no open item holds it (`specs/mcp.spec.md`). The
+  tool never removes the label `needs-operator`: once he says the step is done, the head
+  removes the label and rewrites the block's `next` in the same edit, so `next` stops
+  naming his finished step.
 - Take back your own open or returned line only with `aco withdraw <n> --line <k>`, never
   by editing the body (`specs/withdraw.spec.md`); it refuses a ruled line. Withdrawing a
   returned line drops the operator's note, so carry that note into the line that replaces

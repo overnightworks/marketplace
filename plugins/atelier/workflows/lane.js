@@ -99,17 +99,8 @@ const MECHANICAL = { agentType: 'general-purpose', ...ROUTING.mechanical }
 const WATCHER = MECHANICAL
 const claudeRole = (role) => ({ model: ROUTING[role].model, effort: ROUTING[role].effort })
 
-// agent() with a schema THROWS when a subagent ends without a result: every call goes
-// through this wrapper, so such an end is a null the lane reports. Every prompt opens with the delegated line, as do the children's.
+// Every prompt opens with the delegated line, as do the children's.
 const DELEGATED_LINE = 'This is a delegated step started by a head, not a main session: skip the session-start routine and do only this brief.'
-async function safeAgent(prompt, opts) {
-  try {
-    return await agent(`${DELEGATED_LINE}\n${prompt}`, opts)
-  } catch (error) {
-    log(`${opts?.label || 'agent'} ended without a result: ${String(error).slice(0, 160)}`)
-    return null
-  }
-}
 
 // --------------------------------------------------------------- schemas
 // A finding carries the rule it breaks and the evidence for it, so a fixer never acts on a bare assertion. Its kind
@@ -137,11 +128,6 @@ const RESCOPE = {
   type: 'array',
   description: 'paths outside the claim scope that the work needs changed; you edited none of them',
   items: { type: 'object', required: ['path', 'change', 'reason'], properties: { path: { type: 'string' }, change: { type: 'string', description: 'the change the path needs' }, reason: { type: 'string', description: 'why the work cannot be done without it' } } },
-}
-const BUILD = {
-  type: 'object',
-  required: ['pr', 'tip', 'blocked'],
-  properties: { pr: { type: 'number' }, tip: { type: 'string', pattern: '^[0-9a-f]{7,40}$', description: 'a commit sha from git rev-parse, nothing else' }, summary: { type: 'string' }, blocked: { type: 'boolean' }, blockedReason: { type: 'string' }, rescope: RESCOPE },
 }
 // A child's refusal or crash is a problem naming the child, which its caller stops on at the stage of its own step.
 async function startChild(name, childArgs) {
@@ -273,12 +259,11 @@ const openResult = (status, stage, extra) =>
   ({ status, stage, pr, tip, spent, routing: ROUTING, history, followups: openFollowups(), raisedBeforeTip: raisedBeforeTip(openFollowups()), folded: [...folded.values()], disputed, ...gateUnseenView(), ...extra })
 
 // ---------------------------------------------------------------- build
+const LANE_BUILD_PROTOCOL = 1
 if (A.build) {
   phase('Build')
-  const built = await safeAgent(
-    `${laneFacts} ${driveFacts} ${rescopeFacts} ${localCheckFacts}\nYou are the builder. ${A.build}\nCommit each goal as soon as its targeted tests pass — never hold more than one goal uncommitted, and if you run short of turns, commit what is green and report what is left instead of continuing. Merge origin/main into the lane before pushing (a merge commit). ` +
-    `Open the pull request as the build RULES say, run \`aco check <pr>\`, and return pr, tip and summary.`,
-    { label: 'build', phase: 'Build', schema: BUILD, agentType: 'atelier:code-worker', ...claudeRole('build') })
+  const built = await startChild('lane-build', { protocol: LANE_BUILD_PROTOCOL, delegatedLine: DELEGATED_LINE, laneFacts, driveFacts, rescopeFacts, localCheckFacts, build: A.build, rescope: RESCOPE, routing: claudeRole('build') })
+  if (built?.problem) return openResult('failed', 'build', { reason: `the builder step ${built.problem}` })
   if (!built) return openResult('failed', 'build', { reason: `the builder returned no result; inspect ${A.worktree} for uncommitted work, checkpoint it, and hand it to a fresh finisher` })
   if (!(built.rescope || []).length && built.blocked) return openResult('escalated', 'build', { reason: built.blockedReason })
   if (!SHA.test(built.tip || '')) return openResult('failed', 'build', { reason: `the builder returned a tip that is not a sha: ${String(built.tip).slice(0, 80)}` })

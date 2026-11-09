@@ -83,6 +83,14 @@ test('review-reads-body: the Claude reviewer brief names both gh commands with t
   for (const command of bodyCommands(' -R o/r')) assert.ok(agentCalls['r0-review'].prompt.includes(command), command)
 })
 
+test('test-volume: the Claude reviewer brief carries the ratio rule naming D1 and D3', async () => {
+  const { agentCalls } = await runLane(bodyLane, { 'r0-review': APPROVE })
+  const prompt = agentCalls['r0-review'].prompt
+  assert.match(prompt, /more than three test lines for each source line/)
+  assert.match(prompt, /D1 \(is one behaviour proven once[^)]*\)/)
+  assert.match(prompt, /D3 \(are cases that differ only in data one parametrized test\?\)/)
+})
+
 test('review-reads-body: the Codex courier appends both gh outputs to the brief file through the shell, right before codex exec', async () => {
   const { agentCalls } = await runLane({ ...bodyLane, risk: 'material' }, { 'r0-review': APPROVE })
   const prompt = agentCalls['r0-gate'].prompt

@@ -58,6 +58,10 @@ const STOPGAP_LINE =
   `Refuse (blocking defect) a new file of 800 lines or more; a new test whose name does not state the behaviour it pins; ` +
   `and a new patch or monkeypatch at an import location or on a private attribute where a fake on PATH or an injected port works.`
 
+const TEST_VOLUME_LINE =
+  `If the range adds more than three test lines for each source line, or test lines and no source line (git diff --numstat over the range; test files are those under a tests directory or named as tests), ` +
+  `name your verdict on D1 (one behaviour, one test, at the lowest layer that can prove it; a flow test proves a path once, its variants are parametrized unit or integration tests; a branch a flow test reaches gets no mirror unit test) ` +
+  `and on D3 (cases that differ only in data are one parametrized test; shared arrangement lives in fixtures and builders); under that ratio say nothing about them.`
 
 // ------------------------------------------------------------ reviewers
 // The ordinary review may come from the builder's own provider (the contract asks only for a fresh, independent
@@ -66,7 +70,7 @@ const STOPGAP_LINE =
 // through a courier.
 function reviewerBrief(role, range) {
   return `You are the ${role} for work item #${A.item}: a fresh, independent reviewer who did not write this change. ` +
-    `Contract:\n${A.contract}\n\nReview ${range}.\n\n${A.blockingLine}\n\n${STOPGAP_LINE}\n\n` +
+    `Contract:\n${A.contract}\n\nReview ${range}.\n\n${A.blockingLine}\n\n${STOPGAP_LINE}\n\n${TEST_VOLUME_LINE}\n\n` +
     `verdict is APPROVE with no blocking findings, REVISE with at least one, or architectural when the cut itself is wrong.`
 }
 

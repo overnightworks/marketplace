@@ -1,0 +1,8 @@
+claim_id = "3f4981fc32c44cb287865528abdedf2e"
+agent = "Claude a5abe9e4-862b-4cac-94ed-68bd072edf38"
+role = "builder"
+base = "df4dce430935e69562c884585d36a30e77c39d1f"
+branch = "claude/issue-577-ci-limits-and-poll"
+scope = [".claude-plugin/marketplace.json", ".github/workflows/ci.yml", ".github/workflows/codeql.yml", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/workflows/lane-ci.js", "pyproject.toml", "tests", "uv.lock"]
+opened_commit = "ee58e94f8b806dcd8f99d864e3d5a5205887c20b"
+whole_reason = "One CI conformance slice: the two workflows' limits and cancel rule, pytest's workers with their lock, and the watcher's poll with its test and release pins."

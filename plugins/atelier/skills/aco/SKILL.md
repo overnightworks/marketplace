@@ -245,7 +245,7 @@ still names the old repository refuses a cross-repository read until step 5 re-p
    web URLs, not `uses:`.
 2. One pull request (agent) carries every name change (package, CLI, config
    variables, image name, documents) except the Sonar key, green under the old name;
-   the key commit stays local. Settings another repository owns (platform's OpenTofu
+   the key commit (the change of `sonar.projectKey` in `sonar-project.properties`) stays local. Settings another repository owns (platform's OpenTofu
    GitHub settings) change and apply first.
 3. Disable CI (operator; auto mode refuses it to an agent as a CI bypass):
    ```sh
@@ -257,7 +257,8 @@ still names the old repository refuses a cross-repository read until step 5 re-p
    pending.
 5. Local move (agent), while nothing runs inside the clone: the repository's own sessions
    end first and the move runs from a session outside it. The block stops at the first
-   failure and `-x` shows where; a missing worktrees directory is skipped. Each `origin`
+   failure and `-x` shows where; it stops before moving anything when a target exists; a
+   missing worktrees or Claude project directory is skipped. Each `origin`
    keeps its URL form and changes only the repository name. Claude project directories
    of worktrees (`<P>-OLD-worktrees-*`) stay: with no worktree open they belong to
    removed worktrees. If auto mode refuses a part, the operator takes that part (#586):
@@ -266,6 +267,9 @@ still names the old repository refuses a cross-repository read until step 5 re-p
    shopt -s nullglob
    P=~/.claude/projects/${HOME//\//-}-git
    cd ~/git
+   for target in $NEW $NEW-worktrees $P-$NEW; do
+     if [ -e $target ]; then echo "$target exists, nothing moved" >&2; exit 1; fi
+   done
    mv $OLD $NEW
    if [ -d $OLD-worktrees ]; then mv $OLD-worktrees $NEW-worktrees; fi
    dirs=($NEW $NEW-worktrees/*)
@@ -274,7 +278,7 @@ still names the old repository refuses a cross-repository read until step 5 re-p
      git -C "$d" remote set-url origin "${url%/*}/$NEW.git"
    done
    if [ -d $NEW-worktrees ]; then git -C ~/git/$NEW worktree repair ~/git/$NEW-worktrees/*; fi
-   mv $P-$OLD $P-$NEW
+   if [ -d $P-$OLD ]; then mv $P-$OLD $P-$NEW; fi
    for d in "${dirs[@]}"; do
      if [ -f "$d/uv.lock" ]; then (cd "$d" && uv venv --allow-existing && uv sync --locked --reinstall); fi
    done'
@@ -290,7 +294,7 @@ still names the old repository refuses a cross-repository read until step 5 re-p
    ```sh
    NEW=new-name && cd ~/git/$NEW && gh workflow enable WORKFLOW
    ```
-   Then an agent pushes the key commit and the head lands it. The operator re-saves the
+   Then an agent pushes the key commit (`sonar.projectKey` set to `KEY_NEW`) and the head lands it. The operator re-saves the
    binding at `https://sonarcloud.io/project/settings?id=KEY_NEW`: General Settings ›
    Repository binding, Save. An agent checks that SonarCloud lists no project with `KEY_OLD`.
 8. Aftermath (agent): `gh repo edit NEW --description "…"`. Each dependent gets one

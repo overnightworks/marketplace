@@ -1,8 +1,0 @@
-claim_id = "9050b1ff28ba4b3dabb2dbd6866658ae"
-agent = "Claude a5abe9e4-862b-4cac-94ed-68bd072edf38"
-role = "builder"
-base = "a089d22af55f5b8316f89ccb90acb4857ae968f5"
-branch = "claude/issue-569-agents-md-shape"
-scope = [".claude-plugin/marketplace.json", "AGENTS.md", "instructions/AGENTS.md", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/skills/agent-documentation/SKILL.md", "plugins/atelier/skills/write-docs/references/document-types.md"]
-opened_commit = "8f9bae8e0eb225a34a2060f823c06d29ce376556"
-whole_reason = "One shape with one owner: the document set states it, the contract and the agent-documentation skill point to it, and marketplace's own file conforms in the same landing, with the atelier release pins that ship the skills."

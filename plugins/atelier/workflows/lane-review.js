@@ -59,7 +59,7 @@ const STOPGAP_LINE =
   `and a new patch or monkeypatch at an import location or on a private attribute where a fake on PATH or an injected port works.`
 
 const TEST_VOLUME_LINE =
-  `If the range adds more than three test lines for each source line (git diff --numstat over the range; test files are those under a tests directory or named as tests), ` +
+  `If the range adds more than three test lines for each source line, or test lines and no source line (git diff --numstat over the range; test files are those under a tests directory or named as tests), ` +
   `name your verdict on D1 (one behaviour, one test, at the lowest layer that can prove it; a flow test proves a path once, its variants are parametrized unit or integration tests; a branch a flow test reaches gets no mirror unit test) ` +
   `and on D3 (cases that differ only in data are one parametrized test; shared arrangement lives in fixtures and builders); under that ratio say nothing about them.`
 

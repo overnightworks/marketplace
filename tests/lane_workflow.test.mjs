@@ -219,7 +219,7 @@ for (const { repo, command } of jobLogCommandByRepo) {
     const { agentCalls } = await runLane({ ...resumeArgs, repo, foldIn: [tidy] }, reachesToCi)
     const brief = agentCalls['ci-0'].prompt
     assert.ok(brief.includes(command), brief)
-    assert.match(brief, /--json name,state,link/)
+    assert.match(brief, /--json name,state,bucket,link/)
   })
 }
 

@@ -407,7 +407,6 @@ function testGapProofGap(proof, finding) {
 }
 
 const isNotRun = (proof) => Boolean((proof.notRun || '').trim())
-
 // Whether a fix must prove the finding with a test: a test-gap is nothing but a missing test, a defect's test draft
 // asks for one, and a docs finding needs none even when a draft came with it.
 const needsProof = (finding) => kindOf(finding) === 'test-gap' || (kindOf(finding) === 'defect' && Boolean(finding.testDraft))
@@ -429,13 +428,11 @@ function judgedProofs(fixed, blocking) {
   return judged.map(entry => ({ ...entry, proven: provenIndexes.has(entry.index) }))
 }
 function fixRejection(fixed, blocking, foldIn, ciOnly) {
-  const proofs = fixed.regression || []
   // A proof red after the fix is evidence against the fix, even beside a valid proof.
-  const gaps = judgedProofs(fixed, blocking).filter(checked => checked.gap && (!checked.proven || (!checked.proof.passesAfter && !(checked.proof.notRun || '').trim())))
+  const gaps = judgedProofs(fixed, blocking).filter(checked => checked.gap && (!checked.proven || !checked.proof.passesAfter))
   if (gaps.length) return { reason: [...new Set(gaps.map(checked => checked.gap))].join('; '), regression: gaps.map(checked => checked.proof), lastBlocking: gaps.map(checked => checked.finding) }
-  const unproven = blocking.map((finding, index) => ({ finding, index })).filter(({ finding, index }) => needsProof(finding) && !proofs.some(r => proves(r, index)))
-  const unprovenList = unproven.map(({ finding, index }) => (index + 1) + '. ' + finding.where).join(', ')
-  if (unproven.length) return { reason: 'a test-gap finding or a defect with a test draft got no regression test: ' + unprovenList, lastBlocking: unproven.map(({ finding }) => finding) }
+  const unproven = blocking.map((finding, index) => ({ finding, index })).filter(({ finding, index }) => needsProof(finding) && !(fixed.regression || []).some(r => proves(r, index)))
+  if (unproven.length) return { reason: 'a test-gap finding or a defect with a test draft got no regression test: ' + unproven.map(({ finding, index }) => (index + 1) + '. ' + finding.where).join(', '), lastBlocking: unproven.map(({ finding }) => finding) }
   // Satisfied fold-ins leave the lane at the held tip, or at a merge of main onto it: anything past that is unasked work.
   const foldInsOnly = everyFoldInSatisfied(fixed, blocking, foldIn)
   if (fixed.unchanged) return (foldInsOnly && fixed.containsMain) || answeredOutside(fixed, blocking) ? null : { reason: 'the fixer changed nothing', lastBlocking: blocking }
@@ -443,17 +440,17 @@ function fixRejection(fixed, blocking, foldIn, ciOnly) {
   if (fixed.mergeOnly && !mergeWasTheFinding && !foldInsOnly) return { reason: 'the fixer only merged main and fixed nothing', lastBlocking: blocking }
   return null
 }
-
 // A fixer may report absolute paths; an absolute path once hid a production change and skipped the gate.
 const worktreeRelative = (files) => files.map(f => f.startsWith(`${A.worktree}/`) ? f.slice(A.worktree.length + 1) : f.replace(/^\.\//, ''))
-
 // A removal answers a test-gap only if the reviewer agrees the removed test pinned nothing; a defect proof is judged by the defect bar.
 // A proof with a gap beside a valid proof for its finding reaches the raiser as a note, so it can judge whether the proof misleads.
 const removalNote = ({ proof, finding }) => `\nThe fixer answered ${finding.where} by removing a vacuous test instead of adding one; judge whether the removed test pinned no behaviour:\n${proof.diff}`
 const supportingNote = ({ proof, finding, gap }) => `\nThe fixer also offered the test ${proof.test} for ${finding.where}, though it shows less than the bar: ${gap}; judge whether it misleads.`
 // The half of a proof the fixer did not run, for the raiser to judge from the test's text; CI on the tip runs the test.
 const notRunNote = ({ proof, finding }) => {
-  const unrunHalf = kindOf(finding) === 'test-gap' ? `fails under the mutation ${(proof.mutation || '').trim() ? `"${proof.mutation.trim()}"` : 'it names'}` : 'fails on the pre-fix code'
+  const mutation = (proof.mutation || '').trim()
+  const namedMutation = mutation ? `"${mutation}"` : 'it names'
+  const unrunHalf = kindOf(finding) === 'test-gap' ? `fails under the mutation ${namedMutation}` : 'fails on the pre-fix code'
   return `\nThe fixer did not run the test ${proof.test} for ${finding.where} (${proof.notRun.trim()}); read its text and judge the half that was not run: it ${unrunHalf}.`
 }
 const proofNotes = (fixed, blocking) => judgedProofs(fixed, blocking).map(entry => {

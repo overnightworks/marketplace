@@ -1,8 +1,0 @@
-claim_id = "21232fd730f5410d99e603b1b66da4e3"
-agent = "Claude a5abe9e4-862b-4cac-94ed-68bd072edf38"
-role = "builder"
-base = "85b4709cb613a7a8847e57d6e0e8fe0acfd734a1"
-branch = "claude/issue-593-ci-fail-fast"
-scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/workflows/lane-ci.js", "plugins/atelier/workflows/lane.js", "tests"]
-opened_commit = "26a460b7bb1c94915cd938aa5462fde82eb687f8"
-whole_reason = "One watcher change: fail-fast reporting and the setup-only re-run decide together, with the tests that pin the watcher's prompt."

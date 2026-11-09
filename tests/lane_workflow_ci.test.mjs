@@ -245,13 +245,13 @@ test('lane-ci-protocol: the refusal shows each protocol value with its type', as
   assert.match(result.reason, /"1"/)
 })
 
-const registrationLoopOf = (brief) => brief.match(/for i in \$\(seq 1 20\); do .*?; done/)[0]
+const registrationLoopOf = (brief) => brief.match(/for i in \$\(seq 1 5\); do .*?; done/)[0]
 
 for (const [what, args, prefix] of [['without repo', lane, "cd '/w' && "], ['with repo', { ...lane, repo: 'o/n' }, '']]) {
   test(`ci-registration-wait: ${what} the registration wait stands after the conflicting-PR sentence and before the watch`, async () => {
     const { agentCalls } = await driveCi(ciAnswer([check(required, 'pass')]), args)
     const brief = agentCalls['ci-0'].prompt
-    const countCommand = `${prefix}for i in $(seq 1 20); do [ "$(gh pr checks 1${args.repo ? ' -R o/n' : ''} --json name --jq length 2>/dev/null)" -gt 0 ]`
+    const countCommand = `${prefix}for i in $(seq 1 5); do [ "$(gh pr checks 1${args.repo ? ' -R o/n' : ''} --json name --jq length 2>/dev/null)" -gt 0 ]`
     const at = brief.indexOf(countCommand)
     assert.ok(at > brief.indexOf('CONFLICTING'), 'the wait follows the conflicting-PR sentence')
     assert.ok(at < brief.indexOf('--watch'), 'the wait precedes the watch')
@@ -273,9 +273,9 @@ test('ci-registration-wait: the loop ends at the first positive check count', as
   assert.deepEqual(runRegistrationLoop(false, registrationLoopOf(agentCalls['ci-0'].prompt)), { status: 0, tries: 3 })
 })
 
-test('ci-registration-wait: the loop stops after 20 tries with status 0 when no check ever registers', async () => {
+test('ci-registration-wait: the loop stops after 5 tries with status 0 when no check ever registers', async () => {
   const { agentCalls } = await driveCi(ciAnswer([check(required, 'pass')]))
-  assert.deepEqual(runRegistrationLoop(true, registrationLoopOf(agentCalls['ci-0'].prompt)), { status: 0, tries: 20 })
+  assert.deepEqual(runRegistrationLoop(true, registrationLoopOf(agentCalls['ci-0'].prompt)), { status: 0, tries: 5 })
 })
 
 const lockBusy = { verdict: 'failed', lockBusy: true, blocking: [], followups: [] }

@@ -273,7 +273,7 @@ still names the old repository refuses a cross-repository read until step 5 re-p
      url=$(git -C "$d" remote get-url origin)
      git -C "$d" remote set-url origin "${url%/*}/$NEW.git"
    done
-   if [ -d $NEW-worktrees ]; then git -C $NEW worktree repair $NEW-worktrees/*; fi
+   if [ -d $NEW-worktrees ]; then git -C ~/git/$NEW worktree repair ~/git/$NEW-worktrees/*; fi
    mv $P-$OLD $P-$NEW
    for d in "${dirs[@]}"; do
      if [ -f "$d/uv.lock" ]; then (cd "$d" && uv venv --allow-existing && uv sync --locked --reinstall); fi

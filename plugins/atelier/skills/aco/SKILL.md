@@ -287,7 +287,7 @@ still names the old repository refuses a cross-repository read until step 5 re-p
    `origin` of any deploy checkout outside `~/git`. The agent reports user units, links
    in `~/.local/bin`, `~` and `~/srv`, and uv tools that point into the old path to the
    repository's head.
-6. Resume (head): `claude --resume` from the new clone keeps the session id, so the
+6. Resume (head): `claude --resume` from the new clone, never with `--fork-session`, keeps the session id, so the
    claim holder stays valid. Scratchpads do not move: a brief naming one's absolute path
    is stale. Peer session addresses follow the directory: tell the peers the new one.
 7. Re-enable CI (operator):

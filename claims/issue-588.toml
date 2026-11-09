@@ -1,8 +1,0 @@
-claim_id = "1d2504cb80904c3dbf8215cafa456044"
-agent = "Claude a5abe9e4-862b-4cac-94ed-68bd072edf38"
-role = "builder"
-base = "0800ca0803329f2fe4bede834c5258050fc952e6"
-branch = "claude/issue-588-rename-a-repository-section"
-scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/skills/aco/SKILL.md"]
-opened_commit = "028331f5a62fb9cf0559fd66a5ff3ec707ba18a8"
-whole_reason = "One skill section and its release."

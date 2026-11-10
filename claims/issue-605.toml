@@ -1,8 +1,0 @@
-claim_id = "9072c55092264070a5158ddbe14d3cfc"
-agent = "Claude a5abe9e4-862b-4cac-94ed-68bd072edf38"
-role = "builder"
-base = "98257a7b023994deb177803d8253198ce6296067"
-branch = "claude/issue-605-agent-default-routing"
-scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/.codex/agents", "plugins/atelier/agents", "scripts/sync_agents.py", "tests/test_sync_agents.py"]
-opened_commit = "2fedbf33fea70b48b8dba593615d2f0a6a9cae79"
-whole_reason = "Twelve agent definitions get the same two frontmatter keys, with the generator and its generated files."

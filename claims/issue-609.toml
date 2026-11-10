@@ -1,7 +1,0 @@
-claim_id = "b7be8a8b54f54410a19c241a66ad1194"
-agent = "Claude a5abe9e4-862b-4cac-94ed-68bd072edf38"
-role = "builder"
-base = "76c5297ad8f6f8104dab0db02820ee0c3ae2b5fe"
-branch = "claude/issue-609-index-calling-standard"
-scope = ["docs/standards.md"]
-opened_commit = "9eaee61637cf12f5eb9996a73fe365dfba9e6006"

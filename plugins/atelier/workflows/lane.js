@@ -714,9 +714,11 @@ function startTest() {
   const call = testCalls++, testedTip = tip
   pendingTest = explore(call).then(e2e => { testSettled = true; return { call, e2e, testedTip } })
 }
+const takePendingTest = () => pendingTest.then(judged => { pendingTest = null; return judged })
+const emptyVerdictReason = (e2e, blocking) => (e2e.verdict === 'PASS' && !(e2e.cells || []).some(c => c.result === 'held') && 'a PASS without driven cells: the tester named no held cell') ||
+  (e2e.verdict === 'FAIL' && blocking.length === 0 && 'a FAIL verdict came without any blocking finding') || ''
 // Judges the pending tester's answer; returns the result that stops the lane, or undefined. A lock-busy answer is retried once:
 // awaited here when CI has nothing of its own to fix, else left pending while the fixer starts.
-const takePendingTest = () => pendingTest.then(judged => { pendingTest = null; return judged })
 async function settleTest(ci, awaitRetry = true) {
   let judged = await takePendingTest()
   if (judged.e2e?.verdict === 'failed' && judged.e2e.lockBusy && !lockRetried) {
@@ -734,8 +736,7 @@ async function settleTest(ci, awaitRetry = true) {
   }
   if (!e2e || e2e.verdict === 'failed') return openResult('failed', 'test', { reason: 'the tester returned no usable result' })
   testBlocking = e2e.blocking || []
-  if (e2e.verdict === 'PASS' && !(e2e.cells || []).some(c => c.result === 'held')) return openResult('failed', 'test', { reason: 'a PASS without driven cells: the tester named no held cell' })
-  if (e2e.verdict === 'FAIL' && testBlocking.length === 0) return openResult('failed', 'test', { reason: 'a FAIL verdict came without any blocking finding' })
+  const emptyReason = emptyVerdictReason(e2e, testBlocking); if (emptyReason) return openResult('failed', 'test', { reason: emptyReason })
   // A blocking finding outranks a PASS label, as in the classifier of lane-review.js.
   history.push({ after: spent.total, by: `e2e-${call}`, verdict: testBlocking.length ? 'FAIL' : 'PASS', blocking: testBlocking.map(f => f.where), cells: e2e.cells || [], reportPath: e2e.evidencePath || '' })
   followups.push(...(e2e.followups || []).map(f => ({ ...f, tip: testedTip })))

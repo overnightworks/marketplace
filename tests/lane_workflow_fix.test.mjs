@@ -92,8 +92,8 @@ const docsFinding = { ...finding('README.md:1', 'a wrong word'), kind: 'docs' }
 
 const fixBatchRouting = [
   ['only docs findings', { fixFirst: [docsFinding] }, 'haiku', 'low'],
-  ['docs findings plus a defect', { fixFirst: [docsFinding, defectWithoutDraft] }, 'sonnet', 'medium'],
-  ['docs findings plus a fold-in', { fixFirst: [docsFinding], foldIn: [tidy] }, 'sonnet', 'medium'],
+  ['docs findings plus a defect', { fixFirst: [docsFinding, defectWithoutDraft] }, 'haiku', 'high'],
+  ['docs findings plus a fold-in', { fixFirst: [docsFinding], foldIn: [tidy] }, 'haiku', 'high'],
 ]
 
 for (const [batch, handedOver, model, effort] of fixBatchRouting) {
@@ -430,6 +430,31 @@ test('three consecutive reviewer REVISEs with different findings do not stop at 
   assert.ok(launchedAgents.includes('fix-3'))
   assert.equal(result.gateRevisions, undefined)
 })
+
+// The fixer runs on `rework` from the third fix round of a run on, whichever phase the round belongs to.
+const docsReviewFinding = { ...finding('README.md:1', 'a wrong word'), kind: 'docs' }
+const twoFixRounds = {
+  'r0-review': reviseWith('a.py:1', { codexExit: undefined }),
+  'fix-1': fixFrom(resumeTip, tipAfter(1)),
+  'r1-review': reviseWith('b.py:2', { codexExit: undefined }),
+  'fix-2': fixFrom(tipAfter(1), tipAfter(2)),
+}
+const thirdRound = [
+  ['a review finding', { 'r2-review': reviseWith('c.py:3', { codexExit: undefined }), 'fix-3': fixFrom(tipAfter(2), tipAfter(3)), 'r3-review': APPROVE }, {}, 'sonnet', 'high'],
+  ['a docs-only review finding', { 'r2-review': { ...reviseWith('c.py:3', { codexExit: undefined }), blocking: [docsReviewFinding] }, 'fix-3': fixFrom(tipAfter(2), tipAfter(3)), 'r3-review': APPROVE }, {}, 'haiku', 'low'],
+  ['a red CI after two review rounds', { 'r2-review': APPROVE, 'e2e-0': PASS, 'ci-0': { ...greenCi(tipAfter(2)), green: false, failing: [finding('ci: lint', 'ruff fails')] }, 'fix-3': fixFrom(tipAfter(2), tipAfter(3)) }, {}, 'sonnet', 'high'],
+  ['a review finding with a rework override', { 'r2-review': reviseWith('c.py:3', { codexExit: undefined }), 'fix-3': fixFrom(tipAfter(2), tipAfter(3)), 'r3-review': APPROVE }, { routing: { rework: { model: 'opus', effort: 'medium' } } }, 'opus', 'medium'],
+]
+
+for (const [what, answers, extraArgs, model, effort] of thirdRound) {
+  test(`AC-rework-third-round: the third fix round for ${what} runs on ${model} at ${effort} after two rounds on the fix role`, async () => {
+    const { agentCalls } = await runLane({ ...resumeArgs, ...extraArgs }, { ...twoFixRounds, ...answers })
+    for (const label of ['fix-1', 'fix-2']) {
+      assert.deepEqual([agentCalls[label].options.model, agentCalls[label].options.effort], ['haiku', 'high'], label)
+    }
+    assert.deepEqual([agentCalls['fix-3'].options.model, agentCalls['fix-3'].options.effort], [model, effort])
+  })
+}
 
 // The fix step's tip and merge shape come only from the printer line the fixer runs last: HEAD and its parents.
 const fixerShapes = [

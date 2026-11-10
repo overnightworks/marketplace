@@ -185,7 +185,8 @@ classification, the closing reference, a claim on the head branch and the defaul
 target, not that the work is reviewed or the checks are green.
 
 One more line records the routing, in this form:
-`Routing: build <model>/<effort>; review <model>/<effort>; gate <model>/<effort>|none; land <model>/<effort>. Blocking: <finding> → <stage>; …|none`.
+`Routing: build <model>/<effort>; fix <model>/<effort>|none; review <model>/<effort>; test <model>/<effort>|none; gate <model>/<effort>|none; land <model>/<effort>. Fix rounds: <n>[, hard: <why>]. Blocking: <finding> → <stage>; …|none`,
+the bracket from the third round on.
 The head writes it before the landing, because a landing agent does not know the routing.
 
 Push the branch, then open the pull request with `gh pr create` (title, head, base,

@@ -31,7 +31,11 @@ for (const item of refusedItems) {
 const refusedRoutings = [
   ['an unknown role', { janitor: { effort: 'low' } }],
   ['an unknown model', { build: { model: 'gpt-5.6-terra' } }],
-  ['an effort above the ceiling', { fix: { effort: 'xhigh' } }],
+  ['an effort beyond the efforts', { fix: { effort: 'xhigh' } }],
+  ['opus above its medium cap', { review: { model: 'opus', effort: 'high' } }],
+  ['opus kept at the high effort a role defaults to', { build: { model: 'opus' } }],
+  ['the dropped model fable', { review: { model: 'fable', effort: 'medium' } }],
+  ['a Codex rework', { rework: { model: 'gpt-6-astra' } }],
   ['a gate on the builder\'s provider', { gate: { model: 'opus' } }],
   ['a Claude review model for a Codex reviewer', { review: { model: 'sonnet' }, __reviewer: 'codex' }],
   ['a Codex builder', { build: { model: 'gpt-6-astra' } }],
@@ -61,7 +65,7 @@ for (const [label, model, effort] of defaultRoutingByRole) {
 }
 
 const reviewRoutingByRisk = [
-  ['normal', 'claude', 'sonnet', 'medium'], ['material', 'claude', 'opus', 'high'],
+  ['normal', 'claude', 'sonnet', 'high'], ['material', 'claude', 'opus', 'medium'],
   ['normal', 'codex', 'gpt-6-astra', 'medium'], ['material', 'codex', 'gpt-6-astra', 'high'],
 ]
 
@@ -75,12 +79,19 @@ for (const [risk, reviewer, model, effort] of reviewRoutingByRisk) {
   })
 }
 
-test('AC-default-routing: the build, fix and test agents run on sonnet at medium effort by default', async () => {
-  const { agentCalls } = await runLane({ ...webauthReplay.args, build: 'b' }, answersWith(webauthReplay, { kind: 'test-gap', mutation: true }))
-  for (const label of ['build', 'fix-1', 'e2e-0']) {
-    assert.deepEqual([agentCalls[label].options.model, agentCalls[label].options.effort], ['sonnet', 'medium'], label)
-  }
-})
+const writerRoutingByRisk = [
+  ['normal', { build: ['haiku', 'high'], 'fix-1': ['haiku', 'high'], 'e2e-0': ['sonnet', 'medium'] }],
+  ['material', { build: ['sonnet', 'high'], 'fix-1': ['sonnet', 'high'], 'e2e-0': ['sonnet', 'high'] }],
+]
+
+for (const [risk, expected] of writerRoutingByRisk) {
+  test(`AC-default-routing: a ${risk} lane's build, fix and test agents run on ${JSON.stringify(expected)}`, async () => {
+    const { agentCalls } = await runLane({ ...webauthReplay.args, build: 'b', risk }, answersWith(webauthReplay, { kind: 'test-gap', mutation: true }))
+    for (const [label, modelAndEffort] of Object.entries(expected)) {
+      assert.deepEqual([agentCalls[label].options.model, agentCalls[label].options.effort], modelAndEffort, label)
+    }
+  })
+}
 
 test('AC-gate-separation: a Claude builder gets the Codex gpt-6-astra gate at high effort', async () => {
   const { agentCalls } = await runLane({ ...resumedLane, risk: 'material' })
@@ -94,16 +105,17 @@ test('AC-gate-revise-kept: the courier brief returns a REVISE from a clean Codex
   assert.match(agentCalls['r0-gate'].prompt, /holds 0 and .* is valid JSON, return its verdict, blocking and followups UNCHANGED.*a REVISE with blocking findings is never failed/s)
 })
 
-test('AC-override: a routing override sets a role\'s model and effort within the ceiling', async () => {
-  const { agentCalls } = await runLane({ ...resumedLane, routing: { review: { model: 'opus', effort: 'high' } } })
-  assert.deepEqual([agentCalls['r0-review'].options.model, agentCalls['r0-review'].options.effort], ['opus', 'high'])
+test('AC-override: a routing override sets a role\'s model and effort within the model\'s cap', async () => {
+  const { agentCalls } = await runLane({ ...resumedLane, routing: { review: { model: 'opus', effort: 'medium' } } })
+  assert.deepEqual([agentCalls['r0-review'].options.model, agentCalls['r0-review'].options.effort], ['opus', 'medium'])
 })
 
 test('AC-remeasure: every lane result records each role\'s model and effort and which stage found each blocking finding', async () => {
   const replay = webauthReplay
   const { result } = await runLane(replay.args, answersWith(replay, { kind: 'test-gap', mutation: true }))
   assert.deepEqual(result.routing.gate, { model: 'gpt-6-astra', effort: 'high' })
-  assert.deepEqual(result.routing.build, { model: 'sonnet', effort: 'medium' })
+  assert.deepEqual(result.routing.build, { model: 'sonnet', effort: 'high' })
+  assert.deepEqual(result.routing.rework, { model: 'sonnet', effort: 'high' })
   assert.deepEqual(result.history.find(entry => entry.by === 'gate').blocking, ['src/webauth/oidc.py:315'])
 })
 

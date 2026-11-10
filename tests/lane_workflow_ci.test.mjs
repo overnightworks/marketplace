@@ -490,6 +490,45 @@ test('ci-fixer-at-once: a tester answering with blocking findings after two CI-o
   assert.deepEqual(testerLabels(launchedAgents), ['e2e-0', 'e2e-1'])
 })
 
+const lateFinding = { where: 'flow.py:9', kind: 'defect', text: 'the flow loses data', rule: 'no data loss', evidence: 'repro' }
+const lateFix = { ...resumeFix, head: roundTip(3), parents: [roundTip(2)], files: ['flow.py'], regression: [{ finding: 1, test: 't.py::t', failedBefore: true, passesAfter: true }] }
+
+test('ci-budget-key: a fix round with red CI that carries a tester finding charges the ci budget', tolerates, async () => {
+  const tester = heldTester()
+  const answers = {
+    'r0-review': APPROVE, 'e2e-0': tester.answer, 'e2e-1': PASS,
+    'ci-0': roundRed(0), 'ci-1': roundRed(1), 'ci-2': roundRed(2, () => tester.resolve({ verdict: 'FAIL', blocking: [lateFinding], followups: [] })), 'ci-3': greenCi(roundTip(3)),
+    'fix-1': roundFix(1), 'fix-2': roundFix(2), 'fix-3': lateFix,
+    'r1-review': APPROVE, 'r2-review': APPROVE, 'r3-review': APPROVE, 'ci-4': greenCi(roundTip(3)),
+  }
+  const { result } = await runLane({ ...resumeArgs, budgets: { ci: 5 } }, answers)
+  assert.equal(result.status, 'ready-to-land', result.reason)
+  assert.equal(result.spent.ci, 3)
+  assert.equal(result.spent.test, 0)
+})
+
+test('ci-budget-key: a fix round with green CI that carries only a tester finding charges the test budget', tolerates, async () => {
+  const answers = {
+    'r0-review': APPROVE, 'e2e-0': { verdict: 'FAIL', blocking: [lateFinding], followups: [] }, 'e2e-1': PASS,
+    'ci-0': greenCi(resumeArgs.tip), 'fix-1': { ...lateFix, parents: [resumeArgs.tip] }, 'r1-review': APPROVE, 'ci-1': greenCi(roundTip(3)),
+  }
+  const { result } = await runLane(resumeArgs, answers)
+  assert.equal(result.status, 'ready-to-land', result.reason)
+  assert.equal(result.spent.test, 1)
+  assert.equal(result.spent.ci, 0)
+})
+
+test('ci-budget-key: a fix round with red CI but no failing entry and no tester finding charges the ci budget', tolerates, async () => {
+  const answers = {
+    'r0-review': APPROVE, 'e2e-0': PASS,
+    'ci-0': { head: resumeArgs.tip, green: false, failing: [] }, 'fix-1': roundFix(1), 'r1-review': APPROVE, 'ci-1': greenCi(roundTip(1)),
+  }
+  const { result } = await runLane(resumeArgs, answers)
+  assert.equal(result.status, 'ready-to-land', result.reason)
+  assert.equal(result.spent.ci, 1)
+  assert.equal(result.spent.test, 0)
+})
+
 test('ci-fixer-at-once: CI green with a tester PASS holding a cell ends ready-to-land after one tester and one CI watch', tolerates, async () => {
   const { result, launchedAgents } = await runLane(resumeArgs, { 'r0-review': APPROVE, 'e2e-0': PASS, 'ci-0': greenCi(resumeArgs.tip) })
   assert.equal(result.status, 'ready-to-land', result.reason)

@@ -776,7 +776,7 @@ while (true) {
   const taken = testBlocking
   testBlocking = []
   const ciBlocking = ci.green || shared.length ? [] : (ci.failing || [])
-  const f = await fixBatch(taken.concat(ciBlocking), taken.length ? 'the end-to-end test and CI' : 'CI', taken.length ? 'test' : 'ci')
+  const f = await fixBatch(taken.concat(ciBlocking), taken.length ? 'the end-to-end test and CI' : 'CI', ci.green || shared.length ? 'test' : 'ci')
   if (f.stop) return f.stop
   const stop = f.range && await reviewUntilClean(f.gateAgain ? ALL : [REVIEW], f.range, f.deltaFrom)
   if (stop) return stop

@@ -1,0 +1,8 @@
+claim_id = "e1152c2881c245c8ace196813cff3e9c"
+agent = "Claude a5abe9e4-862b-4cac-94ed-68bd072edf38"
+role = "builder"
+base = "5df0c2e9bfb0b645a2772e56bcbd0198757cf25d"
+branch = "claude/issue-602-lane-workflow-default"
+scope = [".claude-plugin/marketplace.json", "instructions/HEAD.md", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/skills/aco/SKILL.md"]
+opened_commit = "4bc5743d2af6001f90ad4d582c0101d07235cfae"
+whole_reason = "One ruled contract sentence with the skill paragraph that repeats it and the release pins."

@@ -65,7 +65,7 @@ const TEST_VOLUME_LINE =
 
 // ------------------------------------------------------------ reviewers
 // The ordinary review may come from the builder's own provider (the contract asks only for a fresh, independent
-// agent); a fresh Claude reviewer is the default, Sonnet at medium effort and Opus at high on material risk. The
+// agent); a fresh Claude reviewer is the default, Sonnet at high effort and Opus at medium on material risk. The
 // final gate on a material lane must come from another provider than the Claude builder, so it runs on Codex
 // through a courier.
 function reviewerBrief(role, range) {

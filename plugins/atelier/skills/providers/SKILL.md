@@ -34,7 +34,7 @@ to a tracked file in the worktree fails; it needs no commit, merge or network te
 
 Model and effort come from the head contract's section "Model routing"
 (`instructions/HEAD.md`) if installed (the row for the work, the Codex column;
-its Effort column); otherwise use the operator's stated model and effort, or
+the effort the cell gives); otherwise use the operator's stated model and effort, or
 ask. Never guess. `$MODEL` and `$EFFORT` below are those values.
 
 ```bash

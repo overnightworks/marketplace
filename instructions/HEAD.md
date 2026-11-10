@@ -278,7 +278,7 @@ needs no counter-check. Lane work keeps its own reviews.
   review. With no eligible gate provider, the gate waits. Each required review
   brief carries the contract core, with rulings and neighbours folded into the
   body, never passed beside it. No override changes reviewer independence,
-  gate provider separation or the effort ceiling.
+  gate provider separation or the effort caps.
 - **Re-checks.** A `REVISE` gets a delta re-check after a coherent fix batch:
   by the same reviewer while its reported lifetime context is under 200k
   tokens (unknown counts as over), else by a fresh reviewer of the same row and
@@ -304,15 +304,19 @@ needs no counter-check. Lane work keeps its own reviews.
 ## Model routing
 
 Keep the model the operator started you with. For each delegated agent, pick
-the row by the work and an eligible provider column, at medium effort unless
-the row says otherwise; a delegated agent runs only a model the table names.
+the row by the work and an eligible provider column, and pass the cell's model
+and effort; a delegated agent runs only what the table names. Codex and Grok
+run at medium (mechanical work at low or medium), in the last two rows at high.
 
-| Work | Claude | Codex | Grok | Effort |
-|---|---|---|---|---|
-| Mechanical: landing, body edits, search, repetition, a behaviour-neutral fix batch | Haiku 5.5 | — | 4.6 | low or medium |
-| Fact finding, normal build, fix, test, ordinary code/test/diff review | Sonnet 5.5 | gpt-6-astra | 4.6 (no reviews) | medium |
-| Material lane: review and required final gate (gate provider: `AGENTS.md`, Independence) | Opus 5.5 or Fable | gpt-6-astra | — | high |
-| Architecture, security or product decision; the hardest proof | Opus 5.5 or Fable | gpt-6-astra | 4.6 (no reviews) | high |
+| Work | Claude | Codex | Grok |
+|---|---|---|---|
+| Mechanical: landing, body edits, search, repetition, a behaviour-neutral fix batch | Haiku 5.5, low or medium | — | 4.6 |
+| Build, fix | Haiku 5.5, high | gpt-6-astra | 4.6 |
+| Hard build or fix: a material lane, a build past the slice limit (`AGENTS.md`, Code), a lane's third fix round on, a failed cheaper attempt | Sonnet 5.5, high | gpt-6-astra | 4.6 |
+| Fact finding, test | Sonnet 5.5, medium; a material lane's test at high | gpt-6-astra | 4.6 |
+| Ordinary code, test or diff review | Sonnet 5.5, high | gpt-6-astra | — |
+| Material review; architecture, security or product decision; the hardest proof | Opus 5.5, medium | gpt-6-astra | 4.6 (no reviews) |
+| Required final gate (provider: `AGENTS.md`, Independence) | Opus 5.5, high | gpt-6-astra | — |
 
 - A fix batch is behaviour-neutral when none of its findings can change
   behaviour: wording, a local rename, formatting, a one-line scanner fix. One
@@ -320,9 +324,9 @@ the row says otherwise; a delegated agent runs only a model the table names.
 - Grok 4.6 holds no review role (ordinary review, plan review, final gate); it
   stays eligible for building, fixing, testing, fact finding and mechanical
   work.
-- High is the one effort ceiling, for routine work and overrides.
-  Only the hardest proof, after high proved insufficient, may run at xhigh or
-  above, for that single step, with the reason in the journal.
+- Effort is capped per model, for routine work and overrides: Opus at medium
+  (the final gate at high), every other model at high. More needs the
+  operator's word and runs outside the lane workflow.
 - A lane's models may be set through the lane workflow's arguments. Before
   running the `codex` or `grok` CLI yourself outside it, load the `providers`
   skill.
@@ -336,10 +340,12 @@ the row says otherwise; a delegated agent runs only a model the table names.
   or advisory scan, and a scanner bug or vulnerability finding stay misses.
 - **Re-measurement.** Every landed or abandoned lane's pull request body
   carries one `Routing:` line, written by you before the landing (form: the
-  `aco` skill): each role's model and effort and the stage that found each
-  blocking finding. Every two weeks, compare each risk class's misses with the
-  last measurement, propose any change through Rule changes, and open the next
-  measurement as an item.
+  `aco` skill): each role's model and effort, the number of fix rounds, from the
+  third round on what made the work hard, and the stage that found each
+  blocking finding. Every two weeks, compare each risk class's misses and fix
+  rounds with the last measurement: a kind of work that keeps needing the hard
+  row moves there, one that never does moves down. Propose any change through
+  Rule changes, and open the next measurement as an item.
 
 ## Landing
 

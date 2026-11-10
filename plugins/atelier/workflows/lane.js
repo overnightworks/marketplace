@@ -63,7 +63,11 @@ const DEFAULT_ROUTING = {
 }
 // The provider each role must run on: reviews on the chosen reviewer provider, the gate on any provider but the
 // builder's, every other role on Claude.
-const providerAllowed = (role, provider) => role === 'gate' ? provider !== 'claude' : provider === (role === 'review' ? REVIEWER_PROVIDER : 'claude')
+function providerAllowed(role, provider) {
+  if (role === 'gate') return provider !== 'claude'
+  const required = role === 'review' ? REVIEWER_PROVIDER : 'claude'
+  return provider === required
+}
 
 // Why one role's override is refused, or null.
 function roleChoiceRefusal(role, choice) {

@@ -281,7 +281,6 @@ test('ci-registration-wait: the loop stops after 5 tries with status 0 when no c
 const lockBusy = { verdict: 'failed', lockBusy: true, blocking: [], followups: [] }
 const lockQueue = [
   ['green', ciAnswer([check(required, 'pass')]), /green/],
-  ['red', redCi(['Python: tests']), /red[\s\S]*Python: tests/],
   ['unreadable', { problem: 'lane-ci failed: boom' }, /not readable/],
 ]
 for (const [what, ci, state] of lockQueue) {
@@ -338,8 +337,8 @@ esac
 `)
   return { bin, calls }
 }
-const printingWith = (bin, checks) => (prompt) => ({
-  printed: runCommandLine(prompt.split('\n').at(-1).replace(/^cd '[^']*' && /, ''), { cwd: os.tmpdir(), env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, FAKE_PR_HEAD: tip, FAKE_CHECKS: JSON.stringify(checks) } }),
+const printingWith = (bin, checks, head = tip) => (prompt) => ({
+  printed: runCommandLine(prompt.split('\n').at(-1).replace(/^cd '[^']*' && /, ''), { cwd: os.tmpdir(), env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, FAKE_PR_HEAD: head, FAKE_CHECKS: JSON.stringify(checks) } }),
 })
 const redVerdict = [{ name: required, bucket: 'fail', link: verdictLink }, { name: 'Python: tests', bucket: 'pass', link: 'https://github.com/o/n/actions/runs/11/job/23' }]
 const verdictFailing = [{ where: required, kind: 'defect', text: 'red', rule: 'CI check quality / verdict', evidence: 'red' }]
@@ -515,4 +514,45 @@ test('ci-fixer-at-once: a tester PASS on a tip a later fix changed in production
   assert.equal(result.status, 'ready-to-land', result.reason)
   assert.deepEqual(testerLabels(launchedAgents), ['e2e-0', 'e2e-1'])
   assert.equal(result.tip, roundTip(2))
+})
+
+test('ci-fixer-at-once: a lock-busy tester does not hold a red CI back from the fixer', tolerates, async () => {
+  const retry = heldTester()
+  const answers = {
+    'r0-review': APPROVE, 'e2e-0': lockBusy, 'e2e-1': retry.answer,
+    'ci-0': roundRed(0), 'ci-1': () => { retry.resolve(PASS); return greenCi(roundTip(1)) }, 'ci-read-1': { pr_head: roundTip(1), checks: greenCi(roundTip(1)).checks, required: ['quality / verdict'] }, 'fix-1': roundFix(1),
+  }
+  const { result, launchedAgents } = await runLane(resumeArgs, answers)
+  assert.equal(result.status, 'ready-to-land', result.reason)
+  assert.ok(launchedAgents.includes('fix-1'))
+  assert.deepEqual(testerLabels(launchedAgents), ['e2e-0', 'e2e-1'])
+})
+
+test('ci-fixer-at-once: a follow-up of a tester that settles after a fix moved the tip is raised before the returned tip', tolerates, async () => {
+  const tester = heldTester()
+  const followup = { where: 'late.py:1', text: 'tidy it', kind: 'follow-up' }
+  const answers = {
+    'r0-review': APPROVE, 'e2e-0': tester.answer,
+    'ci-0': roundRed(0), 'ci-1': () => { tester.resolve({ ...PASS, followups: [followup] }); return greenCi(roundTip(1)) },
+    'ci-read-1': { pr_head: roundTip(1), checks: greenCi(roundTip(1)).checks, required: ['quality / verdict'] }, 'fix-1': roundFix(1),
+  }
+  const { result } = await runLane(resumeArgs, answers)
+  assert.equal(result.status, 'ready-to-land', result.reason)
+  assert.deepEqual(result.raisedBeforeTip.map(f => f.where), ['late.py:1'])
+})
+
+test('ci-operator-door: a tester PASS on an older production tip does not open the door before a tester ran on the current tip', tolerates, async (t) => {
+  const { bin } = fakeGhWithLog(t, { logLines: loosened })
+  const tester = heldTester()
+  const doorCi = (round) => ({ head: roundTip(round), green: false, failing: verdictFailing, checks: redVerdict })
+  const answers = {
+    'r0-review': APPROVE, 'e2e-0': tester.answer, 'e2e-1': PASS,
+    'ci-0': roundRed(0), 'ci-1': () => { tester.resolve(PASS); return doorCi(1) }, 'ci-2': doorCi(1),
+    'ci-read-1': printingWith(bin, redVerdict, roundTip(1)), 'ci-read-2': printingWith(bin, redVerdict, roundTip(1)),
+    'fix-1': { ...resumeFix, head: roundTip(1), files: ['src/x.py'], regression: [] }, 'r1-review': APPROVE,
+  }
+  const { result, launchedAgents } = await runLane(resumeArgs, answers)
+  assert.deepEqual([result.status, result.stage], ['awaiting-head', 'ci'])
+  assert.match(result.reason, door)
+  assert.deepEqual(testerLabels(launchedAgents), ['e2e-0', 'e2e-1'])
 })

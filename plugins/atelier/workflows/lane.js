@@ -1,6 +1,6 @@
 export const meta = {
   name: 'lane',
-  description: 'One claimed lane to ready-to-land: build, a fresh review (Sonnet at medium effort, Opus at high on material risk, plus a Codex gpt-6-astra gate on material risk), fresh fixers with evidence-bearing findings and a delta re-check by whoever raised them, then the explorative end-to-end test and CI in parallel on one tip.',
+  description: 'One claimed lane to ready-to-land: build, a fresh review (Sonnet at medium effort, Opus at high on material risk, plus a Codex gpt-6-astra gate on material risk), fresh fixers with evidence-bearing findings and a delta re-check by whoever raised them, then the explorative end-to-end test and CI side by side, a red CI fixed at once while the tester runs on.',
   whenToUse: 'In any repository that coordinates with aco, after the head ran `aco start <item>` (worktree, branch and claim exist). Landing stays with the head; the result lists requiredHeadActions. Required args: item (the GitHub issue number of the work item; the lane carries only issue items, an issue-less claim runs by hand), worktree (the lane\'s isolated worktree path), branch (the lane branch), contract (the item\'s ruled sentences every reviewer and the tester judge against), e2e (what the explorative tester drives through the real entry point), scratch (a directory for briefs, Codex output and test evidence). Start with build (a builder brief) for a new lane, or with pr and tip (an open pull request and its head sha) to continue one. Optional args and their defaults: risk "normal" (or "material": adds a Codex gpt-6-astra final gate); reviewer "claude" (a fresh Sonnet reviewer at medium effort, Opus at high on material risk; "codex" routes the review to Codex gpt-6-astra at medium effort, high on material risk); routing none (per-role overrides {role: {model, effort}} of the table at the top of the script, for build, fix, test, review, gate and mechanical; a fix batch whose blocking findings are all docs and that carries no fold-ins runs as mechanical; effort never above high, the gate always on another provider than the builder); repo none (every gh call then targets the worktree\'s own repository; pass owner/name when the head runs elsewhere); productionPaths ["src/", "pyproject.toml", "uv.lock"], a default that fits a src-layout Python repository (path prefixes whose change re-opens the gate on a material lane and re-runs the end-to-end test; passing it also lets a fresh reviewer stand in for a gate at its usage limit on a delta that touched none of them); ledgers [], a default that fits a repository without append-only ledgers (files whose merge conflicts keep both sides, main\'s lines first); generated {}, a map from a generated file\'s path to the command that regenerates it (a merge conflict confined to such files and ledgers is resolved by running the command on the merged tree, not escalated); budgets {review: 5, test: 2, ci: 3, total: 8} (fix rounds per phase and in total; partial objects override single keys); deltaFrom none (a sha: review only the commits since it, after the head settled an awaiting-head result; without it, a new run with pr and tip and fixFirst or foldIn reviews the whole lane, with the gate on a material lane); answers none (what those commits answer); fixFirst none (Finding[]: blocking findings a fresh fixer answers before anything else); foldIn none (Followup[]: follow-ups for that fixer, each handed over whatever its owner or wording; given alone it still starts the fixer).',
   phases: [
     { title: 'Build' },
@@ -666,14 +666,13 @@ if (carriesBatch) {
   if (first) return first
 }
 
-// ---------------------------- end-to-end test and CI, in parallel, on one tip
+// ---------------------------- end-to-end test and CI side by side
 // The lane-test child returns the tester's answer, null when both agents ended without a result, or a problem the lane stops on.
 const LANE_TEST_PROTOCOL = 1
 function explore(n) {
   return startChild('lane-test', { protocol: LANE_TEST_PROTOCOL, delegatedLine: DELEGATED_LINE, n, pr, tip, worktree: A.worktree, scratch: A.scratch, tag: TAG, e2e: A.e2e, contract: A.contract, laneFacts, blockingLine: BLOCKING_LINE, finding: FINDING, followup: FOLLOWUP, routing: claudeRole('test') })
 }
 
-// A throw inside parallel() would reach the loop as a bare null, so the lane-ci child's failure returns as {problem}.
 const LANE_CI_PROTOCOL = 4
 // The printed values, not the watcher's word, decide whether CI counts as green; null means they prove it.
 function unprovenGreen({ checks, rules }) {
@@ -705,69 +704,85 @@ function lockQueueCiState(ci) {
   return names ? `red (${names})` : 'not green'
 }
 
-function testVerdict(e2e, testBlocking) {
-  if (e2e.skipped) return 'SKIPPED'
-  return testBlocking.length ? 'FAIL' : 'PASS'
+// A red CI starts the fixer at once; the tester's answer joins the next batch, and the round awaits the tester only when CI
+// has nothing of its own to fix. The tester judges the tip it started on, which later fixes may move. One tester runs at a time.
+let n = 0, testCalls = 0, needTest = true, lockRetried = false, testSettled = false
+let pendingTest = null  // the tester started and not yet judged, with its call number
+let testBlocking = []  // the tester's findings, held until a fix batch takes them
+function startTest() {
+  needTest = productionSinceTest = testSettled = false
+  const call = testCalls++, testedTip = tip
+  pendingTest = explore(call).then(e2e => { testSettled = true; return { call, e2e, testedTip } })
 }
-
-let n = 0
-let needTest = true
-let lockRetried = false
-while (true) {
-  phase('Test and CI')
-  // Both read the same immutable tip, so running them together cannot mix states; nothing fixes before both answered.
-  const [e2e, ci] = await parallel([
-    () => needTest ? explore(n) : Promise.resolve({ verdict: 'PASS', skipped: true, blocking: [], followups: [], evidencePath: 'skipped: no production change since the last test' }),
-    () => watchCi(n),
-  ])
-  if (needTest) productionSinceTest = false
-  n++
-  if (e2e?.problem) return openResult('failed', 'test', { reason: `the tester ${e2e.problem}` })
-  if (e2e && typeof e2e.verdict !== 'string') return openResult('failed', 'test', { reason: `lane-test answered without a verdict: ${JSON.stringify(e2e).slice(0, 200)}` })
-  if (e2e?.verdict === 'failed' && e2e.lockBusy && !lockRetried) {
+const takePendingTest = () => pendingTest.then(judged => { pendingTest = null; return judged })
+const emptyVerdictReason = (e2e, blocking) => (e2e.verdict === 'PASS' && !(e2e.cells || []).some(c => c.result === 'held') && 'a PASS without driven cells: the tester named no held cell') ||
+  (e2e.verdict === 'FAIL' && blocking.length === 0 && 'a FAIL verdict came without any blocking finding') || ''
+// Judges the pending tester's answer; returns the result that stops the lane, or undefined. A lock-busy answer is retried once:
+// awaited here when CI has nothing of its own to fix, else left pending while the fixer starts.
+async function settleTest(ci, awaitRetry = true) {
+  let judged = await takePendingTest()
+  if (judged.e2e?.verdict === 'failed' && judged.e2e.lockBusy && !lockRetried) {
     lockRetried = true
     log('the probe lock or the load was busy; trying the end-to-end test once more')
-    continue
+    startTest()
+    if (!awaitRetry) return
+    judged = await takePendingTest()
   }
+  const { call, e2e, testedTip } = judged
+  if (e2e?.problem) return openResult('failed', 'test', { reason: `the tester ${e2e.problem}` })
+  if (e2e && typeof e2e.verdict !== 'string') return openResult('failed', 'test', { reason: `lane-test answered without a verdict: ${JSON.stringify(e2e).slice(0, 200)}` })
   if (e2e?.verdict === 'failed' && e2e.lockBusy) {
     return openResult('awaiting-head', 'test', { reason: `lock queue: the shared probe lock stayed busy or the load stayed above the limit for both tries, so the end-to-end test did not run; CI of this round: ${lockQueueCiState(ci)}. Start a new run with pr and tip once the queue clears.` })
   }
   if (!e2e || e2e.verdict === 'failed') return openResult('failed', 'test', { reason: 'the tester returned no usable result' })
-  if (!ci || ci.problem) return openResult('failed', 'ci', ci ? { reason: `the CI watcher ${ci.problem}` } : undefined)
-  const testBlocking = e2e.blocking || []
-  if (e2e.verdict === 'PASS' && !e2e.skipped && !(e2e.cells || []).some(c => c.result === 'held')) return openResult('failed', 'test', { reason: 'a PASS without driven cells: the tester named no held cell' })
-  if (e2e.verdict === 'FAIL' && testBlocking.length === 0) return openResult('failed', 'test', { reason: 'a FAIL verdict came without any blocking finding' })
+  testBlocking = e2e.blocking || []
+  const emptyReason = emptyVerdictReason(e2e, testBlocking); if (emptyReason) return openResult('failed', 'test', { reason: emptyReason })
   // A blocking finding outranks a PASS label, as in the classifier of lane-review.js.
+  history.push({ after: spent.total, by: `e2e-${call}`, verdict: testBlocking.length ? 'FAIL' : 'PASS', blocking: testBlocking.map(f => f.where), cells: e2e.cells || [], reportPath: e2e.evidencePath || '' })
+  followups.push(...(e2e.followups || []).map(f => ({ ...f, tip: testedTip })))
+  // A PASS on a tip a fix has since changed in production is stale: a new tester runs on the current tip.
+  if (productionSinceTest) needTest = true
+}
+while (true) {
+  phase('Test and CI')
+  if (needTest && !pendingTest) startTest()
+  const ci = await watchCi(n)
+  n++
+  if (!ci || ci.problem) {
+    const stop = pendingTest && await settleTest(ci)
+    return stop || openResult('failed', 'ci', ci ? { reason: `the CI watcher ${ci.problem}` } : undefined)
+  }
   if (!sameCommit(ci.head, tip)) return openResult('failed', 'ci', { reason: `the pull request head ${ci.head} is not the lane tip ${tip}` })
-  const { unproven } = ci
-  history.push(
-    { after: spent.total, by: `e2e-${n - 1}`, verdict: testVerdict(e2e, testBlocking), blocking: testBlocking.map(f => f.where), cells: e2e.cells || [], reportPath: e2e.evidencePath || '' },
-    { after: spent.total, by: `ci-${n - 1}`, verdict: ci.green && !unproven && !ci.rulesError ? 'GREEN' : 'RED', blocking: (ci.failing || []).map(f => f.where) },
-  )
-  followups.push(...(e2e.followups || []).map(f => ({ ...f, tip })))
+  const { shared, unproven } = ci
+  if (pendingTest && (testSettled || ci.green || shared.length || ci.operatorDoor)) {
+    const stop = await settleTest(ci, ci.green || shared.length > 0 || Boolean(ci.operatorDoor))
+    if (stop) return stop
+  }
+  history.push({ after: spent.total, by: `ci-${n - 1}`, verdict: ci.green && !unproven && !ci.rulesError ? 'GREEN' : 'RED', blocking: (ci.failing || []).map(f => f.where) })
   if (ci.rulesError) return openResult('failed', 'ci', { reason: `the required checks of the base branch could not be read: ${ci.rulesError}` })
   if (unproven) return openResult('failed', 'ci', { reason: `CI reported green, but the check listing does not prove it: ${unproven}` })
-  if (testBlocking.length === 0 && ci.green) break
-
-  const { shared } = ci
+  if (testBlocking.length === 0 && ci.green) {
+    if (!needTest) break
+    continue
+  }
   if (shared.length && testBlocking.length === 0) {
     const checkList = shared.map(name => `"${name}"`).join(', ')
     return openResult('awaiting-head', 'ci', { reason: `the CI check(s) ${checkList} are red on the base branch tip too: the red is shared with main and is fixed there, so no fixer was launched. If this lane's item is that repair, start a new run with pr and tip and fixFirst.` })
   }
-  if (ci.operatorDoor && testBlocking.length === 0 && e2e.verdict === 'PASS') {
+  if (ci.operatorDoor && testBlocking.length === 0) {
+    if (needTest) continue
     return openResult('awaiting-head', 'ci', { reason: `the only red check is the quality verdict, red because the diff holds only declared loosenings, which only the operator merges, so no fixer was launched. It waits at the operator's merge door: run \`${ci.operatorDoor}\`.` })
   }
+  const taken = testBlocking
+  testBlocking = []
   const ciBlocking = ci.green || shared.length ? [] : (ci.failing || [])
-  const budgetKey = testBlocking.length ? 'test' : 'ci'
-  const f = await fixBatch(testBlocking.concat(ciBlocking), testBlocking.length ? 'the end-to-end test and CI' : 'CI', budgetKey)
+  const f = await fixBatch(taken.concat(ciBlocking), taken.length ? 'the end-to-end test and CI' : 'CI', taken.length ? 'test' : 'ci')
   if (f.stop) return f.stop
-  if (f.range) {
-    const stop = await reviewUntilClean(f.gateAgain ? ALL : [REVIEW], f.range, f.deltaFrom)
-    if (stop) return stop
-  }
+  const stop = f.range && await reviewUntilClean(f.gateAgain ? ALL : [REVIEW], f.range, f.deltaFrom)
+  if (stop) return stop
   // The tester runs again when it had failed or when any fix since its last run (a review fix included) touched production.
   // A clean merge of main alone does not re-run it: the integrated tree is then proven by CI, not by the tester. CI always runs again.
-  needTest = testBlocking.length > 0 || productionSinceTest
+  needTest ||= taken.length > 0 || productionSinceTest
 }
 
 const stillOpen = openFollowups()

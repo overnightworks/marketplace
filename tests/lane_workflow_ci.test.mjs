@@ -5,7 +5,7 @@ import path from 'node:path'
 import { spawnSync } from 'node:child_process'
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { runLane, runCommandLine, installFake } from './lane_workflow_harness.mjs'
+import { runLane, runCommandLine, installFake, resumeArgs, resumeFix, mergeOnlyFix, mainMovedTip, defectWithoutDraft, PASS, APPROVE, greenCi } from './lane_workflow_harness.mjs'
 
 const tip = 'c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0'
 const lane = { item: 1, worktree: '/w', branch: 'b', contract: 'c', e2e: 'e', scratch: '/s', pr: 1, tip }
@@ -281,7 +281,6 @@ test('ci-registration-wait: the loop stops after 5 tries with status 0 when no c
 const lockBusy = { verdict: 'failed', lockBusy: true, blocking: [], followups: [] }
 const lockQueue = [
   ['green', ciAnswer([check(required, 'pass')]), /green/],
-  ['red', redCi(['Python: tests']), /red[\s\S]*Python: tests/],
   ['unreadable', { problem: 'lane-ci failed: boom' }, /not readable/],
 ]
 for (const [what, ci, state] of lockQueue) {
@@ -338,8 +337,8 @@ esac
 `)
   return { bin, calls }
 }
-const printingWith = (bin, checks) => (prompt) => ({
-  printed: runCommandLine(prompt.split('\n').at(-1).replace(/^cd '[^']*' && /, ''), { cwd: os.tmpdir(), env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, FAKE_PR_HEAD: tip, FAKE_CHECKS: JSON.stringify(checks) } }),
+const printingWith = (bin, checks, head = tip) => (prompt) => ({
+  printed: runCommandLine(prompt.split('\n').at(-1).replace(/^cd '[^']*' && /, ''), { cwd: os.tmpdir(), env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, FAKE_PR_HEAD: head, FAKE_CHECKS: JSON.stringify(checks) } }),
 })
 const redVerdict = [{ name: required, bucket: 'fail', link: verdictLink }, { name: 'Python: tests', bucket: 'pass', link: 'https://github.com/o/n/actions/runs/11/job/23' }]
 const verdictFailing = [{ where: required, kind: 'defect', text: 'red', rule: 'CI check quality / verdict', evidence: 'red' }]
@@ -450,4 +449,119 @@ test('ci-fail-fast: a setup failure whose re-run passes under a changed link rea
 test('ci-fail-fast: a re-run agent that ends without a result keeps the first finding', async () => {
   const { agentCalls } = await driveCi(redWatch([redJob('Node: tests', 'Set up job')]))
   assert.match(agentCalls['fix-2'].prompt, /Node: tests fails/)
+})
+
+// The fixer starts at once when CI is red; the tester is awaited only when CI has nothing of its own to fix.
+const roundTip = (round) => String(round).repeat(40)
+const roundRed = (round, extra = () => {}) => () => { extra(); return { head: roundTip(round), green: false, failing: [{ ...defectWithoutDraft, where: `t.py:${round}` }] } }
+const roundFix = (round) => ({ ...mergeOnlyFix, head: roundTip(round), parents: [round === 1 ? resumeArgs.tip : roundTip(round - 1), mainMovedTip] })
+const heldTester = () => { let resolve; const promise = new Promise(done => { resolve = done }); return { promise, resolve, answer: () => promise } }
+const testerLabels = (launchedAgents) => launchedAgents.filter(label => /^e2e-\d+$/.test(label))
+const ciWatches = (launchedAgents) => launchedAgents.filter(label => /^ci-\d+$/.test(label))
+const tolerates = { timeout: 5000 }
+
+test('ci-fixer-at-once: CI red for several rounds starts a fixer each round and issues exactly one tester call', tolerates, async () => {
+  const tester = heldTester()
+  const answers = {
+    'r0-review': APPROVE, 'e2e-0': tester.answer,
+    'ci-0': roundRed(0), 'ci-1': roundRed(1), 'ci-2': roundRed(2), 'ci-3': roundRed(3, () => tester.resolve(PASS)), 'ci-4': greenCi(roundTip(4)),
+    'fix-1': roundFix(1), 'fix-2': roundFix(2), 'fix-3': roundFix(3), 'fix-4': roundFix(4),
+  }
+  const { result, launchedAgents } = await runLane({ ...resumeArgs, budgets: { ci: 5 } }, answers)
+  assert.equal(result.status, 'ready-to-land', result.reason)
+  assert.deepEqual(testerLabels(launchedAgents), ['e2e-0'])
+  assert.deepEqual(launchedAgents.filter(label => /^fix-\d+$/.test(label)), ['fix-1', 'fix-2', 'fix-3', 'fix-4'])
+})
+
+test('ci-fixer-at-once: a tester answering with blocking findings after two CI-only fix rounds puts them into the next fix batch', tolerates, async () => {
+  const tester = heldTester()
+  const late = { where: 'flow.py:9', kind: 'defect', text: 'the flow loses data', rule: 'no data loss', evidence: 'repro' }
+  const answers = {
+    'r0-review': APPROVE, 'e2e-0': tester.answer, 'e2e-1': PASS,
+    'ci-0': roundRed(0), 'ci-1': roundRed(1), 'ci-2': roundRed(2, () => tester.resolve({ verdict: 'FAIL', blocking: [late], followups: [] })), 'ci-3': greenCi(roundTip(3)),
+    'fix-1': roundFix(1), 'fix-2': roundFix(2), 'fix-3': { ...resumeFix, head: roundTip(3), parents: [roundTip(2)], files: ['flow.py'], regression: [{ finding: 1, test: 't.py::t', failedBefore: true, passesAfter: true }] },
+    'r1-review': APPROVE, 'r2-review': APPROVE, 'r3-review': APPROVE, 'ci-4': greenCi(roundTip(3)),
+  }
+  const { agentCalls, launchedAgents, result } = await runLane(resumeArgs, answers)
+  assert.doesNotMatch(agentCalls['fix-1'].prompt, /flow\.py:9/)
+  assert.doesNotMatch(agentCalls['fix-2'].prompt, /flow\.py:9/)
+  assert.match(agentCalls['fix-3'].prompt, /flow\.py:9/)
+  assert.equal(result.status, 'ready-to-land', result.reason)
+  assert.deepEqual(testerLabels(launchedAgents), ['e2e-0', 'e2e-1'])
+})
+
+test('ci-fixer-at-once: CI green with a tester PASS holding a cell ends ready-to-land after one tester and one CI watch', tolerates, async () => {
+  const { result, launchedAgents } = await runLane(resumeArgs, { 'r0-review': APPROVE, 'e2e-0': PASS, 'ci-0': greenCi(resumeArgs.tip) })
+  assert.equal(result.status, 'ready-to-land', result.reason)
+  assert.deepEqual([testerLabels(launchedAgents), ciWatches(launchedAgents)], [['e2e-0'], ['ci-0']])
+})
+
+test('ci-fixer-at-once: a lock-busy tester is retried inline without another CI watch', tolerates, async () => {
+  const { result, launchedAgents } = await runLane(resumeArgs, { 'r0-review': APPROVE, 'e2e-0': lockBusy, 'e2e-1': PASS, 'ci-0': greenCi(resumeArgs.tip), 'ci-1': greenCi(resumeArgs.tip) })
+  assert.equal(result.status, 'ready-to-land', result.reason)
+  assert.deepEqual(testerLabels(launchedAgents), ['e2e-0', 'e2e-1'])
+  assert.deepEqual(ciWatches(launchedAgents), ['ci-0'])
+})
+
+test('ci-fixer-at-once: a tester PASS on a tip a later fix changed in production starts a new tester before ready-to-land', tolerates, async () => {
+  const tester = heldTester()
+  const answers = {
+    'r0-review': APPROVE, 'e2e-0': tester.answer, 'e2e-1': PASS,
+    'ci-0': roundRed(0), 'ci-1': roundRed(1, () => tester.resolve(PASS)), 'ci-2': greenCi(roundTip(2)),
+    'fix-1': { ...resumeFix, head: roundTip(1), files: ['src/x.py'], regression: [] }, 'r1-review': APPROVE, 'fix-2': roundFix(2),
+  }
+  const { result, launchedAgents } = await runLane(resumeArgs, answers)
+  assert.equal(result.status, 'ready-to-land', result.reason)
+  assert.deepEqual(testerLabels(launchedAgents), ['e2e-0', 'e2e-1'])
+  assert.equal(result.tip, roundTip(2))
+})
+
+test('ci-fixer-at-once: a lock-busy tester does not hold a red CI back from the fixer', tolerates, async () => {
+  const retry = heldTester()
+  const answers = {
+    'r0-review': APPROVE, 'e2e-0': lockBusy, 'e2e-1': retry.answer,
+    'ci-0': roundRed(0), 'ci-1': () => { retry.resolve(PASS); return greenCi(roundTip(1)) }, 'ci-read-1': { pr_head: roundTip(1), checks: greenCi(roundTip(1)).checks, required: ['quality / verdict'] }, 'fix-1': roundFix(1),
+  }
+  const { result, launchedAgents } = await runLane(resumeArgs, answers)
+  assert.equal(result.status, 'ready-to-land', result.reason)
+  assert.ok(launchedAgents.includes('fix-1'))
+  assert.deepEqual(testerLabels(launchedAgents), ['e2e-0', 'e2e-1'])
+})
+
+test('ci-fixer-at-once: a retry that is lock-busy again while CI is red again goes to the head with the red check named', tolerates, async () => {
+  const answers = { 'r0-review': APPROVE, 'e2e-0': lockBusy, 'e2e-1': lockBusy, 'ci-0': roundRed(0), 'ci-1': roundRed(1), 'fix-1': roundFix(1) }
+  const { result, launchedAgents } = await runLane(resumeArgs, answers)
+  assert.deepEqual([result.status, result.stage], ['awaiting-head', 'test'])
+  assert.match(result.reason, /red[\s\S]*t\.py:1/)
+  assert.ok(launchedAgents.includes('fix-1'))
+  assert.ok(!launchedAgents.includes('fix-2'))
+})
+
+test('ci-fixer-at-once: a follow-up of a tester that settles after a fix moved the tip is raised before the returned tip', tolerates, async () => {
+  const tester = heldTester()
+  const followup = { where: 'late.py:1', text: 'tidy it', kind: 'follow-up' }
+  const answers = {
+    'r0-review': APPROVE, 'e2e-0': tester.answer,
+    'ci-0': roundRed(0), 'ci-1': () => { tester.resolve({ ...PASS, followups: [followup] }); return greenCi(roundTip(1)) },
+    'ci-read-1': { pr_head: roundTip(1), checks: greenCi(roundTip(1)).checks, required: ['quality / verdict'] }, 'fix-1': roundFix(1),
+  }
+  const { result } = await runLane(resumeArgs, answers)
+  assert.equal(result.status, 'ready-to-land', result.reason)
+  assert.deepEqual(result.raisedBeforeTip.map(f => f.where), ['late.py:1'])
+})
+
+test('ci-operator-door: a tester PASS on an older production tip does not open the door before a tester ran on the current tip', tolerates, async (t) => {
+  const { bin } = fakeGhWithLog(t, { logLines: loosened })
+  const tester = heldTester()
+  const doorCi = (round) => ({ head: roundTip(round), green: false, failing: verdictFailing, checks: redVerdict })
+  const answers = {
+    'r0-review': APPROVE, 'e2e-0': tester.answer, 'e2e-1': PASS,
+    'ci-0': roundRed(0), 'ci-1': () => { tester.resolve(PASS); return doorCi(1) }, 'ci-2': doorCi(1),
+    'ci-read-1': printingWith(bin, redVerdict, roundTip(1)), 'ci-read-2': printingWith(bin, redVerdict, roundTip(1)),
+    'fix-1': { ...resumeFix, head: roundTip(1), files: ['src/x.py'], regression: [] }, 'r1-review': APPROVE,
+  }
+  const { result, launchedAgents } = await runLane(resumeArgs, answers)
+  assert.deepEqual([result.status, result.stage], ['awaiting-head', 'ci'])
+  assert.match(result.reason, door)
+  assert.deepEqual(testerLabels(launchedAgents), ['e2e-0', 'e2e-1'])
 })

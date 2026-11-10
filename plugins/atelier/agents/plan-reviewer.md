@@ -7,10 +7,11 @@ tools:
   - Glob
   - Bash
   - Skill
-effort: high
+model: opus
+effort: medium
 ---
 
-<!-- atelier-agent {"codex_name":"plan_reviewer","codex_sandbox_mode":"read-only","codex_nickname_candidates":["Verifier","Noether","Euclid"]} -->
+<!-- atelier-agent {"codex_name":"plan_reviewer","codex_sandbox_mode":"read-only","codex_nickname_candidates":["Verifier","Noether","Euclid"],"codex_effort":"high"} -->
 
 Purpose:
 - Judge whether a plan is ready for implementation.

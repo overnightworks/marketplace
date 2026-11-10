@@ -33,7 +33,7 @@ class Agent:
     name: str
     description: str
     tools: tuple[str, ...]
-    effort: str
+    codex_effort: str
     codex_name: str
     codex_sandbox_mode: str
     codex_nickname_candidates: tuple[str, ...]
@@ -126,6 +126,8 @@ def load_markdown_agent(path: Path) -> Agent:
     if AGENT_NAME_PATTERN.fullmatch(name) is None:
         raise SystemExit(f"{relative(path)} field `name` must be lower hyphen-case.")
 
+    # Every agent names its Claude default model; the Codex agent never receives it.
+    require_frontmatter_string(frontmatter, "model", path)
     effort = require_frontmatter_string(frontmatter, "effort", path)
 
     tools = frontmatter.get("tools")
@@ -135,6 +137,11 @@ def load_markdown_agent(path: Path) -> Agent:
     metadata, instructions = split_metadata(body, path)
     codex_name = require_metadata_string(metadata, "codex_name", path)
     codex_sandbox_mode = require_metadata_string(metadata, "codex_sandbox_mode", path)
+    codex_effort = (
+        require_metadata_string(metadata, "codex_effort", path)
+        if "codex_effort" in metadata
+        else effort
+    )
     codex_nickname_candidates = metadata.get("codex_nickname_candidates", [])
     if not isinstance(codex_nickname_candidates, list) or not all(
         isinstance(value, str) and value.strip() for value in codex_nickname_candidates
@@ -156,7 +163,7 @@ def load_markdown_agent(path: Path) -> Agent:
         name=name,
         description=description,
         tools=tuple(tools),
-        effort=effort,
+        codex_effort=codex_effort,
         codex_name=codex_name,
         codex_sandbox_mode=codex_sandbox_mode,
         codex_nickname_candidates=tuple(codex_nickname_candidates),
@@ -278,7 +285,7 @@ def render_codex_toml(agent: Agent) -> str:
         f"{GENERATED_MARKER}{source}. Do not edit by hand.",
         f"name = {toml_string(agent.codex_name)}",
         f"description = {toml_string(agent.description)}",
-        f"model_reasoning_effort = {toml_string(agent.effort)}",
+        f"model_reasoning_effort = {toml_string(agent.codex_effort)}",
         f"sandbox_mode = {toml_string(agent.codex_sandbox_mode)}",
         f"nickname_candidates = {toml_array(agent.codex_nickname_candidates)}",
         f"developer_instructions = {toml_string(agent.instructions)}",

@@ -8,6 +8,7 @@ tools:
   - Bash
   - Skill
 maxTurns: 80
+model: sonnet
 effort: medium
 ---
 

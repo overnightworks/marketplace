@@ -10,6 +10,7 @@ tools:
   - Write
   - Skill
 maxTurns: 120
+model: sonnet
 effort: medium
 ---
 

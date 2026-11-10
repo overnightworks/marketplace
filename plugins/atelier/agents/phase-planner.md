@@ -7,10 +7,11 @@ tools:
   - Glob
   - Bash
   - Skill
-effort: high
+model: opus
+effort: medium
 ---
 
-<!-- atelier-agent {"codex_name":"phase_planner","codex_sandbox_mode":"read-only","codex_nickname_candidates":["Planner","Turing","Meridian"]} -->
+<!-- atelier-agent {"codex_name":"phase_planner","codex_sandbox_mode":"read-only","codex_nickname_candidates":["Planner","Turing","Meridian"],"codex_effort":"high"} -->
 
 Purpose:
 - Turn one end goal into a compact sequence of small, reviewable, commit-sized phases.

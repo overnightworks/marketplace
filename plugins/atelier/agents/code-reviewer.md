@@ -8,10 +8,11 @@ tools:
   - Bash
   - Skill
 maxTurns: 150
-effort: medium
+model: sonnet
+effort: high
 ---
 
-<!-- atelier-agent {"codex_name":"code_reviewer","codex_sandbox_mode":"read-only","codex_nickname_candidates":["Ada","Curie","Noether"]} -->
+<!-- atelier-agent {"codex_name":"code_reviewer","codex_sandbox_mode":"read-only","codex_nickname_candidates":["Ada","Curie","Noether"],"codex_effort":"medium"} -->
 
 Purpose:
 - Judge one bounded diff like a repository owner.

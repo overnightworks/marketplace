@@ -39,6 +39,7 @@ def metadata_without(*keys: str) -> dict[str, object]:
 def agent_markdown(
     *,
     frontmatter_lines: list[str] | None = None,
+    model: str | None = "haiku",
     effort: str | None = "medium",
     tools: list[str] | str | None = None,
     metadata: dict[str, object] | None = None,
@@ -46,6 +47,8 @@ def agent_markdown(
     instructions: str | None = DEFAULT_INSTRUCTIONS,
 ) -> str:
     lines = ["---", *(DEFAULT_FRONTMATTER_LINES if frontmatter_lines is None else frontmatter_lines)]
+    if model is not None:
+        lines.append(f"model: {model}")
     if effort is not None:
         lines.append(f"effort: {effort}")
     resolved_tools = DEFAULT_TOOLS if tools is None else tools
@@ -160,6 +163,16 @@ MALFORMED_AGENT_CASES = [
         "missing_effort",
         agent_markdown(effort=None),
         "frontmatter `effort` must be a non-empty string",
+    ),
+    (
+        "missing_model",
+        agent_markdown(model=None),
+        "frontmatter `model` must be a non-empty string",
+    ),
+    (
+        "non_string_codex_effort",
+        agent_markdown(metadata=metadata_overrides(codex_effort=5)),
+        "metadata `codex_effort` must be a non-empty string",
     ),
     (
         "invalid_nickname_candidates",
@@ -279,6 +292,33 @@ def test_generation_mode_carries_effort_into_codex_reasoning_effort(
     run_main(monkeypatch)
 
     assert 'model_reasoning_effort = "high"' in (target_dir / "demo-agent.toml").read_text(encoding="utf-8")
+
+
+def test_generation_mode_codex_effort_key_overrides_frontmatter_effort(
+    agent_tree: tuple[Path, Path], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source_dir, target_dir = agent_tree
+    write_source_agent(
+        source_dir,
+        agent_markdown(effort="high", metadata=metadata_overrides(codex_effort="medium")),
+    )
+
+    run_main(monkeypatch)
+
+    assert 'model_reasoning_effort = "medium"' in (target_dir / "demo-agent.toml").read_text(encoding="utf-8")
+
+
+def test_generation_mode_accepts_claude_model_without_writing_it_to_codex(
+    agent_tree: tuple[Path, Path], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source_dir, target_dir = agent_tree
+    write_source_agent(source_dir, agent_markdown(model="opus"))
+
+    exit_code = run_main(monkeypatch)
+    toml_lines = (target_dir / "demo-agent.toml").read_text(encoding="utf-8").splitlines()
+
+    assert exit_code == 0
+    assert not any(line.startswith("model =") for line in toml_lines)
 
 
 def test_generation_mode_second_run_reports_already_in_sync(

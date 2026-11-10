@@ -7,10 +7,11 @@ tools:
   - Glob
   - Bash
   - Skill
-effort: high
+model: opus
+effort: medium
 ---
 
-<!-- atelier-agent {"codex_name":"refine","codex_sandbox_mode":"read-only","codex_nickname_candidates":["Cataloguer","Ada","Compass"]} -->
+<!-- atelier-agent {"codex_name":"refine","codex_sandbox_mode":"read-only","codex_nickname_candidates":["Cataloguer","Ada","Compass"],"codex_effort":"high"} -->
 
 Purpose:
 - Turn a vision and its owner documents into a catalog of proposed acceptance expectations before a picture or breakdown exists.

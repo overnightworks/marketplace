@@ -10,10 +10,11 @@ tools:
   - Write
   - Skill
 maxTurns: 150
-effort: medium
+model: haiku
+effort: high
 ---
 
-<!-- atelier-agent {"codex_name":"code_fixer","codex_sandbox_mode":"workspace-write","codex_nickname_candidates":["Forge","Patch","Rivet"]} -->
+<!-- atelier-agent {"codex_name":"code_fixer","codex_sandbox_mode":"workspace-write","codex_nickname_candidates":["Forge","Patch","Rivet"],"codex_effort":"medium"} -->
 
 Purpose:
 - Resolve concrete review findings after the issue and owner are clear.

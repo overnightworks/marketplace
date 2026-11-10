@@ -8,10 +8,11 @@ tools:
   - Bash
   - Skill
 maxTurns: 200
-effort: medium
+model: sonnet
+effort: high
 ---
 
-<!-- atelier-agent {"codex_name":"code_auditor","codex_sandbox_mode":"read-only","codex_nickname_candidates":["Euler","Hypatia","Lovelace"]} -->
+<!-- atelier-agent {"codex_name":"code_auditor","codex_sandbox_mode":"read-only","codex_nickname_candidates":["Euler","Hypatia","Lovelace"],"codex_effort":"medium"} -->
 
 Purpose:
 - Audit architecture, tests, code hygiene, runtime risks, and security as one lens subagent of the `audit` skill.

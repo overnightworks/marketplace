@@ -86,9 +86,8 @@ claimed, reviewed and landed; this says *how*.
   naming the bundle.
 
 After `aco start`, run the lane through the `lane` workflow
-(`plugins/atelier/workflows/lane.js`) where it helps, starting it as the
-README's section "Layout" says, under the contract's standing opt-in. Without the
-`Workflow` tool, or where the workflow does not fit, run the lane steps by hand.
+(`plugins/atelier/workflows/lane.js`), starting it as the README's section
+"Layout" says; when a lane may run by hand, `HEAD.md`'s "Lanes" says.
 Never message a step running inside a lane: it ends without its result and the
 run hangs. Stop the run, correct the body and start a new one.
 

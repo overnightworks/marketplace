@@ -254,10 +254,10 @@ needs no counter-check. Lane work keeps its own reviews.
   what is green and report"; if that fails, a fresh finisher takes over. The
   next brief names the body, the lane tip, the files touched, the findings
   verbatim and the commands that proved the step.
-- **The lane workflow** (`plugins/atelier/workflows/lane.js`) is a help, not a
-  duty: run a lane through it where that helps, else by hand. With the
-  `Workflow` tool, start it without asking; that is the operator's standing
-  opt-in.
+- **The lane workflow** (`plugins/atelier/workflows/lane.js`) runs every issue
+  lane; start it without asking, under the operator's standing opt-in. A lane by
+  hand needs its reason in the item: no `Workflow` tool, an issue-less claim, or
+  a misfit reported to marketplace.
 - **Material lanes.** For material risk, architecture or several owners,
   sharpen scope and acceptance, then delegate an independent plan review, the
   build with proportionate tests, and an independent code and risk review

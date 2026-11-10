@@ -40,8 +40,7 @@ const PRODUCTION = A.productionPaths || ['src/', 'pyproject.toml', 'uv.lock']
 const B = { review: 5, test: 2, ci: 3, total: 8, ...A.budgets }
 const LEDGERS = A.ledgers || []
 const GENERATED = Object.entries(A.generated || {})
-// The one table of every role's model and effort (instructions/HEAD.md, "Model routing"), by the lane's risk: who
-// writes runs cheap, who judges runs strong. Effort is capped per model (opus medium, every other model high).
+// The one table of every role's model and effort (instructions/HEAD.md, "Model routing"), by the lane's risk; effort is capped per model (opus medium, others high).
 const MODEL_PROVIDER = { haiku: 'claude', sonnet: 'claude', opus: 'claude', 'gpt-6-astra': 'codex' }
 const EFFORTS = ['low', 'medium', 'high']
 const EFFORT_CAP = { opus: 'medium' }
@@ -54,19 +53,16 @@ function defaultReviewRouting() {
 }
 const DEFAULT_ROUTING = {
   mechanical: { model: 'haiku', effort: 'low' },
-  build: WRITER,
-  fix: WRITER,
+  build: WRITER, fix: WRITER,
   rework: HARD_ROW,
   test: { model: 'sonnet', effort: MATERIAL ? 'high' : 'medium' },
   review: defaultReviewRouting(),
   gate: { model: 'gpt-6-astra', effort: 'high' },
 }
-// The provider each role must run on: reviews on the chosen reviewer provider, the gate on any provider but the
-// builder's, every other role on Claude.
+// The provider each role must run on: reviews on the reviewer provider, the gate on any provider but the builder's, every other role on Claude.
 function providerAllowed(role, provider) {
   if (role === 'gate') return provider !== 'claude'
-  const required = role === 'review' ? REVIEWER_PROVIDER : 'claude'
-  return provider === required
+  return provider === (role === 'review' ? REVIEWER_PROVIDER : 'claude')
 }
 
 // Why one role's override is refused, or null.
@@ -83,8 +79,7 @@ function roleChoiceRefusal(role, choice) {
   return `routing for ${role} puts it on ${MODEL_PROVIDER[model]}, which breaks ${role === 'gate' ? 'gate provider separation from the builder' : 'the role\'s provider'}`
 }
 
-// Why a routing override is refused, or null. An override never bypasses reviewer independence, gate provider
-// separation or the per-model effort caps.
+// Why a routing override is refused, or null. An override never bypasses reviewer independence, gate provider separation or the per-model effort caps.
 function routingRefusal(overrides) {
   if (typeof overrides !== 'object' || overrides === null || Array.isArray(overrides)) return 'routing must be an object of roles'
   for (const [role, choice] of Object.entries(overrides)) {
@@ -224,10 +219,9 @@ const listFindings = (list) => list.map((f, i) =>
   (f.repro ? `\n   repro: ${f.repro}` : '') + (f.testDraft ? `\n   test draft: ${f.testDraft}` : '')).join('\n')
 
 // ------------------------------------------------------------ reviewers
-// The ordinary review may come from the builder's own provider (the contract asks only for a fresh, independent
-// agent); a fresh Claude reviewer is the default, Sonnet at high effort and Opus at medium on material risk. The
-// final gate on a material lane must come from another provider than the Claude builder, so it runs on Codex
-// through a courier. The lane-review child runs one round and classifies it.
+// The ordinary review may come from the builder's own provider (the contract asks only for a fresh, independent agent); a fresh Claude reviewer is the
+// default, Sonnet at high effort and Opus at medium on material risk. The final gate on a material lane must come from another provider than the
+// Claude builder, so it runs on Codex through a courier. The lane-review child runs one round and classifies it.
 const LANE_REVIEW_PROTOCOL = 2
 const ROUND_STATES = new Set(['approve', 'revise', 'failed', 'architectural', 'limited'])
 
@@ -470,8 +464,7 @@ function acceptFix(fixed, blocking, foldIn) {
   return { range, proofNotes: notes, gateAgain: MATERIAL && touchesProduction, touchesProduction }
 }
 
-// Only a docs finding is provably behaviour-neutral; whether a defect changes behaviour needs judgement.
-// fixBatch counts the running round in spent.total before it asks, so the third fix round of the run is total 3.
+// Only a docs finding is provably behaviour-neutral; the third fix round on is rework (fixBatch counts the running round in spent.total before it asks).
 function fixerRole(blocking, foldIn) {
   if (blocking.length > 0 && blocking.every(f => f.kind === 'docs') && !foldIn.length) return 'mechanical'
   return spent.total >= 3 ? 'rework' : 'fix'

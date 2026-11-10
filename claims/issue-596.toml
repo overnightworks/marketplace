@@ -1,8 +1,0 @@
-claim_id = "2778d5915a8440ecb5f8592dcc29cf35"
-agent = "Claude a5abe9e4-862b-4cac-94ed-68bd072edf38"
-role = "builder"
-base = "d2c2d1119ddb314955eb31c5809864a97bc18cb2"
-branch = "claude/issue-596-fixer-at-once"
-scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/workflows/lane.js", "tests"]
-opened_commit = "2c85ab802173b6962731c191927a7f37a45f8340"
-whole_reason = "One loop change in lane.js with the tests that pin the test-and-CI round and the release pins."

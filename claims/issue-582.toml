@@ -1,8 +1,0 @@
-claim_id = "8422fd8c8c114705bffb7d715de2e7a5"
-agent = "Claude a5abe9e4-862b-4cac-94ed-68bd072edf38"
-role = "builder"
-base = "39094fd86f0649a2edc6ad5dede010a72665ab09"
-branch = "claude/issue-582-probe-lock-owner"
-scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/.codex/agents", "plugins/atelier/agents", "plugins/atelier/skills/explorative-testing/SKILL.md", "plugins/atelier/workflows/lane-test.js", "tests"]
-opened_commit = "83ab909a476e5e746647a2eb0c682ec733733cec"
-whole_reason = "One owner move: the probe-lock recipe goes into one skill section and every copy becomes a pointer in the same change."

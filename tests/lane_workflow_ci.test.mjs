@@ -528,6 +528,15 @@ test('ci-fixer-at-once: a lock-busy tester does not hold a red CI back from the 
   assert.deepEqual(testerLabels(launchedAgents), ['e2e-0', 'e2e-1'])
 })
 
+test('ci-fixer-at-once: a retry that is lock-busy again while CI is red again goes to the head with the red check named', tolerates, async () => {
+  const answers = { 'r0-review': APPROVE, 'e2e-0': lockBusy, 'e2e-1': lockBusy, 'ci-0': roundRed(0), 'ci-1': roundRed(1), 'fix-1': roundFix(1) }
+  const { result, launchedAgents } = await runLane(resumeArgs, answers)
+  assert.deepEqual([result.status, result.stage], ['awaiting-head', 'test'])
+  assert.match(result.reason, /red[\s\S]*t\.py:1/)
+  assert.ok(launchedAgents.includes('fix-1'))
+  assert.ok(!launchedAgents.includes('fix-2'))
+})
+
 test('ci-fixer-at-once: a follow-up of a tester that settles after a fix moved the tip is raised before the returned tip', tolerates, async () => {
   const tester = heldTester()
   const followup = { where: 'late.py:1', text: 'tidy it', kind: 'follow-up' }

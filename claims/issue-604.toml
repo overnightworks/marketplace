@@ -3,6 +3,6 @@ agent = "Claude a5abe9e4-862b-4cac-94ed-68bd072edf38"
 role = "builder"
 base = "7370694bbb883ade42c443313f4fa0d8aadaf786"
 branch = "claude/issue-604-route-helpers-by-work"
-scope = [".claude-plugin/marketplace.json", "instructions/HEAD.md", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/skills/aco/SKILL.md", "plugins/atelier/skills/providers/SKILL.md", "plugins/atelier/workflows/lane.js", "tests"]
+scope = [".claude-plugin/marketplace.json", "instructions/HEAD.md", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/skills/aco/SKILL.md", "plugins/atelier/skills/providers/SKILL.md", "plugins/atelier/workflows/lane-review.js", "plugins/atelier/workflows/lane.js", "tests"]
 opened_commit = "fe12fac3b4b7f9f360e0c4fb99e10e8069c6c5ad"
 whole_reason = "One ruling changes the routing table, the workflow defaults that mirror it, the Routing line that measures it, their tests and the release pins."

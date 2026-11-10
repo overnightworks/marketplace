@@ -716,11 +716,7 @@ function startTest() {
 }
 // Judges the pending tester's answer; returns the result that stops the lane, or undefined. A lock-busy answer is retried once:
 // awaited here when CI has nothing of its own to fix, else left pending while the fixer starts.
-async function takePendingTest() {
-  const judged = await pendingTest
-  pendingTest = null
-  return judged
-}
+const takePendingTest = () => pendingTest.then(judged => { pendingTest = null; return judged })
 async function settleTest(ci, awaitRetry = true) {
   let judged = await takePendingTest()
   if (judged.e2e?.verdict === 'failed' && judged.e2e.lockBusy && !lockRetried) {

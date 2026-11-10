@@ -1,0 +1,8 @@
+claim_id = "af3e8aed58504316a710bd6d5f342c7e"
+agent = "Claude a5abe9e4-862b-4cac-94ed-68bd072edf38"
+role = "builder"
+base = "67fd652bf5a430d4e84221f6f3d9c276d8c6e9e9"
+branch = "claude/issue-598-ci-budget-key"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/workflows/lane.js", "tests"]
+opened_commit = "60c0beb6d23ef07e6279a045b695151910d0dd91"
+whole_reason = "One budget key in lane.js with its tests and the release pins."

@@ -518,6 +518,17 @@ test('ci-budget-key: a fix round with green CI that carries only a tester findin
   assert.equal(result.spent.ci, 0)
 })
 
+test('ci-budget-key: a fix round with red CI but no failing entry and no tester finding charges the ci budget', tolerates, async () => {
+  const answers = {
+    'r0-review': APPROVE, 'e2e-0': PASS,
+    'ci-0': { head: resumeArgs.tip, green: false, failing: [] }, 'fix-1': roundFix(1), 'r1-review': APPROVE, 'ci-1': greenCi(roundTip(1)),
+  }
+  const { result } = await runLane(resumeArgs, answers)
+  assert.equal(result.status, 'ready-to-land', result.reason)
+  assert.equal(result.spent.ci, 1)
+  assert.equal(result.spent.test, 0)
+})
+
 test('ci-fixer-at-once: CI green with a tester PASS holding a cell ends ready-to-land after one tester and one CI watch', tolerates, async () => {
   const { result, launchedAgents } = await runLane(resumeArgs, { 'r0-review': APPROVE, 'e2e-0': PASS, 'ci-0': greenCi(resumeArgs.tip) })
   assert.equal(result.status, 'ready-to-land', result.reason)

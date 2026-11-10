@@ -454,7 +454,7 @@ test('ci-fail-fast: a re-run agent that ends without a result keeps the first fi
 
 // The fixer starts at once when CI is red; the tester is awaited only when CI has nothing of its own to fix.
 const roundTip = (round) => String(round).repeat(40)
-const roundRed = (round, extra = () => {}) => () => { extra(); return { head: roundTip(round), green: false, failing: [defectWithoutDraft] } }
+const roundRed = (round, extra = () => {}) => () => { extra(); return { head: roundTip(round), green: false, failing: [{ ...defectWithoutDraft, where: `t.py:${round}` }] } }
 const roundFix = (round) => ({ ...mergeOnlyFix, head: roundTip(round), parents: [round === 1 ? resumeArgs.tip : roundTip(round - 1), mainMovedTip] })
 const heldTester = () => { let resolve; const promise = new Promise(done => { resolve = done }); return { promise, resolve, answer: () => promise } }
 const testerLabels = (launchedAgents) => launchedAgents.filter(label => /^e2e-\d+$/.test(label))
@@ -480,15 +480,15 @@ test('ci-fixer-at-once: a tester answering with blocking findings after two CI-o
   const answers = {
     'r0-review': APPROVE, 'e2e-0': tester.answer, 'e2e-1': PASS,
     'ci-0': roundRed(0), 'ci-1': roundRed(1), 'ci-2': roundRed(2, () => tester.resolve({ verdict: 'FAIL', blocking: [late], followups: [] })), 'ci-3': greenCi(roundTip(3)),
-    'fix-1': roundFix(1), 'fix-2': roundFix(2), 'fix-3': { ...roundFix(3), head: roundTip(3), mergeResolvedLaneConflict: false, files: ['flow.py'], regression: [{ finding: 1, test: 't.py::t', failedBefore: true, passesAfter: true }] },
-    'r1-review': APPROVE, 'ci-4': greenCi(roundTip(3)),
+    'fix-1': roundFix(1), 'fix-2': roundFix(2), 'fix-3': { ...resumeFix, head: roundTip(3), parents: [roundTip(2)], files: ['flow.py'], regression: [{ finding: 1, test: 't.py::t', failedBefore: true, passesAfter: true }] },
+    'r1-review': APPROVE, 'r2-review': APPROVE, 'r3-review': APPROVE, 'ci-4': greenCi(roundTip(3)),
   }
   const { agentCalls, launchedAgents, result } = await runLane(resumeArgs, answers)
   assert.doesNotMatch(agentCalls['fix-1'].prompt, /flow\.py:9/)
   assert.doesNotMatch(agentCalls['fix-2'].prompt, /flow\.py:9/)
   assert.match(agentCalls['fix-3'].prompt, /flow\.py:9/)
-  assert.deepEqual(testerLabels(launchedAgents), ['e2e-0', 'e2e-1'])
   assert.equal(result.status, 'ready-to-land', result.reason)
+  assert.deepEqual(testerLabels(launchedAgents), ['e2e-0', 'e2e-1'])
 })
 
 test('ci-fixer-at-once: CI green with a tester PASS holding a cell ends ready-to-land after one tester and one CI watch', tolerates, async () => {

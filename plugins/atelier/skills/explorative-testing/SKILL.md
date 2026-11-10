@@ -59,7 +59,7 @@ Take `/tmp/probe-stack.lock` before a run that starts a server, a container, a b
 - Read the 1-minute load average before a test run, a probe stack, a coverage job or an image build.
 - Run only the command or tests that prove a cell (named modules or `-k`), never a full suite or a repeated full run; CI runs the full suite.
 - A repository script that takes the lock itself (its own text or the brief says so) runs directly. Wrapped in a second `flock`, its inner lock waits on the outer one and deadlocks.
-- Otherwise take the lock with `flock -o -w 3600 /tmp/probe-stack.lock setpriv --pdeathsig TERM timeout -k 30 1800 <command>`, the only form. `<command>` is an executable such as `bash -c '…'` or a script, because `timeout` cannot run a shell builtin or function.
+- Otherwise take the lock with `flock -o -w 3600 /tmp/probe-stack.lock setpriv --pdeathsig TERM timeout -k 30 1800 <command>` in exactly this form. `<command>` is an executable such as `bash -c '…'` or a script, because `timeout` cannot run a shell builtin or function.
 - Run it as a background command that writes its exit code to a marker file, and wait in the foreground, repeating `timeout 280 bash -c 'until [ -f <marker> ]; do sleep 30; done'` until the marker exists. You cannot be woken later, so never answer before that.
 - If `flock` cannot run `setpriv`, stop and report it, never drop it.
 - `-o` keeps the lock out of every process you start. `setpriv` makes `timeout` send TERM to your whole stack the moment the lock holder dies, so the lock is free only while that stack tears down, which must finish within the 30 s of `-k`. The cap frees the lock even if you stop; a stack that needs longer is cut, not raised.

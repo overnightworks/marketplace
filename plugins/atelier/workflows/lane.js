@@ -472,7 +472,10 @@ function acceptFix(fixed, blocking, foldIn) {
 
 // Only a docs finding is provably behaviour-neutral; whether a defect changes behaviour needs judgement.
 // fixBatch counts the running round in spent.total before it asks, so the third fix round of the run is total 3.
-const fixerRole = (blocking, foldIn) => blocking.length > 0 && blocking.every(f => f.kind === 'docs') && !foldIn.length ? 'mechanical' : spent.total >= 3 ? 'rework' : 'fix'
+function fixerRole(blocking, foldIn) {
+  if (blocking.length > 0 && blocking.every(f => f.kind === 'docs') && !foldIn.length) return 'mechanical'
+  return spent.total >= 3 ? 'rework' : 'fix'
+}
 
 // A carried batch starts from the head's deltaFrom; any other batch from the tip before its fixer ran.
 function scopeOrigin(carried, tipBeforeFix) {

@@ -52,6 +52,21 @@ real user experiences.
    items, a bounded number per exploration, evidence attached. Without a head,
    file through the repository's own intake, if it has one.
 
+## Probe lock
+
+Take `/tmp/probe-stack.lock` before a run that starts a server, a container, a browser or an E2E stack. A test run that starts none of them, or only its own throwaway database container, takes no lock; that container still runs under `setpriv --pdeathsig TERM timeout` with a trapped teardown.
+
+- Read the 1-minute load average before a test run, a probe stack, a coverage job or an image build.
+- Run only the command or tests that prove a cell (named modules or `-k`), never a full suite or a repeated full run; CI runs the full suite.
+- A repository script that takes the lock itself (its own text or the brief says so) runs directly. Wrapped in a second `flock`, its inner lock waits on the outer one and deadlocks.
+- Otherwise take the lock with `flock -o -w 3600 /tmp/probe-stack.lock setpriv --pdeathsig TERM timeout -k 30 1800 <command>` in exactly this form. `<command>` is an executable such as `bash -c '…'` or a script, because `timeout` cannot run a shell builtin or function.
+- Run it as a background command that writes its exit code to a marker file, and wait in the foreground, repeating `timeout 280 bash -c 'until [ -f <marker> ]; do sleep 30; done'` until the marker exists. You cannot be woken later, so never answer before that.
+- If `flock` cannot run `setpriv`, stop and report it, never drop it.
+- `-o` keeps the lock out of every process you start. `setpriv` makes `timeout` send TERM to your whole stack the moment the lock holder dies, so the lock is free only while that stack tears down, which must finish within the 30 s of `-k`. The cap frees the lock even if you stop; a stack that needs longer is cut, not raised.
+- A process that detaches itself (`setsid`, a daemon, a browser in its own session) escapes both the lock and the cap, so your teardown trap stops it by pid.
+- A script that starts containers tears them and the images it built down in `trap '<teardown>' EXIT TERM`.
+- Run every server under `timeout <cap>`, write its pid to a file under the scratch dir, and kill it before reporting. Stop every other process you start (a container, a background browser) before reporting too. `lsof` in the report is evidence only, never a guard.
+
 ## Scenario matrix (first gate of a material-risk lane)
 
 This section is the template the global contract refers to.

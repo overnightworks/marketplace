@@ -137,9 +137,8 @@ async function startChild(name, childArgs) {
   }
 }
 // A value a command prints reaches a decision only through the line the lane-relay child reads back and checks.
-const LANE_RELAY_PROTOCOL = 9
-const SYNC_ANSWER = { properties: { note: { type: 'string', description: 'what stopped the merge: the conflicting paths, or the failed command and its output' } } }
-const relay = (request) => startChild('lane-relay', { protocol: LANE_RELAY_PROTOCOL, delegatedLine: DELEGATED_LINE, worktree: A.worktree, agentOptions: MECHANICAL, mechanical: MECHANICAL, ...request })
+const LANE_RELAY_PROTOCOL = 12
+const relay = (request) => startChild('lane-relay', { protocol: LANE_RELAY_PROTOCOL, delegatedLine: DELEGATED_LINE, worktree: A.worktree, agentOptions: MECHANICAL, mechanical: MECHANICAL, rescope: RESCOPE, ...request })
 // The failure reasons name the printed line only when the command printed one.
 const printedLine = (relayed) => relayed.printed === undefined ? '' : `; the printed line: ${relayed.printed}`
 // Language models copy a 40-character hash unreliably (a sync step once dropped one character). A commit is
@@ -153,32 +152,6 @@ function mergedOnto(values, base) {
   return Boolean(mergedIn) && sameCommit(firstParent, base)
 }
 const failedCommand = (values) => values.head.code !== 0 || ![0, 1].includes(values.main.code)
-const FIX = {
-  type: 'object',
-  required: ['mergeResolvedLaneConflict', 'files', 'disputed', 'blocked'],
-  properties: {
-    mergeResolvedLaneConflict: { type: 'boolean' },
-    files: { type: 'array', items: { type: 'string' } },
-    disputed: {
-      type: 'array',
-      description: 'findings you did not fix because the evidence contradicts them',
-      items: { type: 'object', required: ['where', 'text', 'counterEvidence'], properties: { where: { type: 'string' }, text: { type: 'string' }, counterEvidence: { type: 'string' } } },
-    },
-    resolved: {
-      type: 'array',
-      description: 'fold-ins you found already done: left in the worktree by an earlier fixer whose fix was not accepted, or already satisfied by the lane tip',
-      items: { type: 'object', required: ['where', 'text', 'evidence'], properties: { where: { type: 'string' }, text: { type: 'string' }, evidence: { type: 'string', description: 'the test, probe cell or line that already satisfies it' } } },
-    },
-    outside: { type: 'array', description: 'blocking findings you answered by editing the pull request body or posting an item comment, with no commit: the number in the blocking list and the body section or comment URL', items: { type: 'object', required: ['finding', 'where'], properties: { finding: { type: 'integer', minimum: 1 }, where: { type: 'string' } } } },
-    regression: {
-      type: 'array',
-      description: "every test you add, strengthen or keep for a blocking finding, and every probe cell you run for it, under that finding's number in the blocking list you were given",
-      items: { type: 'object', required: ['finding', 'test', 'failedBefore', 'passesAfter'], properties: { finding: { type: 'integer', minimum: 1, description: 'the number of the blocking finding in the list you were given' }, resolution: { type: 'string', enum: ['removed-vacuous'], description: 'for a test-gap finding whose test pins no behaviour: the fix removed that test instead of adding one' }, diff: { type: 'string', description: 'for removed-vacuous: the removal diff' }, test: { type: 'string' }, failedBefore: { type: 'boolean' }, passesAfter: { type: 'boolean' }, notRun: { type: 'string', description: 'why this machine could not run the test (a refused command, a machine another lane holds); CI on the pushed tip is its proof. Not for a test you ran and saw fail: that is passesAfter false' }, mutation: { type: 'string', description: 'for a test-gap finding: the production change, made and reverted, under which the test fails' } } },
-    },
-    summary: { type: 'string' }, blocked: { type: 'boolean' }, blockedReason: { type: 'string' }, rescope: RESCOPE,
-  },
-}
-
 // ------------------------------------------------------ shared sentences
 const generatedCommands = GENERATED.map(([path, command]) => `${path}: ${command}`).join('; ')
 const laneFacts =
@@ -222,7 +195,7 @@ const listFindings = (list) => list.map((f, i) =>
 // The ordinary review may come from the builder's own provider (the contract asks only for a fresh, independent agent); a fresh Claude reviewer is the
 // default, Sonnet at high effort and Opus at medium on material risk. The final gate on a material lane must come from another provider than the
 // Claude builder, so it runs on Codex through a courier. The lane-review child runs one round and classifies it.
-const LANE_REVIEW_PROTOCOL = 2
+const LANE_REVIEW_PROTOCOL = 3
 const ROUND_STATES = new Set(['approve', 'revise', 'failed', 'architectural', 'limited'])
 
 // ------------------------------------------------------------ state
@@ -270,18 +243,8 @@ if (A.build) {
   log(`built PR #${pr} at ${tip}`)
 } else {
   phase('Sync')
-  const git = `git -C '${A.worktree}'`
-  const andGeneratedFiles = GENERATED.length ? ' and the generated files' : ''
   const nonce = `sync-${tip}`
-  const quotedNonce = `'${nonce}'`
-  const synced = await relay({ label: 'sync', phase: 'Sync', step: 'sync', relayArgs: [quotedNonce], nonce, requiredKeys: ['head', 'parents', 'main'], answerSchema: SYNC_ANSWER, brief:
-    `${laneFacts}\nBring the lane up to date with main and change nothing else. Run each command exactly as written, with its -C option. Run \`${git} fetch origin && ${git} merge-base --is-ancestor origin/main HEAD\`; when it exits 0, the lane already contains main: change nothing. ` +
-    `Otherwise run \`${git} merge origin/main\`; when it merges cleanly, run \`${git} push\`. ` +
-    (LEDGERS.length || GENERATED.length ? `Conflicts only in the append-only ledgers${andGeneratedFiles}: resolve them as the lane facts say, commit the merge, run \`${git} push\`. ` : '') +
-    (GENERATED.length ? `When a generated file's command fails or leaves its path dirty or unmerged, run \`${git} merge --abort\` and put the command and its output in note. ` : '') +
-    (LEDGERS.length || GENERATED.length ? `Any other conflict: ` : `Any conflict: `) +
-    `run \`${git} merge --abort\`, confirm \`${git} status --porcelain\` is empty, push nothing, and put the conflicting paths in note. Last, whatever happened,`
-  })
+  const synced = await relay({ label: 'sync', phase: 'Sync', step: 'sync', relayArgs: [`'${nonce}'`], nonce, requiredKeys: ['head', 'parents', 'main'], answerKind: 'sync', facts: laneFacts, hasLedgers: LEDGERS.length > 0, hasGenerated: GENERATED.length > 0 })
   if (!synced) return openResult('failed', 'sync')
   const { values, problem } = synced
   if (problem || failedCommand(values)) return openResult('failed', 'sync', { reason: `the sync's relay line ${problem || 'reports a failed git command'}${printedLine(synced)}` })
@@ -300,20 +263,15 @@ function unfitRoundAnswer(answer, expectedResults) {
 }
 // from is the tip where the round's delta starts (none for a whole-lane round); a limited round hands it back for the resume.
 async function reviewRound(which, range, from) {
-  const reviewers = which.map(r => ({ key: r.key, provider: r.provider, role: r.role, routing: r.provider === 'codex' ? ROUTING[r.key] : claudeRole('review') }))
-  const answer = await startChild('lane-review', { protocol: LANE_REVIEW_PROTOCOL, item: A.item, pr, repo: A.repo, delegatedLine: DELEGATED_LINE, worktree: A.worktree, branch: A.branch, scratch: A.scratch, tag: TAG, label: `r${spent.total}`, range, contract: A.contract, blockingLine: BLOCKING_LINE, reviewers, findingKinds: FINDING_KINDS, finding: FINDING, followup: FOLLOWUP, mechanical: MECHANICAL })
+  const reviewers = which.map(r => ({ key: r.key, provider: r.provider, role: r.role, isGate: r === GATE, routing: r.provider === 'codex' ? ROUTING[r.key] : claudeRole('review') }))
+  const answer = await startChild('lane-review', { protocol: LANE_REVIEW_PROTOCOL, item: A.item, pr, repo: A.repo, after: spent.total, tip, delegatedLine: DELEGATED_LINE, worktree: A.worktree, branch: A.branch, scratch: A.scratch, tag: TAG, label: `r${spent.total}`, range, contract: A.contract, blockingLine: BLOCKING_LINE, reviewers, findingKinds: FINDING_KINDS, finding: FINDING, followup: FOLLOWUP, mechanical: MECHANICAL })
   const unfit = unfitRoundAnswer(answer, which.length)
   if (unfit) return { which, results: [], verdict: { state: 'failed', reason: unfit } }
   const { results, verdict } = answer
-  results.forEach((v, i) => {
-    if (!v) return
-    history.push({ after: spent.total, by: which[i].key, verdict: v.verdict, blocking: (v.blocking || []).map(f => f.where), reportPath: v.reportPath || '' })
-    if (which[i] === GATE && !v.limit) {
-      gateRounds.push({ after: spent.total, verdict: v.verdict, blocking: v.blocking || [], reportPath: v.reportPath || '', tip })
-      productionSinceGate = false
-    }
-    followups.push(...(v.followups || []).map(f => ({ ...f, tip })))
-  })
+  history.push(...answer.history)
+  followups.push(...answer.followups)
+  if (answer.gateRounds.length) productionSinceGate = false
+  gateRounds.push(...answer.gateRounds)
   return { which, results, verdict, range, from }
 }
 
@@ -345,13 +303,6 @@ function fixRoundStop(blocking, budgetKey) {
 const namedByHead = new Set((A.foldIn || []).map(findingKey))
 const inPlaceFollowups = () => openFollowups().filter(f => namedByHead.has(findingKey(f)) || /fix in place/i.test(`${f.owner} ${f.text}`))
 const listFoldIns = (foldIn) => foldIn.map(f => `- ${f.where} — ${f.text}`).join('\n')
-function foldInBrief(foldIn) {
-  if (!foldIn.length) return ''
-  return `\n\nAlso fold in these follow-ups, only because each sits in a file this lane already changed and cannot change behaviour; one commit for all of them. ` +
-    `One that is already done — left in the worktree by an earlier fixer, or already satisfied by the lane tip — you do not redo; list it in resolved with its evidence (the test, probe cell or line that satisfies it). ` +
-    `When that leaves you nothing to change, change nothing:\n` +
-    listFoldIns(foldIn)
-}
 // The reviewer sees which follow-ups the fixer was given, so it can tell a skipped one from a done one.
 const foldInsInRange = (foldIn) => foldIn.length ? `\nThe fixer was also given these follow-ups to fold in; check each is done:\n${listFoldIns(foldIn)}` : ''
 
@@ -482,21 +433,10 @@ async function fixBatch(blocking, source, budgetKey, carried = false) {
   if (stop) return { stop }
   spent[budgetKey]++; spent.total++
   const foldIn = inPlaceFollowups()
-  const fixerTask = blocking.length
-    ? `Then answer exactly these blocking findings from ${source}, and nothing else:\n${listFindings(blocking)}`
-    : 'There are no blocking findings; your whole task is the follow-ups below:'
   phase('Fix')
-  const git = `git -C '${A.worktree}'`
   const nonce = `fix-${spent.total}-${tipBeforeFix}`
-  const answered = await relay({ label: `fix-${spent.total}`, phase: 'Fix', step: 'sync', relayArgs: [`'${nonce}'`], nonce, requiredKeys: ['head', 'parents', 'main'], answerSchema: FIX, agentOptions: { agentType: 'atelier:code-fixer', ...claudeRole(fixerRole(blocking, foldIn)) }, brief:
-    `${laneFacts} ${driveFacts} ${rescopeFacts} ${localCheckFacts}\nYou are a fresh fixer for PR #${pr} (lane tip ${tip}). Merge origin/main if it moved, before or after your fixes (a merge commit; ` +
-    `resolve other conflicts only when you can do so without changing behaviour, and set mergeResolvedLaneConflict true when files this lane changed needed resolution). If the worktree already carries commits or uncommitted changes past that tip from an earlier fixer that ran out of turns, judge them, keep what is right, and continue from there. Commit each finding as soon as it is green; if you run short of turns, commit what is green and return what is left in blockedReason with blocked true. ${fixerTask}${foldInBrief(foldIn)}\n\n` +
-    `Each finding names the rule it breaks and its evidence. A scanner finding whose message covers the whole file (for example "in this file") is fixed at every occurrence in that file, not only at the reported line. Check the evidence yourself first. If it does not hold — the rule is not broken, or the evidence is wrong — ` +
-    `do not change code for it: list it in disputed with your counter-evidence. Report every test you add, strengthen or keep for a blocking finding, and every probe cell you run for it, in regression under that finding's number in the list above; the number counts only for the blocking list, a follow-up needs no regression entry. Run the mutation you name, do not reason about it. ` +
-    `A defect's test fails before your fix and passes after it; a defect with a test draft needs one. A defect in test code (hygiene) needs no regression test: the diff is its proof. A test you could not run on this machine is reported with notRun, the reason, and passesAfter false is kept for a test you ran and saw fail; the delta re-check judges a not-run test from its text and CI on the pushed tip runs it. A test-gap finding means a behaviour has no test, the code is already right, and it always needs a test: it passes before and after, ` +
-    `so name in mutation the production change, made and reverted, under which the test fails; a test that fails on the pre-fix code counts as such a mutation (failedBefore true). When a test-gap's cell pins no behaviour at all, you may remove it instead: report resolution removed-vacuous with the removal diff in diff. A docs finding needs no test. When the only finding is that the pull request conflicts with main, the merge is the whole fix. ` +
-    `Otherwise one commit per finding. Push, patch the PR body where it became false or where a finding is about it (REST PATCH with --input, never gh pr edit --body-file); a finding the body or an item comment answers goes in outside, and commit nothing for it; run \`aco check ${pr}\` from the worktree. ` +
-    `Return files: the output of \`${git} log --name-only --format= --first-parent --remerge-diff ${tipBeforeFix}..HEAD\` (of \`${git} diff --name-only ${tipBeforeFix}..HEAD\` when mergeResolvedLaneConflict is true). Last, whatever happened,` })
+  const answered = await relay({ label: `fix-${spent.total}`, phase: 'Fix', step: 'sync', relayArgs: [`'${nonce}'`], nonce, requiredKeys: ['head', 'parents', 'main'], answerKind: 'fix', agentOptions: { agentType: 'atelier:code-fixer', ...claudeRole(fixerRole(blocking, foldIn)) },
+    facts: `${laneFacts} ${driveFacts} ${rescopeFacts} ${localCheckFacts}`, pr, tip, source, blocking: listFindings(blocking), foldIns: listFoldIns(foldIn) })
   if (!answered) return { stop: openResult('failed', 'fix', { reason: `the fixer returned no result; inspect ${A.worktree} for commits past ${tip} and uncommitted work, then start a new run with pr and tip (and fixFirst for what is left)`, lastBlocking: blocking }) }
   // What the fixer says it found already done is only reported to the head: an unaccepted fix folds nothing in.
   const unaccepted = (result) => ({ stop: (answered.resolved || []).length ? { ...result, resolved: answered.resolved } : result })
@@ -668,21 +608,12 @@ if (carriesBatch) {
 
 // ---------------------------- end-to-end test and CI side by side
 // The lane-test child returns the tester's answer, null when both agents ended without a result, or a problem the lane stops on.
-const LANE_TEST_PROTOCOL = 1
+const LANE_TEST_PROTOCOL = 2
 function explore(n) {
   return startChild('lane-test', { protocol: LANE_TEST_PROTOCOL, delegatedLine: DELEGATED_LINE, n, pr, tip, worktree: A.worktree, scratch: A.scratch, tag: TAG, e2e: A.e2e, contract: A.contract, laneFacts, blockingLine: BLOCKING_LINE, finding: FINDING, followup: FOLLOWUP, routing: claudeRole('test') })
 }
 
 const LANE_CI_PROTOCOL = 4
-// The printed values, not the watcher's word, decide whether CI counts as green; null means they prove it.
-function unprovenGreen({ checks, rules }) {
-  if (checks.code !== 0 || !checks.count) return `no checks are listed for the pull request head (gh pr checks exited ${checks.code}: ${checks.err ?? ''})`
-  return [
-    ...checks.open.map(c => `check "${c.name}" is ${c.bucket}, not pass or skipping`),
-    ...Object.entries(rules.required || {}).filter(([, bucket]) => bucket !== 'pass').map(([name, bucket]) => bucket === 'missing' ? `required check "${name}" is missing from the listing` : `required check "${name}" is ${bucket}, not pass`),
-  ].join('; ') || null
-}
-
 async function watchCi(n) {
   const watched = await startChild('lane-ci', { protocol: LANE_CI_PROTOCOL, delegatedLine: DELEGATED_LINE, pr, n, repo: A.repo, worktree: A.worktree, finding: FINDING, watcher: WATCHER })
   if (!watched || watched.problem) return watched
@@ -690,11 +621,9 @@ async function watchCi(n) {
   const read = await relay({ label: `ci-read-${n}`, phase: 'Test and CI', step: 'ci', relayArgs: [pr, `'${A.repo || ''}'`, `'${nonce}'`], nonce, requiredKeys: ['view'], brief: `${laneFacts}\nChange nothing in the files;` })
   if (!read) return { problem: 'ended without reading the CI values' }
   if (read.problem) return { problem: `read the CI values, but their relay line ${read.problem}${printedLine(read)}` }
-  const { view, checks, rules, head, shared, log } = read.values
+  const { view } = read.values
   if (view.code !== 0) return { problem: `could not read the pull request: gh pr view exited ${view.code}: ${view.err ?? ''}` }
-  // The printer reads a job log only for the red verdict check; its two values name the red a fixer may not remove.
-  const operatorDoor = checks.open?.length === 1 && log?.code === 0 && log.loosenings && log.merge ? log.merge : null
-  return { ...watched, head, shared, operatorDoor, rulesError: rules.code === 0 ? null : `gh api exited ${rules.code}: ${rules.err ?? ''}`, unproven: watched.green ? unprovenGreen({ checks, rules }) : null }
+  return { ...watched, ...read.ci, unproven: watched.green ? read.ci.unproven : null }
 }
 
 function lockQueueCiState(ci) {
@@ -707,28 +636,24 @@ function lockQueueCiState(ci) {
 // A red CI starts the fixer at once; the tester's answer joins the next batch, and the round awaits the tester only when CI
 // has nothing of its own to fix. The tester judges the tip it started on, which later fixes may move. One tester runs at a time.
 let n = 0, testCalls = 0, needTest = true, lockRetried = false, testSettled = false
-let pendingTest = null  // the tester started and not yet judged, with its call number
+let pendingTest = null  // the tester started and not yet judged
 let testBlocking = []  // the tester's findings, held until a fix batch takes them
 function startTest() {
   needTest = productionSinceTest = testSettled = false
-  const call = testCalls++, testedTip = tip
-  pendingTest = explore(call).then(e2e => { testSettled = true; return { call, e2e, testedTip } })
+  pendingTest = explore(testCalls++).then(e2e => { testSettled = true; return e2e })
 }
-const takePendingTest = () => pendingTest.then(judged => { pendingTest = null; return judged })
-const emptyVerdictReason = (e2e, blocking) => (e2e.verdict === 'PASS' && !(e2e.cells || []).some(c => c.result === 'held') && 'a PASS without driven cells: the tester named no held cell') ||
-  (e2e.verdict === 'FAIL' && blocking.length === 0 && 'a FAIL verdict came without any blocking finding') || ''
+const takePendingTest = () => pendingTest.then(e2e => { pendingTest = null; return e2e })
 // Judges the pending tester's answer; returns the result that stops the lane, or undefined. A lock-busy answer is retried once:
 // awaited here when CI has nothing of its own to fix, else left pending while the fixer starts.
 async function settleTest(ci, awaitRetry = true) {
-  let judged = await takePendingTest()
-  if (judged.e2e?.verdict === 'failed' && judged.e2e.lockBusy && !lockRetried) {
+  let e2e = await takePendingTest()
+  if (e2e?.verdict === 'failed' && e2e.lockBusy && !lockRetried) {
     lockRetried = true
     log('the probe lock or the load was busy; trying the end-to-end test once more')
     startTest()
     if (!awaitRetry) return
-    judged = await takePendingTest()
+    e2e = await takePendingTest()
   }
-  const { call, e2e, testedTip } = judged
   if (e2e?.problem) return openResult('failed', 'test', { reason: `the tester ${e2e.problem}` })
   if (e2e && typeof e2e.verdict !== 'string') return openResult('failed', 'test', { reason: `lane-test answered without a verdict: ${JSON.stringify(e2e).slice(0, 200)}` })
   if (e2e?.verdict === 'failed' && e2e.lockBusy) {
@@ -736,10 +661,9 @@ async function settleTest(ci, awaitRetry = true) {
   }
   if (!e2e || e2e.verdict === 'failed') return openResult('failed', 'test', { reason: 'the tester returned no usable result' })
   testBlocking = e2e.blocking || []
-  const emptyReason = emptyVerdictReason(e2e, testBlocking); if (emptyReason) return openResult('failed', 'test', { reason: emptyReason })
-  // A blocking finding outranks a PASS label, as in the classifier of lane-review.js.
-  history.push({ after: spent.total, by: `e2e-${call}`, verdict: testBlocking.length ? 'FAIL' : 'PASS', blocking: testBlocking.map(f => f.where), cells: e2e.cells || [], reportPath: e2e.evidencePath || '' })
-  followups.push(...(e2e.followups || []).map(f => ({ ...f, tip: testedTip })))
+  if (e2e.emptyVerdictReason) return openResult('failed', 'test', { reason: e2e.emptyVerdictReason })
+  history.push({ after: spent.total, ...e2e.historyEntry })
+  followups.push(...e2e.followups)
   // A PASS on a tip a fix has since changed in production is stale: a new tester runs on the current tip.
   if (productionSinceTest) needTest = true
 }

@@ -212,9 +212,9 @@ function judgeProofs(fixed, blocking) {
   // A proof red after the fix is evidence against the fix, even beside a valid proof.
   const gaps = judgedProofs(fixed, blocking).filter(checked => checked.gap && (!checked.proven || !checked.proof.passesAfter))
   const unproven = blocking.map((finding, index) => ({ finding, index })).filter(({ finding, index }) => needsProof(finding) && !(fixed.regression || []).some(r => proves(r, index)))
-  const proofRejection = gaps.length
-    ? { reason: [...new Set(gaps.map(checked => checked.gap))].join('; '), regression: gaps.map(checked => checked.proof), findingNumbers: gaps.map(checked => checked.index + 1) }
-    : unproven.length ? { reason: 'a test-gap finding or a defect with a test draft got no regression test: ' + unproven.map(({ finding, index }) => (index + 1) + '. ' + finding.where).join(', '), findingNumbers: unproven.map(({ index }) => index + 1) } : null
+  let proofRejection = null
+  if (gaps.length) proofRejection = { reason: [...new Set(gaps.map(checked => checked.gap))].join('; '), regression: gaps.map(checked => checked.proof), findingNumbers: gaps.map(checked => checked.index + 1) }
+  else if (unproven.length) proofRejection = { reason: 'a test-gap finding or a defect with a test draft got no regression test: ' + unproven.map(({ finding, index }) => (index + 1) + '. ' + finding.where).join(', '), findingNumbers: unproven.map(({ index }) => index + 1) }
   return { proofRejection, proofNotes: proofNotes(fixed, blocking) }
 }
 

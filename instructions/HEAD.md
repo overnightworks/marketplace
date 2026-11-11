@@ -361,10 +361,11 @@ close the item; an abandoned lane releases its claim and leaves the item open
 unless its `Done when` is met. A landing is not finished until every item it
 freed (aco prints them) is dispatched or deferred with one sentence why.
 
-A red merge-queue run is answered by its cause: read the failing job. When the
-lane contains main, a flake is a re-run of `aco land`, at most twice; a red only
-on the queue's run goes to the repository's head; otherwise re-enter the lane
-with pr and tip.
+`aco land` waits for the merge queue. A red queue run drops the entry: read its
+failing job. If the lane already contains main, re-run `aco land` for a flake,
+at most twice per lane; a third red, or a job red only on the queue's run, goes
+to the repository's head as a CI defect. Otherwise re-enter the lane with pr and
+tip. A drop without a red run is a re-run of `aco land`.
 
 ## Orchestration loop
 

@@ -225,7 +225,9 @@ Code's auto mode denies.
    Where the target branch has a merge queue, `aco land` writes the body, enqueues
    the pinned head and waits for the queue to merge it, about a minute being
    normal. A re-run resumes: queued, it waits again; merged, it releases; removed
-   from the queue, it starts at the preflight. The refusal sentences are in
+   from the queue, it starts at the preflight. A red queue run drops the entry,
+   a drop without one is a re-run, and a third red goes to the repository's
+   head. The refusal sentences are in
    `specs/land.spec.md` (LANDCMD-59 to LANDCMD-70).
 3. The landing agent reports the follow-up lines `aco land` prints (`freed:`,
    `next:`, in aco also `reinstall:`) to the head and runs none of

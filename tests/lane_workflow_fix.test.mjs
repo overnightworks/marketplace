@@ -574,6 +574,13 @@ test('outside-fold-in: a fold-in answered in the pull request body at an unchang
   assert.deepEqual(result.folded.map(f => f.where), [tidy.where])
 })
 
+test('outside-fold-in: a blocking finding answered outside beside a fold-in found already done goes on to the re-check at an unchanged tip', async () => {
+  const outside = [{ finding: 1, where: 'PR body, section Verification' }]
+  const { result } = await runLane({ ...resumeArgs, foldIn: [tidy], fixFirst: [docsFinding] }, { 'fix-1': { ...unchangedFix, outside, resolved: [satisfied(tidy)] }, ...reachesTheEnd })
+  assert.equal(result.status, 'ready-to-land')
+  assert.equal(result.tip, resumeTip)
+})
+
 const unansweredBatches = [
   ['a fold-in with no answer', { foldIn: [tidy] }, []],
   ['a fold-in whose answer names no place', { foldIn: [tidy] }, [{ foldIn: tidy.where, where: ' ' }]],

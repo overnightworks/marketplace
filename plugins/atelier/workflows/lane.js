@@ -398,10 +398,14 @@ const everyFoldInSatisfied = (fixed, blocking, foldIn) => !blocking.length && fo
 // An unchanged tip is a fix too when each blocking finding is a check finding and the fixer's own run of the check reports clean:
 // a missing or unusable report is answered by a clean report, which needs no commit.
 const checkRunClean = (fixed, blocking) => blocking.length > 0 && blocking.every(f => f.where === CHECK_FINDING_WHERE) && checkFindingsOf(fixed.check).length === 0
-// An unchanged tip is a fix too when every blocking finding and every fold-in is answered in the pull request body or an item comment.
+// An unchanged tip is a fix too when every blocking finding is answered in the pull request body or an item comment and every fold-in
+// is answered there or proven already satisfied; at least one answer outside the tree is what the re-check then reads.
 const answeredOutside = (fixed, blocking, foldIn) => {
   const answers = (fixed.outside || []).filter(o => (o.where || '').trim())
-  return blocking.length + foldIn.length > 0 && blocking.every((_, index) => answers.some(o => o.finding === index + 1)) && foldIn.every(f => answers.some(o => o.foldIn === f.where))
+  const blockingAnswered = blocking.every((_, index) => answers.some(o => o.finding === index + 1))
+  const foldInAnswered = foldIn.every(f => answers.some(o => o.foldIn === f.where) || satisfiedEvidence(fixed, f))
+  const anyAnswer = blocking.length > 0 || foldIn.some(f => answers.some(o => o.foldIn === f.where))
+  return anyAnswer && blockingAnswered && foldInAnswered
 }
 // Each proof paired with the blocking finding it names and what it still lacks. A finding another proof covers
 // without a gap counts as proven, so a proof with a gap beside it is only supporting evidence.

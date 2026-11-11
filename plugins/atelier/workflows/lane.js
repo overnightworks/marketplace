@@ -185,11 +185,13 @@ const localCheckFacts =
   `Fix what it reports and run it again. Return the run after your last fix in check: the command, its exit status and one line per finding (none when clean). A repository without the quality gate (no \`quality/config.toml\`) has no check to run: return noQualityGate saying so instead. A result without check goes back to a fixer.`
 
 // The check report of a builder or fixer as blocking findings: none when it exited 0 without findings or names no quality gate,
-// and one saying so when the report is missing or malformed, because an unreported check is never read as clean.
+// and one saying so when the report is missing, malformed or states both no gate and a run, because an unreported check is never read as clean.
 const CHECK_FINDING_WHERE = 'quality check'
 const checkFinding = (text, evidence) => ({ where: CHECK_FINDING_WHERE, kind: 'defect', text, rule: 'the local quality check (quality check, run from the worktree) is clean', evidence })
 function checkFindingsOf(check) {
-  if (typeof check?.noQualityGate === 'string' && check.noQualityGate.trim()) return []
+  const statesNoGate = typeof check?.noQualityGate === 'string' && check.noQualityGate.trim()
+  const reportsRun = check?.command !== undefined || check?.exit !== undefined || check?.findings !== undefined
+  if (statesNoGate && !reportsRun) return []
   if (typeof check?.command !== 'string' || !check.command.trim() || !Number.isInteger(check.exit) || !Array.isArray(check.findings)) {
     return [checkFinding('the check was not reported', 'the result carries no valid check: a command, its exit status and its findings, or the statement that the repository has no quality gate')]
   }

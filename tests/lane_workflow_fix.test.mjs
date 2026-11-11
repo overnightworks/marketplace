@@ -570,6 +570,9 @@ const fixerReports = [
   ['the statement that the repository has no quality gate', { noQualityGate: 'the repository has no quality/config.toml' }, []],
   ['findings', { command: 'quality check', exit: 1, findings: ['tests/conftest.py is imported by tests/x_test.py'] }, ['tests/conftest.py is imported']],
   ['no report', undefined, ['the check was not reported']],
+  ['the no-gate statement beside a failing command', { noQualityGate: 'no quality/config.toml', command: 'quality check', exit: 1, findings: ['a rule failed'] }, ['a rule failed']],
+  ['the no-gate statement beside a non-zero exit and no findings', { noQualityGate: 'no quality/config.toml', command: 'quality check', exit: 2, findings: [] }, ['the check exited 2 and named no findings']],
+  ['the no-gate statement beside a command only', { noQualityGate: 'no quality/config.toml', command: 'quality check' }, ['the check was not reported']],
 ]
 
 for (const [what, check, expectedFindings] of fixerReports) {
@@ -585,6 +588,17 @@ for (const [what, check, expectedFindings] of fixerReports) {
     expectedFindings.forEach(text => assert.ok(agentCalls['fix-2'].prompt.includes(text), text))
   })
 }
+
+test('AC-docs-batch-mechanical: a docs-only mechanical fix batch reports the check like every fixer, and its findings start a further fixer before the re-check and CI', async () => {
+  const check = { command: 'quality check', exit: 1, findings: ['README.md is not in the root allowlist'] }
+  const answers = { 'fix-1': { ...resumeFix, check }, 'fix-2': secondFix, 'r2-review': APPROVE, 'ci-0': greenCi(secondFix.head), 'e2e-0': PASS }
+  const { result, launchedAgents, agentCalls } = await runLane({ ...resumeArgs, fixFirst: [docsFinding] }, answers)
+  assert.equal(result.status, 'ready-to-land')
+  assert.equal(agentCalls['fix-1'].options.model, 'haiku')
+  assert.match(agentCalls['fix-1'].prompt, /return noQualityGate/)
+  assert.deepEqual(launchedAgents.filter(label => /^(fix-\d|r\d-review|ci-\d)$/.test(label)), ['fix-1', 'fix-2', 'r2-review', 'ci-0'])
+  assert.ok(agentCalls['fix-2'].prompt.includes(check.findings[0]))
+})
 
 test('findings the fixers never clear end the lane on the ci budget, before any re-check', async () => {
   const answers = { 'fix-1': { ...resumeFix, check: { command: 'quality check', exit: 1, findings: ['first'] } }, 'fix-2': { ...secondFix, check: { command: 'quality check', exit: 1, findings: ['second'] } } }

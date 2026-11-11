@@ -147,9 +147,9 @@ const firstReviewRoundByRisk = [
 
 for (const [risk, reviewers] of firstReviewRoundByRisk) {
   test(`risk ${JSON.stringify(risk)} passes input and starts the reviews ${reviewers.join(' and ')}`, async () => {
-    const { result, launchedAgents } = await runLane({ ...resumedLane, risk })
+    const { result, launchedAgents } = await runLane({ ...resumedLane, risk }, { 'r0-review': APPROVE, 'r0-gate': { ...APPROVE, codexExit: 0 } })
     assert.notEqual(result.stage, 'input')
-    assert.deepEqual(launchedAgents, ['sync', 'scope-resume', ...reviewers])
+    assert.deepEqual(launchedAgents.slice(0, 2 + reviewers.length), ['sync', 'scope-resume', ...reviewers])
   })
 }
 

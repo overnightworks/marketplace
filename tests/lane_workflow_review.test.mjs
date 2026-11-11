@@ -519,3 +519,44 @@ test('review-brief-checksum: the checksum in the Codex courier command equals wh
     fs.rmSync(directory, { recursive: true })
   }
 })
+
+// ---- a Claude reviewer that fails is started once more, fresh
+const reviewerRuns = (launchedAgents) => launchedAgents.filter(label => label.startsWith('r0-review'))
+const reviewerAnswerWith = (first, second = APPROVE) => {
+  const queue = [first, second]
+  const next = () => { const answer = queue.shift(); return typeof answer === 'function' ? answer() : answer }
+  return { 'r0-review': next, 'r0-review-retry': next }
+}
+const throwing = (message) => () => { throw new Error(message) }
+
+for (const [name, failure] of [
+  ['no answer', () => null],
+  ['a thrown error', throwing('API Error: the request was refused')],
+  ['the verdict failed', () => ({ verdict: 'failed', blocking: [], followups: [], note: 'no diff was supplied' })],
+]) {
+  test(`reviewer-retry: a Claude reviewer with ${name} is started once more with the same brief and the round is judged on the retry`, async () => {
+    const { result, launchedAgents, agentCalls } = await runLane(resumedLane, { ...reviewerAnswerWith(failure), 'e2e-0': PASS, 'ci-0': greenCi(resumeTip) })
+    assert.deepEqual(reviewerRuns(launchedAgents), ['r0-review', 'r0-review-retry'])
+    assert.equal(agentCalls['r0-review-retry'].prompt, agentCalls['r0-review'].prompt)
+    assert.deepEqual(result.history.map(round => [round.by, round.verdict]), [['review', 'APPROVE']])
+  })
+}
+
+test('reviewer-retry: two failures end the round at review and the reason carries both texts', async () => {
+  const { result, launchedAgents } = await runLane(resumedLane, reviewerAnswerWith(throwing('API Error: safeguards flagged this message'), () => ({ verdict: 'failed', blocking: [], followups: [], note: 'no diff was supplied' })))
+  assert.deepEqual(reviewerRuns(launchedAgents), ['r0-review', 'r0-review-retry'])
+  failedAtReview(result)
+  assert.match(result.reason, /safeguards flagged this message/)
+  assert.match(result.reason, /no diff was supplied/)
+})
+
+test('reviewer-retry: a failure text longer than a sane length is shortened in the reason', async () => {
+  const { result } = await runLane(resumedLane, reviewerAnswerWith(throwing('e'.repeat(5000)), () => null))
+  failedAtReview(result)
+  assert.ok(result.reason.length < 1200, result.reason.length)
+})
+
+test('reviewer-retry: a Claude answer carrying a usage limit is not started again', async () => {
+  const { launchedAgents } = await runLane(resumedLane, reviewerAnswerWith(() => limited()))
+  assert.deepEqual(reviewerRuns(launchedAgents), ['r0-review'])
+})

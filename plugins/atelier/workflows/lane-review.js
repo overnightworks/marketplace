@@ -14,13 +14,14 @@ const MECHANICAL = A.mechanical
 const FINDING_KINDS = A.findingKinds
 const R = A.repo ? ` -R ${A.repo}` : ''
 
-// agent() with a schema throws when the subagent ends without a result; an end without one is a null the lane reports.
+// agent() with a schema throws when the subagent ends without a result; an end without a usable answer is a failed verdict that carries the error, so the lane reports why.
+const failedVerdict = (note) => ({ verdict: 'failed', blocking: [], followups: [], note })
 async function safeAgent(prompt, opts) {
   try {
-    return await agent(prompt, opts)
+    return (await agent(prompt, opts)) ?? failedVerdict(`${opts?.label || 'agent'} ended without a usable answer`)
   } catch (error) {
     log(`${opts?.label || 'agent'} ended without a result: ${String(error).slice(0, 160)}`)
-    return null
+    return failedVerdict(`${opts?.label || 'agent'} threw: ${String(error).slice(0, 300)}`)
   }
 }
 
@@ -74,11 +75,16 @@ function reviewerBrief(role, range) {
     `verdict is APPROVE with no blocking findings, REVISE with at least one, or architectural when the cut itself is wrong.`
 }
 
-function claudeReview(label, routing, role, range) {
-  return safeAgent(
-    `${A.delegatedLine}\nWork read-only in ${A.worktree} on branch ${A.branch}: read files and run read-only commands freely; do not run tests and do not edit anything.\n` +
-    `Before judging, read the current item body (gh issue view ${A.item}${R} --json body --jq .body) and the pull request body (gh pr view ${A.pr}${R} --json body --jq .body): the contract core and the verification evidence.\n` + reviewerBrief(role, range),
-    { label, phase: 'Review', schema: VERDICT, agentType: 'atelier:code-reviewer', ...routing })
+// A Claude reviewer that fails (no usable answer, an error, or verdict failed) is started once more as a fresh agent with the same brief; a usage limit is no failure and never retried. Only the second failure counts, with both texts.
+async function claudeReview(label, routing, role, range) {
+  const prompt = `${A.delegatedLine}\nWork read-only in ${A.worktree} on branch ${A.branch}: read files and run read-only commands freely; do not run tests and do not edit anything.\n` +
+    `Before judging, read the current item body (gh issue view ${A.item}${R} --json body --jq .body) and the pull request body (gh pr view ${A.pr}${R} --json body --jq .body): the contract core and the verification evidence.\n` + reviewerBrief(role, range)
+  const start = reviewLabel => safeAgent(prompt, { label: reviewLabel, phase: 'Review', schema: VERDICT, agentType: 'atelier:code-reviewer', ...routing })
+  const first = await start(label)
+  if (first.verdict !== 'failed' || first.limit) return first
+  log(`${label} failed (${shortened(first.note)}); starting the reviewer once more`)
+  const second = await start(`${label}-retry`)
+  return second.verdict === 'failed' && !second.limit ? { ...second, note: `${shortened(first.note)} | after a retry: ${shortened(second.note)}` } : second
 }
 
 const CODEX_SCHEMA = JSON.stringify({
@@ -192,13 +198,16 @@ const reviewBy = (reviewer, range) => {
     : claudeReview(label, reviewer.routing, reviewer.role, range).then(answer => guardLimit(answer, reviewer))
 }
 
+// One failure text stays short in the round's reason; the two texts of a retried reviewer fit together.
+const shortened = (note, limit = 300) => { const text = String(note || 'no note').trim(); return text.length > limit ? `${text.slice(0, limit)}…` : text }
+
 // One classifier for every review round: every started review must return, and verdict and findings must agree.
 function classify(results, expected) {
   const got = results.filter(Boolean)
   if (got.length !== expected) return { state: 'failed', reason: `${expected - got.length} review(s) returned nothing` }
   if (got.some(v => v.verdict === 'failed' && !v.limit)) {
     const reportPaths = got.filter(v => v.verdict === 'failed' && v.reportPath).map(v => v.reportPath)
-    return { state: 'failed', reason: got.map(v => v.note || '').join(' | ') + (reportPaths.length ? '; read the report ' + reportPaths.join(' and ') : '') }
+    return { state: 'failed', reason: got.filter(v => v.verdict === 'failed' && !v.limit).map(v => shortened(v.note, 700)).join(' | ') + (reportPaths.length ? '; read the report ' + reportPaths.join(' and ') : '') }
   }
   if (got.some(v => v.verdict === 'architectural')) return { state: 'architectural' }
   // An evidenced blocking finding outranks its label (APPROVE with a finding counts as REVISE). A REVISE with nothing

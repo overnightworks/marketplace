@@ -275,10 +275,11 @@ needs no counter-check. Lane work keeps its own reviews.
   findings join the first fix batch; CI still runs on the merged result.
 - **Independence** (`AGENTS.md`, Reviews). Saving budget never weakens
   required verification: every implementation lane keeps its independent
-  review. With no eligible gate provider, the gate waits. Each required review
-  brief carries the contract core, with rulings and neighbours folded into the
-  body, never passed beside it. No override changes reviewer independence,
-  gate provider separation or the effort caps.
+  review. With no eligible gate provider, the gate waits; one at its usage
+  limit is replaced as `AGENTS.md` says. Each required review brief carries
+  the contract core, with rulings and neighbours folded into the body, never
+  passed beside it. No override changes reviewer independence or
+  the effort caps, nor gate provider separation beyond that stand-in.
 - **Re-checks.** A `REVISE` gets a delta re-check after a coherent fix batch:
   by the same reviewer while its reported lifetime context is under 200k
   tokens (unknown counts as over), else by a fresh reviewer of the same row and

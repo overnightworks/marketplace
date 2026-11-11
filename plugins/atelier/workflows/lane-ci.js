@@ -4,17 +4,16 @@ export const meta = {
 }
 
 // Both copies of this number (here and in lane.js) change together in any commit that changes the args or the return shape.
-const LANE_CI_PROTOCOL = 5
+const LANE_CI_PROTOCOL = 6
 const A = args || {}
 if (A.protocolQuery) return { protocol: LANE_CI_PROTOCOL }
-const need = ['protocol', 'delegatedLine', 'pr', 'n', 'worktree', 'finding', 'watcher']
+const need = ['protocol', 'delegatedLine', 'pr', 'n', 'worktree', 'finding', 'mechanical']
 if (A.protocol !== LANE_CI_PROTOCOL) return { refused: `lane-ci speaks protocol ${JSON.stringify(LANE_CI_PROTOCOL)}, but the lane that started it speaks protocol ${JSON.stringify(A.protocol)}; the installed atelier differs from the running lane` }
 const missing = need.filter(key => A[key] === undefined || A[key] === null || A[key] === '')
 if (missing.length) return { refused: `missing args: ${missing.join(', ')}` }
 const { pr } = A
 const R = A.repo ? ` -R ${A.repo}` : ''
 const IN_REPO = A.repo ? ` in ${A.repo}` : ''
-const WATCHER = A.watcher
 
 // agent() with a schema throws when the subagent ends without a result; an end without one is a null the lane reports.
 async function agentOrNull(prompt, opts) {
@@ -76,7 +75,7 @@ function watchCi() {
     `Read the required contexts of the base branch only to pace the wait: \`${inWorktree}gh api ${rulesRepoPath}/rules/branches/<base> --jq '[.[]|select(.type=="required_status_checks")|.parameters.required_status_checks[].context]'\`, ` +
     `the base is \`${inWorktree}gh pr view ${pr}${R} --json baseRefName --jq .baseRefName\`. The lane reads them again itself, so neither what you read nor its error is returned or judged; when the read fails, wait as if no required context were missing. ` +
     `If a required context is missing from \`${inWorktree}gh pr checks ${pr}${R} --json name,bucket\`, or a check is still pending after the watch, watch again; re-watching shares the cap of 7 watches and the 540 s timeout per watch.`,
-    { label: `ci-${A.n}`, phase: 'Test and CI', schema: CI, ...WATCHER })
+    { label: `ci-${A.n}`, phase: 'Test and CI', schema: CI, ...A.mechanical })
 }
 
 function rerunJob(red, index) {
@@ -88,7 +87,7 @@ function rerunJob(red, index) {
     `Return the link of check "${red.name}" as \`${inWorktree}gh pr checks ${pr}${R} --json name,bucket,link\` prints it after that, and its bucket. If its bucket is fail, ` +
     `return findings for it: each entry has kind = "defect" and rule = "CI check ${red.name}" unless the log lists findings with their own rule ids. Otherwise findings is empty. ` +
     evidenceRules(inWorktree),
-    { label: `ci-${A.n}-rerun-${index + 1}`, phase: 'Test and CI', schema: RERUN, ...WATCHER })
+    { label: `ci-${A.n}-rerun-${index + 1}`, phase: 'Test and CI', schema: RERUN, ...A.mechanical })
 }
 
 const canRerun = red => SETUP_STEPS.has(red.failingStep) && Boolean(red.runId) && Boolean(red.jobId)

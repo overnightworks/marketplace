@@ -68,24 +68,24 @@ const TEST_VOLUME_LINE =
 // ------------------------------------------------------------ reviewers
 // The ordinary review may come from the builder's own provider (the contract asks only for a fresh, independent
 // agent); a fresh Claude reviewer is the default, Sonnet at high effort and Opus at medium on material risk. The
-// final gate on a material lane must come from another provider than the Claude builder, so it runs on Codex
-// through a courier.
+// final gate on a material lane runs on Codex through a courier, because the Claude builder needs another provider,
+// unless the lane routes it to the Opus stand-in, which runs as a fresh Claude reviewer like the ordinary review.
 function reviewerBrief(role, range) {
   return `You are the ${role} for work item #${A.item}: a fresh, independent reviewer who did not write this change. ` +
     `Contract:\n${A.contract}\n\nReview ${range}.\n\n${A.blockingLine}\n\n${STOPGAP_LINE}\n\n${TEST_VOLUME_LINE}\n\n` +
     `verdict is APPROVE with no blocking findings, REVISE with at least one, or architectural when the cut itself is wrong.`
 }
 
-// A Claude reviewer that fails (no usable answer, an error, or verdict failed) is started once more as a fresh agent with the same brief; a usage limit is no failure and never retried. Only the second failure counts, with both texts.
+// A Claude reviewer that fails (no usable answer, an error, or verdict failed) is started once more as a fresh agent with the same brief. Only the second failure counts, with both texts.
 async function claudeReview(label, routing, role, range) {
   const prompt = `${A.delegatedLine}\nWork read-only in ${A.worktree} on branch ${A.branch}: read files and run read-only commands freely; do not run tests and do not edit anything.\n` +
     `Before judging, read the current item body (gh issue view ${A.item}${R} --json body --jq .body) and the pull request body (gh pr view ${A.pr}${R} --json body --jq .body): the contract core and the verification evidence.\n` + reviewerBrief(role, range)
   const start = reviewLabel => safeAgent(prompt, { label: reviewLabel, phase: 'Review', schema: VERDICT, agentType: 'atelier:code-reviewer', ...routing })
   const first = await start(label)
-  if (first.verdict !== 'failed' || first.limit) return first
+  if (first.verdict !== 'failed') return first
   log(`${label} failed (${shortened(first.note)}); starting the reviewer once more`)
   const second = await start(`${label}-retry`)
-  return second.verdict === 'failed' && !second.limit ? { ...second, note: `${shortened(first.note)} | after a retry: ${shortened(second.note)}` } : second
+  return second.verdict === 'failed' ? { ...second, note: `${shortened(first.note)} | after a retry: ${shortened(second.note)}` } : second
 }
 
 const CODEX_SCHEMA = JSON.stringify({

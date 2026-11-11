@@ -175,9 +175,10 @@ Every review finding is marked **blocking** or **follow-up**.
   the body names it as deliberately untouched; where such pins span more than a
   handful of test modules, CI on the pushed branch is their proof.
 - **Independence.** A builder never reviews its own work; a required final
-  gate runs in fresh context on a provider column other than the builder's.
-  Every required review gets the build's contract core: the current item body,
-  the candidate diff and the verification evidence.
+  gate runs in fresh context on a provider column other than the builder's or,
+  while that provider is at its usage limit, on Opus 5.5 at high, named in the
+  pull request. Every required review gets the build's contract core: the
+  current item body, the candidate diff and the verification evidence.
 - **A delta re-check** carries the contract core and the raised findings and
   asks whether the repair opened something new. It covers only the raised delta
   when the fix is strictly isolated and the integrated tree outside it is

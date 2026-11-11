@@ -757,6 +757,7 @@ return {
   ...gateUnseenView(),
   requiredHeadActions: [
     `land with \`aco land ${pr}\` only while the pull request head is still ${tip}`,
+    ...(MATERIAL && isGateStandIn('gate', ROUTING.gate.model, ROUTING.gate.effort) ? [`name the Opus 5.5 stand-in as the final gate in the body of pull request #${pr}: the lane ran no Codex gate`] : []),
     ...(gateUnseen ? [`name ${gateUnseen.seenTip}..${tip} in the body of pull request #${pr}: the final gate, at its usage limit, did not see that range`] : []),
     ...history.filter(entry => entry.checkCouldNotRun).map(({ by, checkCouldNotRun: { area, message } }) => `the local quality check of ${by} could not run ${area} (${message}): CI proves that area, so confirm the quality job is green before landing`),
     ...(raisedBeforeTip(stillOpen).length ? ['re-check the follow-ups in raisedBeforeTip against the returned tip before routing them'] : []),

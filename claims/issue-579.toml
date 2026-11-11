@@ -1,8 +1,0 @@
-claim_id = "44c5b836e7b445c3b48763c288763c4f"
-agent = "Claude a5abe9e4-862b-4cac-94ed-68bd072edf38"
-role = "builder"
-base = "4d7e940affadc8b4aac65820d15e6da4b44204e6"
-branch = "claude/issue-579-check-report"
-scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/workflows", "tests"]
-opened_commit = "14ae02b6df889c7d0da930687616a54b9631fbb7"
-whole_reason = "The check report runs through the builder child, the fixer relay and the lane that judges both, with their tests."

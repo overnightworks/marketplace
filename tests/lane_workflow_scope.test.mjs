@@ -500,7 +500,8 @@ for (const [when, args, answers, expectedAgents] of testPathsPass) {
     assert.ok(result.history.some(entry => entry.by === 'scope' && entry.passedAsTestPaths && testFiles.every(path => entry.outside.includes(path))), 'history records the paths')
     const rescopeActions = result.requiredHeadActions.filter(action => action.includes('aco rescope'))
     assert.equal(rescopeActions.length, 1)
-    assert.ok(rescopeActions[0].includes(`aco rescope ${args.item} --add ${testFiles.join(' ')}`), rescopeActions[0])
+    assert.ok(rescopeActions[0].includes(`aco rescope ${args.item} ${testFiles.map(path => `--add ${path}`).join(' ')}\``), rescopeActions[0])
+    assert.ok(!rescopeActions[0].includes('--whole'), rescopeActions[0])
   })
 }
 
@@ -536,6 +537,14 @@ test('AC-test-paths-pass: paths listed by two scope checks come back once each, 
   assert.equal(result.status, 'ready-to-land', result.reason)
   assert.deepEqual(result.testPathsOutsideClaim, testFiles)
   assert.equal(result.requiredHeadActions.filter(action => action.includes('aco rescope')).length, 1)
+})
+
+test('AC-test-paths-pass: more than three test paths add --whole to the rescope action', async () => {
+  const fourFiles = [...testFiles, 'tests/test_a.py', 'tests/test_b.py']
+  const { result } = await runLane({ ...resumeArgs, testPaths: testPrefixes }, { 'scope-resume': outsideClaim(fourFiles), 'r0-review': APPROVE, ...endsGreenAt(resumeTip) })
+  assert.equal(result.status, 'ready-to-land', result.reason)
+  const [action] = result.requiredHeadActions.filter(entry => entry.includes('aco rescope'))
+  assert.ok(action.includes(`${fourFiles.map(path => `--add ${path}`).join(' ')} --whole "`), action)
 })
 
 const malformedTestPaths = [['a string', 'tests/'], ['an empty prefix', ['tests/', '']], ['a non-string prefix', [1]], ['an object', { 'tests/': true }]]

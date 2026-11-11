@@ -327,7 +327,9 @@ run at medium (mechanical work at low or medium), in the last two rows at high.
   work.
 - Effort is capped per model, for routine work and overrides: Opus at medium
   (the final gate at high), every other model at high. More needs the
-  operator's word and runs outside the lane workflow.
+  operator's word and runs outside the lane workflow; before an architecture
+  decision or research he asked for, ask him model and effort with a proposal,
+  which may be Fable and xhigh or max.
 - A lane's models may be set through the lane workflow's arguments. Before
   running the `codex` or `grok` CLI yourself outside it, load the `providers`
   skill.

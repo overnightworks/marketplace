@@ -150,7 +150,7 @@ async function startChild(name, childArgs) {
   }
 }
 // A value a command prints reaches a decision only through the line the lane-relay child reads back and checks.
-const LANE_RELAY_PROTOCOL = 14
+const LANE_RELAY_PROTOCOL = 15
 const relay = (request) => startChild('lane-relay', { protocol: LANE_RELAY_PROTOCOL, delegatedLine: DELEGATED_LINE, worktree: A.worktree, agentOptions: MECHANICAL, mechanical: MECHANICAL, rescope: RESCOPE, checkReport: CHECK_REPORT, ...request })
 // The failure reasons name the printed line only when the command printed one.
 const printedLine = (relayed) => relayed.printed === undefined ? '' : `; the printed line: ${relayed.printed}`
@@ -369,32 +369,6 @@ function awaitHeadOnDispute(fixed, blocking) {
   return openResult('awaiting-head', 'fix', { reason: committed ? 'the fixer disputes findings with counter-evidence; the returned tip carries fix commits no reviewer has seen' : 'the fixer disputes every finding with counter-evidence and committed nothing', lastBlocking: blocking })
 }
 
-// What a proof still has to show for the finding it names, or null when it shows it. A test-gap's code was already
-// right, so its test passes after the fix and pins the behaviour when a mutation, or the pre-fix code, makes it fail.
-// A test that pins nothing may be removed instead, with its diff as the proof.
-function proofGap(proof, finding) {
-  const kind = kindOf(finding)
-  if (kind === 'docs') return null
-  if (isNotRun(proof)) return null  // reaches the delta re-check as a note, see notRunNote
-  if (kind === 'test-gap') return testGapProofGap(proof, finding)
-  const missing = [!proof.failedBefore && needsProof(finding) && 'fail before', !proof.passesAfter && 'pass after'].filter(Boolean)
-  return missing.length ? `a regression test did not ${missing.join(' and ')} its fix` : null
-}
-
-function testGapProofGap(proof, finding) {
-  if (proof.resolution === 'removed-vacuous') return (proof.diff || '').trim() ? null : `the removal of a vacuous test for ${finding.where} carried no diff`
-  if (!proof.passesAfter) return `a test-gap test for ${finding.where} did not pass after the fix`
-  return (proof.mutation || '').trim() || proof.failedBefore ? null : `a test-gap test for ${finding.where} named no mutation under which it fails and did not fail before the fix`
-}
-
-const isNotRun = (proof) => Boolean((proof.notRun || '').trim())
-// Whether a fix must prove the finding with a test: a test-gap is nothing but a missing test, a defect's test draft
-// asks for one, and a docs finding needs none even when a draft came with it.
-const needsProof = (finding) => kindOf(finding) === 'test-gap' || (kindOf(finding) === 'defect' && Boolean(finding.testDraft))
-
-// Why a fixer's answer does not count as a fix, or null when it does. A proof counts only for the blocking finding
-// whose list number it names; any other number (a fold-in's, say) is not checked.
-const proves = (proof, index) => Number.isInteger(proof.finding) && proof.finding === index + 1
 // The evidence the fixer gave for a fold-in it found already done, or undefined without any.
 const satisfiedEvidence = (fixed, foldIn) => (fixed.resolved || []).find(r => r.where === foldIn.where && (r.evidence || '').trim())?.evidence
 // An unchanged tip is a fix only when there are no blocking findings and every fold-in is proven already satisfied.
@@ -411,19 +385,10 @@ const answeredOutside = (fixed, blocking, foldIn) => {
   const anyAnswer = blocking.length > 0 || foldIn.some(f => answers.some(o => o.foldIn === f.where))
   return anyAnswer && blockingAnswered && foldInAnswered
 }
-// Each proof paired with the blocking finding it names and what it still lacks. A finding another proof covers
-// without a gap counts as proven, so a proof with a gap beside it is only supporting evidence.
-function judgedProofs(fixed, blocking) {
-  const judged = (fixed.regression || []).flatMap(proof => blocking.map((finding, index) => ({ proof, finding, index })).filter(({ index }) => proves(proof, index)).map(({ finding, index }) => ({ proof, finding, index, gap: proofGap(proof, finding) })))
-  const provenIndexes = new Set(judged.filter(({ gap }) => !gap).map(({ index }) => index))
-  return judged.map(entry => ({ ...entry, proven: provenIndexes.has(entry.index) }))
-}
+// Why a fixer's answer does not count as a fix, or null when it does.
 function fixRejection(fixed, blocking, foldIn, ciOnly) {
-  // A proof red after the fix is evidence against the fix, even beside a valid proof.
-  const gaps = judgedProofs(fixed, blocking).filter(checked => checked.gap && (!checked.proven || !checked.proof.passesAfter))
-  if (gaps.length) return { reason: [...new Set(gaps.map(checked => checked.gap))].join('; '), regression: gaps.map(checked => checked.proof), lastBlocking: gaps.map(checked => checked.finding) }
-  const unproven = blocking.map((finding, index) => ({ finding, index })).filter(({ finding, index }) => needsProof(finding) && !(fixed.regression || []).some(r => proves(r, index)))
-  if (unproven.length) return { reason: 'a test-gap finding or a defect with a test draft got no regression test: ' + unproven.map(({ finding, index }) => (index + 1) + '. ' + finding.where).join(', '), lastBlocking: unproven.map(({ finding }) => finding) }
+  const { findingNumbers, ...rejection } = fixed.proofRejection ?? {}
+  if (findingNumbers) return { ...rejection, lastBlocking: findingNumbers.map(number => blocking[number - 1]) }
   // Satisfied fold-ins leave the lane at the held tip, or at a merge of main onto it: anything past that is unasked work.
   const foldInsOnly = everyFoldInSatisfied(fixed, blocking, foldIn)
   if (fixed.unchanged) return (foldInsOnly && fixed.containsMain) || answeredOutside(fixed, blocking, foldIn) || checkRunClean(fixed, blocking) ? null : { reason: 'the fixer changed nothing', lastBlocking: blocking }
@@ -433,22 +398,6 @@ function fixRejection(fixed, blocking, foldIn, ciOnly) {
 }
 // A fixer may report absolute paths; an absolute path once hid a production change and skipped the gate.
 const worktreeRelative = (files) => files.map(f => f.startsWith(`${A.worktree}/`) ? f.slice(A.worktree.length + 1) : f.replace(/^\.\//, ''))
-// A removal answers a test-gap only if the reviewer agrees the removed test pinned nothing; a defect proof is judged by the defect bar.
-// A proof with a gap beside a valid proof for its finding reaches the raiser as a note, so it can judge whether the proof misleads.
-const removalNote = ({ proof, finding }) => `\nThe fixer answered ${finding.where} by removing a vacuous test instead of adding one; judge whether the removed test pinned no behaviour:\n${proof.diff}`
-const supportingNote = ({ proof, finding, gap }) => `\nThe fixer also offered the test ${proof.test} for ${finding.where}, though it shows less than the bar: ${gap}; judge whether it misleads.`
-// The half of a proof the fixer did not run, for the raiser to judge from the test's text; CI on the tip runs the test.
-const notRunNote = ({ proof, finding }) => {
-  const mutation = (proof.mutation || '').trim()
-  const namedMutation = mutation ? `"${mutation}"` : 'it names'
-  const unrunHalf = kindOf(finding) === 'test-gap' ? `fails under the mutation ${namedMutation}` : 'fails on the pre-fix code'
-  return `\nThe fixer did not run the test ${proof.test} for ${finding.where} (${proof.notRun.trim()}); read its text and judge the half that was not run: it ${unrunHalf}.`
-}
-const proofNotes = (fixed, blocking) => judgedProofs(fixed, blocking).map(entry => {
-  if (isNotRun(entry.proof) && needsProof(entry.finding)) return notRunNote(entry)
-  if (entry.proof.resolution === 'removed-vacuous' && kindOf(entry.finding) === 'test-gap' && !entry.gap) return removalNote(entry)
-  return entry.gap && entry.proven ? supportingNote(entry) : ''
-}).join('')
 
 // Takes the fixer's tip and names the delta the reviewers see next, or none when a clean merge of main was the whole fix.
 function acceptFix(fixed, blocking, foldIn) {
@@ -467,10 +416,9 @@ function acceptFix(fixed, blocking, foldIn) {
   let delta = `only this delta, the fixer's own commits: git log -p --first-parent --remerge-diff ${fixed.heldTip}..${fixed.tip} (main's clean changes are not shown; a lane edit inside a merge of main is)`
   if (outsideRange) delta = `no commit changed: read live what the fixer edited outside the tree (${edited}), the pull request body with gh pr view ${pr}${R} --json body and an item comment with gh issue view ${A.item}${R} --comments`
   else if (fixed.mergeResolvedLaneConflict) delta = `only this delta: git diff ${fixed.heldTip}..${fixed.tip} (it includes a merge of main whose conflicts in this lane's files were resolved by hand)`
-  const notes = proofNotes(fixed, blocking)
-  const range = `${delta}. It answers these findings:\n${listFindings(blocking)}${notes}${foldInsInRange(foldIn)}`
+  const range = `${delta}. It answers these findings:\n${listFindings(blocking)}${fixed.proofNotes}${foldInsInRange(foldIn)}`
   log(`fix ${spent.total}: ${fixed.heldTip.slice(0, 7)}..${tip.slice(0, 7)}`)
-  return { range, proofNotes: notes, gateAgain: MATERIAL && touchesProduction, touchesProduction }
+  return { range, proofNotes: fixed.proofNotes, gateAgain: MATERIAL && touchesProduction, touchesProduction }
 }
 
 // Only a docs finding is provably behaviour-neutral; the third fix round on is rework (fixBatch counts the running round in spent.total before it asks).
@@ -494,7 +442,7 @@ async function fixRound(blocking, source, budgetKey, carried) {
   phase('Fix')
   const nonce = `fix-${spent.total}-${tipBeforeFix}`
   const answered = await relay({ label: `fix-${spent.total}`, phase: 'Fix', step: 'sync', relayArgs: [`'${nonce}'`], nonce, requiredKeys: ['head', 'parents', 'main'], answerKind: 'fix', agentOptions: { agentType: 'atelier:code-fixer', ...claudeRole(fixerRole(blocking, foldIn)) },
-    facts: `${laneFacts} ${driveFacts} ${rescopeFacts} ${localCheckFacts}`, pr, tip, source, blocking: listFindings(blocking), foldIns: listFoldIns(foldIn) })
+    facts: `${laneFacts} ${driveFacts} ${rescopeFacts} ${localCheckFacts}`, pr, tip, source, blocking: listFindings(blocking), findings: blocking.map(f => ({ ...f, kind: kindOf(f) })), foldIns: listFoldIns(foldIn) })
   if (!answered) return { stop: openResult('failed', 'fix', { reason: `the fixer returned no result; inspect ${A.worktree} for commits past ${tip} and uncommitted work, then start a new run with pr and tip (and fixFirst for what is left)`, lastBlocking: blocking }) }
   // What the fixer says it found already done is only reported to the head: an unaccepted fix folds nothing in.
   const unaccepted = (result) => ({ stop: (answered.resolved || []).length ? { ...result, resolved: answered.resolved } : result })

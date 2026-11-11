@@ -135,7 +135,8 @@ questions, doubts and friction go to its parent.
 
 - A writing step edits only inside a lane whose exact-scope claim exists, in
   that lane's isolated worktree, and never uses a value another lane holds
-  exclusively.
+  exclusively. A test file outside the claim that a fix needs is added to the
+  claim before landing.
 - An open lane merges trunk into its worktree and runs the checks; a lane that
   must land on its own never merges an unlanded sibling lane.
 - A step ends with its work committed on the lane branch and its evidence in the

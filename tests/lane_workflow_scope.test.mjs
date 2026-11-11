@@ -479,3 +479,72 @@ test('the sync prompt keeps every git -C command inside a backticked span', asyn
     assert.doesNotMatch(prose, /git -C/, prose)
   }
 })
+
+const testPrefixes = ['tests/', 'src/pkg/tests/']
+const testFiles = ['tests/test_board.py', 'src/pkg/tests/builders.py']
+const endsGreenAt = (tip) => ({ 'e2e-0': PASS, 'ci-0': greenCi(tip) })
+
+const testPathsPass = [
+  ['after the build', builtLane, { build: built, 'scope-0': outsideClaim(testFiles), 'r0-review': APPROVE, ...endsGreenAt(resumeTip) }, ['build', 'scope-0', 'r0-review']],
+  ['after a review fix', resumeArgs, { 'r0-review': reviseOnce, 'fix-1': aFixFor, 'scope-1': outsideClaim(testFiles), 'r1-review': APPROVE, ...endsGreenAt(resumeFixedTip) }, ['r0-review', 'fix-1', 'scope-1', 'r1-review']],
+  ['after a carried fix', { ...resumeArgs, fixFirst: [defectWithoutDraft] }, { 'fix-1': aFixFor, 'scope-1': outsideClaim(testFiles), 'r1-review': APPROVE, ...endsGreenAt(resumeFixedTip) }, ['fix-1', 'scope-1', 'r1-review']],
+  ['on a continued run', resumeArgs, { 'scope-resume': outsideClaim(testFiles), 'r0-review': APPROVE, ...endsGreenAt(resumeTip) }, ['scope-resume', 'r0-review']],
+]
+
+for (const [when, args, answers, expectedAgents] of testPathsPass) {
+  test(`AC-test-paths-pass: outside paths that all start with a test prefix ${when} do not stop the lane and come back with the rescope action`, async () => {
+    const { result, launchedAgents } = await runLane({ ...args, testPaths: testPrefixes }, answers)
+    assert.ok(launchedAgents.join(' ').includes(expectedAgents.join(' ')), launchedAgents.join(' '))
+    assert.equal(result.status, 'ready-to-land', result.reason)
+    assert.deepEqual(result.testPathsOutsideClaim, testFiles)
+    assert.ok(result.history.some(entry => entry.by === 'scope' && entry.passedAsTestPaths && testFiles.every(path => entry.outside.includes(path))), 'history records the paths')
+    const rescopeActions = result.requiredHeadActions.filter(action => action.includes('aco rescope'))
+    assert.equal(rescopeActions.length, 1)
+    assert.ok(rescopeActions[0].includes(`aco rescope ${args.item} --add ${testFiles.join(' ')}`), rescopeActions[0])
+  })
+}
+
+test('AC-test-paths-pass: a lane whose outside list is empty returns no test paths and no rescope action', async () => {
+  const { result } = await runLane({ ...resumeArgs, testPaths: testPrefixes }, { 'r0-review': APPROVE, ...endsGreenAt(resumeTip) })
+  assert.equal(result.status, 'ready-to-land', result.reason)
+  assert.deepEqual(result.testPathsOutsideClaim, [])
+  assert.ok(!result.requiredHeadActions.some(action => action.includes('aco rescope')))
+})
+
+const manyTestFiles = Array.from({ length: 51 }, (_, index) => `tests/test_${index}.py`)
+const testPathsStop = [
+  ['a mixed list names every outside path', testPrefixes, ['tests/test_board.py', 'board.py']],
+  ['a lane without testPaths stops as before', undefined, ['tests/test_board.py']],
+  ['an empty testPaths stops as before', [], ['tests/test_board.py']],
+  ['a prefix look-alike is not a test path', testPrefixes, ['testsuite/test_board.py']],
+  ['a list truncated by the relay cannot be judged', testPrefixes, manyTestFiles],
+]
+
+for (const [behaviour, testPaths, paths] of testPathsStop) {
+  test(`AC-test-paths-stop: ${behaviour}`, async () => {
+    const { result, launchedAgents } = await runLane({ ...resumeArgs, testPaths }, { 'scope-resume': outsideClaim(paths) })
+    assert.deepEqual([result.status, result.stage], ['awaiting-head', 'scope'])
+    assert.deepEqual(result.outside, paths.slice(0, 50))
+    for (const path of paths.slice(0, 50)) assert.ok(result.reason.includes(path), path)
+    assert.equal(launchedAgents.at(-1), 'scope-resume')
+  })
+}
+
+test('AC-test-paths-pass: paths listed by two scope checks come back once each, in the order first seen', async () => {
+  const answers = { build: built, 'scope-0': outsideClaim([testFiles[0]]), 'r0-review': reviseOnce, 'fix-1': aFixFor, 'scope-1': outsideClaim(testFiles), 'r1-review': APPROVE, ...endsGreenAt(resumeFixedTip) }
+  const { result } = await runLane({ ...builtLane, testPaths: testPrefixes }, answers)
+  assert.equal(result.status, 'ready-to-land', result.reason)
+  assert.deepEqual(result.testPathsOutsideClaim, testFiles)
+  assert.equal(result.requiredHeadActions.filter(action => action.includes('aco rescope')).length, 1)
+})
+
+const malformedTestPaths = [['a string', 'tests/'], ['an empty prefix', ['tests/', '']], ['a non-string prefix', [1]], ['an object', { 'tests/': true }]]
+
+for (const [what, testPaths] of malformedTestPaths) {
+  test(`AC-test-paths-input: testPaths as ${what} is refused at input before any agent starts`, async () => {
+    const { result, launchedAgents } = await runLane({ ...resumeArgs, testPaths })
+    assert.deepEqual([result.status, result.stage], ['failed', 'input'])
+    assert.match(result.reason, /testPaths/)
+    assert.deepEqual(launchedAgents, [])
+  })
+}

@@ -148,7 +148,7 @@ async function startChild(name, childArgs) {
   }
 }
 // A value a command prints reaches a decision only through the line the lane-relay child reads back and checks.
-const LANE_RELAY_PROTOCOL = 13
+const LANE_RELAY_PROTOCOL = 14
 const relay = (request) => startChild('lane-relay', { protocol: LANE_RELAY_PROTOCOL, delegatedLine: DELEGATED_LINE, worktree: A.worktree, agentOptions: MECHANICAL, mechanical: MECHANICAL, rescope: RESCOPE, checkReport: CHECK_REPORT, ...request })
 // The failure reasons name the printed line only when the command printed one.
 const printedLine = (relayed) => relayed.printed === undefined ? '' : `; the printed line: ${relayed.printed}`
@@ -383,8 +383,11 @@ const everyFoldInSatisfied = (fixed, blocking, foldIn) => !blocking.length && fo
 // An unchanged tip is a fix too when each blocking finding is a check finding and the fixer's own run of the check reports clean:
 // a missing or unusable report is answered by a clean report, which needs no commit.
 const checkRunClean = (fixed, blocking) => blocking.length > 0 && blocking.every(f => f.where === CHECK_FINDING_WHERE) && checkFindingsOf(fixed.check).length === 0
-// An unchanged tip is a fix too when each blocking finding is answered in the pull request body or an item comment.
-const answeredOutside = (fixed, blocking) => blocking.length > 0 && blocking.every((_, index) => (fixed.outside || []).some(o => o.finding === index + 1 && (o.where || '').trim()))
+// An unchanged tip is a fix too when every blocking finding and every fold-in is answered in the pull request body or an item comment.
+const answeredOutside = (fixed, blocking, foldIn) => {
+  const answers = (fixed.outside || []).filter(o => (o.where || '').trim())
+  return blocking.length + foldIn.length > 0 && blocking.every((_, index) => answers.some(o => o.finding === index + 1)) && foldIn.every(f => answers.some(o => o.foldIn === f.where))
+}
 // Each proof paired with the blocking finding it names and what it still lacks. A finding another proof covers
 // without a gap counts as proven, so a proof with a gap beside it is only supporting evidence.
 function judgedProofs(fixed, blocking) {
@@ -400,7 +403,7 @@ function fixRejection(fixed, blocking, foldIn, ciOnly) {
   if (unproven.length) return { reason: 'a test-gap finding or a defect with a test draft got no regression test: ' + unproven.map(({ finding, index }) => (index + 1) + '. ' + finding.where).join(', '), lastBlocking: unproven.map(({ finding }) => finding) }
   // Satisfied fold-ins leave the lane at the held tip, or at a merge of main onto it: anything past that is unasked work.
   const foldInsOnly = everyFoldInSatisfied(fixed, blocking, foldIn)
-  if (fixed.unchanged) return (foldInsOnly && fixed.containsMain) || answeredOutside(fixed, blocking) || checkRunClean(fixed, blocking) ? null : { reason: 'the fixer changed nothing', lastBlocking: blocking }
+  if (fixed.unchanged) return (foldInsOnly && fixed.containsMain) || answeredOutside(fixed, blocking, foldIn) || checkRunClean(fixed, blocking) ? null : { reason: 'the fixer changed nothing', lastBlocking: blocking }
   const mergeWasTheFinding = ciOnly || (blocking.length === 1 && blocking[0].where === 'mergeable')
   if (fixed.mergeOnly && !mergeWasTheFinding && !foldInsOnly) return { reason: 'the fixer only merged main and fixed nothing', lastBlocking: blocking }
   return null
@@ -432,12 +435,12 @@ function acceptFix(fixed, blocking, foldIn) {
   const touchesProduction = fixed.mergeResolvedLaneConflict || relative.some(f => PRODUCTION.some(prefix => f.startsWith(prefix)))
   tip = fixed.tip
   if (touchesProduction) productionSinceTest = productionSinceGate = true
-  const outsideRange = fixed.unchanged && answeredOutside(fixed, blocking)
+  const outsideRange = fixed.unchanged && answeredOutside(fixed, blocking, foldIn)
   if ((fixed.unchanged && !outsideRange) || (fixed.mergeOnly && !fixed.mergeResolvedLaneConflict)) {  // nothing of the lane changed to review: a clean merge of main answered the mergeable finding
     log(`fix ${spent.total}: no lane change to review`)
     return { range: null, proofNotes: '', gateAgain: false, touchesProduction: false }
   }
-  const edited = outsideRange ? fixed.outside.map(o => 'finding ' + o.finding + ': ' + o.where).join('; ') : ''
+  const edited = outsideRange ? fixed.outside.map(o => (o.foldIn ? 'fold-in ' + o.foldIn : 'finding ' + o.finding) + ': ' + o.where).join('; ') : ''
   let delta = `only this delta, the fixer's own commits: git log -p --first-parent --remerge-diff ${fixed.heldTip}..${fixed.tip} (main's clean changes are not shown; a lane edit inside a merge of main is)`
   if (outsideRange) delta = `no commit changed: read live what the fixer edited outside the tree (${edited}), the pull request body with gh pr view ${pr}${R} --json body and an item comment with gh issue view ${A.item}${R} --comments`
   else if (fixed.mergeResolvedLaneConflict) delta = `only this delta: git diff ${fixed.heldTip}..${fixed.tip} (it includes a merge of main whose conflicts in this lane's files were resolved by hand)`

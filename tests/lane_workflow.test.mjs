@@ -39,7 +39,6 @@ const refusedRoutings = [
   ['opus kept at the high effort a role defaults to', { build: { model: 'opus' } }],
   ['the dropped model fable', { review: { model: 'fable', effort: 'medium' } }],
   ['a Codex rework', { rework: { model: 'gpt-6-astra' } }],
-  ['a gate on the builder\'s provider', { gate: { model: 'opus' } }],
   ['a Claude review model for a Codex reviewer', { review: { model: 'sonnet' }, __reviewer: 'codex' }],
   ['a Codex builder', { build: { model: 'gpt-6-astra' } }],
   ['an inherited property name as the gate model', { gate: { model: 'constructor' } }],
@@ -55,6 +54,29 @@ for (const [what, routing] of refusedRoutings) {
     assert.deepEqual(launchedAgents, [])
   })
 }
+
+const refusedClaudeGates = [
+  ['opus at medium', { model: 'opus', effort: 'medium' }],
+  ['opus at low', { model: 'opus', effort: 'low' }],
+  ['sonnet at its default effort', { model: 'sonnet' }],
+  ['sonnet at high', { model: 'sonnet', effort: 'high' }],
+  ['haiku at high', { model: 'haiku', effort: 'high' }],
+]
+
+for (const [what, gate] of refusedClaudeGates) {
+  test(`AC-gate-standin-refusal: refuses a gate on ${what} at input, naming the one Opus stand-in`, async () => {
+    const { result, launchedAgents } = await runLane({ ...resumedLane, risk: 'material', routing: { gate } })
+    assert.deepEqual([result.status, result.stage], ['failed', 'input'])
+    assert.match(result.reason, /stand-in.*opus.*high/)
+    assert.deepEqual(launchedAgents, [])
+  })
+}
+
+test('AC-gate-standin-refusal: opus above medium stays refused for every other role', async () => {
+  const { result } = await runLane({ ...resumedLane, risk: 'material', routing: { gate: { model: 'opus', effort: 'high' }, build: { model: 'opus', effort: 'high' } } })
+  assert.deepEqual([result.status, result.stage], ['failed', 'input'])
+  assert.match(result.reason, /build.*opus.*capped at medium/)
+})
 
 const defaultRoutingByRole = [
   ['sync', 'haiku', 'low'],
@@ -101,6 +123,31 @@ test('AC-gate-separation: a Claude builder gets the Codex gpt-6-astra gate at hi
   const gatePrompt = agentCalls['r0-gate'].prompt
   assert.match(gatePrompt, /-m gpt-6-astra -c model_reasoning_effort=high/)
   assert.doesNotMatch(gatePrompt, /terra|sol/i)
+})
+
+const standInGate = { gate: { model: 'opus', effort: 'high' } }
+
+test('AC-gate-standin: an opus/high gate on a material lane runs as a fresh Claude reviewer beside the first review, with no courier', async () => {
+  const { agentCalls, launchedAgents, result } = await runLane({ ...resumeArgs, risk: 'material', routing: standInGate }, { 'r0-review': APPROVE, 'r0-gate': APPROVE, 'e2e-0': reachesTheEnd['e2e-0'], 'ci-0': reachesTheEnd['ci-0'] })
+  const call = agentCalls['r0-gate']
+  assert.deepEqual([call.options.agentType, call.options.model, call.options.effort], [agentCalls['r0-review'].options.agentType, 'opus', 'high'])
+  assert.match(call.prompt, /final gate \(architecture, data safety, public contract\)/)
+  assert.doesNotMatch(call.prompt, /codex exec|courier/)
+  assert.deepEqual(launchedAgents.filter(label => label.startsWith('r0-')), ['r0-review', 'r0-gate'])
+  assert.deepEqual(result.routing.gate, { model: 'opus', effort: 'high' })
+  assert.equal(result.status, 'ready-to-land')
+})
+
+test('AC-gate-standin: a normal lane starts no gate even when routing.gate names the stand-in', async () => {
+  const { launchedAgents, result } = await runLane({ ...resumeArgs, routing: standInGate }, { 'r0-review': APPROVE, 'e2e-0': reachesTheEnd['e2e-0'], 'ci-0': reachesTheEnd['ci-0'] })
+  assert.ok(!launchedAgents.some(label => label.includes('gate')))
+  assert.deepEqual(result.routing.gate, { model: 'opus', effort: 'high' })
+})
+
+test('AC-gate-standin: without the override the gate stays the Codex courier and the result shows it', async () => {
+  const { agentCalls, result } = await runLane({ ...resumedLane, risk: 'material' })
+  assert.deepEqual(agentCalls['r0-gate'].options.agentType, 'general-purpose')
+  assert.deepEqual(result.routing.gate, { model: 'gpt-6-astra', effort: 'high' })
 })
 
 test('AC-gate-revise-kept: the courier brief returns a REVISE from a clean Codex exit unchanged and never as failed', async () => {

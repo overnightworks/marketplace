@@ -556,7 +556,34 @@ test('reviewer-retry: a failure text longer than a sane length is shortened in t
   assert.ok(result.reason.length < 1200, result.reason.length)
 })
 
-test('reviewer-retry: a Claude answer carrying a usage limit is not started again', async () => {
-  const { launchedAgents } = await runLane(resumedLane, reviewerAnswerWith(() => limited()))
-  assert.deepEqual(reviewerRuns(launchedAgents), ['r0-review'])
+
+// ---- an Opus gate stand-in runs as a fresh Claude reviewer, retried and repeated like any Claude reviewer
+const opusGateLane = { ...resumeArgs, risk: 'material', productionPaths: ['src/'], routing: { gate: { model: 'opus', effort: 'high' } } }
+const everyGateRun = (launchedAgents) => launchedAgents.filter(label => label.includes('-gate'))
+const productionFix = { 'fix-1': { ...resumeFix, files: ['src/x.py'] } }
+const claudeGateRevise = { verdict: 'REVISE', blocking: [gateFinding], followups: [] }
+const afterProductionFix = { 'e2e-0': PASS, 'ci-0': greenCi(resumeFixedTip), ...productionFix, 'r1-gate': APPROVE }
+
+for (const [what, firstRound, gateFirst] of [
+  ['raised the findings itself', { 'r0-review': APPROVE, 'r0-gate': claudeGateRevise }, 'REVISE'],
+  ['was added after a fix the review asked for touched production', { 'r0-review': { verdict: 'REVISE', blocking: [reviewFinding], followups: [] }, 'r0-gate': APPROVE, 'r1-review': APPROVE }, 'APPROVE'],
+]) {
+  test(`gate-opus-standin: the stand-in re-checks a production fix on the same routing when it ${what}`, async () => {
+    const { result, agentCalls, launchedAgents } = await runLane(opusGateLane, { ...afterProductionFix, ...firstRound })
+    assert.equal(result.status, 'ready-to-land', result.reason)
+    assert.deepEqual(everyGateRun(launchedAgents), ['r0-gate', 'r1-gate'])
+    const { model, effort, agentType } = agentCalls['r1-gate'].options
+    assert.deepEqual({ model, effort, agentType }, { model: 'opus', effort: 'high', agentType: agentCalls['r0-review'].options.agentType })
+    assert.doesNotMatch(agentCalls['r1-gate'].prompt, /codex exec/)
+    assert.deepEqual(result.history.filter(entry => entry.by === 'gate').map(entry => entry.verdict), [gateFirst, 'APPROVE'])
+  })
+}
+
+test('gate-opus-standin: a stand-in gate that fails is started once more with the same brief and the round is judged on the retry', async () => {
+  const queue = [() => null, () => APPROVE]
+  const next = () => queue.shift()()
+  const { result, agentCalls, launchedAgents } = await runLane(opusGateLane, { 'r0-review': APPROVE, 'r0-gate': next, 'r0-gate-retry': next, 'e2e-0': PASS, 'ci-0': greenCi(resumeTip) })
+  assert.deepEqual(everyGateRun(launchedAgents), ['r0-gate', 'r0-gate-retry'])
+  assert.equal(agentCalls['r0-gate-retry'].prompt, agentCalls['r0-gate'].prompt)
+  assert.equal(result.status, 'ready-to-land', result.reason)
 })

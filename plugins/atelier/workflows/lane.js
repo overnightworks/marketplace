@@ -1,7 +1,7 @@
 export const meta = {
   name: 'lane',
-  description: 'One claimed lane to ready-to-land: build, a fresh review (Sonnet at high effort, Opus at medium on material risk, plus a Codex gpt-6-astra gate on material risk; a Claude reviewer that fails is started once more), fresh fixers with evidence-bearing findings and a delta re-check by whoever raised them (a builder or fixer tip whose reported local quality check holds findings, or none, goes to a fixer first), then the explorative end-to-end test and CI side by side, a red CI fixed at once while the tester runs on.',
-  whenToUse: 'In any repository that coordinates with aco, after the head ran `aco start <item>` (worktree, branch and claim exist). Landing stays with the head; the result lists requiredHeadActions. Required args: item (the GitHub issue number of the work item; the lane carries only issue items, an issue-less claim runs by hand), worktree (the lane\'s isolated worktree path), branch (the lane branch), contract (the item\'s ruled sentences every reviewer and the tester judge against), e2e (what the explorative tester drives through the real entry point), scratch (a directory for briefs, Codex output and test evidence). Start with build (a builder brief) for a new lane, or with pr and tip (an open pull request and its head sha) to continue one. The builder and every fixer report their local quality check (the command, its exit status and its findings, or that the repository has no quality gate); a tip whose report holds findings or is missing goes to a fixer at once, before any review or CI, and that round is charged as a ci round. A run continued with pr and tip has no builder, so its first tip is handed on as before, unchecked. Before anything starts the lane asks each of its children for its protocol and ends at stage input, naming the child, both numbers and `/reload-plugins`, when one differs; a Claude reviewer that fails is started once more and only a second failure ends the round, with both texts in the reason; a fixer that answers its whole batch in the pull request body or an item comment and commits nothing is no failure. Optional args and their defaults: risk "normal" (or "material": adds a Codex gpt-6-astra final gate); reviewer "claude" (a fresh Sonnet reviewer at high effort, Opus at medium on material risk; "codex" routes the review to Codex gpt-6-astra at medium effort, high on material risk); routing none (per-role overrides {role: {model, effort}} of the table at the top of the script, for build, fix, rework, test, review, gate and mechanical. Defaults on a normal lane: mechanical haiku/low, build and fix haiku/high, test sonnet/medium, review sonnet/high; on a material lane: build and fix sonnet/high, test sonnet/high, review opus/medium, gate gpt-6-astra/high. The fixer runs as rework (sonnet/high) from the third fix round of a run on, counted over review, test and ci rounds together, and a continued run counts its rounds anew, so pass routing.fix for a lane already past its second round; a fix batch whose blocking findings are all docs and that carries no fold-ins runs as mechanical in every round. Effort is capped per model, opus at medium and every other model at high, and an override above its cap is refused; the gate always on another provider than the builder); repo none (every gh call then targets the worktree\'s own repository; pass owner/name when the head runs elsewhere); productionPaths ["src/", "pyproject.toml", "uv.lock"], a default that fits a src-layout Python repository (path prefixes whose change re-opens the gate on a material lane and re-runs the end-to-end test; passing it also lets a fresh reviewer stand in for a gate at its usage limit on a delta that touched none of them); ledgers [], a default that fits a repository without append-only ledgers (files whose merge conflicts keep both sides, main\'s lines first); generated {}, a map from a generated file\'s path to the command that regenerates it (a merge conflict confined to such files and ledgers is resolved by running the command on the merged tree, not escalated); budgets {review: 5, test: 2, ci: 3, total: 8} (fix rounds per phase and in total; partial objects override single keys); deltaFrom none (a sha: review only the commits since it, after the head settled an awaiting-head result; without it, a new run with pr and tip and fixFirst or foldIn reviews the whole lane, with the gate on a material lane); answers none (what those commits answer); fixFirst none (Finding[]: blocking findings a fresh fixer answers before anything else); foldIn none (Followup[]: follow-ups for that fixer, each handed over whatever its owner or wording; given alone it still starts the fixer).',
+  description: 'One claimed lane to ready-to-land: build, a fresh review (Sonnet at high effort, Opus at medium on material risk, plus a Codex gpt-6-astra gate on material risk, or an Opus gate at high effort through routing.gate; a Claude reviewer that fails is started once more), fresh fixers with evidence-bearing findings and a delta re-check by whoever raised them (a builder or fixer tip whose reported local quality check holds findings, or none, goes to a fixer first), then the explorative end-to-end test and CI side by side, a red CI fixed at once while the tester runs on.',
+  whenToUse: 'In any repository that coordinates with aco, after the head ran `aco start <item>` (worktree, branch and claim exist). Landing stays with the head; the result lists requiredHeadActions. Required args: item (the GitHub issue number of the work item; the lane carries only issue items, an issue-less claim runs by hand), worktree (the lane\'s isolated worktree path), branch (the lane branch), contract (the item\'s ruled sentences every reviewer and the tester judge against), e2e (what the explorative tester drives through the real entry point), scratch (a directory for briefs, Codex output and test evidence). Start with build (a builder brief) for a new lane, or with pr and tip (an open pull request and its head sha) to continue one. The builder and every fixer report their local quality check (the command, its exit status and its findings, or that the repository has no quality gate); a tip whose report holds findings or is missing goes to a fixer at once, before any review or CI, and that round is charged as a ci round. A run continued with pr and tip has no builder, so its first tip is handed on as before, unchecked. Before anything starts the lane asks each of its children for its protocol and ends at stage input, naming the child, both numbers and `/reload-plugins`, when one differs; a Claude reviewer that fails is started once more and only a second failure ends the round, with both texts in the reason; a fixer that answers its whole batch in the pull request body or an item comment and commits nothing is no failure. Optional args and their defaults: risk "normal" (or "material": adds a Codex gpt-6-astra final gate); reviewer "claude" (a fresh Sonnet reviewer at high effort, Opus at medium on material risk; "codex" routes the review to Codex gpt-6-astra at medium effort, high on material risk); routing none (per-role overrides {role: {model, effort}} of the table at the top of the script, for build, fix, rework, test, review, gate and mechanical. Defaults on a normal lane: mechanical haiku/low, build and fix haiku/high, test sonnet/medium, review sonnet/high; on a material lane: build and fix sonnet/high, test sonnet/high, review opus/medium, gate gpt-6-astra/high. The fixer runs as rework (sonnet/high) from the third fix round of a run on, counted over review, test and ci rounds together, and a continued run counts its rounds anew, so pass routing.fix for a lane already past its second round; a fix batch whose blocking findings are all docs and that carries no fold-ins runs as mechanical in every round. Effort is capped per model, opus at medium (except that stand-in gate) and every other model at high, and an override above its cap is refused; the gate on another provider than the builder, except the one Claude gate opus/high, which routing.gate may name while Codex is at its usage limit and which runs as a fresh Claude reviewer; any other Claude gate is refused at input); repo none (every gh call then targets the worktree\'s own repository; pass owner/name when the head runs elsewhere); productionPaths ["src/", "pyproject.toml", "uv.lock"], a default that fits a src-layout Python repository (path prefixes whose change re-opens the gate on a material lane and re-runs the end-to-end test; passing it also lets a fresh reviewer stand in for a gate at its usage limit on a delta that touched none of them); ledgers [], a default that fits a repository without append-only ledgers (files whose merge conflicts keep both sides, main\'s lines first); generated {}, a map from a generated file\'s path to the command that regenerates it (a merge conflict confined to such files and ledgers is resolved by running the command on the merged tree, not escalated); budgets {review: 5, test: 2, ci: 3, total: 8} (fix rounds per phase and in total; partial objects override single keys); deltaFrom none (a sha: review only the commits since it, after the head settled an awaiting-head result; without it, a new run with pr and tip and fixFirst or foldIn reviews the whole lane, with the gate on a material lane); answers none (what those commits answer); fixFirst none (Finding[]: blocking findings a fresh fixer answers before anything else); foldIn none (Followup[]: follow-ups for that fixer, each handed over whatever its owner or wording; given alone it still starts the fixer).',
   phases: [
     { title: 'Build' },
     { title: 'Sync' },
@@ -44,6 +44,8 @@ const GENERATED = Object.entries(A.generated || {})
 const MODEL_PROVIDER = { haiku: 'claude', sonnet: 'claude', opus: 'claude', 'gpt-6-astra': 'codex' }
 const EFFORTS = ['low', 'medium', 'high']
 const EFFORT_CAP = { opus: 'medium' }
+// The one Claude gate: opus at high stands in while Codex is at its usage limit (instructions/AGENTS.md, Reviews); it is the one effort above medium opus may have.
+const isGateStandIn = (role, model, effort) => role === 'gate' && model === 'opus' && effort === 'high'
 const REVIEWER_PROVIDER = A.reviewer || 'claude'
 const HARD_ROW = { model: 'sonnet', effort: 'high' }
 const WRITER = MATERIAL ? HARD_ROW : { model: 'haiku', effort: 'high' }
@@ -59,9 +61,10 @@ const DEFAULT_ROUTING = {
   review: defaultReviewRouting(),
   gate: { model: 'gpt-6-astra', effort: 'high' },
 }
-// The provider each role must run on: reviews on the reviewer provider, the gate on any provider but the builder's, every other role on Claude.
-function providerAllowed(role, provider) {
-  if (role === 'gate') return provider !== 'claude'
+// The provider each role must run on: reviews on the reviewer provider, the gate on any provider but the builder's or the Opus stand-in, every other role on Claude.
+function providerAllowed(role, model, effort) {
+  const provider = MODEL_PROVIDER[model]
+  if (role === 'gate') return provider !== 'claude' || isGateStandIn(role, model, effort)
   return provider === (role === 'review' ? REVIEWER_PROVIDER : 'claude')
 }
 
@@ -74,12 +77,12 @@ function roleChoiceRefusal(role, choice) {
   if (choice.effort !== undefined && !EFFORTS.includes(choice.effort)) return `routing for ${role} sets effort "${choice.effort}"; the efforts are ${EFFORTS.join(', ')}`
   const model = choice.model || DEFAULT_ROUTING[role].model
   const effort = choice.effort || DEFAULT_ROUTING[role].effort
-  if (EFFORTS.indexOf(effort) > EFFORTS.indexOf(EFFORT_CAP[model] || 'high')) return `routing for ${role} sets ${model} to effort "${effort}"; ${model} is capped at ${EFFORT_CAP[model] || 'high'}`
-  if (providerAllowed(role, MODEL_PROVIDER[model])) return null
-  return `routing for ${role} puts it on ${MODEL_PROVIDER[model]}, which breaks ${role === 'gate' ? 'gate provider separation from the builder' : 'the role\'s provider'}`
+  if (EFFORTS.indexOf(effort) > EFFORTS.indexOf(EFFORT_CAP[model] || 'high') && !isGateStandIn(role, model, effort)) return `routing for ${role} sets ${model} to effort "${effort}"; ${model} is capped at ${EFFORT_CAP[model] || 'high'}`
+  if (providerAllowed(role, model, effort)) return null
+  return `routing for ${role} puts it on ${MODEL_PROVIDER[model]}, which breaks ${role === 'gate' ? 'gate provider separation from the builder; the one Claude gate is the stand-in opus at high effort' : 'the role\'s provider'}`
 }
 
-// Why a routing override is refused, or null. An override never bypasses reviewer independence, gate provider separation or the per-model effort caps.
+// Why a routing override is refused, or null. An override never bypasses reviewer independence, gate provider separation beyond the Opus stand-in, or the per-model effort caps.
 function routingRefusal(overrides) {
   if (typeof overrides !== 'object' || overrides === null || Array.isArray(overrides)) return 'routing must be an object of roles'
   for (const [role, choice] of Object.entries(overrides)) {
@@ -94,7 +97,6 @@ if (A.routing !== undefined) {
 }
 const ROUTING = Object.fromEntries(Object.entries(DEFAULT_ROUTING).map(([role, chosen]) => [role, { ...chosen, ...A.routing?.[role] }]))
 const MECHANICAL = { agentType: 'general-purpose', ...ROUTING.mechanical }
-const WATCHER = MECHANICAL
 const claudeRole = (role) => ({ model: ROUTING[role].model, effort: ROUTING[role].effort })
 
 // Every prompt opens with the delegated line, as do the children's.
@@ -220,8 +222,8 @@ const listFindings = (list) => list.map((f, i) =>
 
 // ------------------------------------------------------------ reviewers
 // The ordinary review may come from the builder's own provider (the contract asks only for a fresh, independent agent); a fresh Claude reviewer is the
-// default, Sonnet at high effort and Opus at medium on material risk. The final gate on a material lane must come from another provider than the
-// Claude builder, so it runs on Codex through a courier. The lane-review child runs one round and classifies it.
+// default, Sonnet at high effort and Opus at medium on material risk. The final gate on a material lane runs on Codex through a courier, because the
+// Claude builder needs another provider; routing.gate may name the Opus stand-in, which runs as a fresh Claude reviewer. The lane-review child runs one round and classifies it.
 const LANE_REVIEW_PROTOCOL = 4
 const ROUND_STATES = new Set(['approve', 'revise', 'failed', 'architectural', 'limited'])
 
@@ -260,7 +262,7 @@ const openResult = (status, stage, extra) =>
 // resolved a child from another release (plugin snapshot or script read fresh, either one the older) ends the lane before any agent runs.
 const LANE_BUILD_PROTOCOL = 3
 const LANE_TEST_PROTOCOL = 3
-const LANE_CI_PROTOCOL = 5
+const LANE_CI_PROTOCOL = 6
 const CHILD_PROTOCOLS = { 'lane-build': LANE_BUILD_PROTOCOL, 'lane-relay': LANE_RELAY_PROTOCOL, 'lane-review': LANE_REVIEW_PROTOCOL, 'lane-test': LANE_TEST_PROTOCOL, 'lane-ci': LANE_CI_PROTOCOL }
 // A child that predates the query refuses the call and names its protocol in the refusal.
 const protocolMismatch = async ([name, expected]) => {
@@ -309,7 +311,7 @@ function unfitRoundAnswer(answer, expectedResults) {
 }
 // from is the tip where the round's delta starts (none for a whole-lane round); a limited round hands it back for the resume.
 async function reviewRound(which, range, from) {
-  const reviewers = which.map(r => ({ key: r.key, provider: r.provider, role: r.role, isGate: r === GATE, routing: r.provider === 'codex' ? ROUTING[r.key] : claudeRole('review') }))
+  const reviewers = which.map(r => ({ key: r.key, provider: r.provider, role: r.role, isGate: r === GATE, routing: claudeRole(r === GATE ? 'gate' : 'review') }))
   const answer = await startChild('lane-review', { protocol: LANE_REVIEW_PROTOCOL, item: A.item, pr, repo: A.repo, after: spent.total, tip, delegatedLine: DELEGATED_LINE, worktree: A.worktree, branch: A.branch, scratch: A.scratch, tag: TAG, label: `r${spent.total}`, range, contract: A.contract, blockingLine: BLOCKING_LINE, reviewers, findingKinds: FINDING_KINDS, finding: FINDING, followup: FOLLOWUP, mechanical: MECHANICAL })
   const unfit = unfitRoundAnswer(answer, which.length)
   if (unfit) return { which, results: [], verdict: { state: 'failed', reason: unfit } }
@@ -689,7 +691,7 @@ function explore(n) {
 }
 
 async function watchCi(n) {
-  const watched = await startChild('lane-ci', { protocol: LANE_CI_PROTOCOL, delegatedLine: DELEGATED_LINE, pr, n, repo: A.repo, worktree: A.worktree, finding: FINDING, watcher: WATCHER })
+  const watched = await startChild('lane-ci', { protocol: LANE_CI_PROTOCOL, delegatedLine: DELEGATED_LINE, pr, n, repo: A.repo, worktree: A.worktree, finding: FINDING, mechanical: MECHANICAL })
   if (!watched || watched.problem) return watched
   const nonce = `ci-${n}-${tip}`
   const read = await relay({ label: `ci-read-${n}`, phase: 'Test and CI', step: 'ci', relayArgs: [pr, `'${A.repo || ''}'`, `'${nonce}'`], nonce, requiredKeys: ['view'], brief: `${laneFacts}\nChange nothing in the files;` })

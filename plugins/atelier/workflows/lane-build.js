@@ -4,8 +4,9 @@ export const meta = {
 }
 
 // Both copies of this number (here and in lane.js) change together in any commit that changes the args or the return shape.
-const LANE_BUILD_PROTOCOL = 2
+const LANE_BUILD_PROTOCOL = 3
 const A = args || {}
+if (A.protocolQuery) return { protocol: LANE_BUILD_PROTOCOL }
 const need = ['protocol', 'delegatedLine', 'laneFacts', 'driveFacts', 'rescopeFacts', 'localCheckFacts', 'build', 'rescope', 'checkReport', 'routing']
 if (A.protocol !== LANE_BUILD_PROTOCOL) return { refused: `lane-build speaks protocol ${JSON.stringify(LANE_BUILD_PROTOCOL)}, but the lane that started it speaks protocol ${JSON.stringify(A.protocol)}; the installed atelier differs from the running lane` }
 const missing = need.filter(key => A[key] === undefined || A[key] === null || A[key] === '')

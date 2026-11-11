@@ -1,7 +1,10 @@
 // Drives the atelier lane workflow script through its inputs with a stub agent runner, so no subagent ever starts.
+import fs from 'node:fs'
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { runLane, resumedLane, APPROVE, greenCi, finding, webauthTips, webauthReplay, agentProvidersReplay, answersWith, resumeTip, tidy, defectWithoutDraft, resumeFix, resumeArgs, unchangedFix, satisfied, reachesTheEnd, secondFix, mergedOnlyTip, conflictsWithMain, mergeOnlyFix } from './lane_workflow_harness.mjs'
+
+const readWorkflow = (file) => fs.readFileSync(new URL(`../plugins/atelier/workflows/${file}`, import.meta.url), 'utf8')
 
 const misspelledChoices = [
   ['risk', 'Material'], ['risk', 'MATERIAL'], ['risk', 'high'],
@@ -147,9 +150,9 @@ const firstReviewRoundByRisk = [
 
 for (const [risk, reviewers] of firstReviewRoundByRisk) {
   test(`risk ${JSON.stringify(risk)} passes input and starts the reviews ${reviewers.join(' and ')}`, async () => {
-    const { result, launchedAgents } = await runLane({ ...resumedLane, risk })
+    const { result, launchedAgents } = await runLane({ ...resumedLane, risk }, { 'r0-review': APPROVE, 'r0-gate': { ...APPROVE, codexExit: 0 } })
     assert.notEqual(result.stage, 'input')
-    assert.deepEqual(launchedAgents, ['sync', 'scope-resume', ...reviewers])
+    assert.deepEqual(launchedAgents.slice(0, 2 + reviewers.length), ['sync', 'scope-resume', ...reviewers])
   })
 }
 
@@ -313,4 +316,39 @@ test('every e2e tester, the fallback and a later run create a directory of their
     const namedDirectories = prompt.match(new RegExp(`${scratch}/[^\\s\`'"]*`, 'g')).filter(path => !path.includes('XXXXXX'))
     assert.deepEqual(namedDirectories, [], label)
   }
+})
+
+// ---- the lane learns every child's protocol before any agent starts
+const protocolConstant = (child) => `LANE_${child.replace('lane-', '').toUpperCase()}_PROTOCOL`
+const protocolOfLane = (child) => Number(readWorkflow('lane.js').match(new RegExp(`^const ${protocolConstant(child)} = (\\d+)$`, 'm'))[1])
+const queryAnswer = /^if \(A\.protocolQuery\) return .*\n/m
+const installedChildren = {
+  'newer': (child) => (source) => source.replace(new RegExp(`^const ${protocolConstant(child)} = (\\d+)$`, 'm'), (_, number) => `const ${protocolConstant(child)} = ${Number(number) + 1}`),
+  'older': (child) => (source) => source.replace(queryAnswer, '').replace(new RegExp(`^const ${protocolConstant(child)} = (\\d+)$`, 'm'), (_, number) => `const ${protocolConstant(child)} = ${Number(number) - 1}`),
+}
+
+for (const child of ['lane-build', 'lane-relay', 'lane-review', 'lane-test', 'lane-ci']) {
+  for (const [direction, skewed] of Object.entries(installedChildren)) {
+    test(`protocol-preflight: a ${direction} installed ${child} ends the lane at input naming both numbers and /reload-plugins, and no agent starts`, async () => {
+      const { result, launchedAgents } = await runLane(resumedLane, {}, { child: `atelier:${child}`, transformQueriedChild: skewed(child) })
+      const installed = protocolOfLane(child) + (direction === 'newer' ? 1 : -1)
+      assert.deepEqual([result.status, result.stage], ['failed', 'input'])
+      assert.match(result.reason, new RegExp(`${child} speaks protocol ${installed}, this lane speaks protocol ${protocolOfLane(child)}`))
+      assert.match(result.reason, /\/reload-plugins/)
+      assert.deepEqual(launchedAgents, [])
+    })
+  }
+}
+
+test('protocol-preflight: a lane with a build brief ends at input before the builder starts', async () => {
+  const buildLane = { item: 358, worktree: '/w', branch: 'b', contract: 'c', e2e: 'e', scratch: '/s', build: 'recorded' }
+  const { result, launchedAgents } = await runLane(buildLane, { build: { pr: 2, tip: resumeTip, blocked: false } }, { child: 'atelier:lane-review', transformQueriedChild: installedChildren.older('lane-review') })
+  assert.deepEqual([result.status, result.stage], ['failed', 'input'])
+  assert.deepEqual(launchedAgents, [])
+})
+
+test('protocol-preflight: only the mismatching child is named in the reason', async () => {
+  const { result } = await runLane(resumedLane, {}, { child: 'atelier:lane-ci', transformQueriedChild: installedChildren.newer('lane-ci') })
+  assert.match(result.reason, /lane-ci speaks protocol/)
+  assert.doesNotMatch(result.reason, /lane-review/)
 })

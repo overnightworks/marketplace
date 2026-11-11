@@ -565,6 +565,36 @@ test('AC-nothing-changed-stops: an unchanged tip whose outside answers leave a b
   assert.match(result.reason, /the fixer changed nothing/)
 })
 
+test('outside-fold-in: a fold-in answered in the pull request body at an unchanged tip goes on to the re-check, which reads it live, and counts as folded', async () => {
+  const outside = [{ foldIn: tidy.where, where: 'PR body, section Verification' }]
+  const { result, agentCalls } = await runLane({ ...resumeArgs, foldIn: [tidy] }, { 'fix-1': { ...unchangedFix, outside }, ...reachesTheEnd })
+  assert.equal(result.status, 'ready-to-land')
+  assert.equal(result.tip, resumeTip)
+  assert.match(agentCalls['r1-review'].prompt, /read live what the fixer edited outside the tree \(fold-in x\.py:1: PR body, section Verification\)/)
+  assert.deepEqual(result.folded.map(f => f.where), [tidy.where])
+})
+
+test('outside-fold-in: a blocking finding answered outside beside a fold-in found already done goes on to the re-check at an unchanged tip', async () => {
+  const outside = [{ finding: 1, where: 'PR body, section Verification' }]
+  const { result } = await runLane({ ...resumeArgs, foldIn: [tidy], fixFirst: [docsFinding] }, { 'fix-1': { ...unchangedFix, outside, resolved: [satisfied(tidy)] }, ...reachesTheEnd })
+  assert.equal(result.status, 'ready-to-land')
+  assert.equal(result.tip, resumeTip)
+})
+
+const unansweredBatches = [
+  ['a fold-in with no answer', { foldIn: [tidy] }, []],
+  ['a fold-in whose answer names no place', { foldIn: [tidy] }, [{ foldIn: tidy.where, where: ' ' }]],
+  ['a fold-in answered outside beside a blocking finding left unanswered', { foldIn: [tidy], fixFirst: [defectWithoutDraft] }, [{ foldIn: tidy.where, where: 'PR body' }]],
+  ['a blocking finding answered outside beside a fold-in left unanswered', { foldIn: [tidy], fixFirst: [docsFinding] }, [{ finding: 1, where: 'PR body' }]],
+]
+
+for (const [what, batch, outside] of unansweredBatches) {
+  test(`outside-fold-in: an unchanged tip with ${what} still stops with the fixer changed nothing`, async () => {
+    const { result } = await runLane({ ...resumeArgs, ...batch }, { 'fix-1': { ...unchangedFix, outside } })
+    assert.deepEqual([result.status, result.stage, result.reason], ['failed', 'fix', 'the fixer changed nothing'])
+  })
+}
+
 const fixerReports = [
   ['a clean report', cleanCheck, []],
   ['the statement that the repository has no quality gate', { noQualityGate: 'the repository has no quality/config.toml' }, []],

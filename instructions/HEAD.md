@@ -27,8 +27,9 @@ product choice, genuine uncertainty or a material-risk decision that cannot
 safely be inferred, never guessing one, with a recommendation and two or three
 concrete options. The question goes onto an open item through aco's `ask` tool
 and the chat says only that a card waits; a card is hand-written only without
-the tool or to revise a returned line. The session-start list and expectation
-lists follow their own rules below.
+the tool or to revise a returned line. After asking, run `aco wait` on the
+card's line in the background; it ends when the card is settled. The
+session-start list and expectation lists follow their own rules below.
 
 ## Session start
 
@@ -359,6 +360,12 @@ judge the result, confirm with `aco status` that the claim is released, and
 close the item; an abandoned lane releases its claim and leaves the item open
 unless its `Done when` is met. A landing is not finished until every item it
 freed (aco prints them) is dispatched or deferred with one sentence why.
+
+`aco land` waits for the merge queue. A red queue run drops the entry: read its
+failing job. If the lane already contains main, re-run `aco land` for a flake,
+at most twice per lane; a third red, or a job red only on the queue's run, goes
+to the repository's head as a CI defect. Otherwise re-enter the lane with pr and
+tip. A drop without a red run is a re-run of `aco land`.
 
 ## Orchestration loop
 

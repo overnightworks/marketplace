@@ -5,7 +5,7 @@ export const meta = {
 }
 
 // Both copies of this number (here and in lane.js) change together in any commit that changes the args or the return shape.
-const LANE_RELAY_PROTOCOL = 15
+const LANE_RELAY_PROTOCOL = 16
 const A = args || {}
 if (A.protocolQuery) return { protocol: LANE_RELAY_PROTOCOL }
 const need = ['protocol', 'delegatedLine', 'worktree', 'label', 'phase', 'step', 'relayArgs', 'nonce', 'requiredKeys', 'agentOptions', 'mechanical', 'rescope', 'checkReport']

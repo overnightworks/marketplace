@@ -1,8 +1,0 @@
-claim_id = "419756fcdec34e0785ce9d23df9070bb"
-agent = "Claude a5abe9e4-862b-4cac-94ed-68bd072edf38"
-role = "builder"
-base = "a2700ee7bb479c6edd1db887f66327112421deb0"
-branch = "claude/issue-616-lane-ends"
-scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/workflows", "tests"]
-opened_commit = "de2e609e3119a7163ca19981f4b6207e744f9ef5"
-whole_reason = "Lane-end handling in the lane script and its children, with tests and the release pins."

@@ -1,0 +1,8 @@
+claim_id = "feda1ecf331c4cf2a9cd0fee7af010f8"
+agent = "Claude a5abe9e4-862b-4cac-94ed-68bd072edf38"
+role = "builder"
+base = "ef8e6427b568f64ebcf945d87b28dbbb030c1a8e"
+branch = "claude/issue-611-test-paths-scope-stop"
+scope = [".claude-plugin/marketplace.json", "instructions/AGENTS.md", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/workflows", "tests"]
+opened_commit = "fee65f6c6d689ba0fde6ca4f778119cb3cece088"
+whole_reason = "One ruling changes the lane's scope stop, the contract sentence it rests on, tests and the release pins."

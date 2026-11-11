@@ -195,7 +195,7 @@ const listFindings = (list) => list.map((f, i) =>
 // The ordinary review may come from the builder's own provider (the contract asks only for a fresh, independent agent); a fresh Claude reviewer is the
 // default, Sonnet at high effort and Opus at medium on material risk. The final gate on a material lane must come from another provider than the
 // Claude builder, so it runs on Codex through a courier. The lane-review child runs one round and classifies it.
-const LANE_REVIEW_PROTOCOL = 2
+const LANE_REVIEW_PROTOCOL = 3
 const ROUND_STATES = new Set(['approve', 'revise', 'failed', 'architectural', 'limited'])
 
 // ------------------------------------------------------------ state
@@ -273,20 +273,15 @@ function unfitRoundAnswer(answer, expectedResults) {
 }
 // from is the tip where the round's delta starts (none for a whole-lane round); a limited round hands it back for the resume.
 async function reviewRound(which, range, from) {
-  const reviewers = which.map(r => ({ key: r.key, provider: r.provider, role: r.role, routing: r.provider === 'codex' ? ROUTING[r.key] : claudeRole('review') }))
-  const answer = await startChild('lane-review', { protocol: LANE_REVIEW_PROTOCOL, item: A.item, pr, repo: A.repo, delegatedLine: DELEGATED_LINE, worktree: A.worktree, branch: A.branch, scratch: A.scratch, tag: TAG, label: `r${spent.total}`, range, contract: A.contract, blockingLine: BLOCKING_LINE, reviewers, findingKinds: FINDING_KINDS, finding: FINDING, followup: FOLLOWUP, mechanical: MECHANICAL })
+  const reviewers = which.map(r => ({ key: r.key, provider: r.provider, role: r.role, isGate: r === GATE, routing: r.provider === 'codex' ? ROUTING[r.key] : claudeRole('review') }))
+  const answer = await startChild('lane-review', { protocol: LANE_REVIEW_PROTOCOL, item: A.item, pr, repo: A.repo, after: spent.total, tip, delegatedLine: DELEGATED_LINE, worktree: A.worktree, branch: A.branch, scratch: A.scratch, tag: TAG, label: `r${spent.total}`, range, contract: A.contract, blockingLine: BLOCKING_LINE, reviewers, findingKinds: FINDING_KINDS, finding: FINDING, followup: FOLLOWUP, mechanical: MECHANICAL })
   const unfit = unfitRoundAnswer(answer, which.length)
   if (unfit) return { which, results: [], verdict: { state: 'failed', reason: unfit } }
   const { results, verdict } = answer
-  results.forEach((v, i) => {
-    if (!v) return
-    history.push({ after: spent.total, by: which[i].key, verdict: v.verdict, blocking: (v.blocking || []).map(f => f.where), reportPath: v.reportPath || '' })
-    if (which[i] === GATE && !v.limit) {
-      gateRounds.push({ after: spent.total, verdict: v.verdict, blocking: v.blocking || [], reportPath: v.reportPath || '', tip })
-      productionSinceGate = false
-    }
-    followups.push(...(v.followups || []).map(f => ({ ...f, tip })))
-  })
+  history.push(...answer.history)
+  followups.push(...answer.followups)
+  if (answer.gateRounds.length) productionSinceGate = false
+  gateRounds.push(...answer.gateRounds)
   return { which, results, verdict, range, from }
 }
 

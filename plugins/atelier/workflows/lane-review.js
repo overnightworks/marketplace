@@ -4,9 +4,9 @@ export const meta = {
 }
 
 // Both copies of this number (here and in lane.js) change together in any commit that changes the args or the return shape.
-const LANE_REVIEW_PROTOCOL = 2
+const LANE_REVIEW_PROTOCOL = 3
 const A = args || {}
-const need = ['protocol', 'item', 'pr', 'delegatedLine', 'worktree', 'branch', 'scratch', 'tag', 'label', 'range', 'contract', 'blockingLine', 'reviewers', 'findingKinds', 'finding', 'followup', 'mechanical']
+const need = ['protocol', 'item', 'pr', 'after', 'tip', 'delegatedLine', 'worktree', 'branch', 'scratch', 'tag', 'label', 'range', 'contract', 'blockingLine', 'reviewers', 'findingKinds', 'finding', 'followup', 'mechanical']
 if (A.protocol !== LANE_REVIEW_PROTOCOL) return { refused: `lane-review speaks protocol ${JSON.stringify(LANE_REVIEW_PROTOCOL)}, but the lane that started it speaks protocol ${JSON.stringify(A.protocol)}; the installed atelier differs from the running lane` }
 const missing = need.filter(key => A[key] === undefined || A[key] === null || A[key] === '')
 if (missing.length) return { refused: `missing args: ${missing.join(', ')}` }
@@ -212,5 +212,23 @@ function classify(results, expected) {
   return { state: got.some(v => (v.blocking || []).length > 0) ? 'revise' : 'approve' }
 }
 
+// What the lane records of one result that came back: its history entry, the final gate's round when the gate ran to the end, and the follow-ups it raised at the reviewed tip.
+function recordOf(reviewer, result) {
+  const blocking = result.blocking || []
+  const reportPath = result.reportPath || ''
+  return {
+    history: { after: A.after, by: reviewer.key, verdict: result.verdict, blocking: blocking.map(f => f.where), reportPath },
+    gateRounds: reviewer.isGate && !result.limit ? [{ after: A.after, verdict: result.verdict, blocking, reportPath, tip: A.tip }] : [],
+    followups: (result.followups || []).map(f => ({ ...f, tip: A.tip })),
+  }
+}
+
 const results = await parallel(A.reviewers.map(reviewer => () => reviewBy(reviewer, A.range)))
-return { results, verdict: classify(results, A.reviewers.length) }
+const records = A.reviewers.flatMap((reviewer, i) => results[i] ? [recordOf(reviewer, results[i])] : [])
+return {
+  results,
+  verdict: classify(results, A.reviewers.length),
+  history: records.map(record => record.history),
+  gateRounds: records.flatMap(record => record.gateRounds),
+  followups: records.flatMap(record => record.followups),
+}

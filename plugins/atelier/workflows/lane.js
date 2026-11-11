@@ -1,7 +1,7 @@
 export const meta = {
   name: 'lane',
-  description: 'One claimed lane to ready-to-land: build, a fresh review (Sonnet at high effort, Opus at medium on material risk, plus a Codex gpt-6-astra gate on material risk, or an Opus gate at high effort through routing.gate; a Claude reviewer that fails is started once more), fresh fixers with evidence-bearing findings and a delta re-check by whoever raised them (a builder or fixer tip whose reported local quality check holds findings, or none, goes to a fixer first), then the explorative end-to-end test and CI side by side, a red CI fixed at once while the tester runs on.',
-  whenToUse: 'In any repository that coordinates with aco, after the head ran `aco start <item>` (worktree, branch and claim exist). Landing stays with the head; the result lists requiredHeadActions. Required args: item (the GitHub issue number of the work item; the lane carries only issue items, an issue-less claim runs by hand), worktree (the lane\'s isolated worktree path), branch (the lane branch), contract (the item\'s ruled sentences every reviewer and the tester judge against), e2e (what the explorative tester drives through the real entry point), scratch (a directory for briefs, Codex output and test evidence). Start with build (a builder brief) for a new lane, or with pr and tip (an open pull request and its head sha) to continue one. The builder and every fixer report their local quality check (the command, its exit status and its findings, or that the repository has no quality gate); a tip whose report holds findings or is missing goes to a fixer at once, before any review or CI, and that round is charged as a ci round. A run continued with pr and tip has no builder, so its first tip is handed on as before, unchecked. Before anything starts the lane asks each of its children for its protocol and ends at stage input, naming the child, both numbers and `/reload-plugins`, when one differs; a Claude reviewer that fails is started once more and only a second failure ends the round, with both texts in the reason; a fixer that answers its whole batch in the pull request body or an item comment and commits nothing is no failure. Optional args and their defaults: risk "normal" (or "material": adds a Codex gpt-6-astra final gate); reviewer "claude" (a fresh Sonnet reviewer at high effort, Opus at medium on material risk; "codex" routes the review to Codex gpt-6-astra at medium effort, high on material risk); routing none (per-role overrides {role: {model, effort}} of the table at the top of the script, for build, fix, rework, test, review, gate and mechanical. Defaults on a normal lane: mechanical haiku/low, build and fix haiku/high, test sonnet/medium, review sonnet/high; on a material lane: build and fix sonnet/high, test sonnet/high, review opus/medium, gate gpt-6-astra/high. The fixer runs as rework (sonnet/high) from the third fix round of a run on, counted over review, test and ci rounds together, and a continued run counts its rounds anew, so pass routing.fix for a lane already past its second round; a fix batch whose blocking findings are all docs and that carries no fold-ins runs as mechanical in every round. Effort is capped per model, opus at medium (except that stand-in gate) and every other model at high, and an override above its cap is refused; the gate on another provider than the builder, except the one Claude gate opus/high, which routing.gate may name while Codex is at its usage limit and which runs as a fresh Claude reviewer; any other Claude gate is refused at input); repo none (every gh call then targets the worktree\'s own repository; pass owner/name when the head runs elsewhere); productionPaths ["src/", "pyproject.toml", "uv.lock"], a default that fits a src-layout Python repository (path prefixes whose change re-opens the gate on a material lane and re-runs the end-to-end test; passing it also lets a fresh reviewer stand in for a gate at its usage limit on a delta that touched none of them); ledgers [], a default that fits a repository without append-only ledgers (files whose merge conflicts keep both sides, main\'s lines first); generated {}, a map from a generated file\'s path to the command that regenerates it (a merge conflict confined to such files and ledgers is resolved by running the command on the merged tree, not escalated); budgets {review: 5, test: 2, ci: 3, total: 8} (fix rounds per phase and in total; partial objects override single keys); deltaFrom none (a sha: review only the commits since it, after the head settled an awaiting-head result; without it, a new run with pr and tip and fixFirst or foldIn reviews the whole lane, with the gate on a material lane); answers none (what those commits answer); fixFirst none (Finding[]: blocking findings a fresh fixer answers before anything else); foldIn none (Followup[]: follow-ups for that fixer, each handed over whatever its owner or wording; given alone it still starts the fixer).',
+  description: 'One claimed lane to ready-to-land: build, a fresh review (Sonnet at high effort, Opus at medium on material risk, plus a Codex gpt-6-astra gate on material risk, or an Opus gate at high effort through routing.gate; a Claude reviewer that fails is started once more), fresh fixers with evidence-bearing findings and a delta re-check by whoever raised them (a builder or fixer tip whose reported local quality check holds findings, or none, goes to a fixer first; a check that could not run an area for a reason outside the diff is no finding, and the history names the area), then the explorative end-to-end test and CI side by side, a red CI fixed at once while the tester runs on.',
+  whenToUse: 'In any repository that coordinates with aco, after the head ran `aco start <item>` (worktree, branch and claim exist). Landing stays with the head; the result lists requiredHeadActions. Required args: item (the GitHub issue number of the work item; the lane carries only issue items, an issue-less claim runs by hand), worktree (the lane\'s isolated worktree path), branch (the lane branch), contract (the item\'s ruled sentences every reviewer and the tester judge against), e2e (what the explorative tester drives through the real entry point), scratch (a directory for briefs, Codex output and test evidence). Start with build (a builder brief) for a new lane, or with pr and tip (an open pull request and its head sha) to continue one. The builder and every fixer report their local quality check (the command, its exit status and its findings, or that the repository has no quality gate); a tip whose report holds findings or is missing goes to a fixer at once, before any review or CI, and that round is charged as a ci round. A report that says the check could not run an area for a reason outside the diff (area and tool message), with no findings from the areas that ran, goes on to review and CI with no fixer and no charge; the history names the area and the message. A run continued with pr and tip has no builder, so its first tip is handed on as before, unchecked. Before anything starts the lane asks each of its children for its protocol and ends at stage input, naming the child, both numbers and `/reload-plugins`, when one differs; a Claude reviewer that fails is started once more and only a second failure ends the round, with both texts in the reason; a fixer that answers its whole batch in the pull request body or an item comment and commits nothing is no failure. Optional args and their defaults: risk "normal" (or "material": adds a Codex gpt-6-astra final gate); reviewer "claude" (a fresh Sonnet reviewer at high effort, Opus at medium on material risk; "codex" routes the review to Codex gpt-6-astra at medium effort, high on material risk); routing none (per-role overrides {role: {model, effort}} of the table at the top of the script, for build, fix, rework, test, review, gate and mechanical. Defaults on a normal lane: mechanical haiku/low, build and fix haiku/high, test sonnet/medium, review sonnet/high; on a material lane: build and fix sonnet/high, test sonnet/high, review opus/medium, gate gpt-6-astra/high. The fixer runs as rework (sonnet/high) from the third fix round of a run on, counted over review, test and ci rounds together, and a continued run counts its rounds anew, so pass routing.fix for a lane already past its second round; a fix batch whose blocking findings are all docs and that carries no fold-ins runs as mechanical in every round. Effort is capped per model, opus at medium (except that stand-in gate) and every other model at high, and an override above its cap is refused; the gate on another provider than the builder, except the one Claude gate opus/high, which routing.gate may name while Codex is at its usage limit and which runs as a fresh Claude reviewer; any other Claude gate is refused at input); repo none (every gh call then targets the worktree\'s own repository; pass owner/name when the head runs elsewhere); productionPaths ["src/", "pyproject.toml", "uv.lock"], a default that fits a src-layout Python repository (path prefixes whose change re-opens the gate on a material lane and re-runs the end-to-end test; passing it also lets a fresh reviewer stand in for a gate at its usage limit on a delta that touched none of them); ledgers [], a default that fits a repository without append-only ledgers (files whose merge conflicts keep both sides, main\'s lines first); generated {}, a map from a generated file\'s path to the command that regenerates it (a merge conflict confined to such files and ledgers is resolved by running the command on the merged tree, not escalated); budgets {review: 5, test: 2, ci: 3, total: 8} (fix rounds per phase and in total; partial objects override single keys); deltaFrom none (a sha: review only the commits since it, after the head settled an awaiting-head result; without it, a new run with pr and tip and fixFirst or foldIn reviews the whole lane, with the gate on a material lane); answers none (what those commits answer); fixFirst none (Finding[]: blocking findings a fresh fixer answers before anything else); foldIn none (Followup[]: follow-ups for that fixer, each handed over whatever its owner or wording; given alone it still starts the fixer).',
   phases: [
     { title: 'Build' },
     { title: 'Sync' },
@@ -138,6 +138,12 @@ const CHECK_REPORT = {
     exit: { type: 'integer', description: 'its exit status' },
     findings: { type: 'array', items: { type: 'string' }, description: 'one line per finding the check printed; empty when it exited 0' },
     noQualityGate: { type: 'string', description: 'instead of command, exit and findings: why this repository has no quality gate' },
+    couldNotRun: {
+      type: 'object',
+      required: ['area', 'message'],
+      description: 'beside command, exit and the findings of the areas that ran: the check itself could not run an area or step, for a reason outside the diff',
+      properties: { area: { type: 'string', description: 'the area or step that did not run' }, message: { type: 'string', description: "the tool's message" } },
+    },
   },
 }
 // A child's refusal or crash is a problem naming the child, which its caller stops on at the stage of its own step.
@@ -150,7 +156,7 @@ async function startChild(name, childArgs) {
   }
 }
 // A value a command prints reaches a decision only through the line the lane-relay child reads back and checks.
-const LANE_RELAY_PROTOCOL = 14
+const LANE_RELAY_PROTOCOL = 16
 const relay = (request) => startChild('lane-relay', { protocol: LANE_RELAY_PROTOCOL, delegatedLine: DELEGATED_LINE, worktree: A.worktree, agentOptions: MECHANICAL, mechanical: MECHANICAL, rescope: RESCOPE, checkReport: CHECK_REPORT, ...request })
 // The failure reasons name the printed line only when the command printed one.
 const printedLine = (relayed) => relayed.printed === undefined ? '' : `; the printed line: ${relayed.printed}`
@@ -184,21 +190,33 @@ const rescopeFacts =
 // For the builder and the fixer: the deterministic checks CI repeats run before the push, not after it, and the run is reported.
 const localCheckFacts =
   `After your last merge of origin/main and before you push, run the static checks those RULES and CHECKS or your brief name, then run \`quality check\` from the worktree: it runs every rule the quality gate runs, at the release the repository pins (exit 0 clean, 1 findings, 2 could not check, which is never clean). ` +
-  `Fix what it reports and run it again. Return the run after your last fix in check: the command, its exit status and one line per finding (none when clean). A repository without the quality gate (no \`quality/config.toml\`) has no check to run: return noQualityGate saying so instead. A result without check goes back to a fixer.`
+  `Fix what it reports and run it again. Return the run after your last fix in check: the command, its exit status and one line per finding (none when clean). A repository without the quality gate (no \`quality/config.toml\`) has no check to run: return noQualityGate saying so instead. A result without check goes back to a fixer. ` +
+  `When the check itself failed to run an area or step, for a reason outside the diff (a download, the network, a missing or broken tool, a timeout of the tool) and never for a finding it printed, run the areas that can run, ` +
+  `return their findings, and name the area or step that did not run and the tool's message in couldNotRun; a check that could not run found nothing, so CI proves that area.`
 
 // The check report of a builder or fixer as blocking findings: none when it exited 0 without findings or names no quality gate,
 // and one saying so when the report is missing, malformed or states both no gate and a run, because an unreported check is never read as clean.
+// A check that could not run an area for a reason outside the diff found nothing there; only a claim without its area or message is malformed.
 const CHECK_FINDING_WHERE = 'quality check'
 const checkFinding = (text, evidence) => ({ where: CHECK_FINDING_WHERE, kind: 'defect', text, rule: 'the local quality check (quality check, run from the worktree) is clean', evidence })
+const couldNotRunOf = (check) => [check?.couldNotRun?.area, check?.couldNotRun?.message].every(text => typeof text === 'string' && text.trim()) ? check.couldNotRun : null
+// The history names the area and the message of a check that could not run, so the head sees what only CI proves.
+function noteCheckNotRun(by, check) {
+  const notRun = couldNotRunOf(check)
+  if (notRun) history.push({ after: spent.total, by, checkCouldNotRun: notRun })
+}
 function checkFindingsOf(check) {
   const statesNoGate = typeof check?.noQualityGate === 'string' && check.noQualityGate.trim()
-  const reportsRun = check?.command !== undefined || check?.exit !== undefined || check?.findings !== undefined
-  const notReported = () => [checkFinding('the check was not reported', 'the result carries no valid check: a command, its exit status and its findings, or the statement that the repository has no quality gate')]
+  const claimsNotRun = check?.couldNotRun != null
+  const reportsRun = check?.command !== undefined || check?.exit !== undefined || check?.findings !== undefined || claimsNotRun
+  const malformedClaim = claimsNotRun && !couldNotRunOf(check)
+  const notReported = (text = 'the check was not reported') => [checkFinding(text, 'the result carries no valid check: a command, its exit status and its findings, or the statement that the repository has no quality gate')]
   if (statesNoGate) return reportsRun ? notReported() : []
+  if (malformedClaim) return notReported("the check was not reported: its could-not-run claim names no area or no message, so report the area and the tool's message, or the real result")
   if (typeof check?.command !== 'string' || !check.command.trim() || !Number.isInteger(check.exit) || !Array.isArray(check.findings)) return notReported()
   const evidence = `${check.command} exited ${check.exit}`
   if (check.findings.length) return check.findings.map(line => checkFinding(String(line), evidence))
-  return check.exit === 0 ? [] : [checkFinding(`the check exited ${check.exit} and named no findings`, evidence)]
+  return check.exit === 0 || claimsNotRun ? [] : [checkFinding(`the check exited ${check.exit} and named no findings`, evidence)]
 }
 
 const driveFacts = `Any drive you run keeps its pidfiles and evidence under ${A.scratch}.`
@@ -260,7 +278,7 @@ const openResult = (status, stage, extra) =>
 // ---------------------------------------------------------------- children
 // Every child answers { protocolQuery: true } with its protocol before it checks anything else and starts no agent, so a session that
 // resolved a child from another release (plugin snapshot or script read fresh, either one the older) ends the lane before any agent runs.
-const LANE_BUILD_PROTOCOL = 3
+const LANE_BUILD_PROTOCOL = 4
 const LANE_TEST_PROTOCOL = 3
 const LANE_CI_PROTOCOL = 6
 const CHILD_PROTOCOLS = { 'lane-build': LANE_BUILD_PROTOCOL, 'lane-relay': LANE_RELAY_PROTOCOL, 'lane-review': LANE_REVIEW_PROTOCOL, 'lane-test': LANE_TEST_PROTOCOL, 'lane-ci': LANE_CI_PROTOCOL }
@@ -288,6 +306,7 @@ if (A.build) {
   if ((built.rescope || []).length && !pr) return awaitRescope('build', built.rescope, ' No reviewer has seen the build.', {}, 'with build: the original brief plus your decision, since the worktree keeps the uncommitted edits')
   if ((built.rescope || []).length) return awaitRescope('build', built.rescope, ` The returned tip is the whole build and no reviewer has seen it; the new run takes no deltaFrom, so its first review covers the whole lane.`)
   builderCheckFindings = checkFindingsOf(built.check)
+  noteCheckNotRun('build', built.check)
   log(`built PR #${pr} at ${tip}`)
 } else {
   phase('Sync')
@@ -369,32 +388,6 @@ function awaitHeadOnDispute(fixed, blocking) {
   return openResult('awaiting-head', 'fix', { reason: committed ? 'the fixer disputes findings with counter-evidence; the returned tip carries fix commits no reviewer has seen' : 'the fixer disputes every finding with counter-evidence and committed nothing', lastBlocking: blocking })
 }
 
-// What a proof still has to show for the finding it names, or null when it shows it. A test-gap's code was already
-// right, so its test passes after the fix and pins the behaviour when a mutation, or the pre-fix code, makes it fail.
-// A test that pins nothing may be removed instead, with its diff as the proof.
-function proofGap(proof, finding) {
-  const kind = kindOf(finding)
-  if (kind === 'docs') return null
-  if (isNotRun(proof)) return null  // reaches the delta re-check as a note, see notRunNote
-  if (kind === 'test-gap') return testGapProofGap(proof, finding)
-  const missing = [!proof.failedBefore && needsProof(finding) && 'fail before', !proof.passesAfter && 'pass after'].filter(Boolean)
-  return missing.length ? `a regression test did not ${missing.join(' and ')} its fix` : null
-}
-
-function testGapProofGap(proof, finding) {
-  if (proof.resolution === 'removed-vacuous') return (proof.diff || '').trim() ? null : `the removal of a vacuous test for ${finding.where} carried no diff`
-  if (!proof.passesAfter) return `a test-gap test for ${finding.where} did not pass after the fix`
-  return (proof.mutation || '').trim() || proof.failedBefore ? null : `a test-gap test for ${finding.where} named no mutation under which it fails and did not fail before the fix`
-}
-
-const isNotRun = (proof) => Boolean((proof.notRun || '').trim())
-// Whether a fix must prove the finding with a test: a test-gap is nothing but a missing test, a defect's test draft
-// asks for one, and a docs finding needs none even when a draft came with it.
-const needsProof = (finding) => kindOf(finding) === 'test-gap' || (kindOf(finding) === 'defect' && Boolean(finding.testDraft))
-
-// Why a fixer's answer does not count as a fix, or null when it does. A proof counts only for the blocking finding
-// whose list number it names; any other number (a fold-in's, say) is not checked.
-const proves = (proof, index) => Number.isInteger(proof.finding) && proof.finding === index + 1
 // The evidence the fixer gave for a fold-in it found already done, or undefined without any.
 const satisfiedEvidence = (fixed, foldIn) => (fixed.resolved || []).find(r => r.where === foldIn.where && (r.evidence || '').trim())?.evidence
 // An unchanged tip is a fix only when there are no blocking findings and every fold-in is proven already satisfied.
@@ -411,19 +404,10 @@ const answeredOutside = (fixed, blocking, foldIn) => {
   const anyAnswer = blocking.length > 0 || foldIn.some(f => answers.some(o => o.foldIn === f.where))
   return anyAnswer && blockingAnswered && foldInAnswered
 }
-// Each proof paired with the blocking finding it names and what it still lacks. A finding another proof covers
-// without a gap counts as proven, so a proof with a gap beside it is only supporting evidence.
-function judgedProofs(fixed, blocking) {
-  const judged = (fixed.regression || []).flatMap(proof => blocking.map((finding, index) => ({ proof, finding, index })).filter(({ index }) => proves(proof, index)).map(({ finding, index }) => ({ proof, finding, index, gap: proofGap(proof, finding) })))
-  const provenIndexes = new Set(judged.filter(({ gap }) => !gap).map(({ index }) => index))
-  return judged.map(entry => ({ ...entry, proven: provenIndexes.has(entry.index) }))
-}
+// Why a fixer's answer does not count as a fix, or null when it does.
 function fixRejection(fixed, blocking, foldIn, ciOnly) {
-  // A proof red after the fix is evidence against the fix, even beside a valid proof.
-  const gaps = judgedProofs(fixed, blocking).filter(checked => checked.gap && (!checked.proven || !checked.proof.passesAfter))
-  if (gaps.length) return { reason: [...new Set(gaps.map(checked => checked.gap))].join('; '), regression: gaps.map(checked => checked.proof), lastBlocking: gaps.map(checked => checked.finding) }
-  const unproven = blocking.map((finding, index) => ({ finding, index })).filter(({ finding, index }) => needsProof(finding) && !(fixed.regression || []).some(r => proves(r, index)))
-  if (unproven.length) return { reason: 'a test-gap finding or a defect with a test draft got no regression test: ' + unproven.map(({ finding, index }) => (index + 1) + '. ' + finding.where).join(', '), lastBlocking: unproven.map(({ finding }) => finding) }
+  const { findingNumbers, ...rejection } = fixed.proofRejection ?? {}
+  if (findingNumbers) return { ...rejection, lastBlocking: findingNumbers.map(number => blocking[number - 1]) }
   // Satisfied fold-ins leave the lane at the held tip, or at a merge of main onto it: anything past that is unasked work.
   const foldInsOnly = everyFoldInSatisfied(fixed, blocking, foldIn)
   if (fixed.unchanged) return (foldInsOnly && fixed.containsMain) || answeredOutside(fixed, blocking, foldIn) || checkRunClean(fixed, blocking) ? null : { reason: 'the fixer changed nothing', lastBlocking: blocking }
@@ -433,22 +417,6 @@ function fixRejection(fixed, blocking, foldIn, ciOnly) {
 }
 // A fixer may report absolute paths; an absolute path once hid a production change and skipped the gate.
 const worktreeRelative = (files) => files.map(f => f.startsWith(`${A.worktree}/`) ? f.slice(A.worktree.length + 1) : f.replace(/^\.\//, ''))
-// A removal answers a test-gap only if the reviewer agrees the removed test pinned nothing; a defect proof is judged by the defect bar.
-// A proof with a gap beside a valid proof for its finding reaches the raiser as a note, so it can judge whether the proof misleads.
-const removalNote = ({ proof, finding }) => `\nThe fixer answered ${finding.where} by removing a vacuous test instead of adding one; judge whether the removed test pinned no behaviour:\n${proof.diff}`
-const supportingNote = ({ proof, finding, gap }) => `\nThe fixer also offered the test ${proof.test} for ${finding.where}, though it shows less than the bar: ${gap}; judge whether it misleads.`
-// The half of a proof the fixer did not run, for the raiser to judge from the test's text; CI on the tip runs the test.
-const notRunNote = ({ proof, finding }) => {
-  const mutation = (proof.mutation || '').trim()
-  const namedMutation = mutation ? `"${mutation}"` : 'it names'
-  const unrunHalf = kindOf(finding) === 'test-gap' ? `fails under the mutation ${namedMutation}` : 'fails on the pre-fix code'
-  return `\nThe fixer did not run the test ${proof.test} for ${finding.where} (${proof.notRun.trim()}); read its text and judge the half that was not run: it ${unrunHalf}.`
-}
-const proofNotes = (fixed, blocking) => judgedProofs(fixed, blocking).map(entry => {
-  if (isNotRun(entry.proof) && needsProof(entry.finding)) return notRunNote(entry)
-  if (entry.proof.resolution === 'removed-vacuous' && kindOf(entry.finding) === 'test-gap' && !entry.gap) return removalNote(entry)
-  return entry.gap && entry.proven ? supportingNote(entry) : ''
-}).join('')
 
 // Takes the fixer's tip and names the delta the reviewers see next, or none when a clean merge of main was the whole fix.
 function acceptFix(fixed, blocking, foldIn) {
@@ -467,10 +435,9 @@ function acceptFix(fixed, blocking, foldIn) {
   let delta = `only this delta, the fixer's own commits: git log -p --first-parent --remerge-diff ${fixed.heldTip}..${fixed.tip} (main's clean changes are not shown; a lane edit inside a merge of main is)`
   if (outsideRange) delta = `no commit changed: read live what the fixer edited outside the tree (${edited}), the pull request body with gh pr view ${pr}${R} --json body and an item comment with gh issue view ${A.item}${R} --comments`
   else if (fixed.mergeResolvedLaneConflict) delta = `only this delta: git diff ${fixed.heldTip}..${fixed.tip} (it includes a merge of main whose conflicts in this lane's files were resolved by hand)`
-  const notes = proofNotes(fixed, blocking)
-  const range = `${delta}. It answers these findings:\n${listFindings(blocking)}${notes}${foldInsInRange(foldIn)}`
+  const range = `${delta}. It answers these findings:\n${listFindings(blocking)}${fixed.proofNotes}${foldInsInRange(foldIn)}`
   log(`fix ${spent.total}: ${fixed.heldTip.slice(0, 7)}..${tip.slice(0, 7)}`)
-  return { range, proofNotes: notes, gateAgain: MATERIAL && touchesProduction, touchesProduction }
+  return { range, proofNotes: fixed.proofNotes, gateAgain: MATERIAL && touchesProduction, touchesProduction }
 }
 
 // Only a docs finding is provably behaviour-neutral; the third fix round on is rework (fixBatch counts the running round in spent.total before it asks).
@@ -494,8 +461,9 @@ async function fixRound(blocking, source, budgetKey, carried) {
   phase('Fix')
   const nonce = `fix-${spent.total}-${tipBeforeFix}`
   const answered = await relay({ label: `fix-${spent.total}`, phase: 'Fix', step: 'sync', relayArgs: [`'${nonce}'`], nonce, requiredKeys: ['head', 'parents', 'main'], answerKind: 'fix', agentOptions: { agentType: 'atelier:code-fixer', ...claudeRole(fixerRole(blocking, foldIn)) },
-    facts: `${laneFacts} ${driveFacts} ${rescopeFacts} ${localCheckFacts}`, pr, tip, source, blocking: listFindings(blocking), foldIns: listFoldIns(foldIn) })
+    facts: `${laneFacts} ${driveFacts} ${rescopeFacts} ${localCheckFacts}`, pr, tip, source, blocking: listFindings(blocking), findings: blocking.map(f => ({ ...f, kind: kindOf(f) })), foldIns: listFoldIns(foldIn) })
   if (!answered) return { stop: openResult('failed', 'fix', { reason: `the fixer returned no result; inspect ${A.worktree} for commits past ${tip} and uncommitted work, then start a new run with pr and tip (and fixFirst for what is left)`, lastBlocking: blocking }) }
+  noteCheckNotRun(`fix-${spent.total}`, answered.check)
   // What the fixer says it found already done is only reported to the head: an unaccepted fix folds nothing in.
   const unaccepted = (result) => ({ stop: (answered.resolved || []).length ? { ...result, resolved: answered.resolved } : result })
   // A blocked fixer may have run out of turns before the relay line, and the blocked answer reads no tip.
@@ -791,7 +759,9 @@ return {
   ...gateUnseenView(),
   requiredHeadActions: [
     `land with \`aco land ${pr}\` only while the pull request head is still ${tip}`,
+    ...(MATERIAL && isGateStandIn('gate', ROUTING.gate.model, ROUTING.gate.effort) ? [`name the Opus 5.5 stand-in as the final gate in the body of pull request #${pr}: the lane ran no Codex gate`] : []),
     ...(gateUnseen ? [`name ${gateUnseen.seenTip}..${tip} in the body of pull request #${pr}: the final gate, at its usage limit, did not see that range`] : []),
+    ...history.filter(entry => entry.checkCouldNotRun).map(({ by, checkCouldNotRun: { area, message } }) => `the local quality check of ${by} could not run ${area} (${message}): CI proves that area, so confirm the quality job is green before landing`),
     ...(raisedBeforeTip(stillOpen).length ? ['re-check the follow-ups in raisedBeforeTip against the returned tip before routing them'] : []),
     ...(stillOpen.length ? [`route ${stillOpen.length} follow-up(s) to their owning items before landing`] : []),
     `update the body of item #${A.item}'s parent and name what the landing freed`,

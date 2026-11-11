@@ -1,11 +1,11 @@
 
 export const meta = {
   name: 'lane-relay',
-  description: 'Internal to the lane workflow, never started by a head: builds the briefs of the sync and fix steps and owns the schemas of their reports (the fixer\'s includes its local quality check), runs one printer command through an agent and returns the answer of the agent together with the CRC-checked values of the line it relays, and for the ci step the reading of those values.',
+  description: 'Internal to the lane workflow, never started by a head: builds the briefs of the sync and fix steps and owns the schemas of their reports (the fixer\'s includes its local quality check), runs one printer command through an agent and returns the answer of the agent together with the CRC-checked values of the line it relays, for the fix step the judgement of the fixer\'s proofs against the findings it answered, and for the ci step the reading of those values.',
 }
 
 // Both copies of this number (here and in lane.js) change together in any commit that changes the args or the return shape.
-const LANE_RELAY_PROTOCOL = 14
+const LANE_RELAY_PROTOCOL = 16
 const A = args || {}
 if (A.protocolQuery) return { protocol: LANE_RELAY_PROTOCOL }
 const need = ['protocol', 'delegatedLine', 'worktree', 'label', 'phase', 'step', 'relayArgs', 'nonce', 'requiredKeys', 'agentOptions', 'mechanical', 'rescope', 'checkReport']
@@ -155,10 +155,73 @@ function fixerBrief({ facts, pr, tip, source, blocking, foldIns }) {
   )
 }
 
+// What a proof still has to show for the finding it names, or null when it shows it. A test-gap's code was already
+// right, so its test passes after the fix and pins the behaviour when a mutation, or the pre-fix code, makes it fail.
+// A test that pins nothing may be removed instead, with its diff as the proof.
+function proofGap(proof, finding) {
+  const kind = finding.kind
+  if (kind === 'docs') return null
+  if (isNotRun(proof)) return null  // reaches the delta re-check as a note, see notRunNote
+  if (kind === 'test-gap') return testGapProofGap(proof, finding)
+  const missing = [!proof.failedBefore && needsProof(finding) && 'fail before', !proof.passesAfter && 'pass after'].filter(Boolean)
+  return missing.length ? `a regression test did not ${missing.join(' and ')} its fix` : null
+}
+
+function testGapProofGap(proof, finding) {
+  if (proof.resolution === 'removed-vacuous') return (proof.diff || '').trim() ? null : `the removal of a vacuous test for ${finding.where} carried no diff`
+  if (!proof.passesAfter) return `a test-gap test for ${finding.where} did not pass after the fix`
+  return (proof.mutation || '').trim() || proof.failedBefore ? null : `a test-gap test for ${finding.where} named no mutation under which it fails and did not fail before the fix`
+}
+
+const isNotRun = (proof) => Boolean((proof.notRun || '').trim())
+// Whether a fix must prove the finding with a test: a test-gap is nothing but a missing test, a defect's test draft
+// asks for one, and a docs finding needs none even when a draft came with it.
+const needsProof = (finding) => finding.kind === 'test-gap' || (finding.kind === 'defect' && Boolean(finding.testDraft))
+
+// A proof counts only for the blocking finding whose list number it names; any other number (a fold-in's, say) is not checked.
+const proves = (proof, index) => Number.isInteger(proof.finding) && proof.finding === index + 1
+
+// Each proof paired with the blocking finding it names and what it still lacks. A finding another proof covers
+// without a gap counts as proven, so a proof with a gap beside it is only supporting evidence.
+function judgedProofs(fixed, blocking) {
+  const judged = (fixed.regression || []).flatMap(proof => blocking.map((finding, index) => ({ proof, finding, index })).filter(({ index }) => proves(proof, index)).map(({ finding, index }) => ({ proof, finding, index, gap: proofGap(proof, finding) })))
+  const provenIndexes = new Set(judged.filter(({ gap }) => !gap).map(({ index }) => index))
+  return judged.map(entry => ({ ...entry, proven: provenIndexes.has(entry.index) }))
+}
+
+// A removal answers a test-gap only if the reviewer agrees the removed test pinned nothing; a defect proof is judged by the defect bar.
+// A proof with a gap beside a valid proof for its finding reaches the raiser as a note, so it can judge whether the proof misleads.
+const removalNote = ({ proof, finding }) => `\nThe fixer answered ${finding.where} by removing a vacuous test instead of adding one; judge whether the removed test pinned no behaviour:\n${proof.diff}`
+const supportingNote = ({ proof, finding, gap }) => `\nThe fixer also offered the test ${proof.test} for ${finding.where}, though it shows less than the bar: ${gap}; judge whether it misleads.`
+// The half of a proof the fixer did not run, for the raiser to judge from the test's text; CI on the tip runs the test.
+const notRunNote = ({ proof, finding }) => {
+  const mutation = (proof.mutation || '').trim()
+  const namedMutation = mutation ? `"${mutation}"` : 'it names'
+  const unrunHalf = finding.kind === 'test-gap' ? `fails under the mutation ${namedMutation}` : 'fails on the pre-fix code'
+  return `\nThe fixer did not run the test ${proof.test} for ${finding.where} (${proof.notRun.trim()}); read its text and judge the half that was not run: it ${unrunHalf}.`
+}
+const proofNotes = (fixed, blocking) => judgedProofs(fixed, blocking).map(entry => {
+  if (isNotRun(entry.proof) && needsProof(entry.finding)) return notRunNote(entry)
+  if (entry.proof.resolution === 'removed-vacuous' && entry.finding.kind === 'test-gap' && !entry.gap) return removalNote(entry)
+  return entry.gap && entry.proven ? supportingNote(entry) : ''
+}).join('')
+
+// The fixer's proofs judged against the blocking findings it was given, each with its kind: the rejection that stops the fix (the finding numbers it
+// names count from 1) or null, and the notes the raiser reads next to the delta.
+function judgeProofs(fixed, blocking) {
+  // A proof red after the fix is evidence against the fix, even beside a valid proof.
+  const gaps = judgedProofs(fixed, blocking).filter(checked => checked.gap && (!checked.proven || !checked.proof.passesAfter))
+  const unproven = blocking.map((finding, index) => ({ finding, index })).filter(({ finding, index }) => needsProof(finding) && !(fixed.regression || []).some(r => proves(r, index)))
+  let proofRejection = null
+  if (gaps.length) proofRejection = { reason: [...new Set(gaps.map(checked => checked.gap))].join('; '), regression: gaps.map(checked => checked.proof), findingNumbers: gaps.map(checked => checked.index + 1) }
+  else if (unproven.length) proofRejection = { reason: 'a test-gap finding or a defect with a test draft got no regression test: ' + unproven.map(({ finding, index }) => (index + 1) + '. ' + finding.where).join(', '), findingNumbers: unproven.map(({ index }) => index + 1) }
+  return { proofRejection, proofNotes: proofNotes(fixed, blocking) }
+}
+
 // The sync step and the fix step have an agent that works before the printer runs: each brings its own brief and the schema of the report that brief asks for.
 const ANSWER_KINDS = {
   sync: { schema: SYNC_ANSWER, need: ['facts', 'hasLedgers', 'hasGenerated'], brief: syncBrief },
-  fix: { schema: FIX, need: ['facts', 'pr', 'tip', 'source', 'blocking', 'foldIns'], brief: fixerBrief },
+  fix: { schema: FIX, need: ['facts', 'pr', 'tip', 'source', 'blocking', 'findings', 'foldIns'], brief: fixerBrief },
 }
 const answerKind = ANSWER_KINDS[A.answerKind]
 const kindMissing = (answerKind ? answerKind.need : ['brief']).filter(key => A[key] === undefined || A[key] === null)
@@ -204,8 +267,9 @@ const answer = await safeAgent(`${A.delegatedLine}\n${brief} ${RELAY_ASK}\n${rel
   ...agentOptions,
 })
 if (!answer) return null
+const judged = { ...answer, ...(A.answerKind === 'fix' && judgeProofs(answer, A.findings)) }
 const read = readRelay(answer.printed, nonce, requiredKeys)
-if (!read.problem) return { ...answer, ...read }
+if (!read.problem) return { ...judged, ...read }
 
 // An agent that copied the line badly is asked once more, by an agent that only runs the printer: the printer reads the state that is there now, and the CRC and the nonce still guard the second line.
 log(`${label} relayed an unreadable line (${read.problem}); reading it once more: ${String(answer.printed).slice(0, 300)}`)
@@ -215,4 +279,4 @@ const second = await safeAgent(`${A.delegatedLine}\n${RELAY_ASK}\n${relayCommand
   ...mechanical,
 })
 const secondRead = second ? readRelay(second.printed, nonce, requiredKeys) : read
-return secondRead.problem ? { ...answer, ...read } : { ...answer, printed: second.printed, ...secondRead }
+return secondRead.problem ? { ...judged, ...read } : { ...judged, printed: second.printed, ...secondRead }

@@ -556,7 +556,6 @@ test('reviewer-retry: a failure text longer than a sane length is shortened in t
   assert.ok(result.reason.length < 1200, result.reason.length)
 })
 
-
 // ---- an Opus gate stand-in runs as a fresh Claude reviewer, retried and repeated like any Claude reviewer
 const opusGateLane = { ...resumeArgs, risk: 'material', productionPaths: ['src/'], routing: { gate: { model: 'opus', effort: 'high' } } }
 const everyGateRun = (launchedAgents) => launchedAgents.filter(label => label.includes('-gate'))

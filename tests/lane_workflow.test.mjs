@@ -127,21 +127,30 @@ test('AC-gate-separation: a Claude builder gets the Codex gpt-6-astra gate at hi
 
 const standInGate = { gate: { model: 'opus', effort: 'high' } }
 
-test('AC-gate-standin: an opus/high gate on a material lane runs as a fresh Claude reviewer beside the first review, with no courier', async () => {
-  const { agentCalls, launchedAgents, result } = await runLane({ ...resumeArgs, risk: 'material', routing: standInGate }, { 'r0-review': APPROVE, 'r0-gate': APPROVE, 'e2e-0': reachesTheEnd['e2e-0'], 'ci-0': reachesTheEnd['ci-0'] })
-  const call = agentCalls['r0-gate']
-  assert.deepEqual([call.options.agentType, call.options.model, call.options.effort], [agentCalls['r0-review'].options.agentType, 'opus', 'high'])
-  assert.match(call.prompt, /final gate \(architecture, data safety, public contract\)/)
-  assert.doesNotMatch(call.prompt, /codex exec|courier/)
-  assert.deepEqual(launchedAgents.filter(label => label.startsWith('r0-')), ['r0-review', 'r0-gate'])
-  assert.deepEqual(result.routing.gate, { model: 'opus', effort: 'high' })
-  assert.equal(result.status, 'ready-to-land')
-})
+const standInRoutings = [
+  ['opus at high', { model: 'opus', effort: 'high' }],
+  ['opus without an effort', { model: 'opus' }],
+]
+
+for (const [what, gate] of standInRoutings) {
+  test(`AC-gate-standin: a gate on ${what} on a material lane runs as a fresh Claude reviewer beside the first review, with no courier`, async () => {
+    const { agentCalls, launchedAgents, result } = await runLane({ ...resumeArgs, risk: 'material', routing: { gate } }, { 'r0-review': APPROVE, 'r0-gate': APPROVE, 'e2e-0': reachesTheEnd['e2e-0'], 'ci-0': reachesTheEnd['ci-0'] })
+    const call = agentCalls['r0-gate']
+    assert.deepEqual([call.options.agentType, call.options.model, call.options.effort], [agentCalls['r0-review'].options.agentType, 'opus', 'high'])
+    assert.match(call.prompt, /final gate \(architecture, data safety, public contract\)/)
+    assert.doesNotMatch(call.prompt, /codex exec|courier/)
+    assert.deepEqual(launchedAgents.filter(label => label.startsWith('r0-')), ['r0-review', 'r0-gate'])
+    assert.deepEqual(result.routing.gate, { model: 'opus', effort: 'high' })
+    assert.equal(result.status, 'ready-to-land')
+    assert.equal(result.requiredHeadActions.filter(action => /stand-in/.test(action)).length, 1)
+  })
+}
 
 test('AC-gate-standin: a normal lane starts no gate even when routing.gate names the stand-in', async () => {
   const { launchedAgents, result } = await runLane({ ...resumeArgs, routing: standInGate }, { 'r0-review': APPROVE, 'e2e-0': reachesTheEnd['e2e-0'], 'ci-0': reachesTheEnd['ci-0'] })
   assert.ok(!launchedAgents.some(label => label.includes('gate')))
   assert.deepEqual(result.routing.gate, { model: 'opus', effort: 'high' })
+  assert.ok(!result.requiredHeadActions.some(action => /stand-in/.test(action)))
 })
 
 test('AC-gate-standin: without the override the gate stays the Codex courier and the result shows it', async () => {

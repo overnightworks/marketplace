@@ -1,8 +1,0 @@
-claim_id = "a2e8f770aaf6472d94d30ac0f019c6bd"
-agent = "Claude a5abe9e4-862b-4cac-94ed-68bd072edf38"
-role = "builder"
-base = "f8e7536574d03be0921820c253d2b752bcbf8205"
-branch = "claude/issue-618-exception-sentence"
-scope = [".claude-plugin/marketplace.json", "instructions/HEAD.md", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json"]
-opened_commit = "fcb0651d7ef71932f90c1708a582f47a39f86996"
-whole_reason = "One ruled contract sentence and the release pins."

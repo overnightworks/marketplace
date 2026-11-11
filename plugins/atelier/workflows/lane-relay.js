@@ -1,13 +1,13 @@
 
 export const meta = {
   name: 'lane-relay',
-  description: 'Internal to the lane workflow, never started by a head: runs one printer command through an agent and returns the answer of the agent together with the CRC-checked values of the line it relays.',
+  description: 'Internal to the lane workflow, never started by a head: builds the briefs of the sync and fix steps and owns the schemas of their reports (the fixer\'s includes its local quality check), runs one printer command through an agent and returns the answer of the agent together with the CRC-checked values of the line it relays, and for the ci step the reading of those values.',
 }
 
 // Both copies of this number (here and in lane.js) change together in any commit that changes the args or the return shape.
-const LANE_RELAY_PROTOCOL = 12
+const LANE_RELAY_PROTOCOL = 13
 const A = args || {}
-const need = ['protocol', 'delegatedLine', 'worktree', 'label', 'phase', 'step', 'relayArgs', 'nonce', 'requiredKeys', 'agentOptions', 'mechanical', 'rescope']
+const need = ['protocol', 'delegatedLine', 'worktree', 'label', 'phase', 'step', 'relayArgs', 'nonce', 'requiredKeys', 'agentOptions', 'mechanical', 'rescope', 'checkReport']
 if (A.protocol !== LANE_RELAY_PROTOCOL) return { refused: `lane-relay speaks protocol ${JSON.stringify(LANE_RELAY_PROTOCOL)}, but the lane that started it speaks protocol ${JSON.stringify(A.protocol)}; the installed atelier differs from the running lane` }
 const missing = need.filter(key => A[key] === undefined || A[key] === null || A[key] === '')
 if (missing.length) return { refused: `missing args: ${missing.join(', ')}` }
@@ -94,7 +94,7 @@ const withAnyClosingBraces = (text) => {
 const PRINTED = { type: 'string', description: 'the one line the command printed, character for character as printed; when it printed no line, its error output' }
 const FIX = {
   type: 'object',
-  required: ['mergeResolvedLaneConflict', 'files', 'disputed', 'blocked'],
+  required: ['mergeResolvedLaneConflict', 'files', 'disputed', 'blocked', 'check'],
   properties: {
     mergeResolvedLaneConflict: { type: 'boolean' },
     files: { type: 'array', items: { type: 'string' } },
@@ -114,7 +114,7 @@ const FIX = {
       description: "every test you add, strengthen or keep for a blocking finding, and every probe cell you run for it, under that finding's number in the blocking list you were given",
       items: { type: 'object', required: ['finding', 'test', 'failedBefore', 'passesAfter'], properties: { finding: { type: 'integer', minimum: 1, description: 'the number of the blocking finding in the list you were given' }, resolution: { type: 'string', enum: ['removed-vacuous'], description: 'for a test-gap finding whose test pins no behaviour: the fix removed that test instead of adding one' }, diff: { type: 'string', description: 'for removed-vacuous: the removal diff' }, test: { type: 'string' }, failedBefore: { type: 'boolean' }, passesAfter: { type: 'boolean' }, notRun: { type: 'string', description: 'why this machine could not run the test (a refused command, a machine another lane holds); CI on the pushed tip is its proof. Not for a test you ran and saw fail: that is passesAfter false' }, mutation: { type: 'string', description: 'for a test-gap finding: the production change, made and reverted, under which the test fails' } } },
     },
-    summary: { type: 'string' }, blocked: { type: 'boolean' }, blockedReason: { type: 'string' }, rescope: A.rescope,
+    summary: { type: 'string' }, blocked: { type: 'boolean' }, blockedReason: { type: 'string' }, check: A.checkReport, rescope: A.rescope,
   },
 }
 const SYNC_ANSWER = { properties: { note: { type: 'string', description: 'what stopped the merge: the conflicting paths, or the failed command and its output' } } }

@@ -29,3 +29,8 @@ reason = "the plugin payload both catalogs point at"
 path = "scripts/install.py"
 rule = "script-name"
 reason = "the operator's documented install command, run after every atelier landing"
+
+[[layout.allow]]
+path = "instructions/AGENTS.md"
+rule = "agents-md"
+reason = "the global contract every agent reads, installed per machine from here"

@@ -5,13 +5,13 @@ export const meta = {
 }
 
 // Both copies of this number (here and in lane.js) change together in any commit that changes the args or the return shape.
-const LANE_RELAY_PROTOCOL = 11
+const LANE_RELAY_PROTOCOL = 12
 const A = args || {}
-const need = ['protocol', 'delegatedLine', 'worktree', 'label', 'phase', 'brief', 'step', 'relayArgs', 'nonce', 'requiredKeys', 'agentOptions', 'mechanical', 'rescope']
+const need = ['protocol', 'delegatedLine', 'worktree', 'label', 'phase', 'step', 'relayArgs', 'nonce', 'requiredKeys', 'agentOptions', 'mechanical', 'rescope']
 if (A.protocol !== LANE_RELAY_PROTOCOL) return { refused: `lane-relay speaks protocol ${JSON.stringify(LANE_RELAY_PROTOCOL)}, but the lane that started it speaks protocol ${JSON.stringify(A.protocol)}; the installed atelier differs from the running lane` }
 const missing = need.filter(key => A[key] === undefined || A[key] === null || A[key] === '')
 if (missing.length) return { refused: `missing args: ${missing.join(', ')}` }
-const { label, phase: phaseName, brief, step, relayArgs, nonce, requiredKeys, agentOptions, mechanical } = A
+const { label, phase: phaseName, step, relayArgs, nonce, requiredKeys, agentOptions, mechanical } = A
 
 // agent() with a schema throws when the subagent ends without a result; an end without one is a null the lane reports.
 async function safeAgent(prompt, opts) {
@@ -118,9 +118,52 @@ const FIX = {
   },
 }
 const SYNC_ANSWER = { properties: { note: { type: 'string', description: 'what stopped the merge: the conflicting paths, or the failed command and its output' } } }
-// What the relaying agent itself reports besides the printed line: the sync step names what stopped the merge, the fix step is the fixer's own report.
-const ANSWER_SCHEMAS = { sync: SYNC_ANSWER, fix: FIX }
-const answerSchema = ANSWER_SCHEMAS[A.answerKind] || {}
+const git = `git -C '${A.worktree}'`
+
+function syncBrief({ facts, hasLedgers, hasGenerated }) {
+  const either = hasLedgers || hasGenerated
+  const andGeneratedFiles = hasGenerated ? ' and the generated files' : ''
+  return (
+    `${facts}\nBring the lane up to date with main and change nothing else. Run each command exactly as written, with its -C option. Run \`${git} fetch origin && ${git} merge-base --is-ancestor origin/main HEAD\`; when it exits 0, the lane already contains main: change nothing. ` +
+    `Otherwise run \`${git} merge origin/main\`; when it merges cleanly, run \`${git} push\`. ` +
+    (either ? `Conflicts only in the append-only ledgers${andGeneratedFiles}: resolve them as the lane facts say, commit the merge, run \`${git} push\`. ` : '') +
+    (hasGenerated ? `When a generated file's command fails or leaves its path dirty or unmerged, run \`${git} merge --abort\` and put the command and its output in note. ` : '') +
+    (either ? `Any other conflict: ` : `Any conflict: `) +
+    `run \`${git} merge --abort\`, confirm \`${git} status --porcelain\` is empty, push nothing, and put the conflicting paths in note. Last, whatever happened,`
+  )
+}
+
+function fixerBrief({ facts, pr, tip, source, blocking, foldIns }) {
+  const task = blocking
+    ? `Then answer exactly these blocking findings from ${source}, and nothing else:\n${blocking}`
+    : 'There are no blocking findings; your whole task is the follow-ups below:'
+  const foldInBrief = foldIns
+    ? `\n\nAlso fold in these follow-ups, only because each sits in a file this lane already changed and cannot change behaviour; one commit for all of them. ` +
+    `One that is already done — left in the worktree by an earlier fixer, or already satisfied by the lane tip — you do not redo; list it in resolved with its evidence (the test, probe cell or line that satisfies it). ` +
+    `When that leaves you nothing to change, change nothing:\n${foldIns}`
+    : ''
+  return (
+    `${facts}\nYou are a fresh fixer for PR #${pr} (lane tip ${tip}). Merge origin/main if it moved, before or after your fixes (a merge commit; ` +
+    `resolve other conflicts only when you can do so without changing behaviour, and set mergeResolvedLaneConflict true when files this lane changed needed resolution). If the worktree already carries commits or uncommitted changes past that tip from an earlier fixer that ran out of turns, judge them, keep what is right, and continue from there. Commit each finding as soon as it is green; if you run short of turns, commit what is green and return what is left in blockedReason with blocked true. ${task}${foldInBrief}\n\n` +
+    `Each finding names the rule it breaks and its evidence. A scanner finding whose message covers the whole file (for example "in this file") is fixed at every occurrence in that file, not only at the reported line. Check the evidence yourself first. If it does not hold — the rule is not broken, or the evidence is wrong — ` +
+    `do not change code for it: list it in disputed with your counter-evidence. Report every test you add, strengthen or keep for a blocking finding, and every probe cell you run for it, in regression under that finding's number in the list above; the number counts only for the blocking list, a follow-up needs no regression entry. Run the mutation you name, do not reason about it. ` +
+    `A defect's test fails before your fix and passes after it; a defect with a test draft needs one. A defect in test code (hygiene) needs no regression test: the diff is its proof. A test you could not run on this machine is reported with notRun, the reason, and passesAfter false is kept for a test you ran and saw fail; the delta re-check judges a not-run test from its text and CI on the pushed tip runs it. A test-gap finding means a behaviour has no test, the code is already right, and it always needs a test: it passes before and after, ` +
+    `so name in mutation the production change, made and reverted, under which the test fails; a test that fails on the pre-fix code counts as such a mutation (failedBefore true). When a test-gap's cell pins no behaviour at all, you may remove it instead: report resolution removed-vacuous with the removal diff in diff. A docs finding needs no test. When the only finding is that the pull request conflicts with main, the merge is the whole fix. ` +
+    `Otherwise one commit per finding. Push, patch the PR body where it became false or where a finding is about it (REST PATCH with --input, never gh pr edit --body-file); a finding the body or an item comment answers goes in outside, and commit nothing for it; run \`aco check ${pr}\` from the worktree. ` +
+    `Return files: the output of \`${git} log --name-only --format= --first-parent --remerge-diff ${tip}..HEAD\` (of \`${git} diff --name-only ${tip}..HEAD\` when mergeResolvedLaneConflict is true). Last, whatever happened,`
+  )
+}
+
+// The sync step and the fix step have an agent that works before the printer runs: each brings its own brief and the schema of the report that brief asks for.
+const ANSWER_KINDS = {
+  sync: { schema: SYNC_ANSWER, need: ['facts', 'hasLedgers', 'hasGenerated'], brief: syncBrief },
+  fix: { schema: FIX, need: ['facts', 'pr', 'tip', 'source', 'blocking', 'foldIns'], brief: fixerBrief },
+}
+const answerKind = ANSWER_KINDS[A.answerKind]
+const kindMissing = (answerKind ? answerKind.need : ['brief']).filter(key => A[key] === undefined || A[key] === null)
+if (kindMissing.length) return { refused: `missing args: ${kindMissing.join(', ')}` }
+const answerSchema = answerKind?.schema || {}
+const brief = answerKind ? answerKind.brief(A) : A.brief
 
 // The printed values, not the watcher's word, decide whether CI counts as green; null means they prove it.
 function unprovenGreen({ checks, rules }) {

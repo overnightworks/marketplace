@@ -37,6 +37,12 @@ export const FAKE_ACO = `#!/bin/sh
 printf '%s' "$FAKE_BRIEF_OUTPUT"
 [ -z "$FAKE_BRIEF_ERROR" ]
 `
+// The marker lines and the brief between them in a Codex courier prompt.
+export const courierBriefOf = (prompt) => {
+  const [, start, brief, end] = prompt.match(/^(BRIEF-START \S+)\n([\s\S]*)\n(BRIEF-END \S+)\n3\. /m)
+  return { start, brief, end }
+}
+
 export const installFake = (directory, program, script) => fs.writeFileSync(path.join(directory, program), script, { mode: 0o755 })
 
 // Runs a command line the way the agent does and returns what it printed (its error output when it printed nothing).

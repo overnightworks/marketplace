@@ -1,0 +1,8 @@
+claim_id = "404e020342dc4c4ba5c6c0e82284d3a4"
+agent = "Claude a5abe9e4-862b-4cac-94ed-68bd072edf38"
+role = "builder"
+base = "fd96786d9a77e77e64f6a2e7f33c480253818771"
+branch = "claude/issue-612-lane-js-room"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/workflows", "tests"]
+opened_commit = "476fe59d106c3aa86a6989b849b5740bcfdd196b"
+whole_reason = "A behaviour-neutral move between the lane script and its child scripts, proven by the unchanged tests."

@@ -1,8 +1,0 @@
-claim_id = "d1cfd89f061f4bab9d865207e79e8597"
-agent = "Claude a5abe9e4-862b-4cac-94ed-68bd072edf38"
-role = "builder"
-base = "2dc03f335648d4275a13b96dc75c3730ea3aa232"
-branch = "claude/issue-614-opus-gate-standin"
-scope = [".claude-plugin/marketplace.json", "instructions/AGENTS.md", "instructions/HEAD.md", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/workflows", "tests"]
-opened_commit = "64fdd4c48d1d94869d267f03d66304b57d4f1b29"
-whole_reason = "One ruling changes the gate rule in both contract files and the workflow that enforces it, with tests."

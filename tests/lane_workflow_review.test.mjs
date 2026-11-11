@@ -188,7 +188,7 @@ test('courier-start-command: a failed append exits non-zero and starts no Codex'
 for (const [name, options] of [
   ['a brief with one word changed', { fileFromBrief: brief => brief.replace('independent', 'dependent') }],
   ['the courier\'s own prompt instead of the brief', { fileFromBrief: () => 'You are a courier for one independent Codex review.' }],
-  ['the courier prompt\'s second line after the brief\'s first line', { fileFromBrief: brief => brief.replace('\n', '\nYou are a courier for one independent Codex review. Do not review anything yourself and do not edit the repository.\n') }],
+  ['the courier prompt\'s second line after the brief\'s first line', { fileFromBrief: brief => { const [firstLine, ...otherLines] = brief.split('\n'); return [firstLine, 'You are a courier for one independent Codex review. Do not review anything yourself and do not edit the repository.', ...otherLines].join('\n') } }],
   ['a non-ASCII brief retyped with a different character', { contract: 'Prüfe 5 € genau', fileFromBrief: brief => brief.replace('€', 'EUR') }],
 ]) {
   test(`courier-brief-check: ${name} exits non-zero, names the mismatch and starts no Codex`, async () => {

@@ -1,8 +1,0 @@
-claim_id = "980dc653bc234bd2a4f03c29ee91117d"
-agent = "Claude a5abe9e4-862b-4cac-94ed-68bd072edf38"
-role = "builder"
-base = "30db75c776b47966d9a989aa7e52e117ddcfaf09"
-branch = "claude/issue-620-check-could-not-run"
-scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/workflows", "tests"]
-opened_commit = "6132b8c957adf7b37e1881c6cb1c38b91b9408af"
-whole_reason = "The check report's shape in the builder and fixer schemas and the lane that judges it, with tests and the release pins."

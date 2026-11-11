@@ -266,7 +266,9 @@ const CHILD_PROTOCOLS = { 'lane-build': LANE_BUILD_PROTOCOL, 'lane-relay': LANE_
 const protocolMismatch = async ([name, expected]) => {
   const answer = await startChild(name, { protocolQuery: true })
   const installed = answer?.protocol ?? /speaks protocol (\d+)/.exec(answer?.problem ?? '')?.[1]
-  return Number(installed) === expected ? null : `${name} speaks protocol ${installed ?? `unknown (${answer?.problem ?? JSON.stringify(answer ?? null).slice(0, 200)})`}, this lane speaks protocol ${expected}`
+  if (Number(installed) === expected) return null
+  const spoken = installed ?? 'unknown (' + (answer?.problem ?? JSON.stringify(answer ?? null).slice(0, 200)) + ')'
+  return `${name} speaks protocol ${spoken}, this lane speaks protocol ${expected}`
 }
 const mismatches = (await Promise.all(Object.entries(CHILD_PROTOCOLS).map(protocolMismatch))).filter(Boolean)
 if (mismatches.length) return { status: 'failed', stage: 'input', reason: `${mismatches.join('; ')}: the installed atelier differs from the running lane; run /reload-plugins and start a new run` }

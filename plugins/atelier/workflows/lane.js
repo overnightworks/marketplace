@@ -137,9 +137,8 @@ async function startChild(name, childArgs) {
   }
 }
 // A value a command prints reaches a decision only through the line the lane-relay child reads back and checks.
-const LANE_RELAY_PROTOCOL = 9
-const SYNC_ANSWER = { properties: { note: { type: 'string', description: 'what stopped the merge: the conflicting paths, or the failed command and its output' } } }
-const relay = (request) => startChild('lane-relay', { protocol: LANE_RELAY_PROTOCOL, delegatedLine: DELEGATED_LINE, worktree: A.worktree, agentOptions: MECHANICAL, mechanical: MECHANICAL, ...request })
+const LANE_RELAY_PROTOCOL = 10
+const relay = (request) => startChild('lane-relay', { protocol: LANE_RELAY_PROTOCOL, delegatedLine: DELEGATED_LINE, worktree: A.worktree, agentOptions: MECHANICAL, mechanical: MECHANICAL, rescope: RESCOPE, ...request })
 // The failure reasons name the printed line only when the command printed one.
 const printedLine = (relayed) => relayed.printed === undefined ? '' : `; the printed line: ${relayed.printed}`
 // Language models copy a 40-character hash unreliably (a sync step once dropped one character). A commit is
@@ -153,32 +152,6 @@ function mergedOnto(values, base) {
   return Boolean(mergedIn) && sameCommit(firstParent, base)
 }
 const failedCommand = (values) => values.head.code !== 0 || ![0, 1].includes(values.main.code)
-const FIX = {
-  type: 'object',
-  required: ['mergeResolvedLaneConflict', 'files', 'disputed', 'blocked'],
-  properties: {
-    mergeResolvedLaneConflict: { type: 'boolean' },
-    files: { type: 'array', items: { type: 'string' } },
-    disputed: {
-      type: 'array',
-      description: 'findings you did not fix because the evidence contradicts them',
-      items: { type: 'object', required: ['where', 'text', 'counterEvidence'], properties: { where: { type: 'string' }, text: { type: 'string' }, counterEvidence: { type: 'string' } } },
-    },
-    resolved: {
-      type: 'array',
-      description: 'fold-ins you found already done: left in the worktree by an earlier fixer whose fix was not accepted, or already satisfied by the lane tip',
-      items: { type: 'object', required: ['where', 'text', 'evidence'], properties: { where: { type: 'string' }, text: { type: 'string' }, evidence: { type: 'string', description: 'the test, probe cell or line that already satisfies it' } } },
-    },
-    outside: { type: 'array', description: 'blocking findings you answered by editing the pull request body or posting an item comment, with no commit: the number in the blocking list and the body section or comment URL', items: { type: 'object', required: ['finding', 'where'], properties: { finding: { type: 'integer', minimum: 1 }, where: { type: 'string' } } } },
-    regression: {
-      type: 'array',
-      description: "every test you add, strengthen or keep for a blocking finding, and every probe cell you run for it, under that finding's number in the blocking list you were given",
-      items: { type: 'object', required: ['finding', 'test', 'failedBefore', 'passesAfter'], properties: { finding: { type: 'integer', minimum: 1, description: 'the number of the blocking finding in the list you were given' }, resolution: { type: 'string', enum: ['removed-vacuous'], description: 'for a test-gap finding whose test pins no behaviour: the fix removed that test instead of adding one' }, diff: { type: 'string', description: 'for removed-vacuous: the removal diff' }, test: { type: 'string' }, failedBefore: { type: 'boolean' }, passesAfter: { type: 'boolean' }, notRun: { type: 'string', description: 'why this machine could not run the test (a refused command, a machine another lane holds); CI on the pushed tip is its proof. Not for a test you ran and saw fail: that is passesAfter false' }, mutation: { type: 'string', description: 'for a test-gap finding: the production change, made and reverted, under which the test fails' } } },
-    },
-    summary: { type: 'string' }, blocked: { type: 'boolean' }, blockedReason: { type: 'string' }, rescope: RESCOPE,
-  },
-}
-
 // ------------------------------------------------------ shared sentences
 const generatedCommands = GENERATED.map(([path, command]) => `${path}: ${command}`).join('; ')
 const laneFacts =
@@ -274,7 +247,7 @@ if (A.build) {
   const andGeneratedFiles = GENERATED.length ? ' and the generated files' : ''
   const nonce = `sync-${tip}`
   const quotedNonce = `'${nonce}'`
-  const synced = await relay({ label: 'sync', phase: 'Sync', step: 'sync', relayArgs: [quotedNonce], nonce, requiredKeys: ['head', 'parents', 'main'], answerSchema: SYNC_ANSWER, brief:
+  const synced = await relay({ label: 'sync', phase: 'Sync', step: 'sync', relayArgs: [quotedNonce], nonce, requiredKeys: ['head', 'parents', 'main'], answerKind: 'sync', brief:
     `${laneFacts}\nBring the lane up to date with main and change nothing else. Run each command exactly as written, with its -C option. Run \`${git} fetch origin && ${git} merge-base --is-ancestor origin/main HEAD\`; when it exits 0, the lane already contains main: change nothing. ` +
     `Otherwise run \`${git} merge origin/main\`; when it merges cleanly, run \`${git} push\`. ` +
     (LEDGERS.length || GENERATED.length ? `Conflicts only in the append-only ledgers${andGeneratedFiles}: resolve them as the lane facts say, commit the merge, run \`${git} push\`. ` : '') +
@@ -488,7 +461,7 @@ async function fixBatch(blocking, source, budgetKey, carried = false) {
   phase('Fix')
   const git = `git -C '${A.worktree}'`
   const nonce = `fix-${spent.total}-${tipBeforeFix}`
-  const answered = await relay({ label: `fix-${spent.total}`, phase: 'Fix', step: 'sync', relayArgs: [`'${nonce}'`], nonce, requiredKeys: ['head', 'parents', 'main'], answerSchema: FIX, agentOptions: { agentType: 'atelier:code-fixer', ...claudeRole(fixerRole(blocking, foldIn)) }, brief:
+  const answered = await relay({ label: `fix-${spent.total}`, phase: 'Fix', step: 'sync', relayArgs: [`'${nonce}'`], nonce, requiredKeys: ['head', 'parents', 'main'], answerKind: 'fix', agentOptions: { agentType: 'atelier:code-fixer', ...claudeRole(fixerRole(blocking, foldIn)) }, brief:
     `${laneFacts} ${driveFacts} ${rescopeFacts} ${localCheckFacts}\nYou are a fresh fixer for PR #${pr} (lane tip ${tip}). Merge origin/main if it moved, before or after your fixes (a merge commit; ` +
     `resolve other conflicts only when you can do so without changing behaviour, and set mergeResolvedLaneConflict true when files this lane changed needed resolution). If the worktree already carries commits or uncommitted changes past that tip from an earlier fixer that ran out of turns, judge them, keep what is right, and continue from there. Commit each finding as soon as it is green; if you run short of turns, commit what is green and return what is left in blockedReason with blocked true. ${fixerTask}${foldInBrief(foldIn)}\n\n` +
     `Each finding names the rule it breaks and its evidence. A scanner finding whose message covers the whole file (for example "in this file") is fixed at every occurrence in that file, not only at the reported line. Check the evidence yourself first. If it does not hold — the rule is not broken, or the evidence is wrong — ` +

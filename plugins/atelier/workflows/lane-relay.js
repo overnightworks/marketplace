@@ -5,13 +5,13 @@ export const meta = {
 }
 
 // Both copies of this number (here and in lane.js) change together in any commit that changes the args or the return shape.
-const LANE_RELAY_PROTOCOL = 9
+const LANE_RELAY_PROTOCOL = 10
 const A = args || {}
-const need = ['protocol', 'delegatedLine', 'worktree', 'label', 'phase', 'brief', 'step', 'relayArgs', 'nonce', 'requiredKeys', 'agentOptions', 'mechanical']
+const need = ['protocol', 'delegatedLine', 'worktree', 'label', 'phase', 'brief', 'step', 'relayArgs', 'nonce', 'requiredKeys', 'agentOptions', 'mechanical', 'rescope']
 if (A.protocol !== LANE_RELAY_PROTOCOL) return { refused: `lane-relay speaks protocol ${JSON.stringify(LANE_RELAY_PROTOCOL)}, but the lane that started it speaks protocol ${JSON.stringify(A.protocol)}; the installed atelier differs from the running lane` }
 const missing = need.filter(key => A[key] === undefined || A[key] === null || A[key] === '')
 if (missing.length) return { refused: `missing args: ${missing.join(', ')}` }
-const { label, phase: phaseName, brief, step, relayArgs, nonce, requiredKeys, agentOptions, mechanical, answerSchema = {} } = A
+const { label, phase: phaseName, brief, step, relayArgs, nonce, requiredKeys, agentOptions, mechanical } = A
 
 // agent() with a schema throws when the subagent ends without a result; an end without one is a null the lane reports.
 async function safeAgent(prompt, opts) {
@@ -92,6 +92,35 @@ const withAnyClosingBraces = (text) => {
   return Array.from({ length: text.length - bare.length + 2 }, (_, count) => bare + '}'.repeat(count))
 }
 const PRINTED = { type: 'string', description: 'the one line the command printed, character for character as printed; when it printed no line, its error output' }
+const FIX = {
+  type: 'object',
+  required: ['mergeResolvedLaneConflict', 'files', 'disputed', 'blocked'],
+  properties: {
+    mergeResolvedLaneConflict: { type: 'boolean' },
+    files: { type: 'array', items: { type: 'string' } },
+    disputed: {
+      type: 'array',
+      description: 'findings you did not fix because the evidence contradicts them',
+      items: { type: 'object', required: ['where', 'text', 'counterEvidence'], properties: { where: { type: 'string' }, text: { type: 'string' }, counterEvidence: { type: 'string' } } },
+    },
+    resolved: {
+      type: 'array',
+      description: 'fold-ins you found already done: left in the worktree by an earlier fixer whose fix was not accepted, or already satisfied by the lane tip',
+      items: { type: 'object', required: ['where', 'text', 'evidence'], properties: { where: { type: 'string' }, text: { type: 'string' }, evidence: { type: 'string', description: 'the test, probe cell or line that already satisfies it' } } },
+    },
+    outside: { type: 'array', description: 'blocking findings you answered by editing the pull request body or posting an item comment, with no commit: the number in the blocking list and the body section or comment URL', items: { type: 'object', required: ['finding', 'where'], properties: { finding: { type: 'integer', minimum: 1 }, where: { type: 'string' } } } },
+    regression: {
+      type: 'array',
+      description: "every test you add, strengthen or keep for a blocking finding, and every probe cell you run for it, under that finding's number in the blocking list you were given",
+      items: { type: 'object', required: ['finding', 'test', 'failedBefore', 'passesAfter'], properties: { finding: { type: 'integer', minimum: 1, description: 'the number of the blocking finding in the list you were given' }, resolution: { type: 'string', enum: ['removed-vacuous'], description: 'for a test-gap finding whose test pins no behaviour: the fix removed that test instead of adding one' }, diff: { type: 'string', description: 'for removed-vacuous: the removal diff' }, test: { type: 'string' }, failedBefore: { type: 'boolean' }, passesAfter: { type: 'boolean' }, notRun: { type: 'string', description: 'why this machine could not run the test (a refused command, a machine another lane holds); CI on the pushed tip is its proof. Not for a test you ran and saw fail: that is passesAfter false' }, mutation: { type: 'string', description: 'for a test-gap finding: the production change, made and reverted, under which the test fails' } } },
+    },
+    summary: { type: 'string' }, blocked: { type: 'boolean' }, blockedReason: { type: 'string' }, rescope: A.rescope,
+  },
+}
+const SYNC_ANSWER = { properties: { note: { type: 'string', description: 'what stopped the merge: the conflicting paths, or the failed command and its output' } } }
+// What the relaying agent itself reports besides the printed line: the sync step names what stopped the merge, the fix step is the fixer's own report.
+const ANSWER_SCHEMAS = { sync: SYNC_ANSWER, fix: FIX }
+const answerSchema = ANSWER_SCHEMAS[A.answerKind] || {}
 
 // The values of a relay line, or why the line cannot be trusted: checked as text first (shape, CRC32), parsed after.
 // A caller stops at the stage of the step that ran the printer, so an unreadable scope line stops at scope, because it

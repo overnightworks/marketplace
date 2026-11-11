@@ -143,6 +143,11 @@ contract and this skill.
   under `storage = "github"` or `aco item edit` under state-ref.
   Read `references/decision-cards.md` before writing or revising a card: it holds
   the judgement `aco check` cannot make.
+- After `ask`, start `aco wait <n> --line <k>` as a background command (the flag
+  repeats for several lines); it ends, waking the session, when a named line is
+  no longer open (`specs/wait.spec.md`). Start it again after a restart or a
+  compaction and when it ends with exit 2; stop it when the card is settled
+  another way.
 - Outside an option's `contract`, a card carries no issue numbers, paths, file names,
   backticks, code names or flags; the problem is at most 20 words and an option name
   2 to 5 words. `aco check -` refuses an open or
@@ -217,6 +222,11 @@ Code's auto mode denies.
    `aco land`. `aco land` also fast-forwards this checkout to the landed main
    (in marketplace that checkout is the installed contract for every agent);
    the landing runs no git command beside or after it.
+   Where the target branch has a merge queue, `aco land` writes the body, enqueues
+   the pinned head and waits for the queue to merge it, about a minute being
+   normal. A re-run resumes: queued, it waits again; merged, it releases; removed
+   from the queue, it starts at the preflight. The refusal sentences are in
+   `specs/land.spec.md` (LANDCMD-59 to LANDCMD-70).
 3. The landing agent reports the follow-up lines `aco land` prints (`freed:`,
    `next:`, in aco also `reinstall:`) to the head and runs none of
    them. The head acts on them as `HEAD.md`'s "Landing" says, then

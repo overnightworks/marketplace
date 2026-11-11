@@ -1,8 +1,0 @@
-claim_id = "39f198e7d986493695a19e7696300482"
-agent = "Claude a5abe9e4-862b-4cac-94ed-68bd072edf38"
-role = "builder"
-base = "ce3965752d10c778858b302f6d6b3a95dd4c9f5d"
-branch = "claude/issue-608-aco-wait-and-queue"
-scope = [".claude-plugin/marketplace.json", "instructions/HEAD.md", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/skills/aco/SKILL.md"]
-opened_commit = "3e88157ce776843894e08704ba995e60eea1f96b"
-whole_reason = "Two ruled contract additions with the skill paragraphs that say how and the release pins."

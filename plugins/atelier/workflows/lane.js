@@ -137,7 +137,7 @@ async function startChild(name, childArgs) {
   }
 }
 // A value a command prints reaches a decision only through the line the lane-relay child reads back and checks.
-const LANE_RELAY_PROTOCOL = 10
+const LANE_RELAY_PROTOCOL = 11
 const relay = (request) => startChild('lane-relay', { protocol: LANE_RELAY_PROTOCOL, delegatedLine: DELEGATED_LINE, worktree: A.worktree, agentOptions: MECHANICAL, mechanical: MECHANICAL, rescope: RESCOPE, ...request })
 // The failure reasons name the printed line only when the command printed one.
 const printedLine = (relayed) => relayed.printed === undefined ? '' : `; the printed line: ${relayed.printed}`
@@ -642,15 +642,6 @@ function explore(n) {
 }
 
 const LANE_CI_PROTOCOL = 4
-// The printed values, not the watcher's word, decide whether CI counts as green; null means they prove it.
-function unprovenGreen({ checks, rules }) {
-  if (checks.code !== 0 || !checks.count) return `no checks are listed for the pull request head (gh pr checks exited ${checks.code}: ${checks.err ?? ''})`
-  return [
-    ...checks.open.map(c => `check "${c.name}" is ${c.bucket}, not pass or skipping`),
-    ...Object.entries(rules.required || {}).filter(([, bucket]) => bucket !== 'pass').map(([name, bucket]) => bucket === 'missing' ? `required check "${name}" is missing from the listing` : `required check "${name}" is ${bucket}, not pass`),
-  ].join('; ') || null
-}
-
 async function watchCi(n) {
   const watched = await startChild('lane-ci', { protocol: LANE_CI_PROTOCOL, delegatedLine: DELEGATED_LINE, pr, n, repo: A.repo, worktree: A.worktree, finding: FINDING, watcher: WATCHER })
   if (!watched || watched.problem) return watched
@@ -658,11 +649,9 @@ async function watchCi(n) {
   const read = await relay({ label: `ci-read-${n}`, phase: 'Test and CI', step: 'ci', relayArgs: [pr, `'${A.repo || ''}'`, `'${nonce}'`], nonce, requiredKeys: ['view'], brief: `${laneFacts}\nChange nothing in the files;` })
   if (!read) return { problem: 'ended without reading the CI values' }
   if (read.problem) return { problem: `read the CI values, but their relay line ${read.problem}${printedLine(read)}` }
-  const { view, checks, rules, head, shared, log } = read.values
+  const { view } = read.values
   if (view.code !== 0) return { problem: `could not read the pull request: gh pr view exited ${view.code}: ${view.err ?? ''}` }
-  // The printer reads a job log only for the red verdict check; its two values name the red a fixer may not remove.
-  const operatorDoor = checks.open?.length === 1 && log?.code === 0 && log.loosenings && log.merge ? log.merge : null
-  return { ...watched, head, shared, operatorDoor, rulesError: rules.code === 0 ? null : `gh api exited ${rules.code}: ${rules.err ?? ''}`, unproven: watched.green ? unprovenGreen({ checks, rules }) : null }
+  return { ...watched, ...read.ci, unproven: watched.green ? read.ci.unproven : null }
 }
 
 function lockQueueCiState(ci) {

@@ -5,7 +5,7 @@ export const meta = {
 }
 
 // Both copies of this number (here and in lane.js) change together in any commit that changes the args or the return shape.
-const LANE_RELAY_PROTOCOL = 10
+const LANE_RELAY_PROTOCOL = 11
 const A = args || {}
 const need = ['protocol', 'delegatedLine', 'worktree', 'label', 'phase', 'brief', 'step', 'relayArgs', 'nonce', 'requiredKeys', 'agentOptions', 'mechanical', 'rescope']
 if (A.protocol !== LANE_RELAY_PROTOCOL) return { refused: `lane-relay speaks protocol ${JSON.stringify(LANE_RELAY_PROTOCOL)}, but the lane that started it speaks protocol ${JSON.stringify(A.protocol)}; the installed atelier differs from the running lane` }
@@ -122,6 +122,22 @@ const SYNC_ANSWER = { properties: { note: { type: 'string', description: 'what s
 const ANSWER_SCHEMAS = { sync: SYNC_ANSWER, fix: FIX }
 const answerSchema = ANSWER_SCHEMAS[A.answerKind] || {}
 
+// The printed values, not the watcher's word, decide whether CI counts as green; null means they prove it.
+function unprovenGreen({ checks, rules }) {
+  if (checks.code !== 0 || !checks.count) return `no checks are listed for the pull request head (gh pr checks exited ${checks.code}: ${checks.err ?? ''})`
+  return [
+    ...checks.open.map(c => `check "${c.name}" is ${c.bucket}, not pass or skipping`),
+    ...Object.entries(rules.required || {}).filter(([, bucket]) => bucket !== 'pass').map(([name, bucket]) => bucket === 'missing' ? `required check "${name}" is missing from the listing` : `required check "${name}" is ${bucket}, not pass`),
+  ].join('; ') || null
+}
+
+// What the lane reads from the ci step: the head, the checks red on the base branch too, the red a fixer may not remove, and why the listing does not prove green.
+function readCi({ checks, rules, head, shared, log: jobLog }) {
+  // The printer reads a job log only for the red verdict check; its two values name the red a fixer may not remove.
+  const operatorDoor = checks.open?.length === 1 && jobLog?.code === 0 && jobLog.loosenings && jobLog.merge ? jobLog.merge : null
+  return { head, shared, operatorDoor, rulesError: rules.code === 0 ? null : `gh api exited ${rules.code}: ${rules.err ?? ''}`, unproven: unprovenGreen({ checks, rules }) }
+}
+
 // The values of a relay line, or why the line cannot be trusted: checked as text first (shape, CRC32), parsed after.
 // A caller stops at the stage of the step that ran the printer, so an unreadable scope line stops at scope, because it
 // proves nothing about the push; push is only for a readable line that shows the push failed or the remote lacks the tip.
@@ -135,7 +151,7 @@ function readRelay(printed, nonce, requiredKeys = []) {
   if (values?.nonce !== nonce) return { problem: `carries the nonce ${values?.nonce}, not ${nonce}` }
   const missing = requiredKeys.find(key => !values[key])
   if (missing) return { problem: `lacks the ${missing} entry` }
-  return { values }
+  return { values, ...(step === 'ci' && values.view.code === 0 && { ci: readCi(values) }) }
 }
 
 const answer = await safeAgent(`${A.delegatedLine}\n${brief} ${RELAY_ASK}\n${relayCommand(step, ...relayArgs)}`, {

@@ -209,9 +209,11 @@ function checkFindingsOf(check) {
   const statesNoGate = typeof check?.noQualityGate === 'string' && check.noQualityGate.trim()
   const claimsNotRun = check?.couldNotRun != null
   const reportsRun = check?.command !== undefined || check?.exit !== undefined || check?.findings !== undefined || claimsNotRun
-  const notReported = () => [checkFinding('the check was not reported', 'the result carries no valid check: a command, its exit status and its findings, or the statement that the repository has no quality gate')]
+  const malformedClaim = claimsNotRun && !couldNotRunOf(check)
+  const notReported = (text = 'the check was not reported') => [checkFinding(text, 'the result carries no valid check: a command, its exit status and its findings, or the statement that the repository has no quality gate')]
   if (statesNoGate) return reportsRun ? notReported() : []
-  if (typeof check?.command !== 'string' || !check.command.trim() || !Number.isInteger(check.exit) || !Array.isArray(check.findings) || (claimsNotRun && !couldNotRunOf(check))) return notReported()
+  if (malformedClaim) return notReported("the check was not reported: its could-not-run claim names no area or no message, so report the area and the tool's message, or the real result")
+  if (typeof check?.command !== 'string' || !check.command.trim() || !Number.isInteger(check.exit) || !Array.isArray(check.findings)) return notReported()
   const evidence = `${check.command} exited ${check.exit}`
   if (check.findings.length) return check.findings.map(line => checkFinding(String(line), evidence))
   return check.exit === 0 || claimsNotRun ? [] : [checkFinding(`the check exited ${check.exit} and named no findings`, evidence)]

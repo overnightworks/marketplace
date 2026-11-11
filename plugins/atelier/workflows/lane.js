@@ -186,7 +186,8 @@ const localCheckFacts =
 
 // The check report of a builder or fixer as blocking findings: none when it exited 0 without findings or names no quality gate,
 // and one saying so when the report is missing or malformed, because an unreported check is never read as clean.
-const checkFinding = (text, evidence) => ({ where: 'quality check', kind: 'defect', text, rule: 'the local quality check (quality check, run from the worktree) is clean', evidence })
+const CHECK_FINDING_WHERE = 'quality check'
+const checkFinding = (text, evidence) => ({ where: CHECK_FINDING_WHERE, kind: 'defect', text, rule: 'the local quality check (quality check, run from the worktree) is clean', evidence })
 function checkFindingsOf(check) {
   if (typeof check?.noQualityGate === 'string' && check.noQualityGate.trim()) return []
   if (typeof check?.command !== 'string' || !check.command.trim() || !Number.isInteger(check.exit) || !Array.isArray(check.findings)) {
@@ -378,6 +379,9 @@ const proves = (proof, index) => Number.isInteger(proof.finding) && proof.findin
 const satisfiedEvidence = (fixed, foldIn) => (fixed.resolved || []).find(r => r.where === foldIn.where && (r.evidence || '').trim())?.evidence
 // An unchanged tip is a fix only when there are no blocking findings and every fold-in is proven already satisfied.
 const everyFoldInSatisfied = (fixed, blocking, foldIn) => !blocking.length && foldIn.length > 0 && foldIn.every(f => satisfiedEvidence(fixed, f))
+// An unchanged tip is a fix too when each blocking finding is a check finding and the fixer's own run of the check reports clean:
+// a missing or unusable report is answered by a clean report, which needs no commit.
+const checkRunClean = (fixed, blocking) => blocking.length > 0 && blocking.every(f => f.where === CHECK_FINDING_WHERE) && checkFindingsOf(fixed.check).length === 0
 // An unchanged tip is a fix too when each blocking finding is answered in the pull request body or an item comment.
 const answeredOutside = (fixed, blocking) => blocking.length > 0 && blocking.every((_, index) => (fixed.outside || []).some(o => o.finding === index + 1 && (o.where || '').trim()))
 // Each proof paired with the blocking finding it names and what it still lacks. A finding another proof covers
@@ -395,7 +399,7 @@ function fixRejection(fixed, blocking, foldIn, ciOnly) {
   if (unproven.length) return { reason: 'a test-gap finding or a defect with a test draft got no regression test: ' + unproven.map(({ finding, index }) => (index + 1) + '. ' + finding.where).join(', '), lastBlocking: unproven.map(({ finding }) => finding) }
   // Satisfied fold-ins leave the lane at the held tip, or at a merge of main onto it: anything past that is unasked work.
   const foldInsOnly = everyFoldInSatisfied(fixed, blocking, foldIn)
-  if (fixed.unchanged) return (foldInsOnly && fixed.containsMain) || answeredOutside(fixed, blocking) ? null : { reason: 'the fixer changed nothing', lastBlocking: blocking }
+  if (fixed.unchanged) return (foldInsOnly && fixed.containsMain) || answeredOutside(fixed, blocking) || checkRunClean(fixed, blocking) ? null : { reason: 'the fixer changed nothing', lastBlocking: blocking }
   const mergeWasTheFinding = ciOnly || (blocking.length === 1 && blocking[0].where === 'mergeable')
   if (fixed.mergeOnly && !mergeWasTheFinding && !foldInsOnly) return { reason: 'the fixer only merged main and fixed nothing', lastBlocking: blocking }
   return null

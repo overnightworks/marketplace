@@ -2,7 +2,7 @@
 import fs from 'node:fs'
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { runLane, resumedLane, built, cleanCheck, resumeTip, resumeFix, resumeFixedTip, secondFix, APPROVE, PASS, greenCi } from './lane_workflow_harness.mjs'
+import { runLane, resumedLane, built, cleanCheck, resumeTip, resumeFix, resumeFixedTip, secondFix, unchangedFix, APPROVE, PASS, greenCi } from './lane_workflow_harness.mjs'
 
 const readWorkflow = (name) => fs.readFileSync(new URL(`../plugins/atelier/workflows/${name}.js`, import.meta.url), 'utf8')
 const protocolOf = (source) => Number(source.match(/^const LANE_BUILD_PROTOCOL = (\d+)$/m)?.[1])
@@ -40,6 +40,27 @@ for (const [what, check, expectedFindings] of builderReports) {
     assert.equal(launchedAgents.includes('fix-1'), expectedFindings.length > 0)
     if (expectedFindings.length) assert.ok(launchedAgents.indexOf('fix-1') < launchedAgents.indexOf('r1-review'), launchedAgents.join())
     expectedFindings.forEach(text => assert.ok(agentCalls['fix-1'].prompt.includes(text), text))
+  })
+}
+
+const unchangedFixerReports = [
+  ['a missing builder report and a fixer that reports clean', undefined, cleanCheck, true],
+  ['an exit 2 builder report and a fixer that reports clean', { command: 'quality check', exit: 2, findings: [] }, cleanCheck, true],
+  ['a builder finding and a fixer that reports no quality gate', findingsCheck('tests/big_test.py: 829 lines'), { noQualityGate: 'the repository has no quality/config.toml' }, true],
+  ['a missing builder report and a fixer that reports none either', undefined, undefined, false],
+  ['a builder finding and a fixer that reports it again', findingsCheck('tests/big_test.py: 829 lines'), findingsCheck('tests/big_test.py: 829 lines'), false],
+]
+
+for (const [what, builderCheck, fixerCheck, goesOn] of unchangedFixerReports) {
+  test(`a fixer that changes nothing ${goesOn ? 'goes on to review' : 'stops the lane'} for ${what}`, async () => {
+    const answers = { build: { ...built, check: builderCheck }, 'fix-1': { ...unchangedFix, check: fixerCheck }, 'r1-review': APPROVE, 'ci-0': greenCi(resumeTip), 'e2e-0': PASS }
+    const { result, launchedAgents } = await runLane(builtLane, answers)
+    if (goesOn) {
+      assert.equal(result.status, 'ready-to-land')
+      assert.ok(launchedAgents.includes('r1-review'), launchedAgents.join())
+    } else {
+      assert.deepEqual([result.status, result.stage, result.reason], ['failed', 'fix', 'the fixer changed nothing'])
+    }
   })
 }
 

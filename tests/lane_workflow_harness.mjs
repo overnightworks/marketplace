@@ -48,7 +48,7 @@ export const runCommandLine = (line, { cwd, env }) => {
 // answers holds each agent's result by its label; an agent without one ends without a result. Without answers only
 // the sync step answers (an up-to-date lane), so a run gets as far as starting its first review round.
 // options.transformChild rewrites the source and options.alterChildArgs the args of the one child options.child names, so a test can
-// break that parent-child contract; launchedByChild lists the agent labels each child workflow launched.
+// break that parent-child contract (options.transformQueriedChild rewrites the source that answers the lane's protocol query instead); launchedByChild lists the agent labels each child workflow launched.
 export async function runLane(args, answers = {}, options = {}) {
   const source = workflowSource('lane.js')
   const launchedByChild = {}
@@ -126,11 +126,12 @@ export async function runLane(args, answers = {}, options = {}) {
   const compile = (body) => vm.runInContext(`(async function (args, agent, parallel, pipeline, phase, log, workflow) {\n${body}\n})`, vm.createContext({}))
   const startWorkflow = async (name, childArgs) => {
     if (!Object.hasOwn(CHILD_WORKFLOWS, name)) throw new Error(`unknown workflow ${name}`)
-    const childSource = name === options.child && options.transformChild ? options.transformChild(workflowSource(CHILD_WORKFLOWS[name])) : workflowSource(CHILD_WORKFLOWS[name])
+    const rewrite = name === options.child ? (childArgs.protocolQuery ? options.transformQueriedChild : options.transformChild) : undefined
+    const childSource = rewrite ? rewrite(workflowSource(CHILD_WORKFLOWS[name])) : workflowSource(CHILD_WORKFLOWS[name])
     const childLabels = launchedByChild[name] ||= []
     const childAgent = (prompt, agentOptions) => { childLabels.push(agentOptions?.label); return agent(prompt, agentOptions) }
     const nested = () => { throw new Error('a child workflow cannot start another workflow') }
-    return compile(childSource)(name === options.child && options.alterChildArgs ? options.alterChildArgs(childArgs) : childArgs, childAgent, parallel, async () => [], ignore, ignore, nested)
+    return compile(childSource)(name === options.child && options.alterChildArgs && !childArgs.protocolQuery ? options.alterChildArgs(childArgs) : childArgs, childAgent, parallel, async () => [], ignore, ignore, nested)
   }
   try {
     const result = await compile(source)(args, agent, parallel, async () => [], ignore, ignore, startWorkflow)

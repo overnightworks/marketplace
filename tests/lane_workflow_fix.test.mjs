@@ -570,8 +570,9 @@ const fixerReports = [
   ['the statement that the repository has no quality gate', { noQualityGate: 'the repository has no quality/config.toml' }, []],
   ['findings', { command: 'quality check', exit: 1, findings: ['tests/conftest.py is imported by tests/x_test.py'] }, ['tests/conftest.py is imported']],
   ['no report', undefined, ['the check was not reported']],
-  ['the no-gate statement beside a failing command', { noQualityGate: 'no quality/config.toml', command: 'quality check', exit: 1, findings: ['a rule failed'] }, ['a rule failed']],
-  ['the no-gate statement beside a non-zero exit and no findings', { noQualityGate: 'no quality/config.toml', command: 'quality check', exit: 2, findings: [] }, ['the check exited 2 and named no findings']],
+  ['the no-gate statement beside a failing command', { noQualityGate: 'no quality/config.toml', command: 'quality check', exit: 1, findings: ['a rule failed'] }, ['the check was not reported']],
+  ['the no-gate statement beside a non-zero exit and no findings', { noQualityGate: 'no quality/config.toml', command: 'quality check', exit: 2, findings: [] }, ['the check was not reported']],
+  ['the no-gate statement beside a clean run', { noQualityGate: 'no quality/config.toml', command: 'quality check', exit: 0, findings: [] }, ['the check was not reported']],
   ['the no-gate statement beside a command only', { noQualityGate: 'no quality/config.toml', command: 'quality check' }, ['the check was not reported']],
 ]
 

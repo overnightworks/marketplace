@@ -191,10 +191,9 @@ const checkFinding = (text, evidence) => ({ where: CHECK_FINDING_WHERE, kind: 'd
 function checkFindingsOf(check) {
   const statesNoGate = typeof check?.noQualityGate === 'string' && check.noQualityGate.trim()
   const reportsRun = check?.command !== undefined || check?.exit !== undefined || check?.findings !== undefined
-  if (statesNoGate && !reportsRun) return []
-  if (typeof check?.command !== 'string' || !check.command.trim() || !Number.isInteger(check.exit) || !Array.isArray(check.findings)) {
-    return [checkFinding('the check was not reported', 'the result carries no valid check: a command, its exit status and its findings, or the statement that the repository has no quality gate')]
-  }
+  const notReported = () => [checkFinding('the check was not reported', 'the result carries no valid check: a command, its exit status and its findings, or the statement that the repository has no quality gate')]
+  if (statesNoGate) return reportsRun ? notReported() : []
+  if (typeof check?.command !== 'string' || !check.command.trim() || !Number.isInteger(check.exit) || !Array.isArray(check.findings)) return notReported()
   const evidence = `${check.command} exited ${check.exit}`
   if (check.findings.length) return check.findings.map(line => checkFinding(String(line), evidence))
   return check.exit === 0 ? [] : [checkFinding(`the check exited ${check.exit} and named no findings`, evidence)]

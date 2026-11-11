@@ -1,10 +1,10 @@
 export const meta = {
   name: 'lane-test',
-  description: 'Internal to the lane workflow, never started by a head: runs the explorative end-to-end tester of one pull request tip, with a fallback agent, and returns its answer; the lane judges the answer itself.',
+  description: 'Internal to the lane workflow, never started by a head: runs the explorative end-to-end tester of one pull request tip, with a fallback agent, and returns its answer with the history entry, the follow-ups at the tested tip and the reason an empty verdict is unusable; the lane judges the rest itself.',
 }
 
 // Both copies of this number (here and in lane.js) change together in any commit that changes the args or the return shape.
-const LANE_TEST_PROTOCOL = 1
+const LANE_TEST_PROTOCOL = 2
 const A = args || {}
 const need = ['protocol', 'delegatedLine', 'n', 'pr', 'tip', 'worktree', 'scratch', 'tag', 'e2e', 'contract', 'laneFacts', 'blockingLine', 'finding', 'followup', 'routing']
 if (A.protocol !== LANE_TEST_PROTOCOL) return { refused: `lane-test speaks protocol ${JSON.stringify(LANE_TEST_PROTOCOL)}, but the lane that started it speaks protocol ${JSON.stringify(A.protocol)}; the installed atelier differs from the running lane` }
@@ -53,4 +53,23 @@ function explore() {
       { label: `e2e-${A.n}-fallback`, phase: 'Test and CI', schema: E2E, agentType: 'general-purpose', ...A.routing }))
 }
 
-return await explore()
+// A blocking finding outranks a PASS label, as in the classifier of lane-review.js.
+function emptyVerdictReason(answer) {
+  if (answer.verdict === 'PASS' && !(answer.cells || []).some(c => c.result === 'held')) return 'a PASS without driven cells: the tester named no held cell'
+  if (answer.verdict === 'FAIL' && (answer.blocking || []).length === 0) return 'a FAIL verdict came without any blocking finding'
+  return ''
+}
+
+// The lane adds the point of the run where it judges the answer, because fix rounds can pass while the tester works.
+function recordedAnswer(answer) {
+  if (!answer) return answer
+  const blocking = answer.blocking || []
+  return {
+    ...answer,
+    emptyVerdictReason: emptyVerdictReason(answer),
+    historyEntry: { by: `e2e-${A.n}`, verdict: blocking.length ? 'FAIL' : 'PASS', blocking: blocking.map(f => f.where), cells: answer.cells || [], reportPath: answer.evidencePath || '' },
+    followups: (answer.followups || []).map(f => ({ ...f, tip })),
+  }
+}
+
+return recordedAnswer(await explore())

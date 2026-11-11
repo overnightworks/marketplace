@@ -636,7 +636,7 @@ if (carriesBatch) {
 
 // ---------------------------- end-to-end test and CI side by side
 // The lane-test child returns the tester's answer, null when both agents ended without a result, or a problem the lane stops on.
-const LANE_TEST_PROTOCOL = 1
+const LANE_TEST_PROTOCOL = 2
 function explore(n) {
   return startChild('lane-test', { protocol: LANE_TEST_PROTOCOL, delegatedLine: DELEGATED_LINE, n, pr, tip, worktree: A.worktree, scratch: A.scratch, tag: TAG, e2e: A.e2e, contract: A.contract, laneFacts, blockingLine: BLOCKING_LINE, finding: FINDING, followup: FOLLOWUP, routing: claudeRole('test') })
 }
@@ -664,28 +664,24 @@ function lockQueueCiState(ci) {
 // A red CI starts the fixer at once; the tester's answer joins the next batch, and the round awaits the tester only when CI
 // has nothing of its own to fix. The tester judges the tip it started on, which later fixes may move. One tester runs at a time.
 let n = 0, testCalls = 0, needTest = true, lockRetried = false, testSettled = false
-let pendingTest = null  // the tester started and not yet judged, with its call number
+let pendingTest = null  // the tester started and not yet judged
 let testBlocking = []  // the tester's findings, held until a fix batch takes them
 function startTest() {
   needTest = productionSinceTest = testSettled = false
-  const call = testCalls++, testedTip = tip
-  pendingTest = explore(call).then(e2e => { testSettled = true; return { call, e2e, testedTip } })
+  pendingTest = explore(testCalls++).then(e2e => { testSettled = true; return e2e })
 }
-const takePendingTest = () => pendingTest.then(judged => { pendingTest = null; return judged })
-const emptyVerdictReason = (e2e, blocking) => (e2e.verdict === 'PASS' && !(e2e.cells || []).some(c => c.result === 'held') && 'a PASS without driven cells: the tester named no held cell') ||
-  (e2e.verdict === 'FAIL' && blocking.length === 0 && 'a FAIL verdict came without any blocking finding') || ''
+const takePendingTest = () => pendingTest.then(e2e => { pendingTest = null; return e2e })
 // Judges the pending tester's answer; returns the result that stops the lane, or undefined. A lock-busy answer is retried once:
 // awaited here when CI has nothing of its own to fix, else left pending while the fixer starts.
 async function settleTest(ci, awaitRetry = true) {
-  let judged = await takePendingTest()
-  if (judged.e2e?.verdict === 'failed' && judged.e2e.lockBusy && !lockRetried) {
+  let e2e = await takePendingTest()
+  if (e2e?.verdict === 'failed' && e2e.lockBusy && !lockRetried) {
     lockRetried = true
     log('the probe lock or the load was busy; trying the end-to-end test once more')
     startTest()
     if (!awaitRetry) return
-    judged = await takePendingTest()
+    e2e = await takePendingTest()
   }
-  const { call, e2e, testedTip } = judged
   if (e2e?.problem) return openResult('failed', 'test', { reason: `the tester ${e2e.problem}` })
   if (e2e && typeof e2e.verdict !== 'string') return openResult('failed', 'test', { reason: `lane-test answered without a verdict: ${JSON.stringify(e2e).slice(0, 200)}` })
   if (e2e?.verdict === 'failed' && e2e.lockBusy) {
@@ -693,10 +689,9 @@ async function settleTest(ci, awaitRetry = true) {
   }
   if (!e2e || e2e.verdict === 'failed') return openResult('failed', 'test', { reason: 'the tester returned no usable result' })
   testBlocking = e2e.blocking || []
-  const emptyReason = emptyVerdictReason(e2e, testBlocking); if (emptyReason) return openResult('failed', 'test', { reason: emptyReason })
-  // A blocking finding outranks a PASS label, as in the classifier of lane-review.js.
-  history.push({ after: spent.total, by: `e2e-${call}`, verdict: testBlocking.length ? 'FAIL' : 'PASS', blocking: testBlocking.map(f => f.where), cells: e2e.cells || [], reportPath: e2e.evidencePath || '' })
-  followups.push(...(e2e.followups || []).map(f => ({ ...f, tip: testedTip })))
+  if (e2e.emptyVerdictReason) return openResult('failed', 'test', { reason: e2e.emptyVerdictReason })
+  history.push({ after: spent.total, ...e2e.historyEntry })
+  followups.push(...e2e.followups)
   // A PASS on a tip a fix has since changed in production is stale: a new tester runs on the current tip.
   if (productionSinceTest) needTest = true
 }

@@ -1,0 +1,8 @@
+claim_id = "af5c08fd6e8d4038963fc059eae5327d"
+agent = "Claude a5abe9e4-862b-4cac-94ed-68bd072edf38"
+role = "builder"
+base = "d96a53f82e48884c64cd79e7e3d7ed6e0b7758a0"
+branch = "claude/issue-628-courier-brief-markers"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/workflows", "tests"]
+opened_commit = "6cfe908108e5f0a2f210dd5f08372489b99ebbd8"
+whole_reason = "The courier prompt in the review child and the lane's handling of its failure, with tests and the release pins."

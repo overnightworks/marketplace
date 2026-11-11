@@ -1,7 +1,7 @@
 // Drives the atelier lane workflow script through the fixer, fold-in, proof and removal rules with a stub agent runner.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { runLane, APPROVE, PASS, greenCi, finding, followup, webauthTips, webauthReplay, agentProvidersReplay, replays, answersWith, outOfRange, mainMovedTip, mergedOnlyTip, resumeTip, resumeFixedTip, tidy, defectWithoutDraft, resumeFix, mergeOnlyFix, resumeArgs, unchangedFix, satisfied, reachesTheEnd, testGap, built } from './lane_workflow_harness.mjs'
+import { runLane, APPROVE, PASS, greenCi, finding, followup, webauthTips, webauthReplay, agentProvidersReplay, replays, answersWith, outOfRange, mainMovedTip, mergedOnlyTip, resumeTip, resumeFixedTip, tidy, defectWithoutDraft, resumeFix, mergeOnlyFix, resumeArgs, unchangedFix, satisfied, reachesTheEnd, testGap, built, secondFix, cleanCheck } from './lane_workflow_harness.mjs'
 
 const proofsByKind = [
   ['a resumed run whose findings carry no kind stops at the fix as before', { kind: undefined, testDraft: true, mutation: true }, false],
@@ -526,8 +526,9 @@ test('a blocked fixer that ran out of turns before the relay line stays escalate
 test('the builder and the fixer are told to run the static checks before pushing, the reviewer is not', async () => {
   const { agentCalls } = await runLane({ ...resumeArgs, fixFirst: [defectWithoutDraft] }, { 'fix-1': resumeFix })
   const { agentCalls: buildCalls } = await runLane({ item: 358, worktree: '/w', branch: 'b', contract: 'c', e2e: 'e', scratch: '/s', build: 'recorded' }, { build: built })
-  const localChecks = /After your last merge of origin\/main and before you push, run the static checks those RULES and CHECKS or your brief name[^]*its local check at the release it pins, as quality's README names it/
+  const localChecks = /After your last merge of origin\/main and before you push, run the static checks those RULES and CHECKS or your brief name[^]*run `quality check` from the worktree[^]*at the release the repository pins/
   assert.match(buildCalls.build.prompt, localChecks)
+  assert.match(buildCalls.build.prompt, /A repository without the quality gate[^]*return noQualityGate/)
   assert.match(agentCalls['fix-1'].prompt, localChecks)
   assert.doesNotMatch(agentCalls['r1-review'].prompt, localChecks)
 })
@@ -562,4 +563,32 @@ test('AC-nothing-changed-stops: an unchanged tip whose outside answers leave a b
   const { result } = await runLane({ ...resumeArgs, fixFirst: [docsFinding, defectWithoutDraft] }, { 'fix-1': { ...unchangedFix, outside: [{ finding: 1, where: 'PR body' }, { finding: 2, where: ' ' }] } })
   assert.deepEqual([result.status, result.stage], ['failed', 'fix'])
   assert.match(result.reason, /the fixer changed nothing/)
+})
+
+const fixerReports = [
+  ['a clean report', cleanCheck, []],
+  ['the statement that the repository has no quality gate', { noQualityGate: 'the repository has no quality/config.toml' }, []],
+  ['findings', { command: 'quality check', exit: 1, findings: ['tests/conftest.py is imported by tests/x_test.py'] }, ['tests/conftest.py is imported']],
+  ['no report', undefined, ['the check was not reported']],
+]
+
+for (const [what, check, expectedFindings] of fixerReports) {
+  test(`a fixer tip with ${what} ${expectedFindings.length ? 'goes to a further fixer before the re-check and CI' : 'goes on to the re-check'}`, async () => {
+    const afterTwoFixes = { 'fix-2': secondFix, 'r2-review': APPROVE, 'ci-0': greenCi(secondFix.head) }
+    const afterOneFix = { 'r1-review': APPROVE, 'ci-0': greenCi(resumeFixedTip) }
+    const answers = { 'fix-1': { ...resumeFix, check }, 'e2e-0': PASS, ...(expectedFindings.length ? afterTwoFixes : afterOneFix) }
+    const { result, launchedAgents, agentCalls } = await runLane({ ...resumeArgs, fixFirst: [defectWithoutDraft] }, answers)
+    assert.equal(result.status, 'ready-to-land')
+    assert.equal(launchedAgents.includes('fix-2'), expectedFindings.length > 0)
+    const order = launchedAgents.filter(label => /^(fix-\d|r\d-review|ci-\d)$/.test(label))
+    assert.deepEqual(order, expectedFindings.length ? ['fix-1', 'fix-2', 'r2-review', 'ci-0'] : ['fix-1', 'r1-review', 'ci-0'])
+    expectedFindings.forEach(text => assert.ok(agentCalls['fix-2'].prompt.includes(text), text))
+  })
+}
+
+test('findings the fixers never clear end the lane on the ci budget, before any re-check', async () => {
+  const answers = { 'fix-1': { ...resumeFix, check: { command: 'quality check', exit: 1, findings: ['first'] } }, 'fix-2': { ...secondFix, check: { command: 'quality check', exit: 1, findings: ['second'] } } }
+  const { result, launchedAgents } = await runLane({ ...resumeArgs, fixFirst: [defectWithoutDraft], budgets: { ci: 1 } }, answers)
+  assert.deepEqual([result.status, result.stage, result.reason], ['ci-red', 'ci', 'ci budget spent'])
+  assert.ok(!launchedAgents.some(label => /^r\d+-review$/.test(label) || label === 'fix-3'), launchedAgents.join())
 })

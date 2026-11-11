@@ -2,7 +2,7 @@
 import fs from 'node:fs'
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { runLane, resumedLane, built } from './lane_workflow_harness.mjs'
+import { runLane, resumedLane, built, cleanCheck, resumeTip, resumeFix, resumeFixedTip, secondFix, APPROVE, PASS, greenCi } from './lane_workflow_harness.mjs'
 
 const readWorkflow = (name) => fs.readFileSync(new URL(`../plugins/atelier/workflows/${name}.js`, import.meta.url), 'utf8')
 const protocolOf = (source) => Number(source.match(/^const LANE_BUILD_PROTOCOL = (\d+)$/m)?.[1])
@@ -19,4 +19,41 @@ test('lane-build-protocol: a child with another protocol number fails the lane a
 test('lane-build-protocol: lane.js and lane-build.js hold the same protocol number', () => {
   assert.ok(Number.isInteger(protocolOf(readWorkflow('lane'))))
   assert.equal(protocolOf(readWorkflow('lane-build')), protocolOf(readWorkflow('lane')))
+})
+
+const findingsCheck = (...findings) => ({ command: 'quality check', exit: 1, findings })
+const builderReports = [
+  ['a clean report', cleanCheck, []],
+  ['the statement that the repository has no quality gate', { noQualityGate: 'the repository has no quality/config.toml' }, []],
+  ['findings', findingsCheck('tests/big_test.py: 829 lines, past the 800 ceiling'), ['tests/big_test.py: 829 lines']],
+  ['an exit status past 0 without a named finding', { command: 'quality check', exit: 2, findings: [] }, ['the check exited 2 and named no findings']],
+  ['no report', undefined, ['the check was not reported']],
+  ['a report without its findings list', { command: 'quality check', exit: 0 }, ['the check was not reported']],
+]
+
+for (const [what, check, expectedFindings] of builderReports) {
+  test(`a builder tip with ${what} ${expectedFindings.length ? 'goes to a fixer before any review or CI' : 'goes on to review'}`, async () => {
+    const afterFix = { 'fix-1': resumeFix, 'r1-review': APPROVE, 'ci-0': greenCi(resumeFixedTip) }
+    const withoutFix = { 'r0-review': APPROVE, 'ci-0': greenCi(resumeTip) }
+    const { result, launchedAgents, agentCalls } = await runLane(builtLane, { build: { ...built, check }, 'e2e-0': PASS, ...(expectedFindings.length ? afterFix : withoutFix) })
+    assert.equal(result.status, 'ready-to-land')
+    assert.equal(launchedAgents.includes('fix-1'), expectedFindings.length > 0)
+    if (expectedFindings.length) assert.ok(launchedAgents.indexOf('fix-1') < launchedAgents.indexOf('r1-review'), launchedAgents.join())
+    expectedFindings.forEach(text => assert.ok(agentCalls['fix-1'].prompt.includes(text), text))
+  })
+}
+
+test('findings the builder and its fixers never clear end the lane on the ci budget, with no review', async () => {
+  const answers = { build: { ...built, check: findingsCheck('first') }, 'fix-1': { ...resumeFix, check: findingsCheck('second') }, 'fix-2': { ...secondFix, check: findingsCheck('third') } }
+  const { result, launchedAgents } = await runLane({ ...builtLane, budgets: { ci: 2 } }, answers)
+  assert.deepEqual([result.status, result.stage, result.reason], ['ci-red', 'ci', 'ci budget spent'])
+  assert.deepEqual(result.lastBlocking.map(f => f.text), ['third'])
+  assert.ok(!launchedAgents.some(label => /^r\d+-review$/.test(label) || label === 'fix-3'), launchedAgents.join())
+})
+
+test('the builder schema and the fixer schema both require a check report', async () => {
+  const { agentCalls } = await runLane(builtLane, { build: { ...built, check: findingsCheck('x') }, 'fix-1': resumeFix })
+  assert.ok(agentCalls.build.options.schema.required.includes('check'))
+  assert.ok(agentCalls['fix-1'].options.schema.required.includes('check'))
+  assert.deepEqual(agentCalls['fix-1'].options.schema.properties.check, agentCalls.build.options.schema.properties.check)
 })

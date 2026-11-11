@@ -5,7 +5,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { execFileSync, spawnSync } from 'node:child_process'
-import { runLane, runCommandLine, installFake, FAKE_ACO, resumedLane, resumeArgs, resumeTip, resumeFix, defectWithoutDraft, reachesTheEnd, greenCi, tidy, unchangedFix, satisfied } from './lane_workflow_harness.mjs'
+import { runLane, runCommandLine, installFake, FAKE_ACO, resumedLane, resumeArgs, resumeTip, resumeFix, defectWithoutDraft, reachesTheEnd, greenCi, tidy, unchangedFix, satisfied, cleanCheck } from './lane_workflow_harness.mjs'
 
 const BRANCH = 'lane'
 const LONGEST_PATH_COMPONENT = 255
@@ -274,7 +274,7 @@ test('AC-sync-relay-real-git: a scope printer line that carries the sync nonce e
 const fixerAgentRunning = (lane, work) => (prompt) => {
   work()
   const printed = runCommandLine(prompt.split('\n').at(-1), { cwd: os.tmpdir(), env: lane.env })
-  return { mergeResolvedLaneConflict: false, files: ['fix-file'], disputed: [], blocked: false, regression: [], printed }
+  return { mergeResolvedLaneConflict: false, files: ['fix-file'], disputed: [], blocked: false, regression: [], check: cleanCheck, printed }
 }
 const mergeMain = (lane) => {
   lane.git(lane.worktree, 'fetch', 'origin')

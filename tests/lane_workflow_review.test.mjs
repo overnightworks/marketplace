@@ -5,7 +5,7 @@ import path from 'node:path'
 import { spawnSync } from 'node:child_process'
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { runLane, resumedLane, installFake, APPROVE, PASS, greenCi, finding, resumeArgs, resumeTip, resumeFixedTip, resumeFix, secondFix, tidy } from './lane_workflow_harness.mjs'
+import { runLane, courierBriefOf, resumedLane, installFake, APPROVE, PASS, greenCi, finding, resumeArgs, resumeTip, resumeFixedTip, resumeFix, secondFix, tidy } from './lane_workflow_harness.mjs'
 
 const readWorkflow = (name) => fs.readFileSync(new URL(`../plugins/atelier/workflows/${name}.js`, import.meta.url), 'utf8')
 const protocolOf = (source) => Number(source.match(/^const LANE_REVIEW_PROTOCOL = (\d+)$/m)?.[1])
@@ -102,8 +102,28 @@ test('review-reads-body: the Codex courier appends both gh outputs to the brief 
 
 test('review-reads-body: the Codex brief does not ask the networkless sandbox to run gh', async () => {
   const { agentCalls } = await runLane({ ...bodyLane, risk: 'material' }, { 'r0-review': APPROVE })
-  const brief = agentCalls['r0-gate'].prompt.match(/-----\n([\s\S]*?)\n-----/)[1]
+  const brief = courierBriefOf(agentCalls['r0-gate'].prompt).brief
   assert.doesNotMatch(brief, /gh issue view/)
+})
+
+test('courier-brief-markers: the courier prompt puts the brief between two marker lines carrying the round token and says the file holds exactly that text', async () => {
+  const { agentCalls } = await runLane({ ...bodyLane, risk: 'material' }, { 'r0-review': APPROVE })
+  const prompt = agentCalls['r0-gate'].prompt
+  const { start, brief, end } = courierBriefOf(prompt)
+  const token = start.replace('BRIEF-START ', '')
+  assert.ok(token.length > 0 && end === `BRIEF-END ${token}`)
+  assert.ok(token.includes('r0-gate'), token)
+  assert.ok(!brief.includes(token))
+  assert.match(brief, /^This is a delegated step started by a head, not a main session/)
+  assert.match(prompt, /The file holds exactly the text between the two marker lines below, first line to last, and nothing of this prompt around them/)
+})
+
+test('courier-brief-markers: a brief that holds a marker line fails the round loud', async () => {
+  const { agentCalls } = await runLane({ ...bodyLane, risk: 'material' }, { 'r0-review': APPROVE })
+  const { start } = courierBriefOf(agentCalls['r0-gate'].prompt)
+  const { result } = await runLane({ ...bodyLane, contract: `a contract\n${start}\nmore`, risk: 'material' }, { 'r0-review': APPROVE })
+  assert.deepEqual([result.status, result.stage], ['failed', 'review'])
+  assert.match(result.reason, /holds a brief marker line/)
 })
 
 test('review-reads-body: a lane-review call without the pull request number fails the lane naming it', async () => {
@@ -123,7 +143,7 @@ async function runStartCommand({ failingProgram, contract = 'c', fileFromBrief =
     const prompt = agentCalls['r0-gate'].prompt
     const startLine = prompt.split('\n').find(line => line.includes('codex exec')).trim()
     const brief = path.join(scratch, startLine.match(/< (\S+-brief\.md)/)[1].split('/').at(-1))
-    const writtenBrief = prompt.match(/verbatim to \S+:\n-----\n([\s\S]*)\n-----\n3\. /)[1]
+    const writtenBrief = courierBriefOf(prompt).brief
     fs.writeFileSync(brief, fileFromBrief(writtenBrief))
     const ran = spawnSync('sh', ['-c', startLine], { cwd: root, env: { ...process.env, PATH: `${bin}:${process.env.PATH}` }, encoding: 'utf8' })
     const marker = fs.readdirSync(scratch).find(name => name.endsWith('.exit'))
@@ -168,6 +188,7 @@ test('courier-start-command: a failed append exits non-zero and starts no Codex'
 for (const [name, options] of [
   ['a brief with one word changed', { fileFromBrief: brief => brief.replace('independent', 'dependent') }],
   ['the courier\'s own prompt instead of the brief', { fileFromBrief: () => 'You are a courier for one independent Codex review.' }],
+  ['the courier prompt\'s second line after the brief\'s first line', { fileFromBrief: brief => { const [firstLine, ...otherLines] = brief.split('\n'); return [firstLine, 'You are a courier for one independent Codex review. Do not review anything yourself and do not edit the repository.', ...otherLines].join('\n') } }],
   ['a non-ASCII brief retyped with a different character', { contract: 'Prüfe 5 € genau', fileFromBrief: brief => brief.replace('€', 'EUR') }],
 ]) {
   test(`courier-brief-check: ${name} exits non-zero, names the mismatch and starts no Codex`, async () => {
@@ -214,6 +235,7 @@ test('courier-schema-retry: a second answer that failed reading the output schem
   failedAtReview(result)
 })
 
+const olderTip = 'b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2'
 const briefMismatch = { verdict: 'failed', blocking: [], followups: [], codexExit: -1, note: 'brief file differs from the brief the script wrote' }
 
 test('courier-brief-retry: an answer that started no Codex for a mismatching brief is retried once and the round is judged on the retry', async () => {
@@ -222,9 +244,31 @@ test('courier-brief-retry: an answer that started no Codex for a mismatching bri
   assert.deepEqual(result.history.map(round => [round.by, round.verdict]), [['review', 'APPROVE'], ['gate', 'APPROVE']])
 })
 
-test('courier-brief-retry: a second mismatching brief fails the round with no further retry', async () => {
-  const { result, launchedAgents } = await runLane(materialLane, gateAnswers(briefMismatch, briefMismatch))
-  assert.deepEqual(gateRuns(launchedAgents), ['r0-gate', 'r0-gate-retry'])
+// A round that ended with a second mismatch hands the head what it resumes with, in the shape of the usage-limit result.
+const resumedWith = { ...resumeArgs, risk: 'material', productionPaths: ['src/'] }
+for (const [name, lane] of [
+  ['a first round', resumedWith],
+  ['a delta round', { ...resumedWith, deltaFrom: olderTip, answers: 'earlier findings' }],
+]) {
+  test(`courier-brief-retry: a second mismatching brief on ${name} returns awaiting-head at review with the resume arguments and no further retry`, async () => {
+    const { result, launchedAgents } = await runLane(lane, gateAnswers(briefMismatch, briefMismatch))
+    assert.deepEqual(gateRuns(launchedAgents), ['r0-gate', 'r0-gate-retry'])
+    assert.deepEqual([result.status, result.stage, result.pr, result.tip], ['awaiting-head', 'review', lane.pr, lane.tip])
+    assert.match(result.reason, /wrote a different brief/)
+    assert.equal(result.deltaFrom, lane.deltaFrom)
+    assert.equal(result.answers === undefined ? undefined : /earlier findings/.test(result.answers), lane.answers && true)
+  })
+}
+
+test('courier-brief-retry: a second mismatching brief beside a REVISE of the review carries its findings for fixFirst', async () => {
+  const { result } = await runLane(resumedWith, { ...gateAnswers(briefMismatch, briefMismatch), 'r0-review': { verdict: 'REVISE', blocking: [reviewFinding], followups: [] } })
+  assert.equal(result.status, 'awaiting-head')
+  assert.deepEqual(result.lastBlocking, [reviewFinding])
+  assert.match(result.reason, /fixFirst/)
+})
+
+test('courier-brief-retry: a mismatch beside another failure of the round fails the round', async () => {
+  const { result } = await runLane({ ...resumedWith, reviewer: 'codex' }, { 'r0-review': () => briefMismatch, 'r0-review-retry': () => briefMismatch, 'r0-gate': { verdict: 'failed', blocking: [], followups: [], codexExit: 2, note: 'boom' } })
   failedAtReview(result)
 })
 
@@ -321,8 +365,6 @@ test('usage-limit: a limited gate re-check after a fix hands back the tip before
   assert.equal(result.deltaFrom, resumeTip)
   assert.match(result.answers, /gate finding/)
 })
-
-const olderTip = 'b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2'
 
 test('usage-limit: a resumed run whose first round is limited returns the deltaFrom it was given', async () => {
   const { result } = await runLane({ ...materialLane, deltaFrom: olderTip, answers: 'earlier findings' }, limitedGate)
@@ -502,7 +544,7 @@ test('review-brief-checksum: the checksum in the Codex courier command equals wh
   const contract = 'Größe é, 日本語 の契約, 🙂 and 𝔘𝔫𝔦𝔠𝔬𝔡𝔢'
   const { agentCalls } = await runLane({ ...resumedLane, contract, risk: 'material' }, { 'r0-review': APPROVE })
   const prompt = agentCalls['r0-gate'].prompt
-  const brief = prompt.match(/-----\n([\s\S]*?)\n-----\n3\. /)[1]
+  const brief = courierBriefOf(prompt).brief
   const printer = prompt.match(/python3 -c '([^']*)'/)[1]
   const checksum = prompt.match(/= ([0-9a-f]{8}) \] \|\|/)[1]
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'brief-checksum-'))

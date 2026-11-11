@@ -4,7 +4,7 @@ export const meta = {
 }
 
 // Both copies of this number (here and in lane.js) change together in any commit that changes the args or the return shape.
-const LANE_REVIEW_PROTOCOL = 4
+const LANE_REVIEW_PROTOCOL = 5
 const A = args || {}
 if (A.protocolQuery) return { protocol: LANE_REVIEW_PROTOCOL }
 const need = ['protocol', 'item', 'pr', 'after', 'tip', 'delegatedLine', 'worktree', 'branch', 'scratch', 'tag', 'label', 'range', 'contract', 'blockingLine', 'reviewers', 'findingKinds', 'finding', 'followup', 'mechanical']
@@ -44,6 +44,8 @@ const USAGE_LIMIT = 'hit your usage limit'
 const SCHEMA_READ_ERROR = 'Failed to read output schema file'
 // What the courier's start command prints when the brief file is not the brief the script wrote.
 const BRIEF_MISMATCH = 'brief file differs from the brief the script wrote'
+// A courier that wrote a different brief started no Codex.
+const isBriefMismatch = answer => answer?.verdict === 'failed' && answer.codexExit === -1 && String(answer.note ?? '').includes(BRIEF_MISMATCH)
 const LIMIT = {
   type: 'object',
   required: ['line', 'resetsAt'],
@@ -124,8 +126,7 @@ function rereadContradictoryCourier(answer, label, base) {
 function retryFailedStart(answer, runCourier, label) {
   const note = String(answer?.note ?? '')
   const unreadSchema = answer?.verdict === 'failed' && answer.codexExit > 0 && note.includes(SCHEMA_READ_ERROR)
-  const miscopiedBrief = answer?.verdict === 'failed' && answer.codexExit === -1 && note.includes(BRIEF_MISMATCH)
-  if (!unreadSchema && !miscopiedBrief) return answer
+  if (!unreadSchema && !isBriefMismatch(answer)) return answer
   log(`${label}: ${unreadSchema ? 'Codex could not read its output schema' : 'the courier wrote a different brief'}; starting the courier once more`)
   return runCourier(`${label}-retry`)
 }
@@ -160,11 +161,14 @@ function codexReview(label, routing, role, range) {
   const appendBodies = String.raw`{ cat ${base}-brief.md && printf '\n\n-----\nThe current item body (gh issue view):\n' && gh issue view ${A.item}${R} --json body --jq .body && printf '\n\n-----\nThe current pull request body (gh pr view):\n' && gh pr view ${A.pr}${R} --json body --jq .body; } > ${base}-brief.md.tmp && mv ${base}-brief.md.tmp ${base}-brief.md`
   const brief = `${A.delegatedLine}\nRead-only sandbox: read files and run read-only commands freely; do not run tests. The item body and the pull request body follow this brief: they are the contract core and the verification evidence. The sandbox has no network and cannot write, /tmp included; report a command you cannot run as not verified, never as a blocking finding.\n` + reviewerBrief(role, range) +
     `\nGive every finding its file:line in "where".`
+  // The courier prompt and the brief both open with the delegated line, so the brief stands between two marker lines of the prompt that carry the round's token.
+  const markers = { start: `BRIEF-START ${A.tag}-${label}`, end: `BRIEF-END ${A.tag}-${label}` }
+  if (brief.includes(markers.start) || brief.includes(markers.end)) throw new Error(`the ${label} brief holds a brief marker line`)
   const checkBrief = `{ [ "$(python3 -c '${BRIEF_CRC_PRINTER}' < ${base}-brief.md)" = ${crc32OfUtf8(brief.split(/[ \t\n\r\f\v]+/).filter(Boolean).join(' '))} ] || { echo '${BRIEF_MISMATCH}' >&2; false; }; }`
   const courierPrompt =
     `${A.delegatedLine}\nYou are a courier for one independent Codex review. Do not review anything yourself and do not edit the repository.\n` +
     `1. rm -f ${base}-out.json ${base}-out.json.exit ${base}-out.json.exit.tmp ${base}-brief.md.tmp ${base}-run.log\n` +
-    `2. Write this brief verbatim to ${base}-brief.md:\n-----\n${brief}\n-----\n` +
+    `2. Write the brief to ${base}-brief.md. The file holds exactly the text between the two marker lines below, first line to last, and nothing of this prompt around them: neither marker line, nor the opening of this prompt, nor any other line of it. Copy it verbatim.\n${markers.start}\n${brief}\n${markers.end}\n` +
     `3. Write the output schema, check the brief file against its checksum, append the current item body and pull request body to the brief and start Codex detached, recording its exit status in a marker file, with this one shell command line, exactly as written, never retyped from memory, split or summarised. Codex starts only if the schema write, the brief check and the append succeeded. If the line exits non-zero, Codex did not start: return verdict failed with codexExit -1 and the error in note.\n` +
     `   printf %s '${CODEX_SCHEMA}' > ${base}-schema.json && cd ${A.worktree} && ${checkBrief} && ${appendBodies} && { setsid nohup bash -c 'codex exec -s read-only -C ${A.worktree} -m ${routing.model} -c model_reasoning_effort=${routing.effort} --output-schema ${base}-schema.json -o ${base}-out.json - < ${base}-brief.md; echo $? > ${base}-out.json.exit.tmp && mv ${base}-out.json.exit.tmp ${base}-out.json.exit' > ${base}-run.log 2>&1 & }\n` +
     `4. Wait in the foreground — you cannot be woken later, your task ends when you answer. Run this Bash command (timeout 600000 ms) and repeat it until the marker exists, at most 7 times:\n` +
@@ -206,9 +210,12 @@ const shortened = (note, limit = 300) => { const text = String(note || 'no note'
 function classify(results, expected) {
   const got = results.filter(Boolean)
   if (got.length !== expected) return { state: 'failed', reason: `${expected - got.length} review(s) returned nothing` }
-  if (got.some(v => v.verdict === 'failed' && !v.limit)) {
+  const failures = got.filter(v => v.verdict === 'failed' && !v.limit)
+  // A courier that twice wrote a different brief is a slip of the courier, not a verdict: the head resumes the round.
+  if (failures.length && failures.every(isBriefMismatch)) return { state: 'brief-mismatch', reason: failures.map(v => shortened(v.note, 700)).join(' | ') }
+  if (failures.length) {
     const reportPaths = got.filter(v => v.verdict === 'failed' && v.reportPath).map(v => v.reportPath)
-    return { state: 'failed', reason: got.filter(v => v.verdict === 'failed' && !v.limit).map(v => shortened(v.note, 700)).join(' | ') + (reportPaths.length ? '; read the report ' + reportPaths.join(' and ') : '') }
+    return { state: 'failed', reason: failures.map(v => shortened(v.note, 700)).join(' | ') + (reportPaths.length ? '; read the report ' + reportPaths.join(' and ') : '') }
   }
   if (got.some(v => v.verdict === 'architectural')) return { state: 'architectural' }
   // An evidenced blocking finding outranks its label (APPROVE with a finding counts as REVISE). A REVISE with nothing

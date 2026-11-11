@@ -2,7 +2,7 @@
 import fs from 'node:fs'
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { runLane, resumedLane, APPROVE, greenCi, finding, webauthTips, webauthReplay, agentProvidersReplay, answersWith, resumeTip, tidy, defectWithoutDraft, resumeFix, resumeArgs, unchangedFix, satisfied, reachesTheEnd, secondFix, mergedOnlyTip, conflictsWithMain, mergeOnlyFix } from './lane_workflow_harness.mjs'
+import { runLane, courierBriefOf, resumedLane, APPROVE, greenCi, finding, webauthTips, webauthReplay, agentProvidersReplay, answersWith, resumeTip, tidy, defectWithoutDraft, resumeFix, resumeArgs, unchangedFix, satisfied, reachesTheEnd, secondFix, mergedOnlyTip, conflictsWithMain, mergeOnlyFix } from './lane_workflow_harness.mjs'
 
 const readWorkflow = (file) => fs.readFileSync(new URL(`../plugins/atelier/workflows/${file}`, import.meta.url), 'utf8')
 
@@ -270,7 +270,7 @@ test('delegated-line: every agent prompt the lane and its children start opens w
   const launchedPrompts = [...unreadableSync.launchedPrompts, ...laneAgentPrompts]
   for (const label of ['build', 'r0-review', 'r0-gate', 'r0-gate-reread', 'fix-1', 'e2e-0', 'ci-0']) assert.ok(launchedAgents.includes(label), label)
   for (const prompt of launchedPrompts) assert.ok(prompt.startsWith(`${line}\n`), prompt.slice(0, 120))
-  assert.ok(agentCalls['r0-gate'].prompt.includes(`-----\n${line}\nRead-only sandbox`))
+  assert.equal(courierBriefOf(agentCalls['r0-gate'].prompt).brief.split('\n')[0], line)
 })
 
 // The recorded answers as a reviewer and fixer briefed with finding kinds would give them: the test-gap finding

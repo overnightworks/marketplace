@@ -772,12 +772,15 @@ while (true) {
   needTest ||= taken.length > 0 || productionSinceTest
 }
 
+const rescopeAdds = [...passedTestPaths].map(path => '--add ' + path).join(' ')
+const rescopeWhole = passedTestPaths.size > MAX_PATHS_WITHOUT_WHOLE ? ' --whole "<one sentence why this scope does not split>"' : ''
+const rescopeCommand = 'aco rescope ' + A.item + ' ' + rescopeAdds + rescopeWhole
 const stillOpen = openFollowups()
 return {
   status: 'ready-to-land', pr, tip, spent, routing: ROUTING, history, followups: stillOpen, raisedBeforeTip: raisedBeforeTip(stillOpen), folded: [...folded.values()], disputed,
   ...gateUnseenView(), testPathsOutsideClaim: [...passedTestPaths],
   requiredHeadActions: [
-    ...(passedTestPaths.size ? [`run \`aco rescope ${A.item} ${[...passedTestPaths].map(path => `--add ${path}`).join(' ')}${passedTestPaths.size > MAX_PATHS_WITHOUT_WHOLE ? ' --whole "<one sentence why this scope does not split>"' : ''}\` from ${A.worktree} before landing: these test paths are outside the claim and passed the scope check as testPaths`] : []),
+    ...(passedTestPaths.size ? [`run \`${rescopeCommand}\` from ${A.worktree} before landing: these test paths are outside the claim and passed the scope check as testPaths`] : []),
     `land with \`aco land ${pr}\` only while the pull request head is still ${tip}`,
     ...(MATERIAL && isGateStandIn('gate', ROUTING.gate.model, ROUTING.gate.effort) ? [`name the Opus 5.5 stand-in as the final gate in the body of pull request #${pr}: the lane ran no Codex gate`] : []),
     ...(gateUnseen ? [`name ${gateUnseen.seenTip}..${tip} in the body of pull request #${pr}: the final gate, at its usage limit, did not see that range`] : []),

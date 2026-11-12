@@ -484,6 +484,18 @@ const testPrefixes = ['tests/', 'src/pkg/tests/']
 const testFiles = ['tests/test_board.py', 'src/pkg/tests/builders.py']
 const endsGreenAt = (tip) => ({ 'e2e-0': PASS, 'ci-0': greenCi(tip) })
 
+const testPathsFacts = [['given', testPrefixes, true], ['not given', undefined, false]]
+for (const [when, testPaths, sentenceIsThere] of testPathsFacts) {
+  test(`AC-test-paths-facts: with testPaths ${when} the builder and the fixer prompts ${sentenceIsThere ? 'name the test prefixes as inside the scope and needing no rescope' : 'carry no such sentence'}`, async () => {
+    const { agentCalls: builderCalls } = await runLane({ ...builtLane, testPaths }, { build: built })
+    const { agentCalls: fixerCalls } = await runLane({ ...resumeArgs, fixFirst: [defectWithoutDraft], testPaths }, { 'fix-1': resumeFix })
+    for (const prompt of [builderCalls.build.prompt, fixerCalls['fix-1'].prompt]) {
+      if (sentenceIsThere) assert.match(prompt, /path under one of these test prefixes counts as inside the scope and needs no rescope: tests\/, src\/pkg\/tests\/\./)
+      else assert.doesNotMatch(prompt, /one of these test prefixes/)
+    }
+  })
+}
+
 const testPathsPass = [
   ['after the build', builtLane, { build: built, 'scope-0': outsideClaim(testFiles), 'r0-review': APPROVE, ...endsGreenAt(resumeTip) }, ['build', 'scope-0', 'r0-review']],
   ['after a review fix', resumeArgs, { 'r0-review': reviseOnce, 'fix-1': aFixFor, 'scope-1': outsideClaim(testFiles), 'r1-review': APPROVE, ...endsGreenAt(resumeFixedTip) }, ['r0-review', 'fix-1', 'scope-1', 'r1-review']],

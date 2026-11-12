@@ -1,7 +1,0 @@
-claim_id = "3446fe6c2b1640908f674aab44e0f70d"
-agent = "Claude a5abe9e4-862b-4cac-94ed-68bd072edf38"
-role = "builder"
-base = "0f6a9f85a9776de60bda21ce7232a1ef838b47b5"
-branch = "claude/issue-639-quality-pins-v0-11-1"
-scope = [".github/workflows/ci.yml", ".github/workflows/codeql.yml"]
-opened_commit = "9d8f62a08f684608af96885d41b85077b0ed2f94"

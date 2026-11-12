@@ -1,0 +1,8 @@
+claim_id = "00705e7234154cfabd778527d294395b"
+agent = "Claude ff1b9f08-53fd-4692-b3b9-2cc410b8d654"
+role = "builder"
+base = "5d035e41ed114fbac193793024152e8db76de7a6"
+branch = "claude/issue-650-builder-edits-testpaths"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/workflows/lane.js", "tests/lane_workflow_builder.test.mjs", "tests/lane_workflow_scope.test.mjs"]
+opened_commit = "222e31bc3b349a9267a9a163fe74ef4709d1b3e4"
+whole_reason = "The builder and fixer brief lives in lane.js; its tests move with it, and a plugin change raises the version in the three manifests."

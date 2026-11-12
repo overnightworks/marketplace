@@ -139,3 +139,12 @@ test('courier-cuts-brief: the token names one text, so a changed brief is cut on
   second.place(AGENT_TRANSCRIPT, record(indented(first.prompt)))
   assert.match(second.cut().stderr, noRecordLine)
 })
+
+test('courier-cuts-brief: two differing briefs in recent transcripts, the cut gives the brief of the requested token', async () => {
+  const first = await courierRound('the first contract')
+  const second = await courierRound('the second contract')
+  second.place(AGENT_TRANSCRIPT, record(indented(first.prompt)) + record(indented(second.prompt)))
+  const ran = second.cut()
+  assert.equal(ran.status, 0, ran.stderr)
+  assert.equal(ran.written, `${second.brief}\n`)
+})

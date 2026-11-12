@@ -1,4 +1,4 @@
-"""Import a `scripts/` entry point, which is a file rather than a package."""
+"""Import an entry point that is a file rather than a package: a `scripts/` script or a plugin hook."""
 
 from __future__ import annotations
 
@@ -8,13 +8,13 @@ from pathlib import Path
 from types import ModuleType
 
 
-SCRIPTS_DIRECTORY = Path(__file__).resolve().parents[1] / "scripts"
+REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
+SCRIPTS_DIRECTORY = REPOSITORY_ROOT / "scripts"
+HOOKS_DIRECTORY = REPOSITORY_ROOT / "plugins" / "atelier" / "hooks"
 
 
-def load_script(name: str) -> ModuleType:
-    spec = importlib.util.spec_from_file_location(
-        f"{name}_under_test", SCRIPTS_DIRECTORY / f"{name}.py"
-    )
+def load_script(name: str, directory: Path = SCRIPTS_DIRECTORY) -> ModuleType:
+    spec = importlib.util.spec_from_file_location(f"{name}_under_test", directory / f"{name}.py")
     module = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = module
     spec.loader.exec_module(module)

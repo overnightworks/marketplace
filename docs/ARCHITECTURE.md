@@ -80,6 +80,18 @@ fails. A helper is told apart by its first message, another agent's brief that
 opens with the delegated line; it reads only a section of `HEAD.md` its brief
 names.
 
+A Claude Code head that is running when the contract changes learns of it
+through the plugin's hook, `plugins/atelier/hooks/contract_change.py`. The host
+runs it at session start, at each prompt and after each tool batch. It compares
+the committed `AGENTS.md` and `HEAD.md` of the checkout the contract link points
+into with the blobs the session last saw, and injects the changed lines with
+the subjects of the commits that changed them, once per change. A subagent, a
+workflow agent and a session whose first prompt opens with the delegated line
+(read from the contract's "Head or helper" blockquote) get nothing. Per-session
+state, only commit and blob ids and the role, lives in the plugin's data
+directory. Only Claude Code runs the hook; the hook file is named in
+`.claude-plugin/plugin.json` alone, so Codex does not discover it.
+
 ## 4. Deployment View
 
 Nothing runs as a service. The checkout on the operator's machine is the
@@ -109,7 +121,7 @@ model than the audit skill's default is declared.
 **Proof strategy.** CI on every pull request checks that the generated Codex
 agents match their source, that no symlink is tracked, that the contract fits
 Codex's instruction-file size limit, that every skill is valid and every
-workflow's metadata parses, and runs the workflow tests, and the script tests
+workflow's metadata parses, and runs the workflow tests, and the script and hook tests
 at 100 % branch coverage; the shared quality gate then judges the whole.
 Documentation is proven by review.
 
@@ -138,4 +150,5 @@ Documentation is proven by review.
   a stale or half-merged checkout silently changes every agent's rules.
 - Grok depends on another provider's compatibility setting to see the
   contract.
-- After an install, a running session keeps the plugin version it loaded.
+- After an install, a running session keeps the plugin version it loaded,
+  the contract-change hook included.

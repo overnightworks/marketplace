@@ -62,10 +62,9 @@ questions, doubts and friction go to its parent.
   new source of truth. It is judged by what the diff can break, not by the
   topic: a patch-level bump that closes an advisory, a docs-only or test-only
   change, a text whose wording the operator ruled, or a refactor its unchanged
-  tests prove carries none, needs no drive,
-  and is proven by CI on a clean install. Architecture (a new or moved boundary
-  or dependency direction) and genuine uncertainty earn an independent plan
-  review, not the final gate.
+  tests prove carries none, needs no drive, and is proven by CI on a clean
+  install. Architecture (a new or moved boundary or dependency direction) and
+  genuine uncertainty earn an independent plan review, not the final gate.
 
 ## How to decide
 

@@ -182,7 +182,7 @@ const localCheckFacts =
 
 // The turn budget of each agent definition's maxTurns (plugins/atelier/agents), which a test keeps equal; an agent cannot read its own definition.
 const TURN_BUDGET = { build: 150, fix: 150 }
-const turnFacts = (role) => `You have ${TURN_BUDGET[role]} turns: do not stop earlier on a guess of how many are left, and report what is left only when they are used up.`
+const turnFacts = (role) => `You have ${TURN_BUDGET[role]} turns; do not stop earlier on a guess of how many are left, stop where your agent definition says.`
 
 const driveFacts = `Any drive you run keeps its pidfiles and evidence under ${A.scratch}.`
 

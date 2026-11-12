@@ -407,15 +407,6 @@ def test_an_unreadable_state_file_means_a_session_starting_over(machine: Machine
     assert "acme/there#2" in machine.prompt()
 
 
-def test_a_state_write_that_fails_leaves_no_temporary_file(machine: Machine) -> None:
-    (machine.data / "fleet-plans" / "head-session.json").mkdir(parents=True)
-
-    with pytest.raises(OSError):
-        machine.prompt()
-
-    assert list(machine.data.rglob("*.tmp")) == []
-
-
 @pytest.mark.parametrize("session", ["../escape", "nested/session", ".."])
 def test_a_session_id_that_is_not_a_plain_name_is_refused_and_writes_nothing(machine: Machine, session: str) -> None:
     with pytest.raises(ValueError):

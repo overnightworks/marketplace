@@ -42,20 +42,19 @@ async function courierRound(contract = 'a contract\n    an indented line\n\t- a 
 
 const noRecordLine = /^no transcript record of this courier holds the brief between its two marker lines\n$/
 
-test('courier-cuts-brief: one transcript record gives the brief exactly as the script built it, the host indent removed', async () => {
-  const { prompt, brief, place, cut } = await courierRound()
-  place(AGENT_TRANSCRIPT, record(indented(prompt)))
-  const ran = cut()
-  assert.equal(ran.status, 0, ran.stderr)
-  assert.equal(ran.written, `${brief}\n`)
-  assert.equal(ran.stdout, '')
-})
-
-test('courier-cuts-brief: a prompt the host left unindented gives the same brief', async () => {
-  const { prompt, brief, place, cut } = await courierRound()
-  place(AGENT_TRANSCRIPT, record(prompt))
-  assert.equal(cut().written, `${brief}\n`)
-})
+for (const [name, hostText] of [
+  ['the host indents every line of the prompt', indented],
+  ['the host leaves the prompt unindented', text => text],
+]) {
+  test(`courier-cuts-brief: one transcript record gives the brief exactly as the script built it, where ${name}`, async () => {
+    const { prompt, brief, place, cut } = await courierRound()
+    place(AGENT_TRANSCRIPT, record(hostText(prompt)))
+    const ran = cut()
+    assert.equal(ran.status, 0, ran.stderr)
+    assert.equal(ran.written, `${brief}\n`)
+    assert.equal(ran.stdout, '')
+  })
+}
 
 test('courier-cuts-brief: two records of one text, the courier and its retry, give that text', async () => {
   const { prompt, brief, place, cut } = await courierRound()

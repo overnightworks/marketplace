@@ -1,0 +1,8 @@
+claim_id = "25f171ed728049509be3ea13f4911d72"
+agent = "Claude ff1b9f08-53fd-4692-b3b9-2cc410b8d654"
+role = "builder"
+base = "437a180842f0ad1bed7a8185ca2cf2a320487044"
+branch = "claude/issue-647-five-process-rulings"
+scope = [".claude-plugin/marketplace.json", "instructions/AGENTS.md", "instructions/HEAD.md", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/.codex/agents", "plugins/atelier/agents", "plugins/atelier/workflows", "tests"]
+opened_commit = "95a6799f20a1d13d62e1823b1895fef2aacb954d"
+whole_reason = "Five rulings of one day change the same contract sections, lane scripts and agent definitions; one lane avoids five version bumps and conflicting edits of the same sentences."

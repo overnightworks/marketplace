@@ -66,8 +66,6 @@ export async function runLane(args, answers = {}, options = {}) {
   const baseLabel = (label) => label.endsWith(REREAD) ? label.slice(0, -REREAD.length) : label
   const isRelayed = (label) => /^(sync|scope-|ci-read-|fix-)/.test(baseLabel(label))
   const defaultAnswerFor = (label) => isRelayed(label) && !isFixer(label) ? {} : null
-  // A builder and a fixer answer with a clean check unless the scenario names its own (check: undefined leaves it out).
-  const withCleanCheck = (label, answer) => (label === 'build' || isFixer(label)) && answer && typeof answer === 'object' ? { check: cleanCheck, ...answer } : answer
   // The branch carries the newest tip a builder, fixer or sync returned. A scope, sync or fixer answer says what the fake
   // git and aco print (scope: push_error, remote_tip, brief_error, outside_claim; sync and fixer: head, parents, head_code,
   // main_code; a fixer's answer also holds its own report, which is returned with the printed line) and how the agent mishandled the printed line (nonce, edit, printed, printerMode: the printer mode it ran instead); the line itself always comes from
@@ -114,7 +112,7 @@ export async function runLane(args, answers = {}, options = {}) {
   const answerFor = (label, prompt) => {
     const base = baseLabel(label)
     const reread = label !== base
-    const given = withCleanCheck(base, label in answers ? answers[label] : base in answers ? answers[base] : defaultAnswerFor(base))
+    const given = label in answers ? answers[label] : base in answers ? answers[base] : defaultAnswerFor(base)
     if (typeof given === 'function') return reread ? { printed: given(prompt).printed } : given(prompt)
     const answer = isRelayed(label) && given ? { ...(base.startsWith('ci-read-') ? ciWorldOf(base) : {}), ...given } : structuredClone(given)
     if (answer?.tip && label === 'build') newestTip = answer.tip
@@ -146,8 +144,6 @@ export async function runLane(args, answers = {}, options = {}) {
     if (fakeBin) fs.rmSync(fakeBin, { recursive: true })
   }
 }
-
-export const cleanCheck = { command: 'quality check', exit: 0, findings: [] }
 
 export const resumedLane = { item: 1, worktree: '/w', branch: 'b', contract: 'c', e2e: 'e', scratch: '/s', pr: 1, tip: 'abcdef0' }
 

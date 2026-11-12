@@ -1,14 +1,14 @@
 
 export const meta = {
   name: 'lane-relay',
-  description: 'Internal to the lane workflow, never started by a head: builds the briefs of the sync and fix steps and owns the schemas of their reports (the fixer\'s includes its local quality check), runs one printer command through an agent and returns the answer of the agent together with the CRC-checked values of the line it relays, for the fix step the judgement of the fixer\'s proofs against the findings it answered, and for the ci step the reading of those values.',
+  description: 'Internal to the lane workflow, never started by a head: builds the briefs of the sync and fix steps and owns the schemas of their reports, runs one printer command through an agent and returns the answer of the agent together with the CRC-checked values of the line it relays, for the fix step the judgement of the fixer\'s proofs against the findings it answered, and for the ci step the reading of those values.',
 }
 
 // Both copies of this number (here and in lane.js) change together in any commit that changes the args or the return shape.
-const LANE_RELAY_PROTOCOL = 16
+const LANE_RELAY_PROTOCOL = 17
 const A = args || {}
 if (A.protocolQuery) return { protocol: LANE_RELAY_PROTOCOL }
-const need = ['protocol', 'delegatedLine', 'worktree', 'label', 'phase', 'step', 'relayArgs', 'nonce', 'requiredKeys', 'agentOptions', 'mechanical', 'rescope', 'checkReport']
+const need = ['protocol', 'delegatedLine', 'worktree', 'label', 'phase', 'step', 'relayArgs', 'nonce', 'requiredKeys', 'agentOptions', 'mechanical', 'rescope']
 if (A.protocol !== LANE_RELAY_PROTOCOL) return { refused: `lane-relay speaks protocol ${JSON.stringify(LANE_RELAY_PROTOCOL)}, but the lane that started it speaks protocol ${JSON.stringify(A.protocol)}; the installed atelier differs from the running lane` }
 const missing = need.filter(key => A[key] === undefined || A[key] === null || A[key] === '')
 if (missing.length) return { refused: `missing args: ${missing.join(', ')}` }
@@ -95,7 +95,7 @@ const withAnyClosingBraces = (text) => {
 const PRINTED = { type: 'string', description: 'the one line the command printed, character for character as printed; when it printed no line, its error output' }
 const FIX = {
   type: 'object',
-  required: ['mergeResolvedLaneConflict', 'files', 'disputed', 'blocked', 'check'],
+  required: ['mergeResolvedLaneConflict', 'files', 'disputed', 'blocked'],
   properties: {
     mergeResolvedLaneConflict: { type: 'boolean' },
     files: { type: 'array', items: { type: 'string' } },
@@ -115,7 +115,7 @@ const FIX = {
       description: "every test you add, strengthen or keep for a blocking finding, and every probe cell you run for it, under that finding's number in the blocking list you were given",
       items: { type: 'object', required: ['finding', 'test', 'failedBefore', 'passesAfter'], properties: { finding: { type: 'integer', minimum: 1, description: 'the number of the blocking finding in the list you were given' }, resolution: { type: 'string', enum: ['removed-vacuous'], description: 'for a test-gap finding whose test pins no behaviour: the fix removed that test instead of adding one' }, diff: { type: 'string', description: 'for removed-vacuous: the removal diff' }, test: { type: 'string' }, failedBefore: { type: 'boolean' }, passesAfter: { type: 'boolean' }, notRun: { type: 'string', description: 'why this machine could not run the test (a refused command, a machine another lane holds); CI on the pushed tip is its proof. Not for a test you ran and saw fail: that is passesAfter false' }, mutation: { type: 'string', description: 'for a test-gap finding: the production change, made and reverted, under which the test fails' } } },
     },
-    summary: { type: 'string' }, blocked: { type: 'boolean' }, blockedReason: { type: 'string' }, check: A.checkReport, rescope: A.rescope,
+    summary: { type: 'string' }, blocked: { type: 'boolean' }, blockedReason: { type: 'string' }, rescope: A.rescope,
   },
 }
 const SYNC_ANSWER = { properties: { note: { type: 'string', description: 'what stopped the merge: the conflicting paths, or the failed command and its output' } } }
@@ -145,7 +145,7 @@ function fixerBrief({ facts, pr, tip, source, blocking, foldIns }) {
     : ''
   return (
     `${facts}\nYou are a fresh fixer for PR #${pr} (lane tip ${tip}). Merge origin/main if it moved, before or after your fixes (a merge commit; ` +
-    `resolve other conflicts only when you can do so without changing behaviour, and set mergeResolvedLaneConflict true when files this lane changed needed resolution). If the worktree already carries commits or uncommitted changes past that tip from an earlier fixer that ran out of turns, judge them, keep what is right, and continue from there. Commit each finding as soon as it is green; if you run short of turns, commit what is green and return what is left in blockedReason with blocked true. ${task}${foldInBrief}\n\n` +
+    `resolve conflicts so both sides' behaviour holds, and set mergeResolvedLaneConflict true when files this lane changed needed resolution). If the worktree already carries commits or uncommitted changes past that tip from an earlier fixer that ran out of turns, judge them, keep what is right, and continue from there. Commit each finding as soon as it is green. Your turn budget is the maxTurns of your agent definition, which also says when to stop: do not stop earlier on a guess of how many turns are left, and report what is left only at that point. Then commit what is green and return what is left in blockedReason with blocked true. ${task}${foldInBrief}\n\n` +
     `Each finding names the rule it breaks and its evidence. A scanner finding whose message covers the whole file (for example "in this file") is fixed at every occurrence in that file, not only at the reported line. Check the evidence yourself first. If it does not hold — the rule is not broken, or the evidence is wrong — ` +
     `do not change code for it: list it in disputed with your counter-evidence. Report every test you add, strengthen or keep for a blocking finding, and every probe cell you run for it, in regression under that finding's number in the list above; the number counts only for the blocking list, a follow-up needs no regression entry. Run the mutation you name, do not reason about it. ` +
     `A defect's test fails before your fix and passes after it; a defect with a test draft needs one. A defect in test code (hygiene) needs no regression test: the diff is its proof. A test you could not run on this machine is reported with notRun, the reason, and passesAfter false is kept for a test you ran and saw fail; the delta re-check judges a not-run test from its text and CI on the pushed tip runs it. A test-gap finding means a behaviour has no test, the code is already right, and it always needs a test: it passes before and after, ` +

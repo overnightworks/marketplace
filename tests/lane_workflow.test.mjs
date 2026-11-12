@@ -105,7 +105,7 @@ for (const [risk, reviewer, model, effort] of reviewRoutingByRisk) {
 }
 
 const writerRoutingByRisk = [
-  ['normal', { build: ['haiku', 'high'], 'fix-1': ['haiku', 'high'], 'e2e-0': ['sonnet', 'medium'] }],
+  ['normal', { build: ['sonnet', 'medium'], 'fix-1': ['sonnet', 'medium'], 'e2e-0': ['sonnet', 'medium'] }],
   ['material', { build: ['sonnet', 'high'], 'fix-1': ['sonnet', 'high'], 'e2e-0': ['sonnet', 'high'] }],
 ]
 

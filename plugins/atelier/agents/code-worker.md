@@ -10,8 +10,8 @@ tools:
   - Write
   - Skill
 maxTurns: 150
-model: haiku
-effort: high
+model: sonnet
+effort: medium
 ---
 
 <!-- atelier-agent {"codex_name":"code_worker","codex_sandbox_mode":"workspace-write","codex_nickname_candidates":["Builder","Forge","Maker"],"codex_effort":"medium"} -->

@@ -61,7 +61,8 @@ questions, doubts and friction go to its parent.
   secrets or rights, money, security, deletion or anything irreversible, or a
   new source of truth. It is judged by what the diff can break, not by the
   topic: a patch-level bump that closes an advisory, a docs-only or test-only
-  change, or a refactor its unchanged tests prove carries none, needs no drive,
+  change, a text whose wording the operator ruled, or a refactor its unchanged
+  tests prove carries none, needs no drive,
   and is proven by CI on a clean install. Architecture (a new or moved boundary
   or dependency direction) and genuine uncertainty earn an independent plan
   review, not the final gate.
@@ -204,9 +205,8 @@ Every review finding is marked **blocking** or **follow-up**.
   unless the operator asked. A repository's `AGENTS.md` may name cheaper
   commands, never looser ones.
 - A builder or fixer, after its last merge of the default branch and before it
-  pushes, runs those static checks and, where the quality gate exists, its
-  local check at the release it pins, as quality's README names it, and fixes
-  what they report.
+  pushes, runs those static checks and fixes what they report; the quality gate
+  and end-to-end tests run in CI.
 - No repository makes `-n auto` its pytest default (CI passes it); every local
   shell keeps `PYTEST_XDIST_AUTO_NUM_WORKERS=4`, never higher. Frontend runs
   name their files, never `pnpm test` over the whole tree.
@@ -280,10 +280,10 @@ before the work is called done.
   data or lets the system lie; every other edge is named as a gap on the owning
   item and waits for usage evidence. A review judges a slice by its declared
   sentences, not by all conceivable hardness.
-- A slice stays within three production files and 100 changed production lines
-  (additions and deletions apart, tests and generated files excluded); beyond
-  that, the dispatch says in one sentence why it does not split. This is
-  reported, never gated.
+- A slice is one coherent change a reviewer reads in one sitting, within ten
+  production files and 400 changed production lines (additions and deletions
+  apart, tests and generated files excluded); beyond that, the dispatch says in
+  one sentence why it does not split. This is reported, never gated.
 - Code reached only by tests is dead; reachability counts from real entry
   points (composition root, routes, CLI, workflows). Code built ahead of its
   caller is frozen only while an open item names it as caller: it stays, keeps

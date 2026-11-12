@@ -13,9 +13,11 @@ Licensed under the [MIT License](LICENSE).
 - `plugins/atelier/` is the plugin: `skills/` is shared by both hosts,
   `agents/` holds the Markdown source of every agent (loaded directly by Claude
   Code), and `workflows/` holds the Claude Code workflows.
-- `plugins/atelier/hooks/` holds the Claude Code hook that tells a running head
-  the changed lines of `AGENTS.md` or `HEAD.md` at its next prompt or tool
-  batch (`contract_change.py`, registered by `contract-change.json`).
+- `plugins/atelier/hooks/` holds the Claude Code hooks, registered by
+  `claude-hooks.json`: `contract_change.py` tells a running head the changed
+  lines of `AGENTS.md` or `HEAD.md` at its next prompt or tool batch, and
+  `fleet_plans.py` shows it the open fleet-wide plans (`aco fleet-plans`) when
+  its prompt names a repository action such as a rename or a publication.
 - `plugins/atelier/.mcp.json` registers aco's MCP server (`aco mcp`) for both
   hosts.
 - `plugins/atelier/.codex/agents/` is generated from `agents/`; change the

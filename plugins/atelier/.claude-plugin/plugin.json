@@ -2,11 +2,11 @@
   "$schema": "https://anthropic.com/claude-code/plugin.schema.json",
   "name": "atelier",
   "displayName": "Atelier",
-  "version": "0.7.173",
+  "version": "0.7.174",
   "description": "Portable Atelier-style skills, agents, and workflows.",
   "author": {
     "name": "Felix Hummert"
   },
   "skills": "./skills/",
-  "hooks": "./hooks/contract-change.json"
+  "hooks": "./hooks/claude-hooks.json"
 }

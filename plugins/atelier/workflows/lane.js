@@ -191,9 +191,7 @@ const laneFacts =
 
 // For the agents that may run a drive (the builder and the fixer); the tester already writes under its own scratch directory.
 const rescopeFacts =
-  `When the work needs a path outside the claim scope, edit nothing there: finish what lies inside, and list the path, the change it needs and the reason in rescope. A file that \`aco brief\` lists as lane-shared counts as inside the scope and needs no rescope: \`aco brief <item>\` prints it on its \`lane-shared:\` line, which you read before you call a path outside the scope (a stale \`quality/baseline.toml\` entry is lowered in place). ` +
-  (TEST_PATHS.length ? `A path under one of these test prefixes counts as inside the scope and needs no rescope: ${TEST_PATHS.join(', ')}. ` : '') +
-  `The head then runs aco rescope and resumes.`
+  `When the work needs a path outside the claim scope, edit nothing there: finish what lies inside, and list the path, the change it needs and the reason in rescope. A file that \`aco brief\` lists as lane-shared counts as inside the scope and needs no rescope: \`aco brief <item>\` prints it on its \`lane-shared:\` line, which you read before you call a path outside the scope (a stale \`quality/baseline.toml\` entry is lowered in place). ` + (TEST_PATHS.length ? `A path under one of these test prefixes counts as inside the scope and needs no rescope: ${TEST_PATHS.join(', ')}. ` : '') + `The head then runs aco rescope and resumes.`
 
 // For the builder and the fixer: the deterministic checks CI repeats run before the push, not after it, and the run is reported.
 const localCheckFacts =

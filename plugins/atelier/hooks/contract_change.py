@@ -14,6 +14,7 @@ import subprocess
 import sys
 import tempfile
 import time
+from collections.abc import Mapping
 from contextlib import suppress
 from dataclasses import asdict, dataclass, replace
 from enum import StrEnum
@@ -199,12 +200,12 @@ def read_state(state_file: Path) -> SessionState | None:
         return None
 
 
-def write_state(state_file: Path, state: SessionState) -> None:
+def write_state(state_file: Path, state: Mapping[str, object]) -> None:
     state_file.parent.mkdir(parents=True, exist_ok=True)
     descriptor, temporary_name = tempfile.mkstemp(dir=state_file.parent, suffix=".tmp")
     try:
         with os.fdopen(descriptor, "w") as temporary:
-            json.dump(asdict(state), temporary)
+            json.dump(state, temporary)
         os.replace(temporary_name, state_file)
     except BaseException:
         Path(temporary_name).unlink(missing_ok=True)
@@ -254,7 +255,7 @@ def main() -> None:
         hint, state = report_failure(str(failure), previous)
     if hint:
         print_hint(event, hint)
-    write_state(state_file, state)
+    write_state(state_file, asdict(state))
 
 
 if __name__ == "__main__":  # pragma: no cover - process entry point, no logic of its own

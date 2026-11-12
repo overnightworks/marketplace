@@ -89,8 +89,18 @@ the subjects of the commits that changed them, once per change. A subagent, a
 workflow agent and a session whose first prompt opens with the delegated line
 (read from the contract's "Head or helper" blockquote) get nothing. Per-session
 state, only commit and blob ids and the role, lives in the plugin's data
-directory. Only Claude Code runs the hook; the hook file is named in
-`.claude-plugin/plugin.json` alone, so Codex does not discover it.
+directory.
+
+A second hook, `plugins/atelier/hooks/fleet_plans.py`, runs at each prompt. When
+a head's prompt names a repository action (rename, publish, archive, migrate,
+move, a new repository), it reads `aco fleet-plans --json` and injects at most
+five of the open fleet-wide plans, as data under a fixed heading, once per
+plan set; a failed read is said in one line, once per reason. It reuses the
+contract hook's decision of who is a head, so a helper gets nothing. Its state,
+plan and failure identifiers and the role, lives beside the contract hook's.
+
+Only Claude Code runs the hooks; their file, `hooks/claude-hooks.json`, is named
+in `.claude-plugin/plugin.json` alone, so Codex does not discover it.
 
 ## 4. Deployment View
 
@@ -151,4 +161,4 @@ Documentation is proven by review.
 - Grok depends on another provider's compatibility setting to see the
   contract.
 - After an install, a running session keeps the plugin version it loaded,
-  the contract-change hook included.
+  the hooks included.

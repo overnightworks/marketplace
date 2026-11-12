@@ -84,9 +84,9 @@ test('courier-cuts-brief: a transcript without the round on disk fails with one 
   }
 })
 
-test('courier-cuts-brief: a line that holds the token but is not JSON is skipped, and the brief is still cut', async () => {
+test('courier-cuts-brief: a line that holds the start marker but is not JSON is skipped, and the brief is still cut', async () => {
   const { prompt, brief, token, place, cut } = await courierRound()
-  place(AGENT_TRANSCRIPT, `{"truncated": "${token}\n` + record(indented(prompt)))
+  place(AGENT_TRANSCRIPT, `{"truncated": "BRIEF-START ${token}\n` + record(indented(prompt)))
   const ran = cut()
   assert.equal(ran.status, 0, ran.stderr)
   assert.equal(ran.written, `${brief}\n`)

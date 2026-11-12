@@ -619,7 +619,7 @@ async function settleReview(rr) {
     const blocking = rr.results.filter(Boolean).flatMap(v => v.blocking || [])
     const raised = rr.which.filter((r, i) => rr.results[i] && (rr.results[i].blocking || []).length > 0)
     const gateStreak = gateRounds.slice(-3)
-    if (gateStreak.length === 3 && gateStreak.every(round => round.verdict === 'REVISE')) {
+    if (gateStreak.filter(round => round.verdict === 'REVISE').length === 3) {
       return openResult('awaiting-head', 'review', { gateRevisions: gateStreak, lastBlocking: blocking, reason:
         'The final gate returned REVISE three times in a row; no fixer was started. Re-ask the pull question against gateRevisions first, ' +
         'then start a new run with pr and tip and fixFirst, or re-cut the item.' })

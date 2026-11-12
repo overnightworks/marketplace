@@ -21,7 +21,7 @@ const BUILD = {
 // agent() with a schema throws when the subagent ends without a result; an end without one is a null the lane reports.
 try {
   return await agent(
-    `${A.delegatedLine}\n${A.laneFacts} ${A.driveFacts} ${A.rescopeFacts} ${A.localCheckFacts}\nYou are the builder. ${A.build}\nCommit each goal as soon as its targeted tests pass — never hold more than one goal uncommitted. Your turn budget is the maxTurns of your agent definition, which also says when to stop: do not stop earlier on a guess of how many turns are left, and report what is left only at that point. Merge origin/main into the lane before pushing (a merge commit). ` +
+    `${A.delegatedLine}\n${A.laneFacts} ${A.driveFacts} ${A.rescopeFacts} ${A.localCheckFacts}\nYou are the builder. ${A.build}\nCommit each goal as soon as its targeted tests pass — never hold more than one goal uncommitted. Merge origin/main into the lane before pushing (a merge commit). ` +
     `Open the pull request as the build RULES say, run \`aco check <pr>\`, and return pr, tip and summary.`,
     { label: 'build', phase: 'Build', schema: BUILD, agentType: 'atelier:code-worker', ...A.routing })
 } catch (error) {

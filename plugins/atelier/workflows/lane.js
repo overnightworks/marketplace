@@ -180,6 +180,10 @@ const rescopeFacts =
 const localCheckFacts =
   `After your last merge of the default branch, run the targeted tests of your change and the fast static checks the repository names, and fix what they report; the quality gate and the end-to-end tests run in CI.`
 
+// The turn budget of each agent definition's maxTurns (plugins/atelier/agents), which a test keeps equal; an agent cannot read its own definition.
+const TURN_BUDGET = { build: 150, fix: 150 }
+const turnFacts = (role) => `You have ${TURN_BUDGET[role]} turns: do not stop earlier on a guess of how many are left, and report what is left only when they are used up.`
+
 const driveFacts = `Any drive you run keeps its pidfiles and evidence under ${A.scratch}.`
 
 const BLOCKING_LINE =
@@ -257,7 +261,7 @@ if (mismatches.length) return { status: 'failed', stage: 'input', reason: `${mis
 // ---------------------------------------------------------------- build
 if (A.build) {
   phase('Build')
-  const built = await startChild('lane-build', { protocol: LANE_BUILD_PROTOCOL, delegatedLine: DELEGATED_LINE, laneFacts, driveFacts, rescopeFacts, localCheckFacts, build: A.build, rescope: RESCOPE, routing: claudeRole('build') })
+  const built = await startChild('lane-build', { protocol: LANE_BUILD_PROTOCOL, delegatedLine: DELEGATED_LINE, laneFacts, driveFacts, rescopeFacts, localCheckFacts: `${localCheckFacts} ${turnFacts('build')}`, build: A.build, rescope: RESCOPE, routing: claudeRole('build') })
   if (built?.problem) return openResult('failed', 'build', { reason: `the builder step ${built.problem}` })
   if (!built) return openResult('failed', 'build', { reason: `the builder returned no result; inspect ${A.worktree} for uncommitted work, checkpoint it, and hand it to a fresh finisher` })
   if (!(built.rescope || []).length && built.blocked) return openResult('escalated', 'build', { reason: built.blockedReason })
@@ -416,7 +420,7 @@ async function fixRound(blocking, source, budgetKey, carried) {
   phase('Fix')
   const nonce = `fix-${spent.total}-${tipBeforeFix}`
   const answered = await relay({ label: `fix-${spent.total}`, phase: 'Fix', step: 'sync', relayArgs: [`'${nonce}'`], nonce, requiredKeys: ['head', 'parents', 'main'], answerKind: 'fix', agentOptions: { agentType: 'atelier:code-fixer', ...claudeRole(fixerRole(blocking, foldIn)) },
-    facts: `${laneFacts} ${driveFacts} ${rescopeFacts} ${localCheckFacts}`, pr, tip, source, blocking: listFindings(blocking), findings: blocking.map(f => ({ ...f, kind: kindOf(f) })), foldIns: listFoldIns(foldIn) })
+    facts: `${laneFacts} ${driveFacts} ${rescopeFacts} ${localCheckFacts} ${turnFacts('fix')}`, pr, tip, source, blocking: listFindings(blocking), findings: blocking.map(f => ({ ...f, kind: kindOf(f) })), foldIns: listFoldIns(foldIn) })
   if (!answered) return { stop: openResult('failed', 'fix', { reason: `the fixer returned no result; inspect ${A.worktree} for commits past ${tip} and uncommitted work, then start a new run with pr and tip (and fixFirst for what is left)`, lastBlocking: blocking }) }
   // What the fixer says it found already done is only reported to the head: an unaccepted fix folds nothing in.
   const unaccepted = (result) => ({ stop: (answered.resolved || []).length ? { ...result, resolved: answered.resolved } : result })

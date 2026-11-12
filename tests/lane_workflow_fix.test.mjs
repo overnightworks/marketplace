@@ -1,4 +1,5 @@
 // Drives the atelier lane workflow script through the fixer, fold-in, proof and removal rules with a stub agent runner.
+import fs from 'node:fs'
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { runLane, APPROVE, PASS, greenCi, finding, followup, webauthTips, webauthReplay, agentProvidersReplay, replays, answersWith, outOfRange, mainMovedTip, mergedOnlyTip, resumeTip, resumeFixedTip, tidy, defectWithoutDraft, resumeFix, mergeOnlyFix, resumeArgs, unchangedFix, satisfied, reachesTheEnd, testGap, built, secondFix } from './lane_workflow_harness.mjs'
@@ -527,11 +528,11 @@ test('the builder and the fixer are told to run the targeted tests and fast stat
   const { agentCalls } = await runLane({ ...resumeArgs, fixFirst: [defectWithoutDraft] }, { 'fix-1': resumeFix })
   const { agentCalls: buildCalls } = await runLane({ item: 358, worktree: '/w', branch: 'b', contract: 'c', e2e: 'e', scratch: '/s', build: 'recorded' }, { build: built })
   const localChecks = /After your last merge of the default branch, run the targeted tests of your change and the fast static checks the repository names, and fix what they report; the quality gate and the end-to-end tests run in CI/
-  const turnBudget = /Your turn budget is the maxTurns of your agent definition/
+  const turnsOf = (agent) => Number(fs.readFileSync(new URL(`../plugins/atelier/agents/${agent}.md`, import.meta.url), 'utf8').match(/^maxTurns: (\d+)$/m)[1])
   assert.match(buildCalls.build.prompt, localChecks)
-  assert.match(buildCalls.build.prompt, turnBudget)
+  assert.match(buildCalls.build.prompt, new RegExp(`You have ${turnsOf('code-worker')} turns`))
   assert.match(agentCalls['fix-1'].prompt, localChecks)
-  assert.match(agentCalls['fix-1'].prompt, turnBudget)
+  assert.match(agentCalls['fix-1'].prompt, new RegExp(`You have ${turnsOf('code-fixer')} turns`))
   assert.match(agentCalls['fix-1'].prompt, /resolve conflicts so both sides' behaviour holds, and set mergeResolvedLaneConflict true/)
   assert.doesNotMatch(agentCalls['r1-review'].prompt, localChecks)
 })

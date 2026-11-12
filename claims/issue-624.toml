@@ -1,7 +1,0 @@
-claim_id = "656af877ad1a4520b7b1363a2ce2c8af"
-agent = "Claude a5abe9e4-862b-4cac-94ed-68bd072edf38"
-role = "builder"
-base = "0f6a9f85a9776de60bda21ce7232a1ef838b47b5"
-branch = "claude/issue-624-index-runtime-install"
-scope = ["docs/standards.md"]
-opened_commit = "e273cc4e14133f2b315aba27d10a1694e85aea24"

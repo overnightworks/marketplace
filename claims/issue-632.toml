@@ -1,0 +1,8 @@
+claim_id = "e6b524f4da4448099fade583c27bfa85"
+agent = "Claude a5abe9e4-862b-4cac-94ed-68bd072edf38"
+role = "builder"
+base = "19ab94253b924e919a5ad5d67984facd22ea5551"
+branch = "claude/issue-632-contract-change-hook"
+scope = [".claude-plugin/marketplace.json", ".github/workflows/ci.yml", "README.md", "docs/ARCHITECTURE.md", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/hooks", "pyproject.toml", "tests/script_under_test.py", "tests/test_contract_change_hook.py"]
+opened_commit = "15293f554dae020f1821dfa09c577abd88b70ccc"
+whole_reason = "One hook with its config, manifest entry, three version pins, tests, coverage setting and two documents; it does not split because helper silence and delivery are one proof."

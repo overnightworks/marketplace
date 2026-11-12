@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -22,6 +23,7 @@ BASELINE_SOURCES = frozenset({"startup", "resume", "clear", "fork"})
 DELEGATED_SECTION_HEADING = "## Head or helper"
 HINT_CHARACTER_LIMIT = 10_000
 STATE_SECONDS_BEFORE_PRUNING = 7 * 24 * 3600
+SESSION_ID_PATTERN = re.compile(r"[A-Za-z0-9_-]+")
 
 
 class Role(StrEnum):
@@ -203,13 +205,20 @@ def print_hint(event: str, hint: str) -> None:
     sys.stdout.flush()
 
 
+def session_state_file(state_directory: Path, session_id: str) -> Path:
+    """Return the state file of one session; a session id that is not a plain name never reaches the disk."""
+    if not SESSION_ID_PATTERN.fullmatch(session_id):
+        raise ValueError(f"Contract hook: session id {session_id!r} is not a plain name.")
+    return state_directory / f"{session_id}.json"
+
+
 def main() -> int:
     payload = json.load(sys.stdin)
     event = payload["hook_event_name"]
     if "agent_id" in payload or (event == "SessionStart" and payload["source"] not in BASELINE_SOURCES):
         return 0
     state_directory = Path(os.environ["CLAUDE_PLUGIN_DATA"]) / "contract-change"
-    state_file = state_directory / f"{payload['session_id']}.json"
+    state_file = session_state_file(state_directory, payload["session_id"])
     previous = read_state(state_file)
     if event != "SessionStart" and previous and previous.role is Role.HELPER:
         return 0

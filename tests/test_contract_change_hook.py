@@ -375,6 +375,16 @@ def test_state_holds_one_file_per_session_with_no_contract_text(machine: Machine
     ]
 
 
+@pytest.mark.parametrize("session", ["../escape", "nested/session", ".."])
+def test_a_session_id_that_is_not_a_plain_name_is_refused_and_writes_nothing(
+    machine: Machine, session: str
+) -> None:
+    with pytest.raises(ValueError):
+        machine.start(session)
+
+    assert machine.state_files == []
+
+
 def test_a_session_start_prunes_only_state_untouched_for_seven_days(machine: Machine) -> None:
     machine.running_head("old-session")
     machine.running_head("recent-session")

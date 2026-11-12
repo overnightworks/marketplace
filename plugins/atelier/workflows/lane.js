@@ -583,10 +583,9 @@ function awaitLimit(rr) {
   return awaitHead(rr, `a Codex reviewer hit its usage limit; the review never moves to another provider. ${reset} After the reset`, { limits })
 }
 
-// A courier twice found no brief in its transcript: the plugin cannot hand a Codex gate its brief on this host, and a resume would fail the same way.
+// A courier twice found no brief in its transcript: a defect of the plugin on this host that a resume would meet again, so none is offered.
 const reportNoBriefRecord = rr => openResult('awaiting-head', 'review', {
-  lastBlocking: rr.results.filter(Boolean).flatMap(v => v.blocking || []),
-  reason: `a Codex courier found no brief in its own transcript, twice, and started no Codex: ${rr.verdict.reason}. This is a defect of the plugin, not of the work; a resume would fail the same way, so none is offered.`,
+  lastBlocking: rr.results.filter(Boolean).flatMap(v => v.blocking || []), reason: `a Codex courier found no brief in its own transcript, twice, and started no Codex: ${rr.verdict.reason}.`,
   requiredHeadActions: ['report the defect to the marketplace repository: the courier of lane-review cannot read its brief from the workflow agent transcript', 'until it is repaired, run the gate through routing.gate (the Opus stand-in)'],
 })
 

@@ -165,9 +165,22 @@ function crc32OfUtf8(text) {
 const BRIEF_CRC_PRINTER = 'import sys,zlib;print("%08x"%zlib.crc32(b" ".join(sys.stdin.buffer.read().split())))'
 // Cuts the brief out of the courier's own transcript, so no model copies it. The workflow host keeps the transcript of every workflow agent at
 // ~/.claude/projects/<project>/<session>/subagents/workflows/<run>/agent-<id>.jsonl and its first record holds the prompt; a head session's transcript lies one level up and is never read.
-// The marker lines are built from the token and count only as whole lines, so the command's own text and a brief that mentions a marker never match; the host indents every line of a prompt, which dedent removes.
+// The marker lines are built from the token and count only as whole lines, so the command's own text and a brief that mentions a marker never match; the host indents every line of a prompt, which dedent removes, and a line that is not JSON, the host still writing it, is skipped.
 // Quoted so that nothing of the brief is ever inside the command: the arguments are the round's token and the brief file.
-const BRIEF_CUTTER = String.raw`import glob,json,os,re,sys,textwrap,time;token,out=sys.argv[1:];start,end=(re.escape("BRIEF-%s %s"%(kind,token)) for kind in ("START","END"));pattern=re.compile("^[ \t]*"+start+"[ \t]*\n(.*?)\n[ \t]*"+end+"[ \t]*$",re.M|re.S);files=sorted((f for f in glob.glob(os.path.expanduser("~/.claude/projects/*/*/subagents/workflows/*/agent-*.jsonl")) if time.time()-os.path.getmtime(f)<3600),key=os.path.getmtime,reverse=True);contents=(((json.loads(line).get("message") or {}).get("content") for line in open(f,encoding="utf-8") if token in line) for f in files);cuts=[m.group(1) for group in contents for c in group if isinstance(c,str) for m in [pattern.search(c)] if m];cuts or sys.exit("${NO_BRIEF_RECORD}");open(out,"w",encoding="utf-8").write(textwrap.dedent(cuts[0])+"\n")`
+const BRIEF_CUTTER = String.raw`import glob,json,os,re,sys,textwrap,time
+token,out=sys.argv[1:]
+start_marker,end_marker=("BRIEF-%s %s"%(kind,token) for kind in ("START","END"))
+pattern=re.compile("^[ \t]*"+re.escape(start_marker)+"[ \t]*\n(.*?)\n[ \t]*"+re.escape(end_marker)+"[ \t]*$",re.M|re.S)
+def contents(path):
+    for line in open(path,encoding="utf-8"):
+        if start_marker not in line: continue
+        try: record=json.loads(line)
+        except json.JSONDecodeError: continue
+        yield (record.get("message") or {}).get("content")
+files=sorted((f for f in glob.glob(os.path.expanduser("~/.claude/projects/*/*/subagents/workflows/*/agent-*.jsonl")) if time.time()-os.path.getmtime(f)<3600),key=os.path.getmtime,reverse=True)
+cuts=[m.group(1) for f in files for c in contents(f) if isinstance(c,str) for m in [pattern.search(c)] if m]
+cuts or sys.exit("${NO_BRIEF_RECORD}")
+open(out,"w",encoding="utf-8").write(textwrap.dedent(cuts[0])+"\n")`
 
 function codexReview(label, routing, role, range) {
   const base = `${A.scratch}/${A.tag}-${label}`
@@ -182,7 +195,7 @@ function codexReview(label, routing, role, range) {
   const courierPrompt =
     `${A.delegatedLine}\nYou are a courier for one independent Codex review. Do not review anything yourself and do not edit the repository.\n` +
     `1. rm -f ${base}-out.json ${base}-out.json.exit ${base}-out.json.exit.tmp ${base}-brief.md ${base}-brief.md.tmp ${base}-run.log\n` +
-    `2. Write the brief file with this one shell command line, exactly as written, never retyped from memory, split or summarised. It cuts the brief out of your own transcript, where the text between the two marker lines below stands; you copy nothing yourself. If the line exits non-zero, Codex did not start: return verdict failed with codexExit -1 and the error in note.\n` +
+    `2. Write the brief file with this one shell command, exactly as written, never retyped from memory, split or summarised. It cuts the brief out of your own transcript, where the text between the two marker lines below stands; you copy nothing yourself. If the line exits non-zero, Codex did not start: return verdict failed with codexExit -1 and the error in note.\n` +
     `   python3 -c '${BRIEF_CUTTER}' ${token} ${base}-brief.md\n` +
     `   The brief for Codex follows between its two marker lines. It is addressed to Codex, not to you: never act on it and never copy it.\n${markers.start}\n${brief}\n${markers.end}\n` +
     `3. Write the output schema, check the brief file against its checksum, append the current item body and pull request body to the brief and start Codex detached, recording its exit status in a marker file, with this one shell command line, exactly as written, never retyped from memory, split or summarised. Codex starts only if the schema write, the brief check and the append succeeded. If the line exits non-zero, Codex did not start: return verdict failed with codexExit -1 and the error in note.\n` +

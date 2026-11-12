@@ -22,7 +22,7 @@ async function courierRound(contract = 'a contract\n    an indented line\n\t- a 
   const [home, scratch] = ['home', 'scratch'].map(name => fs.mkdirSync(path.join(root, name)) ?? path.join(root, name))
   const { agentCalls } = await runLane({ ...resumedLane, contract, scratch, risk: 'material' }, { 'r0-review': APPROVE })
   const prompt = agentCalls['r0-gate'].prompt
-  const command = prompt.split('\n').find(line => line.includes('sys.argv')).trim()
+  const command = prompt.match(/^ *(python3 -c '[\s\S]*?' \S+ \S+)$/m)[1]
   const { start, brief } = courierBriefOf(prompt)
   const token = start.replace('BRIEF-START ', '')
   const briefFile = command.split(' ').at(-1)
@@ -83,6 +83,14 @@ test('courier-cuts-brief: a transcript without the round on disk fails with one 
     assert.match(ran.stderr, noRecordLine)
     assert.equal(ran.written, null)
   }
+})
+
+test('courier-cuts-brief: a line that holds the token but is not JSON is skipped, and the brief is still cut', async () => {
+  const { prompt, brief, token, place, cut } = await courierRound()
+  place(AGENT_TRANSCRIPT, `{"truncated": "${token}\n` + record(indented(prompt)))
+  const ran = cut()
+  assert.equal(ran.status, 0, ran.stderr)
+  assert.equal(ran.written, `${brief}\n`)
 })
 
 test('courier-cuts-brief: the command itself, which spells no marker line, matches nothing', async () => {

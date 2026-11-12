@@ -239,16 +239,13 @@ def test_a_stored_baseline_gone_from_history_is_said_once_and_taken_again(machin
     assert json.loads(state_file.read_text())["seen"]["commit"] == machine.git("rev-parse", "HEAD")
 
 
-def test_a_state_write_that_fails_leaves_no_temporary_file(machine: Machine, monkeypatch: pytest.MonkeyPatch) -> None:
-    def failing_dump(*arguments: object, **keywords: object) -> None:
-        raise OSError("no space left on device")
-
-    monkeypatch.setattr(contract_change.json, "dump", failing_dump)
+def test_a_state_write_that_fails_leaves_no_temporary_file(machine: Machine) -> None:
+    (machine.data / "contract-change" / "head-session.json").mkdir(parents=True)
 
     with pytest.raises(OSError):
         machine.start()
 
-    assert [path for path in machine.data.rglob("*") if path.is_file()] == []
+    assert list(machine.data.rglob("*.tmp")) == []
 
 
 def test_a_session_start_tolerates_a_state_file_that_vanishes_before_pruning(machine: Machine) -> None:

@@ -106,7 +106,7 @@ test('review-reads-body: the Codex brief does not ask the networkless sandbox to
   assert.doesNotMatch(brief, /gh issue view/)
 })
 
-test('courier-brief-markers: the courier prompt puts the brief between two marker lines carrying the round token and says the file holds exactly that text', async () => {
+test('courier-brief-markers: the courier prompt puts the brief between two marker lines whose token carries the brief checksum and asks for no hand copy', async () => {
   const { agentCalls } = await runLane({ ...bodyLane, risk: 'material' }, { 'r0-review': APPROVE })
   const prompt = agentCalls['r0-gate'].prompt
   const { start, brief, end } = courierBriefOf(prompt)
@@ -115,15 +115,15 @@ test('courier-brief-markers: the courier prompt puts the brief between two marke
   assert.ok(token.includes('r0-gate'), token)
   assert.ok(!brief.includes(token))
   assert.match(brief, /^This is a delegated step started by a head, not a main session/)
-  assert.match(prompt, /The file holds exactly the text between the two marker lines below, first line to last, and nothing of this prompt around them/)
+  assert.equal(token.split('-').at(-1), prompt.match(/= ([0-9a-f]{8}) \] \|\|/)[1])
+  assert.doesNotMatch(prompt, /copy it verbatim|write the brief to/i)
 })
 
-test('courier-brief-markers: a brief that holds a marker line fails the round loud', async () => {
-  const { agentCalls } = await runLane({ ...bodyLane, risk: 'material' }, { 'r0-review': APPROVE })
-  const { start } = courierBriefOf(agentCalls['r0-gate'].prompt)
-  const { result } = await runLane({ ...bodyLane, contract: `a contract\n${start}\nmore`, risk: 'material' }, { 'r0-review': APPROVE })
-  assert.deepEqual([result.status, result.stage], ['failed', 'review'])
-  assert.match(result.reason, /holds a brief marker line/)
+test('courier-brief-markers: one brief gives one token in every run and another brief another', async () => {
+  const tokenOf = async (contract) => courierBriefOf((await runLane({ ...bodyLane, contract, risk: 'material' }, { 'r0-review': APPROVE })).agentCalls['r0-gate'].prompt).start
+  const [first, again, other] = [await tokenOf('one contract'), await tokenOf('one contract'), await tokenOf('another contract')]
+  assert.equal(again, first)
+  assert.notEqual(other, first)
 })
 
 test('review-reads-body: a lane-review call without the pull request number fails the lane naming it', async () => {
@@ -269,6 +269,30 @@ test('courier-brief-retry: a second mismatching brief beside a REVISE of the rev
 
 test('courier-brief-retry: a mismatch beside another failure of the round fails the round', async () => {
   const { result } = await runLane({ ...resumedWith, reviewer: 'codex' }, { 'r0-review': () => briefMismatch, 'r0-review-retry': () => briefMismatch, 'r0-gate': { verdict: 'failed', blocking: [], followups: [], codexExit: 2, note: 'boom' } })
+  failedAtReview(result)
+})
+
+const noBriefRecord = { verdict: 'failed', blocking: [], followups: [], codexExit: -1, note: 'no transcript record of this courier holds the brief between its two marker lines' }
+
+test('courier-brief-record: an answer that found no brief in its transcript is retried once and the round is judged on the retry', async () => {
+  const { result, launchedAgents, agentCalls } = await runLane(materialLane, gateAnswers(noBriefRecord, { ...APPROVE, codexExit: 0 }))
+  assert.deepEqual(gateRuns(launchedAgents), ['r0-gate', 'r0-gate-retry'])
+  assert.equal(agentCalls['r0-gate-retry'].prompt, agentCalls['r0-gate'].prompt)
+  assert.deepEqual(result.history.map(round => [round.by, round.verdict]), [['review', 'APPROVE'], ['gate', 'APPROVE']])
+})
+
+test('courier-brief-record: a second answer without a brief returns awaiting-head with the plugin defect to report and routing.gate to use, and offers no resume', async () => {
+  const { result, launchedAgents } = await runLane(resumedWith, { ...gateAnswers(noBriefRecord, noBriefRecord), 'r0-review': { verdict: 'REVISE', blocking: [reviewFinding], followups: [] } })
+  assert.deepEqual(gateRuns(launchedAgents), ['r0-gate', 'r0-gate-retry'])
+  assert.deepEqual([result.status, result.stage], ['awaiting-head', 'review'])
+  assert.match(result.reason, /found no brief in its own transcript/)
+  assert.doesNotMatch(result.reason, /start a new run/)
+  assert.match(result.requiredHeadActions.join('\n'), /report the defect to the marketplace repository[\s\S]*routing\.gate/)
+  assert.deepEqual(result.lastBlocking, [reviewFinding])
+})
+
+test('courier-brief-record: a missing brief beside a mismatching brief fails the round', async () => {
+  const { result } = await runLane({ ...resumedWith, reviewer: 'codex' }, { 'r0-review': () => noBriefRecord, 'r0-review-retry': () => noBriefRecord, 'r0-gate': briefMismatch, 'r0-gate-retry': briefMismatch })
   failedAtReview(result)
 })
 
@@ -545,7 +569,7 @@ test('review-brief-checksum: the checksum in the Codex courier command equals wh
   const { agentCalls } = await runLane({ ...resumedLane, contract, risk: 'material' }, { 'r0-review': APPROVE })
   const prompt = agentCalls['r0-gate'].prompt
   const brief = courierBriefOf(prompt).brief
-  const printer = prompt.match(/python3 -c '([^']*)'/)[1]
+  const printer = prompt.match(/python3 -c '([^']*)' < /)[1]
   const checksum = prompt.match(/= ([0-9a-f]{8}) \] \|\|/)[1]
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'brief-checksum-'))
   try {

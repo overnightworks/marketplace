@@ -21,7 +21,7 @@ test('lane-build-protocol: lane.js and lane-build.js hold the same protocol numb
   assert.equal(protocolOf(readWorkflow('lane-build')), protocolOf(readWorkflow('lane')))
 })
 
-test('the builder is told to report no quality check', async () => {
+test('the builder schema requires no check report and its prompt asks for no quality check', async () => {
   const { agentCalls } = await runLane(builtLane, { build: built })
   assert.deepEqual(agentCalls.build.options.schema.required, ['pr', 'tip', 'blocked'])
   assert.doesNotMatch(agentCalls.build.prompt, /quality check|noQualityGate/)

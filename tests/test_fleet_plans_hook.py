@@ -238,13 +238,14 @@ def test_a_session_without_a_contract_link_gets_nothing(machine: Machine) -> Non
     assert machine.aco_calls == []
 
 
-def test_a_session_whose_role_cannot_be_decided_is_treated_as_a_helper(machine: Machine) -> None:
+def test_a_session_whose_role_cannot_be_decided_is_treated_as_a_head_as_the_contract_hook_does(
+    machine: Machine,
+) -> None:
     (machine.root / "checkout" / "AGENTS.md").write_text("# Contract with no delegated line\n")
     machine.aco_says([plan()])
 
-    assert machine.prompt() == ""
-    assert machine.prompt() == ""
-    assert machine.aco_calls == []
+    assert "acme/there#2" in machine.prompt()
+    assert machine.aco_calls == ["fleet-plans --json"]
 
 
 def test_no_open_plan_adds_nothing_even_with_repositories_not_read(machine: Machine) -> None:

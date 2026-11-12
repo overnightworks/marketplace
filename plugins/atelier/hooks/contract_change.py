@@ -34,6 +34,10 @@ class Role(StrEnum):
     HELPER = "helper"
 
 
+# The role of a session whose contract cannot be read; every hook that decides a role shares this answer.
+UNREADABLE_CONTRACT_ROLE = Role.HEAD
+
+
 @dataclass(frozen=True)
 class Snapshot:
     commit: str
@@ -182,7 +186,7 @@ def follow_session(
 def report_failure(message: str, previous: SessionState | None) -> tuple[str | None, SessionState]:
     state = previous or SessionState(None, None, None)
     hint = None if state.last_failure == message else message
-    return hint, replace(state, role=state.role or Role.HEAD, last_failure=message)
+    return hint, replace(state, role=state.role or UNREADABLE_CONTRACT_ROLE, last_failure=message)
 
 
 def read_state(state_file: Path) -> SessionState | None:

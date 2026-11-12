@@ -16,7 +16,7 @@ from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 
 import contract_change
-from contract_change import ContractFailure, Role
+from contract_change import UNREADABLE_CONTRACT_ROLE, ContractFailure, Role
 
 ACO_COMMAND = ("aco", "fleet-plans", "--json")
 LIST_ALL_COMMAND = "aco fleet-plans"
@@ -82,8 +82,7 @@ def decide_session_role(prompt: str) -> Role | None:
         contract_file = contract_change.locate_contract_file()
         return None if contract_file is None else contract_change.decide_role(prompt, contract_file)
     except ContractFailure:
-        # A contract that cannot be read cannot tell a helper from a head, and a helper must get nothing.
-        return Role.HELPER
+        return UNREADABLE_CONTRACT_ROLE
 
 
 def last_message_line(stderr: str) -> str:

@@ -162,3 +162,8 @@ Documentation is proven by review.
   contract.
 - After an install, a running session keeps the plugin version it loaded,
   the hooks included.
+- The lane's Codex courier takes its brief from its own transcript under
+  `~/.claude/projects/*/*/subagents/workflows/*/agent-*.jsonl`, which a
+  workflow script cannot write itself. A host that moves that layout shows as
+  the lane returning to the head with "found no brief in its own transcript",
+  never as a wrong brief.

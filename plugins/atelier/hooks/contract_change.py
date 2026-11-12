@@ -14,6 +14,7 @@ import subprocess
 import sys
 import tempfile
 import time
+from contextlib import suppress
 from dataclasses import asdict, dataclass, replace
 from enum import StrEnum
 from pathlib import Path
@@ -24,6 +25,7 @@ DELEGATED_SECTION_HEADING = "## Head or helper"
 HINT_CHARACTER_LIMIT = 10_000
 STATE_SECONDS_BEFORE_PRUNING = 7 * 24 * 3600
 SESSION_ID_PATTERN = re.compile(r"[A-Za-z0-9_-]+")
+BLOCKQUOTE_MARKER_PATTERN = re.compile(r"^[ \t]*(?:>[ \t]?)+", re.MULTILINE)
 
 
 class Role(StrEnum):
@@ -59,7 +61,10 @@ def git_run(directory: Path, *arguments: str) -> subprocess.CompletedProcess[str
 
 def git_text(directory: Path, *arguments: str) -> str:
     completed = git_run(directory, *arguments)
-    completed.check_returncode()
+    if completed.returncode != 0:
+        command = " ".join(arguments)
+        detail = normalise_whitespace(completed.stderr) or f"exit status {completed.returncode}"
+        raise ContractFailure(f"Contract hook: git {command} failed in {directory}: {detail}")
     return completed.stdout
 
 
@@ -102,7 +107,8 @@ def read_delegated_line(contract_file: Path) -> str:
 
 def decide_role(prompt: str, contract_file: Path) -> Role:
     delegated_line = read_delegated_line(contract_file)
-    return Role.HELPER if normalise_whitespace(prompt).startswith(delegated_line) else Role.HEAD
+    unquoted = BLOCKQUOTE_MARKER_PATTERN.sub("", prompt)
+    return Role.HELPER if normalise_whitespace(unquoted).startswith(delegated_line) else Role.HEAD
 
 
 def take_snapshot(directory: Path) -> Snapshot:
@@ -134,11 +140,19 @@ def describe_change(directory: Path, old: Snapshot, new: Snapshot, changed: list
     return "\n".join([header, "The diff is too long to show here; these commands print it:", *commands])
 
 
+def stored_snapshot_exists(directory: Path, snapshot: Snapshot) -> bool:
+    identifiers = [snapshot.commit, *snapshot.blobs.values()]
+    return all(git_run(directory, "cat-file", "-e", identifier).returncode == 0 for identifier in identifiers)
+
+
 def changes_since(directory: Path, old: Snapshot) -> tuple[str | None, Snapshot]:
     commit = git_text(directory, "rev-parse", "HEAD").strip()
     if commit == old.commit:
         return None, old
     new = take_snapshot(directory)
+    if not stored_snapshot_exists(directory, old):
+        gone = f"Contract hook: the contract this session saw last is gone from {directory}; its history was rewritten."
+        return f"{gone} The baseline is taken again.", new
     changed = [name for name in CONTRACT_FILES if new.blobs[name] != old.blobs[name]]
     return (describe_change(directory, old, new, changed) if changed else None), new
 
@@ -188,16 +202,21 @@ def read_state(state_file: Path) -> SessionState | None:
 def write_state(state_file: Path, state: SessionState) -> None:
     state_file.parent.mkdir(parents=True, exist_ok=True)
     descriptor, temporary_name = tempfile.mkstemp(dir=state_file.parent, suffix=".tmp")
-    with os.fdopen(descriptor, "w") as temporary:
-        json.dump(asdict(state), temporary)
-    os.replace(temporary_name, state_file)
+    try:
+        with os.fdopen(descriptor, "w") as temporary:
+            json.dump(asdict(state), temporary)
+        os.replace(temporary_name, state_file)
+    except BaseException:
+        Path(temporary_name).unlink(missing_ok=True)
+        raise
 
 
 def prune_stale_states(state_directory: Path) -> None:
     cutoff = time.time() - STATE_SECONDS_BEFORE_PRUNING
     for state_file in state_directory.glob("*.json"):
-        if state_file.stat().st_mtime < cutoff:
-            state_file.unlink()
+        with suppress(FileNotFoundError):  # another session may have pruned this file since the listing
+            if state_file.stat().st_mtime < cutoff:
+                state_file.unlink(missing_ok=True)
 
 
 def print_hint(event: str, hint: str) -> None:

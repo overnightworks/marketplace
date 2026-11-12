@@ -160,8 +160,10 @@ def test_a_subagent_gets_nothing_and_leaves_the_head_baseline_alone(machine: Mac
     [
         DELEGATED_LINE + " Build item 1.",
         "Fixture brief opener:\n   do  only this\tbrief.\nBuild item 1.",
+        "> " + DELEGATED_LINE + " Build item 1.",
+        "> Fixture brief opener:\n> do only this brief.\nBuild item 1.",
     ],
-    ids=["exact", "whitespace differs"],
+    ids=["exact", "whitespace differs", "quoted unwrapped", "quoted and wrapped"],
 )
 def test_a_session_whose_first_prompt_opens_with_the_delegated_line_gets_nothing(
     machine: Machine, first_prompt: str
@@ -219,6 +221,44 @@ def test_an_unreadable_state_file_means_a_new_baseline_silently(machine: Machine
 
     assert machine.batch() == ""
     assert json.loads(machine.state_files[0].read_text())["role"] is None
+
+
+def test_a_stored_baseline_gone_from_history_is_said_once_and_taken_again(machine: Machine) -> None:
+    machine.running_head()
+    state_file = machine.state_files[0]
+    state = json.loads(state_file.read_text())
+    state["seen"] = {"commit": "deadbeef", "blobs": {"AGENTS.md": "aaaa", "HEAD.md": "bbbb"}}
+    state_file.write_text(json.dumps(state))
+    machine.commit({"AGENTS.md": contract_text("rule two")}, "Change the rule")
+
+    told = machine.batch()
+
+    assert told != ""
+    assert "\n" not in told
+    assert machine.batch() == ""
+    assert json.loads(state_file.read_text())["seen"]["commit"] == machine.git("rev-parse", "HEAD")
+
+
+def test_a_state_write_that_fails_leaves_no_temporary_file(machine: Machine, monkeypatch: pytest.MonkeyPatch) -> None:
+    def failing_dump(*arguments: object, **keywords: object) -> None:
+        raise OSError("no space left on device")
+
+    monkeypatch.setattr(contract_change.json, "dump", failing_dump)
+
+    with pytest.raises(OSError):
+        machine.start()
+
+    assert [path for path in machine.data.rglob("*") if path.is_file()] == []
+
+
+def test_a_session_start_tolerates_a_state_file_that_vanishes_before_pruning(machine: Machine) -> None:
+    machine.running_head()
+    state_directory = machine.data / "contract-change"
+    (state_directory / "vanished.json").symlink_to(machine.root / "no-such-state")
+
+    machine.start("new-session")
+
+    assert "new-session" in {file.stem for file in machine.state_files}
 
 
 @pytest.mark.parametrize("event", ["prompt", "batch"])
@@ -322,11 +362,22 @@ def drop_the_delegated_line(machine: Machine) -> None:
     (machine.instructions / "AGENTS.md").write_text("# Contract without the section\n")
 
 
+def remove_the_head_file_in_a_commit(machine: Machine) -> None:
+    machine.git("rm", "-q", "instructions/HEAD.md")
+    machine.git("commit", "-q", "-m", "Remove the head file")
+
+
 @pytest.mark.parametrize(
     "break_contract",
-    [break_the_link, link_another_file_name, link_outside_a_work_tree, drop_the_delegated_line],
+    [
+        break_the_link,
+        link_another_file_name,
+        link_outside_a_work_tree,
+        drop_the_delegated_line,
+        remove_the_head_file_in_a_commit,
+    ],
 )
-def test_a_failed_contract_lookup_gives_one_line_once_per_session(machine: Machine, break_contract) -> None:
+def test_a_failed_contract_read_gives_one_line_once_per_session(machine: Machine, break_contract) -> None:
     machine.start()
     break_contract(machine)
 

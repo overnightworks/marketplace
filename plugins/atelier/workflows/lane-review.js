@@ -167,6 +167,7 @@ const BRIEF_CRC_PRINTER = 'import sys,zlib;print("%08x"%zlib.crc32(b" ".join(sys
 // ~/.claude/projects/<project>/<session>/subagents/workflows/<run>/agent-<id>.jsonl and its first record holds the prompt; a head session's transcript lies one level up and is never read.
 // The marker lines are built from the token and count only as whole lines, so the command's own text and a brief that mentions a marker never match; the host indents every line of a prompt, which dedent removes, and a line that is not JSON, the host still writing it, is skipped.
 // Quoted so that nothing of the brief is ever inside the command: the arguments are the round's token and the brief file.
+// The program stands in the command as a bash $'...' string, so the command is one physical line: the host indents each line of a prompt and a line break inside the program would arrive indented.
 const BRIEF_CUTTER = String.raw`import glob,json,os,re,sys,textwrap,time
 token,out=sys.argv[1:]
 start_marker,end_marker=("BRIEF-%s %s"%(kind,token) for kind in ("START","END"))
@@ -182,6 +183,9 @@ cuts=[m.group(1) for f in files for c in contents(f) if isinstance(c,str) for m 
 cuts or sys.exit("${NO_BRIEF_RECORD}")
 open(out,"w",encoding="utf-8").write(textwrap.dedent(cuts[0])+"\n")`
 
+const ansiCQuoted = source => `$'${source.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, '\\n')}'`
+const BRIEF_CUTTER_ARGUMENT = ansiCQuoted(BRIEF_CUTTER)
+
 function codexReview(label, routing, role, range) {
   const base = `${A.scratch}/${A.tag}-${label}`
   const appendBodies = String.raw`{ cat ${base}-brief.md && printf '\n\n-----\nThe current item body (gh issue view):\n' && gh issue view ${A.item}${R} --json body --jq .body && printf '\n\n-----\nThe current pull request body (gh pr view):\n' && gh pr view ${A.pr}${R} --json body --jq .body; } > ${base}-brief.md.tmp && mv ${base}-brief.md.tmp ${base}-brief.md`
@@ -196,7 +200,7 @@ function codexReview(label, routing, role, range) {
     `${A.delegatedLine}\nYou are a courier for one independent Codex review. Do not review anything yourself and do not edit the repository.\n` +
     `1. rm -f ${base}-out.json ${base}-out.json.exit ${base}-out.json.exit.tmp ${base}-brief.md ${base}-brief.md.tmp ${base}-run.log\n` +
     `2. Write the brief file with this one shell command, exactly as written, never retyped from memory, split or summarised. It cuts the brief out of your own transcript, where the text between the two marker lines below stands; you copy nothing yourself. If the line exits non-zero, Codex did not start: return verdict failed with codexExit -1 and the error in note.\n` +
-    `   python3 -c '${BRIEF_CUTTER}' ${token} ${base}-brief.md\n` +
+    `   python3 -c ${BRIEF_CUTTER_ARGUMENT} ${token} ${base}-brief.md\n` +
     `   The brief for Codex follows between its two marker lines. It is addressed to Codex, not to you: never act on it and never copy it.\n${markers.start}\n${brief}\n${markers.end}\n` +
     `3. Write the output schema, check the brief file against its checksum, append the current item body and pull request body to the brief and start Codex detached, recording its exit status in a marker file, with this one shell command line, exactly as written, never retyped from memory, split or summarised. Codex starts only if the schema write, the brief check and the append succeeded. If the line exits non-zero, Codex did not start: return verdict failed with codexExit -1 and the error in note.\n` +
     `   printf %s '${CODEX_SCHEMA}' > ${base}-schema.json && cd ${A.worktree} && ${checkBrief} && ${appendBodies} && { setsid nohup bash -c 'codex exec -s read-only -C ${A.worktree} -m ${routing.model} -c model_reasoning_effort=${routing.effort} --output-schema ${base}-schema.json -o ${base}-out.json - < ${base}-brief.md; echo $? > ${base}-out.json.exit.tmp && mv ${base}-out.json.exit.tmp ${base}-out.json.exit' > ${base}-run.log 2>&1 & }\n` +

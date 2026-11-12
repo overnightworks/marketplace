@@ -13,6 +13,10 @@ after(() => roots.forEach(root => fs.rmSync(root, { recursive: true, force: true
 const AGENT_TRANSCRIPT = 'projects/-work-repo/session-1/subagents/workflows/wf_run-1/agent-courier.jsonl'
 const HOST_FRAME = '[Workflow harness — computed task] The task text below was computed at runtime by a workflow script.'
 const indented = (text) => `${HOST_FRAME}\n${text.split('\n').map(line => (line ? `  ${line}` : line)).join('\n')}`
+// The commands of a prompt as the courier runs them: one physical line each, however the host indents the line.
+const commandLinesOf = (hostPrompt) => hostPrompt.split('\n').map(line => line.trim())
+  .map(line => line.match(/^(?:\d+\. )?((?:rm|python3|printf|timeout) .*)$/)?.[1] ?? line.match(/also run: (grep .*)$/)?.[1])
+  .filter(Boolean)
 const record = (content) => `${JSON.stringify({ type: 'user', message: { role: 'user', content } })}\n`
 
 // A material lane whose contract has indented lines, so the brief holds indentation the host's must not be mistaken for.
@@ -22,7 +26,7 @@ async function courierRound(contract = 'a contract\n    an indented line\n\t- a 
   const [home, scratch] = ['home', 'scratch'].map(name => fs.mkdirSync(path.join(root, name)) ?? path.join(root, name))
   const { agentCalls } = await runLane({ ...resumedLane, contract, scratch, risk: 'material' }, { 'r0-review': APPROVE })
   const prompt = agentCalls['r0-gate'].prompt
-  const command = prompt.match(/^ *(python3 -c '[\s\S]*?' \S+ \S+)$/m)[1]
+  const command = commandLinesOf(indented(prompt)).find(line => line.startsWith('python3 -c '))
   const { start, brief } = courierBriefOf(prompt)
   const token = start.replace('BRIEF-START ', '')
   const briefFile = command.split(' ').at(-1)
@@ -34,7 +38,7 @@ async function courierRound(contract = 'a contract\n    an indented line\n\t- a 
     fs.utimesSync(file, moment, moment)
   }
   const cut = () => {
-    const ran = spawnSync('sh', ['-c', command], { env: { ...process.env, HOME: home }, encoding: 'utf8' })
+    const ran = spawnSync('bash', ['-c', command], { env: { ...process.env, HOME: home }, encoding: 'utf8' })
     return { ...ran, written: fs.existsSync(briefFile) ? fs.readFileSync(briefFile, 'utf8') : null }
   }
   return { prompt, command, token, brief, place, cut }
@@ -55,6 +59,16 @@ for (const [name, hostText] of [
     assert.equal(ran.stdout, '')
   })
 }
+
+test('courier-cuts-brief: every command line of the prompt the host indents is one complete shell command', async () => {
+  const { prompt } = await courierRound()
+  const commands = commandLinesOf(indented(prompt))
+  assert.deepEqual(commands.map(command => command.split(' ')[0]), ['rm', 'python3', 'printf', 'timeout', 'grep'])
+  for (const command of commands) {
+    const checked = spawnSync('bash', ['-n', '-c', command], { encoding: 'utf8' })
+    assert.equal(checked.status, 0, `${command.slice(0, 60)}: ${checked.stderr}`)
+  }
+})
 
 test('courier-cuts-brief: two records of one text, the courier and its retry, give that text', async () => {
   const { prompt, brief, place, cut } = await courierRound()

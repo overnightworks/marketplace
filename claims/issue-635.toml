@@ -1,8 +1,0 @@
-claim_id = "f2894f2efa564171adc5c2e9e90302ee"
-agent = "Claude a5abe9e4-862b-4cac-94ed-68bd072edf38"
-role = "builder"
-base = "75837339498ea5f48fa2984565adf51787b7ae85"
-branch = "claude/issue-635-courier-brief-from-transcript"
-scope = [".claude-plugin/marketplace.json", "docs/ARCHITECTURE.md", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/workflows/lane-review.js", "plugins/atelier/workflows/lane.js", "tests"]
-opened_commit = "2859c612e0349e11a95723781913451809485a59"
-whole_reason = "The courier prompt, its version pins, the tests that pin its wording and the one document sentence land together."

@@ -200,36 +200,35 @@ needs no counter-check. Lane work keeps its own reviews.
 
 ## Lanes
 
-- **Claims.** Before a writer's first edit, own one exclusive, exact-scope
-  build claim per item from a clean isolated worktree (`aco start`); read-only
-  review needs none. Claims say who works where, not which paths are locked:
-  claim paths may overlap, lane work stays disjoint. A value that must exist
-  once and whose double use survives a merge (a schema version, a generated
-  artifact, the one live store) is held by one lane and named in its dispatch,
-  so it is allocated, not guessed. Work without an item (`fix/`, `docs/`)
-  still takes a lane-mode claim and lands within the session, or first gets
-  its owning item.
-- **Width.** Run as many lanes as the work has disjoint scopes with settled
+- **Claims.** Before a writer's first edit, own one exclusive, exact-scope build
+  claim per item from a clean isolated worktree (`aco start`); read-only review
+  needs none. Claims say who works where, not which paths are locked: claim
+  paths and lane work may overlap. A value that must exist once and whose double
+  use survives a merge (a schema version, a generated artifact, the one live
+  store) is held by one lane and named in its dispatch, so it is allocated, not
+  guessed. Work without an item (`fix/`, `docs/`) still takes a lane-mode claim
+  and lands within the session, or first gets its owning item.
+- **Width.** Run as many lanes as there are pieces of work with settled
   dependencies, each with its own item, exact claim, worktree, branch and
-  builder; the lever is slice size, not lane count. Prefer slices one builder
-  finishes well under an hour, touching few files; findings in the dozens mean
-  the lane was cut too big. Never parallelize overlapping scope or an
-  unresolved shared decision; two lanes needing one contract are a cut
-  problem, and one slice owns it. Migration, redeploy and anything touching the
-  one live instance run serially. While CI or review waits, dispatch another
-  clear lane, or else do claim-free work (refining items, board hygiene, a
-  live proof, another repository's lane).
-- **Cut before you dispatch.** A landing closes an item; one that cannot was
-  cut too large. Beyond a few files, the phase planner cuts the item at its
-  pull: the body states the invariants every slice keeps and an ordered
-  outline, one line per slice with its done-when; only the next slice carries
-  files and dependencies, each later one gets them at its own pull. A ruling or
-  another owner's work that would change the cut is asked at the pull, even for
-  a far slice. Dispatch one slice at a time; it becomes its own item when
-  dispatched, carrying the invariants it keeps, the ruled sentences it proves,
-  its files and its done-when, and is built, landed and closed. The parent's
-  projection records what is left; the parent closes when its children are
-  done.
+  builder; the lever is slice size, not lane count. Prefer slices within the
+  slice limit (`AGENTS.md`, Code); findings in the dozens mean the lane was cut
+  too big. Prefer disjoint work; overlapping work may run in parallel: the first
+  to finish lands, the others merge it when they sync. Never parallelize an
+  unresolved shared decision; two lanes needing one contract are a cut problem,
+  and one slice owns it. Migration, redeploy and anything touching the one live
+  instance run serially. While CI or review waits, dispatch another clear lane,
+  or else do claim-free work (refining items, board hygiene, a live proof,
+  another repository's lane).
+- **Cut before you dispatch.** A landing closes an item; one that cannot was cut
+  too large. Beyond the slice limit, the phase planner cuts the item at its
+  pull: the body states the invariants every slice keeps and an ordered outline,
+  one line per slice with its done-when; only the next slice carries files and
+  dependencies, each later one gets them at its own pull. A ruling or another
+  owner's work that would change the cut is asked at the pull, even for a far
+  slice. Dispatch one slice at a time; it becomes its own item when dispatched,
+  carrying the invariants it keeps, the ruled sentences it proves, its files and
+  its done-when, and is built, landed and closed. The parent's projection
+  records what is left; the parent closes when its children are done.
 - **Trace before the claim**, at the recorded revision: `git grep` the whole
   tree for each printed literal, key, spec ID, default value, command and
   public name the item changes; trace changed signatures to their callers and
@@ -313,7 +312,7 @@ run at medium (mechanical work at low or medium), in the last two rows at high.
 | Work | Claude | Codex | Grok |
 |---|---|---|---|
 | Mechanical: landing, body edits, search, repetition, a behaviour-neutral fix batch | Haiku 5.5, low or medium | — | 4.6 |
-| Build, fix | Haiku 5.5, high | gpt-6-astra | 4.6 |
+| Build, fix | Sonnet 5.5, medium | gpt-6-astra | 4.6 |
 | Hard build or fix: a material lane, a build past the slice limit (`AGENTS.md`, Code), a lane's third fix round on, a failed cheaper attempt | Sonnet 5.5, high | gpt-6-astra | 4.6 |
 | Fact finding, test | Sonnet 5.5, medium; a material lane's test at high | gpt-6-astra | 4.6 |
 | Ordinary code, test or diff review | Sonnet 5.5, high | gpt-6-astra | — |

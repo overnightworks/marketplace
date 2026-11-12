@@ -77,7 +77,7 @@ class Machine:
         """Run the hook once as the host does and return the context it injected, or an empty string."""
         payload = {"session_id": session, "hook_event_name": event, **fields}
         self.monkeypatch.setattr("sys.stdin", io.StringIO(json.dumps(payload)))
-        assert contract_change.main() == 0
+        contract_change.main()
         printed = self.capsys.readouterr().out
         if not printed:
             return ""

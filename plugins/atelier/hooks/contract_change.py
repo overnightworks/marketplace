@@ -212,20 +212,20 @@ def session_state_file(state_directory: Path, session_id: str) -> Path:
     return state_directory / f"{session_id}.json"
 
 
-def main() -> int:
+def main() -> None:
     payload = json.load(sys.stdin)
     event = payload["hook_event_name"]
     if "agent_id" in payload or (event == "SessionStart" and payload["source"] not in BASELINE_SOURCES):
-        return 0
+        return
     state_directory = Path(os.environ["CLAUDE_PLUGIN_DATA"]) / "contract-change"
     state_file = session_state_file(state_directory, payload["session_id"])
     previous = read_state(state_file)
     if event != "SessionStart" and previous and previous.role is Role.HELPER:
-        return 0
+        return
     try:
         contract_file = locate_contract_file()
         if contract_file is None:
-            return 0
+            return
         if event == "SessionStart":
             prune_stale_states(state_directory)
             hint, state = None, start_session(contract_file.parent, payload["source"], previous)
@@ -236,8 +236,7 @@ def main() -> int:
     if hint:
         print_hint(event, hint)
     write_state(state_file, state)
-    return 0
 
 
 if __name__ == "__main__":  # pragma: no cover - process entry point, no logic of its own
-    sys.exit(main())
+    main()

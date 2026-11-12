@@ -130,7 +130,10 @@ function rereadContradictoryCourier(answer, label, base) {
 function retryFailedStart(answer, runCourier, label) {
   const note = String(answer?.note ?? '')
   const unreadSchema = answer?.verdict === 'failed' && answer.codexExit > 0 && note.includes(SCHEMA_READ_ERROR)
-  const reason = unreadSchema ? 'Codex could not read its output schema' : isBriefMismatch(answer) ? 'the courier wrote a different brief' : isNoBriefRecord(answer) ? 'the courier found no brief in its transcript' : ''
+  let reason = ''
+  if (unreadSchema) reason = 'Codex could not read its output schema'
+  else if (isBriefMismatch(answer)) reason = 'the courier wrote a different brief'
+  else if (isNoBriefRecord(answer)) reason = 'the courier found no brief in its transcript'
   if (!reason) return answer
   log(`${label}: ${reason}; starting the courier once more`)
   return runCourier(`${label}-retry`)

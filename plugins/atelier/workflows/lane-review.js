@@ -183,7 +183,13 @@ cuts=[m.group(1) for f in files for c in contents(f) if isinstance(c,str) for m 
 cuts or sys.exit("${NO_BRIEF_RECORD}")
 open(out,"w",encoding="utf-8").write(textwrap.dedent(cuts[0])+"\n")`
 
-const ansiCQuoted = source => `$'${source.replaceAll('\\', String.raw`\\`).replaceAll("'", String.raw`\'`).replaceAll('\n', String.raw`\n`)}'`
+const ESCAPED_BACKSLASH = String.raw`\\`
+const ESCAPED_QUOTE = String.raw`\'`
+const ESCAPED_NEWLINE = String.raw`\n`
+const ansiCQuoted = source => {
+  const escaped = source.replaceAll('\\', ESCAPED_BACKSLASH).replaceAll("'", ESCAPED_QUOTE).replaceAll('\n', ESCAPED_NEWLINE)
+  return `$'${escaped}'`
+}
 const BRIEF_CUTTER_ARGUMENT = ansiCQuoted(BRIEF_CUTTER)
 
 function codexReview(label, routing, role, range) {

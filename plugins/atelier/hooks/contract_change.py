@@ -47,8 +47,8 @@ class ContractFailure(Exception):
 
 
 def git_run(directory: Path, *arguments: str) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
-        ["git", "-C", str(directory), "--no-optional-locks", *arguments],
+    return subprocess.run(  # noqa: S603 - git with fixed words and paths derived from the operator's own contract link
+        ["git", "-C", str(directory), "--no-optional-locks", *arguments],  # noqa: S607 - git is found on PATH like every tool here
         capture_output=True,
         text=True,
         check=False,

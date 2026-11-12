@@ -36,9 +36,8 @@ ACTION_WORD = re.compile(
     r"|\b(?:make|made|making|go|going|set|setting)\W+(?:\w+\W+){0,2}public\b",
     re.IGNORECASE,
 )
-NEW_REPOSITORY = re.compile(
-    r"\b(?:new|neu\w*)\W+repo|\b(?:creat|anleg|erstell|erzeug)\w*\W+(?:\w+\W+){0,3}repo", re.IGNORECASE
-)
+NEW_REPOSITORY = re.compile(r"\b(?:new|neu\w*)\W+repo", re.IGNORECASE)
+CREATE_REPOSITORY = re.compile(r"\b(?:creat|anleg|erstell|erzeug)\w*\W+(?:\w+\W+){0,3}repo", re.IGNORECASE)
 
 
 @dataclass(frozen=True)
@@ -72,7 +71,9 @@ class ReadFailure(Exception):
 
 def names_repository_action(prompt: str) -> bool:
     return bool(
-        (REPOSITORY_WORD.search(prompt) and ACTION_WORD.search(prompt)) or NEW_REPOSITORY.search(prompt)
+        (REPOSITORY_WORD.search(prompt) and ACTION_WORD.search(prompt))
+        or NEW_REPOSITORY.search(prompt)
+        or CREATE_REPOSITORY.search(prompt)
     )
 
 

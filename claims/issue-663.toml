@@ -1,0 +1,8 @@
+claim_id = "0ab3092aad754a28a87f3704a23d712d"
+agent = "Claude ff1b9f08-53fd-4692-b3b9-2cc410b8d654"
+role = "builder"
+base = "5cd26526386aef39e284bb2ac96e7a3117e567bc"
+branch = "claude/issue-663-the-phase-planner-cuts-phases-at-the-sli"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/.codex/agents", "plugins/atelier/agents/phase-planner.md"]
+opened_commit = "0f66fe9417cf4e60de629e811728229c1597f952"
+whole_reason = "One agent definition, its generated Codex copy, and the version bump."

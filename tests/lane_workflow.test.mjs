@@ -143,6 +143,7 @@ for (const [what, gate] of standInRoutings) {
     assert.deepEqual(result.routing.gate, { model: 'opus', effort: 'high' })
     assert.equal(result.status, 'ready-to-land')
     assert.equal(result.requiredHeadActions.filter(action => /stand-in/.test(action)).length, 1)
+    assert.match(result.routingLine, laneRecordLine)
   })
 }
 
@@ -429,23 +430,32 @@ test('routingLine: a lane with a fix round names the fixer, the count and each b
   assert.equal(result.routingLine.split('\n').length, 1)
 })
 
-test('routingLine: blocking findings that share a location or a long prefix each stay in the Blocking count', async () => {
+test('routingLine: findings sharing a printed location and stage print in the counted form and distinct locations stay distinct', async () => {
   const where = ['a.py:3 (first defect)', 'a.py:3 (second defect)', 'a.py:3-9 (third)', 'päth/ü.py:3 (fourth)', `${'x'.repeat(200)} one`, `${'x'.repeat(200)} two`]
   const raised = where.map(w => ({ ...finding(w, 'd'), kind: 'docs' }))
   const { result } = await runLane({ ...resumeArgs, fixFirst: [{ ...defectWithoutDraft }] }, { 'fix-1': { ...resumeFix, regression: [] }, 'r1-review': { verdict: 'REVISE', blocking: raised, followups: [] }, 'fix-2': secondFix, 'r2-review': APPROVE, 'e2e-0': PASS, 'ci-0': greenCi(secondFix.head) })
   const entries = result.routingLine.split('Blocking: ')[1].split('; ')
-  assert.equal(entries.length, where.length, result.routingLine)
-  assert.ok(entries.some(entry => entry.startsWith('päth/ü.py:3 →')))
+  assert.ok(entries.includes('3× a.py:3 → review'), result.routingLine)
+  assert.ok(entries.includes('päth/ü.py:3 → review'), result.routingLine)
+  assert.equal(blockingCount(result.routingLine), where.length)
 })
 
-// The grammar of aco's specs/lane-record.spec.md, LANREC-16 to LANREC-20, written out independently of lane.js.
+test('routingLine: a range, a parenthesised reference and a trailing comma each reduce to path and line', async () => {
+  const raised = ['a.py:77-80 range', 'see (b.py:5) here', 'c.py:9, then more'].map(w => ({ ...finding(w, 'd'), kind: 'docs' }))
+  const { result } = await runLane({ ...resumeArgs, fixFirst: [{ ...defectWithoutDraft }] }, { 'fix-1': { ...resumeFix, regression: [] }, 'r1-review': { verdict: 'REVISE', blocking: raised, followups: [] }, 'fix-2': secondFix, 'r2-review': APPROVE, 'e2e-0': PASS, 'ci-0': greenCi(secondFix.head) })
+  assert.match(result.routingLine, /Blocking: a\.py:77 → review; b\.py:5 → review; c\.py:9 → review$/)
+})
+
+// The grammar of aco's specs/lane-record.spec.md, LANREC-16 to LANREC-20, written out independently of lane.js; the lane's tests run in node without aco installed,
+// so this regex stands in for aco's parser and the counted form is read the same way (n× text is part of the free text before the arrow).
 const stageText = '[a-z][a-z0-9.-]*/[a-z0-9-]+'
 const laneRecordLine = new RegExp(
   `^Routing: build ${stageText}; fix (?:${stageText}|none); review ${stageText}; test (?:${stageText}|none); gate (?:${stageText}|none); land ${stageText}\\. ` +
   `Fix rounds: \\d{1,3}\\.(?: Experiment: [a-z0-9-]{1,40}\\.)? Blocking: (?:none|(?:[^;]+ )?→ \\w+(?:; (?:[^;]+ )?→ \\w+)*)$`)
-const blockingCount = (line) => line.split('Blocking: ')[1].split('; ').filter(part => part.split('→').length === 2).length
+const blockingCount = (line) => line.split('Blocking: ')[1].split('; ').filter(part => part.split('→').length === 2)
+  .reduce((sum, part) => sum + Number(/^(\d+)× /.exec(part)?.[1] ?? 1), 0)
 
-test('routingLine: every printed line fits the LANREC grammar and 512 characters', async () => {
+test('routingLine: a lane with no findings prints one line that fits the LANREC grammar and 512 characters', async () => {
   const { result } = await runLane(resumeArgs, { ...reachesTheEnd, 'r0-review': APPROVE })
   assert.match(result.routingLine, laneRecordLine)
   assert.ok(result.routingLine.length <= 512)

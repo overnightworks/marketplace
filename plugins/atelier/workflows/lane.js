@@ -236,33 +236,54 @@ const gateUnseenView = () => gateUnseen ? { gateUnseen: { ...gateUnseen, tip } }
 const FINDING_STAGES = [[/^e2e-/, 'test'], [/^ci-/, 'ci'], [/^(review|gate)$/, null], [/^standin$/, 'gate']]
 const ROUTING_LINE_LIMIT = 512  // the length the aco skill's abandon step asks of the line
 const LOCATION_LIMIT = 60
-const PATH_AND_LINE = /^[\p{L}\p{N}_./@-]+:\d+$/u
+const PATH_CHARACTERS = /^[\p{L}\p{N}_./@-]+$/u
+const isDigits = (text) => text.length > 0 && [...text].every(character => character >= '0' && character <= '9')
+// One scan over the word: drop wrapping parentheses and trailing punctuation, then a path, a colon, a line and an optional "-end" of a range.
+function pathAndLine(word) {
+  let start = 0
+  let end = word.length
+  while (start < end && word[start] === '(') start++
+  while (end > start && ',.;)'.includes(word[end - 1])) end--
+  const reference = word.slice(start, end)
+  const colon = reference.lastIndexOf(':')
+  if (colon < 1) return null
+  const [line] = reference.slice(colon + 1).split('-', 2)
+  return PATH_CHARACTERS.test(reference.slice(0, colon)) && isDigits(line) ? `${reference.slice(0, colon)}:${line}` : null
+}
 function blockingStages() {
-  const found = new Map()  // the full finding text and stage -> the location printed for it, so findings sharing a location stay counted
+  const texts = new Set()  // the full finding text and stage, so a finding that comes back counts once
+  const grouped = new Map()  // the printed location and stage -> the findings that print it
   for (const entry of history) {
     if (!Array.isArray(entry.blocking)) continue
     const stage = FINDING_STAGES.map(([pattern, name]) => pattern.test(entry.by) ? name ?? entry.by : null).find(Boolean)
     if (!stage) continue
     entry.blocking.forEach(where => {
       const text = String(where).replace(/[\s;→]+/g, ' ').trim()
-      found.set(JSON.stringify([text, stage]), [text.split(' ').find(word => PATH_AND_LINE.test(word)) ?? text, stage])
+      const identity = JSON.stringify([text, stage])
+      if (texts.has(identity)) return
+      texts.add(identity)
+      const location = text.split(' ').map(pathAndLine).find(Boolean) ?? text
+      const key = JSON.stringify([location, stage])
+      grouped.set(key, { where: location, stage, count: (grouped.get(key)?.count ?? 0) + 1 })
     })
   }
-  return [...found.values()]
+  return [...grouped.values()]
 }
-// Each finding keeps its stage arrow, so aco counts it. The locations shrink evenly until the whole line fits, then they go and the stage words shorten;
-// only a line that cannot hold one arrow per finding gives up the count.
+// Findings sharing a printed location and stage print in aco's counted form "<n>× <text> → <stage>". The locations shrink evenly until the whole line fits,
+// then they go and the stage words shorten; only a line that cannot hold one arrow per entry gives up the count.
 const SHORT_STAGE_LENGTH = 3
+const countPrefix = (count) => count > 1 ? `${count}× ` : ''
 function blockingText(findings, rest) {
   if (!findings.length) return 'none'
+  const total = findings.reduce((sum, { count }) => sum + count, 0)
   const room = ROUTING_LINE_LIMIT - rest.length
-  const arrows = findings.reduce((sum, [, stage]) => sum + ` → ${stage}`.length, 0) + 2 * (findings.length - 1)
+  const arrows = findings.reduce((sum, { count, stage }) => sum + countPrefix(count).length + ` → ${stage}`.length, 0) + 2 * (findings.length - 1)
   const each = Math.min(LOCATION_LIMIT, Math.floor((room - arrows) / findings.length))
   const render = (locationLength, stageLength) => findings
-    .map(([where, stage]) => `${where.slice(0, locationLength)} → ${stage.slice(0, stageLength)}`.trim())
+    .map(({ where, stage, count }) => `${countPrefix(count)}${where.slice(0, locationLength)} → ${stage.slice(0, stageLength)}`.replace(/^(\d+× ) → /, '$1→ ').trim())
     .join('; ')
   const fitting = [render(each, Infinity), render(0, Infinity), render(0, SHORT_STAGE_LENGTH)].find((text, tier) => (tier || each >= 1) && text.length <= room)
-  return fitting ?? `${findings.length} findings, too many to list`
+  return fitting ?? `${total} findings, too many to list`
 }
 function routingLine() {
   const choice = (role) => `${ROUTING[role].model}/${ROUTING[role].effort}`

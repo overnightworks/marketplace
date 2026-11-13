@@ -23,10 +23,12 @@ PLUGIN = "atelier@atelier"
 
 PROBE_RUN = REPO_ROOT / "scripts" / "probe_run.sh"
 
+LOCAL_BIN = Path(".local") / "bin"
+
 LINKS = (
     (Path(".claude") / "CLAUDE.md", CONTRACT),
     (Path(".codex") / "AGENTS.md", CONTRACT),
-    (Path(".local") / "bin" / "probe-run", PROBE_RUN),
+    (LOCAL_BIN / "probe-run", PROBE_RUN),
 )
 
 RELOAD_STEP = "Reload: run /reload-plugins in Claude Code, and start a new Codex thread."
@@ -40,6 +42,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     try:
         link_shared_files(Path.home())
+        warn_when_probe_run_is_off_path(Path.home())
         for provider in (install_claude, install_codex):
             provider(from_checkout=args.from_checkout)
     except InstallError as error:
@@ -79,6 +82,13 @@ def link_shared_files(home: Path) -> None:
     for link, target in links.items():
         if link not in missing:
             print(f"{link} already links {target.name}")
+
+
+def warn_when_probe_run_is_off_path(home: Path) -> None:
+    bin_directory = home / LOCAL_BIN
+    on_path = any(Path(entry) == bin_directory for entry in os.environ.get("PATH", "").split(os.pathsep) if entry)
+    if not on_path:
+        print(f"warning: {bin_directory} is not on PATH, so a shell cannot find probe-run; add it to PATH", file=sys.stderr)
 
 
 def is_link_to(link: Path, target: Path) -> bool:

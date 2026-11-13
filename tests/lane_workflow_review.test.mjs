@@ -422,7 +422,7 @@ const lastLineCommand = (prompt) => prompt.match(/run: (grep -v \S+ \S+ \| tail 
 test('usage-limit: the courier clears run.log first, reads the last non-empty line, names the phrase and never retries a limit', async () => {
   const { agentCalls } = await runLane(materialLane, limitedGate)
   const prompt = agentCalls['r0-gate'].prompt
-  assert.match(prompt, /1\. rm -f [^\n]*-run\.log/)
+  assert.match(prompt, /1\. mkdir -p \S+ && rm -f [^\n]*-run\.log/)
   assert.match(prompt, /hit your usage limit/)
   assert.match(prompt, /never retry a limit/i)
   assert.ok(lastLineCommand(prompt))

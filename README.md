@@ -47,7 +47,8 @@ The same command serves a first install and every later update;
 `--from-checkout` adds the marketplace from this checkout, for developing it.
 It also links the contract into each provider's user-level instructions (see
 [Architecture](docs/ARCHITECTURE.md)) and `scripts/probe_run.sh` as `probe-run`, which starts a
-probe stack once the machine's load allows, into `~/.local/bin`.
+probe stack once the machine's load allows, into `~/.local/bin`, which must be on your `PATH`
+(the script warns when it is not).
 
 `codex plugin add` removes the previously installed version directory, so the
 script waits until no Codex job runs before it updates Codex. Afterwards start

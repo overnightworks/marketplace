@@ -15,7 +15,7 @@ const HOST_FRAME = '[Workflow harness — computed task] The task text below was
 const indented = (text) => `${HOST_FRAME}\n${text.split('\n').map(line => (line ? `  ${line}` : line)).join('\n')}`
 // The commands of a prompt as the courier runs them: one physical line each, however the host indents the line.
 const commandLinesOf = (hostPrompt) => hostPrompt.split('\n').map(line => line.trim())
-  .map(line => line.match(/^(?:\d+\. )?((?:rm|python3|printf|timeout) .*)$/)?.[1] ?? line.match(/also run: (grep .*)$/)?.[1])
+  .map(line => line.match(/^(?:\d+\. )?((?:mkdir|rm|python3|printf|timeout) .*)$/)?.[1] ?? line.match(/also run: (grep .*)$/)?.[1])
   .filter(Boolean)
 const record = (content) => `${JSON.stringify({ type: 'user', message: { role: 'user', content } })}\n`
 
@@ -63,7 +63,7 @@ for (const [name, hostText] of [
 test('courier-cuts-brief: every command line of the prompt the host indents is one complete shell command', async () => {
   const { prompt } = await courierRound()
   const commands = commandLinesOf(indented(prompt))
-  assert.deepEqual(commands.map(command => command.split(' ')[0]), ['rm', 'python3', 'printf', 'timeout', 'grep'])
+  assert.deepEqual(commands.map(command => command.split(' ')[0]), ['mkdir', 'python3', 'printf', 'timeout', 'grep'])
   for (const command of commands) {
     const checked = spawnSync('bash', ['-n', '-c', command], { encoding: 'utf8' })
     assert.equal(checked.status, 0, `${command.slice(0, 60)}: ${checked.stderr}`)
@@ -160,4 +160,17 @@ test('courier-cuts-brief: two differing briefs in recent transcripts, the cut gi
   const ran = second.cut()
   assert.equal(ran.status, 0, ran.stderr)
   assert.equal(ran.written, `${second.brief}\n`)
+})
+
+test('the courier creates a scratch directory that does not exist yet before it writes there', async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'courier-scratch-'))
+  roots.push(root)
+  const scratch = path.join(root, 'not', 'yet', 'there')
+  const { agentCalls } = await runLane({ ...resumedLane, scratch, risk: 'material' }, { 'r0-review': APPROVE })
+  const firstStep = commandLinesOf(indented(agentCalls['r0-gate'].prompt)).find(line => line.startsWith('mkdir '))
+
+  const ran = spawnSync('bash', ['-c', firstStep], { encoding: 'utf8' })
+
+  assert.equal(ran.status, 0, ran.stderr)
+  assert.ok(fs.statSync(scratch).isDirectory())
 })

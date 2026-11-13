@@ -240,6 +240,20 @@ def test_links_probe_run_onto_the_path_and_keeps_an_existing_link(machine):
     assert os.access(link, os.X_OK)
 
 
+def test_warns_when_the_local_bin_directory_is_not_on_path(machine, capsys):
+    assert install.main([]) == 0
+
+    assert f"{machine.home / '.local' / 'bin'} is not on PATH" in capsys.readouterr().err
+
+
+def test_stays_quiet_when_the_local_bin_directory_is_on_path(machine, monkeypatch, capsys):
+    monkeypatch.setenv("PATH", f"{machine.bin}{os.pathsep}{machine.home / '.local' / 'bin'}")
+
+    assert install.main([]) == 0
+
+    assert "not on PATH" not in capsys.readouterr().err
+
+
 @pytest.mark.parametrize("existing", ["regular-file", "link-elsewhere", "dangling-link"])
 def test_stops_and_changes_nothing_when_a_contract_path_holds_something_else(
     machine, capsys, tmp_path, existing

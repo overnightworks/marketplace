@@ -124,6 +124,20 @@ const FOLLOWUP = {
   required: ['where', 'text', 'owner'],
   properties: { where: { type: 'string' }, text: { type: 'string' }, owner: { type: 'string', description: 'owning item #n, or "distributor"' } },
 }
+// An entry of the wrong shape (a bare string, a missing field) would reach the fixer as "undefined" fields, so the input check names it first.
+// A finding of a run that predates kinds lacks kind, which kindOf defaults.
+const requiredFields = (schema) => schema.required.filter(field => field !== 'kind')
+const missingFields = (entry, schema) => entry === null || typeof entry !== 'object' || Array.isArray(entry)
+  ? 'is not an object'
+  : `lacks ${requiredFields(schema).filter(field => typeof entry[field] !== 'string' || !entry[field].trim()).join(', ')}`
+const badEntry = (name, entries, schema) => {
+  if (entries === undefined) return null
+  if (!Array.isArray(entries)) return `${name} must be a list`
+  const index = entries.findIndex(entry => missingFields(entry, schema) !== 'lacks ')
+  return index < 0 ? null : `${name}[${index}] ${missingFields(entries[index], schema)}: each entry needs ${requiredFields(schema).join(', ')} as non-empty strings`
+}
+const entryProblem = badEntry('fixFirst', A.fixFirst, FINDING) || badEntry('foldIn', A.foldIn, FOLLOWUP)
+if (entryProblem) return { status: 'failed', stage: 'input', reason: entryProblem }
 // A child's refusal or crash is a problem naming the child, which its caller stops on at the stage of its own step.
 // An install between two stages can swap a child for a version of another protocol; the refusal that follows the passed start-of-run check
 // is remembered, and openResult then returns awaiting-head instead of failed.

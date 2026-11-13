@@ -252,7 +252,7 @@ function pathAndLine(word) {
 }
 function blockingStages() {
   const texts = new Set()  // the full finding text and stage, so a finding that comes back counts once
-  const grouped = new Map()  // the printed location and stage -> the findings that print it
+  const found = []
   for (const entry of history) {
     if (!Array.isArray(entry.blocking)) continue
     const stage = FINDING_STAGES.map(([pattern, name]) => pattern.test(entry.by) ? name ?? entry.by : null).find(Boolean)
@@ -262,28 +262,35 @@ function blockingStages() {
       const identity = JSON.stringify([text, stage])
       if (texts.has(identity)) return
       texts.add(identity)
-      const location = text.split(' ').map(pathAndLine).find(Boolean) ?? text
-      const key = JSON.stringify([location, stage])
-      grouped.set(key, { where: location, stage, count: (grouped.get(key)?.count ?? 0) + 1 })
+      found.push({ where: text.split(' ').map(pathAndLine).find(Boolean) ?? text, stage })
     })
   }
-  return [...grouped.values()]
+  return found
 }
-// Findings sharing a printed location and stage print in aco's counted form "<n>× <text> → <stage>". The locations shrink evenly until the whole line fits,
-// then they go and the stage words shorten; only a line that cannot hold one arrow per entry gives up the count.
+// Findings that print the same text and stage share one counted entry "<n>× <text> → <stage>", grouped after the render tier shortens them.
+// The locations shrink evenly until the whole line fits, then they go and the stage words shorten; only a line that cannot hold one counted arrow per entry gives up the count.
 const SHORT_STAGE_LENGTH = 3
+const COUNT_LIMIT = 999  // aco reads a count of one to three digits
 const countPrefix = (count) => count > 1 ? `${count}× ` : ''
 function blockingText(findings, rest) {
   if (!findings.length) return 'none'
-  const total = findings.reduce((sum, { count }) => sum + count, 0)
   const room = ROUTING_LINE_LIMIT - rest.length
-  const arrows = findings.reduce((sum, { count, stage }) => sum + countPrefix(count).length + ` → ${stage}`.length, 0) + 2 * (findings.length - 1)
+  const arrows = findings.reduce((sum, { stage }) => sum + ` → ${stage}`.length, 0) + 2 * (findings.length - 1)
   const each = Math.min(LOCATION_LIMIT, Math.floor((room - arrows) / findings.length))
-  const render = (locationLength, stageLength) => findings
-    .map(({ where, stage, count }) => `${countPrefix(count)}${where.slice(0, locationLength)} → ${stage.slice(0, stageLength)}`.replace(/^(\d+× ) → /, '$1→ ').trim())
-    .join('; ')
+  const render = (locationLength, stageLength) => {
+    const counts = new Map()
+    findings.forEach(({ where, stage }) => {
+      const key = JSON.stringify([where.slice(0, locationLength), stage.slice(0, stageLength)])
+      counts.set(key, (counts.get(key) ?? 0) + 1)
+    })
+    return [...counts].flatMap(([key, count]) => {
+      const [text, stage] = JSON.parse(key)
+      return Array.from({ length: Math.ceil(count / COUNT_LIMIT) }, (_, part) =>
+        `${countPrefix(Math.min(COUNT_LIMIT, count - part * COUNT_LIMIT))}${text} → ${stage}`.replace(/^(\d+× ) → /, '$1→ ').trim())
+    }).join('; ')
+  }
   const fitting = [render(each, Infinity), render(0, Infinity), render(0, SHORT_STAGE_LENGTH)].find((text, tier) => (tier || each >= 1) && text.length <= room)
-  return fitting ?? `${total} findings, too many to list`
+  return fitting ?? `${findings.length} findings, too many to list`
 }
 function routingLine() {
   const choice = (role) => `${ROUTING[role].model}/${ROUTING[role].effort}`

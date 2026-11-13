@@ -479,11 +479,29 @@ for (const findings of [1, 12, 25, 40, 50]) {
   })
 }
 
-test('routingLine: more findings than one arrow each can hold print an unknown count instead of breaking the bound', async () => {
+const revisedWith = (blocking) => runLane({ ...resumeArgs, fixFirst: [{ ...defectWithoutDraft }] }, { 'fix-1': { ...resumeFix, regression: [] }, 'r1-review': { verdict: 'REVISE', blocking, followups: [] }, 'fix-2': secondFix, 'r2-review': APPROVE, 'e2e-0': PASS, 'ci-0': greenCi(secondFix.head) })
+
+test('routingLine: findings whose locations drop to nothing print one counted bare entry that holds the whole count', async () => {
   const raised = Array.from({ length: 80 }, (_, n) => ({ ...finding(`probe ${n}`, 'a defect'), kind: 'docs' }))
-  const { result } = await runLane({ ...resumeArgs, fixFirst: [{ ...defectWithoutDraft }] }, { 'fix-1': { ...resumeFix, regression: [] }, 'r1-review': { verdict: 'REVISE', blocking: raised, followups: [] }, 'fix-2': secondFix, 'r2-review': APPROVE, 'e2e-0': PASS, 'ci-0': greenCi(secondFix.head) })
+  const { result } = await revisedWith(raised)
   assert.ok(result.routingLine.length <= 512)
-  assert.match(result.routingLine, /Blocking: 80 findings, too many to list$/)
+  assert.match(result.routingLine, /Blocking: 80× → review$/)
+  assert.equal(blockingCount(result.routingLine), 80)
+})
+
+test('routingLine: findings whose long locations shorten to the same text print as one counted entry', async () => {
+  const raised = Array.from({ length: 30 }, (_, n) => ({ ...finding(`${'x'.repeat(70)}${n}`, 'a defect'), kind: 'docs' }))
+  const { result } = await revisedWith(raised)
+  assert.ok(result.routingLine.length <= 512)
+  assert.match(result.routingLine, laneRecordLine)
+  assert.equal(blockingCount(result.routingLine), 30)
+})
+
+test('routingLine: a group of more than 999 identical findings splits into counted entries aco reads in full', async () => {
+  const raised = Array.from({ length: 1001 }, (_, n) => ({ ...finding(`probe ${n}`, 'a defect'), kind: 'docs' }))
+  const { result } = await revisedWith(raised)
+  assert.match(result.routingLine, /Blocking: 999× → review; 2× → review$/)
+  assert.equal(blockingCount(result.routingLine), 1001)
 })
 
 test('routingLine: a long location with a path and a line prints only the path and the line', async () => {

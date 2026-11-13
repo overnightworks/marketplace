@@ -482,28 +482,52 @@ for (const findings of [1, 12, 25, 40, 50]) {
 const revisedWith = (blocking) => runLane({ ...resumeArgs, fixFirst: [{ ...defectWithoutDraft }] }, { 'fix-1': { ...resumeFix, regression: [] }, 'r1-review': { verdict: 'REVISE', blocking, followups: [] }, 'fix-2': secondFix, 'r2-review': APPROVE, 'e2e-0': PASS, 'ci-0': greenCi(secondFix.head) })
 
 test('routingLine: findings whose locations drop to nothing print one counted bare entry that holds the whole count', async () => {
-  const raised = Array.from({ length: 80 }, (_, n) => ({ ...finding(`probe ${n}`, 'a defect'), kind: 'docs' }))
+  const raised = Array.from({ length: 80 }, (_, n) => ({ ...finding(`${String.fromCodePoint(0x4e00 + n)} probe`, 'a defect'), kind: 'docs' }))
   const { result } = await revisedWith(raised)
   assert.ok(result.routingLine.length <= 512)
   assert.match(result.routingLine, /Blocking: 80× → review$/)
   assert.equal(blockingCount(result.routingLine), 80)
 })
 
-test('routingLine: findings whose long locations shorten to the same text print as one counted entry', async () => {
+test('routingLine: findings whose long locations shorten to the same text print as one counted entry with the longest location that fits', async () => {
   const raised = Array.from({ length: 30 }, (_, n) => ({ ...finding(`${'x'.repeat(70)}${n}`, 'a defect'), kind: 'docs' }))
   const { result } = await revisedWith(raised)
   assert.ok(result.routingLine.length <= 512)
   assert.match(result.routingLine, laneRecordLine)
-  assert.match(result.routingLine, /Blocking: 30× x → review$/)
+  assert.match(result.routingLine, new RegExp(`Blocking: 30× ${'x'.repeat(60)} → review$`))
   assert.equal(blockingCount(result.routingLine), 30)
 })
 
 test('routingLine: a group of more than 999 identical findings splits into counted entries aco reads in full', async () => {
-  const raised = Array.from({ length: 1001 }, (_, n) => ({ ...finding(`probe ${n}`, 'a defect'), kind: 'docs' }))
+  const raised = Array.from({ length: 1001 }, (_, n) => ({ ...finding('a.py:5', `defect ${n}`), kind: 'docs' }))
   const { result } = await revisedWith(raised)
-  assert.match(result.routingLine, /Blocking: 999× → review; 2× → review$/)
+  assert.match(result.routingLine, /Blocking: 999× a\.py:5 → review; 2× a\.py:5 → review$/)
   assert.equal(blockingCount(result.routingLine), 1001)
 })
+
+test('routingLine: distinct findings that share one location each count', async () => {
+  const raised = Array.from({ length: 30 }, (_, n) => ({ ...finding('a.py:5', `defect ${n}`), kind: 'docs' }))
+  const { result } = await revisedWith(raised)
+  assert.match(result.routingLine, /Blocking: 30× a\.py:5 → review$/)
+  assert.equal(blockingCount(result.routingLine), 30)
+})
+
+test('routingLine: a finding that comes back in a later round counts once', async () => {
+  const raised = [{ ...finding('a.py:5', 'defect'), kind: 'docs' }]
+  const { result } = await runLane({ ...resumeArgs, fixFirst: [{ ...defectWithoutDraft }] }, { 'fix-1': { ...resumeFix, regression: [] }, 'r1-review': { verdict: 'REVISE', blocking: raised, followups: [] }, 'fix-2': secondFix, 'r2-review': { verdict: 'REVISE', blocking: raised, followups: [] }, 'fix-3': secondFix, 'r3-review': APPROVE, 'e2e-0': PASS, 'ci-0': greenCi(resumeFixedTip) })
+  assert.equal(blockingCount(result.routingLine), 1, result.routingLine)
+})
+
+for (const leading of ['0× zero', '5× five', '999×', 'none yet', 'none']) {
+  test(`routingLine: a location that starts with ${JSON.stringify(leading)} cannot change the count aco reads`, async () => {
+    const raised = [{ ...finding(leading, 'a defect'), kind: 'docs' }, { ...finding('b.py:2', 'a defect'), kind: 'docs' }]
+    const { result } = await revisedWith(raised)
+    const entries = result.routingLine.split('Blocking: ')[1].split('; ')
+    assert.equal(entries.length, 2, result.routingLine)
+    assert.ok(entries.every(entry => !/^(?:\d+×|none)/.test(entry)), result.routingLine)
+    assert.equal(blockingCount(result.routingLine), 2)
+  })
+}
 
 test('routingLine: a long location with a path and a line prints only the path and the line', async () => {
   const raised = [{ ...finding('src/a/b.py:77 and then a long sentence about it', 'a defect'), kind: 'docs' }]

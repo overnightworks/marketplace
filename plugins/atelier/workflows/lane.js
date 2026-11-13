@@ -224,68 +224,14 @@ function openFollowups() {
 }
 const raisedBeforeTip = (open) => open.filter(f => f.tip && !sameCommit(f.tip, tip))
 const gateUnseenView = () => gateUnseen ? { gateUnseen: { ...gateUnseen, tip } } : {}
-// The Routing line aco reads (aco's specs/lane-record.spec.md owns the grammar), built from what this run used; the head pastes it as is.
-const FINDING_STAGES = [[/^e2e-/, 'test'], [/^ci-/, 'ci'], [/^(review|gate)$/, null], [/^standin$/, 'gate']]
-const ROUTING_LINE_LIMIT = 512  // the length the aco skill's abandon step asks of the line
-const LOCATION_LIMIT = 60
-const PATH_CHARACTERS = /^[\p{L}\p{N}_./@-]+$/u
-// One scan over the word: drop wrapping parentheses and trailing punctuation, then a path, a colon, a line and an optional "-end" of a range.
-function pathAndLine(word) {
-  let reference = word.replace(/^\(+/, '')
-  while (',.;)'.includes(reference.at(-1))) reference = reference.slice(0, -1)
-  const colon = reference.lastIndexOf(':')
-  const [line] = reference.slice(colon + 1).split('-', 2)
-  return colon > 0 && PATH_CHARACTERS.test(reference.slice(0, colon)) && /^\d+$/.test(line) ? `${reference.slice(0, colon)}:${line}` : null
+// The Routing line comes from lane-routing (aco's specs/lane-record.spec.md owns the grammar); the head pastes it as is.
+async function routingLine() {
+  const line = await startChild('lane-routing', { protocol: LANE_ROUTING_PROTOCOL, routing: ROUTING, history, fixRole: fixRolesRun.at(-1) ?? null, rounds: spent.total, experiment: A.experiment })
+  if (typeof line !== 'string') throw new Error(`the Routing line could not be printed: ${line?.problem ?? JSON.stringify(line)}`)
+  return line
 }
-function blockingStages() {
-  const found = new Map()  // keyed by the full finding text and stage, so a finding that comes back counts once
-  for (const entry of history) {
-    if (!Array.isArray(entry.blocking)) continue
-    const stage = FINDING_STAGES.map(([pattern, name]) => pattern.test(entry.by) ? name ?? entry.by : null).find(Boolean)
-    if (!stage) continue
-    entry.blocking.forEach(where => {
-      const text = String(where).replace(/[\s;→]+/g, ' ').trim()
-      found.set(JSON.stringify([text, stage]), { where: text.split(' ').map(pathAndLine).find(Boolean) ?? text, stage })
-    })
-  }
-  return [...found.values()]
-}
-// Findings that print the same text and stage share one counted entry "<n>× <text> → <stage>", grouped after the render tier shortens them.
-// The locations shrink evenly until the whole line fits, then they go; one entry per stage word is all that is left.
-const countPrefix = (count) => count > 1 ? `${count}× ` : ''
-const COUNT_LIMIT = 999  // aco reads a count of one to three digits
-function blockingText(findings, rest) {
-  if (!findings.length) return 'none'
-  const room = ROUTING_LINE_LIMIT - rest.length
-  const arrows = findings.reduce((sum, { stage }) => sum + ` → ${stage}`.length, 0) + 2 * (findings.length - 1)
-  const each = Math.min(LOCATION_LIMIT, Math.floor((room - arrows) / findings.length))
-  const render = (locationLength) => {
-    const counts = new Map()
-    findings.map(({ where, stage }) => `${where.slice(0, locationLength)} → ${stage}`).forEach(entry => counts.set(entry, (counts.get(entry) ?? 0) + 1))
-    return [...counts].flatMap(([entry, count]) => Array.from({ length: Math.ceil(count / COUNT_LIMIT) }, (_, part) =>
-      `${countPrefix(Math.min(COUNT_LIMIT, count - part * COUNT_LIMIT))}${entry}`.replace(/^(\d+× ) → /, '$1→ ').trim())).join('; ')
-  }
-  const shortened = render(Math.max(each, 0))
-  return shortened.length <= room ? shortened : render(0)
-}
-function routingLine() {
-  const choice = (role) => `${ROUTING[role].model}/${ROUTING[role].effort}`
-  const ran = (key) => history.some(entry => entry.by === key || entry.by?.startsWith(`${key}-`))
-  const gateRole = [['standin', 'review'], ['gate', 'gate']].find(([key]) => ran(key))?.[1] ?? null
-  const fixRole = fixRolesRun.at(-1)
-  const stages = [
-    `build ${choice('build')}`,
-    `fix ${fixRole ? choice(fixRole) : 'none'}`,
-    `review ${choice('review')}`,
-    `test ${ran('e2e') ? choice('test') : 'none'}`,
-    `gate ${gateRole ? choice(gateRole) : 'none'}`,
-    `land ${choice('mechanical')}`,
-  ]
-  const rest = [`Routing: ${stages.join('; ')}. Fix rounds: ${spent.total}.`, A.experiment && ` Experiment: ${A.experiment}.`, ' Blocking: '].filter(Boolean).join('')
-  return rest + blockingText(blockingStages(), rest)
-}
-const openResult = (status, stage, extra) =>
-  ({ status, stage, pr, tip, spent, routing: ROUTING, routingLine: routingLine(), history, followups: openFollowups(), raisedBeforeTip: raisedBeforeTip(openFollowups()), folded: [...folded.values()], disputed, ...gateUnseenView(), ...extra })
+const openResult = async (status, stage, extra) =>
+  ({ status, stage, pr, tip, spent, routing: ROUTING, routingLine: await routingLine(), history, followups: openFollowups(), raisedBeforeTip: raisedBeforeTip(openFollowups()), folded: [...folded.values()], disputed, ...gateUnseenView(), ...extra })
 
 // ---------------------------------------------------------------- children
 // Every child answers { protocolQuery: true } with its protocol before it checks anything else and starts no agent, so a session that
@@ -293,13 +239,16 @@ const openResult = (status, stage, extra) =>
 const LANE_BUILD_PROTOCOL = 6
 const LANE_TEST_PROTOCOL = 3
 const LANE_CI_PROTOCOL = 7
-const CHILD_PROTOCOLS = { 'lane-build': LANE_BUILD_PROTOCOL, 'lane-relay': LANE_RELAY_PROTOCOL, 'lane-review': LANE_REVIEW_PROTOCOL, 'lane-test': LANE_TEST_PROTOCOL, 'lane-ci': LANE_CI_PROTOCOL }
+const LANE_ROUTING_PROTOCOL = 1
+const CHILD_PROTOCOLS = { 'lane-build': LANE_BUILD_PROTOCOL, 'lane-relay': LANE_RELAY_PROTOCOL, 'lane-review': LANE_REVIEW_PROTOCOL, 'lane-test': LANE_TEST_PROTOCOL, 'lane-ci': LANE_CI_PROTOCOL, 'lane-routing': LANE_ROUTING_PROTOCOL }
 // A child that predates the query refuses the call and names its protocol in the refusal.
 const protocolMismatch = async ([name, expected]) => {
   const answer = await startChild(name, { protocolQuery: true })
   const installed = answer?.protocol ?? /speaks protocol (\d+)/.exec(answer?.problem ?? '')?.[1]
-  const spoken = installed ?? 'unknown (' + (answer?.problem ?? JSON.stringify(answer ?? null).slice(0, 200)) + ')'
-  return Number(installed) === expected ? null : `${name} speaks protocol ${spoken}, this lane speaks protocol ${expected}`
+  if (Number(installed) === expected) return null
+  const unknownReason = answer?.problem ?? JSON.stringify(answer ?? null).slice(0, 200)
+  const spoken = installed ?? `unknown (${unknownReason})`
+  return `${name} speaks protocol ${spoken}, this lane speaks protocol ${expected}`
 }
 const mismatches = (await Promise.all(Object.entries(CHILD_PROTOCOLS).map(protocolMismatch))).filter(Boolean)
 if (mismatches.length) return { status: 'failed', stage: 'input', reason: `${mismatches.join('; ')}: the installed atelier differs from the running lane; run /reload-plugins and start a new run` }
@@ -308,20 +257,20 @@ if (mismatches.length) return { status: 'failed', stage: 'input', reason: `${mis
 if (A.build) {
   phase('Build')
   const built = await startChild('lane-build', { protocol: LANE_BUILD_PROTOCOL, delegatedLine: DELEGATED_LINE, laneFacts, driveFacts, rescopeFacts, localCheckFacts: `${localCheckFacts} ${turnFacts('build')}`, build: A.build, routing: claudeRole('build') })
-  if (built?.problem) return openResult('failed', 'build', { reason: `the builder step ${built.problem}` })
-  if (!built) return openResult('failed', 'build', { reason: `the builder returned no result; inspect ${A.worktree} for uncommitted work, checkpoint it, and hand it to a fresh finisher` })
-  if (built.blocked) return openResult('escalated', 'build', { reason: built.blockedReason })
-  if (!SHA.test(built.tip || '')) return openResult('failed', 'build', { reason: `the builder returned a tip that is not a sha: ${String(built.tip).slice(0, 80)}` })
+  if (built?.problem) return await openResult('failed', 'build', { reason: `the builder step ${built.problem}` })
+  if (!built) return await openResult('failed', 'build', { reason: `the builder returned no result; inspect ${A.worktree} for uncommitted work, checkpoint it, and hand it to a fresh finisher` })
+  if (built.blocked) return await openResult('escalated', 'build', { reason: built.blockedReason })
+  if (!SHA.test(built.tip || '')) return await openResult('failed', 'build', { reason: `the builder returned a tip that is not a sha: ${String(built.tip).slice(0, 80)}` })
   pr = built.pr; tip = built.tip
   log(`built PR #${pr} at ${tip}`)
 } else {
   phase('Sync')
   const nonce = `sync-${tip}`
   const synced = await relay({ label: 'sync', phase: 'Sync', step: 'sync', relayArgs: [`'${nonce}'`], nonce, requiredKeys: ['head', 'parents', 'main'], answerKind: 'sync', facts: laneFacts, hasLedgers: LEDGERS.length > 0, hasGenerated: GENERATED.length > 0 })
-  if (!synced) return openResult('failed', 'sync')
+  if (!synced) return await openResult('failed', 'sync')
   const { values, problem } = synced
-  if (problem || failedCommand(values)) return openResult('failed', 'sync', { reason: `the sync's relay line ${problem || 'reports a failed git command'}${printedLine(synced)}` })
-  if (values.main.code === 1) return openResult('escalated', 'sync', { reason: synced.note || `the lane tip ${values.head.out} does not contain origin/main, and the sync named no cause` })
+  if (problem || failedCommand(values)) return await openResult('failed', 'sync', { reason: `the sync's relay line ${problem || 'reports a failed git command'}${printedLine(synced)}` })
+  if (values.main.code === 1) return await openResult('escalated', 'sync', { reason: synced.note || `the lane tip ${values.head.out} does not contain origin/main, and the sync named no cause` })
   if (!sameCommit(values.head.out, tip) && !mergedOnto(values, tip)) history.push({ after: 0, by: 'sync', from: tip, tip: values.head.out })
   tip = values.head.out
 }
@@ -361,7 +310,7 @@ function noProgress(blocking) {
 }
 
 // Why no further fix round may start, or null while the budgets allow one and the findings still move.
-function fixRoundStop(blocking, budgetKey) {
+async function fixRoundStop(blocking, budgetKey) {
   if (spent[budgetKey] >= B[budgetKey] || spent.total >= B.total) {
     const which = spent.total >= B.total ? 'total' : budgetKey
     return openResult(budgetKey === 'ci' ? 'ci-red' : 'unresolved', budgetKey, { reason: `${which} budget spent`, lastBlocking: blocking })
@@ -388,7 +337,7 @@ function adoptFixerTip(fixed) {
 }
 
 // A disputed finding is a disagreement between two fresh agents about evidence: the head decides it.
-function awaitHeadOnDispute(fixed, blocking) {
+async function awaitHeadOnDispute(fixed, blocking) {
   disputed.push(...fixed.disputed)
   const committed = adoptFixerTip(fixed)
   return openResult('awaiting-head', 'fix', { reason: committed ? 'the fixer disputes findings with counter-evidence; the returned tip carries fix commits no reviewer has seen' : 'the fixer disputes every finding with counter-evidence and committed nothing', lastBlocking: blocking })
@@ -429,10 +378,10 @@ function fixRejection(fixed, blocking, foldIn, ciOnly) {
 const worktreeRelative = (files) => files.map(f => f.startsWith(`${A.worktree}/`) ? f.slice(A.worktree.length + 1) : f.replace(/^\.\//, ''))
 
 // Takes the fixer's tip and names the delta the reviewers see next, or none when a clean merge of main was the whole fix.
-function acceptFix(fixed, blocking, foldIn) {
+async function acceptFix(fixed, blocking, foldIn) {
   const relative = worktreeRelative(fixed.files || [])
   const outside = relative.filter(f => f.startsWith('/'))
-  if (outside.length) return { stop: openResult('failed', 'fix', { reason: `the fixer reported paths outside the worktree: ${outside.join(', ')}` }) }
+  if (outside.length) return { stop: await openResult('failed', 'fix', { reason: `the fixer reported paths outside the worktree: ${outside.join(', ')}` }) }
   const touchesProduction = fixed.mergeResolvedLaneConflict || relative.some(f => PRODUCTION.some(prefix => f.startsWith(prefix)))
   tip = fixed.tip
   if (touchesProduction) productionSinceTest = productionSinceGate = true
@@ -464,7 +413,7 @@ function scopeOrigin(carried, tipBeforeFix) {
 
 async function fixRound(blocking, source, budgetKey, carried) {
   const tipBeforeFix = tip
-  const stop = fixRoundStop(blocking, budgetKey)
+  const stop = await fixRoundStop(blocking, budgetKey)
   if (stop) return { stop }
   spent[budgetKey]++; spent.total++
   const foldIn = inPlaceFollowups()
@@ -474,18 +423,18 @@ async function fixRound(blocking, source, budgetKey, carried) {
   const nonce = `fix-${spent.total}-${tipBeforeFix}`
   const answered = await relay({ label: `fix-${spent.total}`, phase: 'Fix', step: 'sync', relayArgs: [`'${nonce}'`], nonce, requiredKeys: ['head', 'parents', 'main'], answerKind: 'fix', agentOptions: { agentType: 'atelier:code-fixer', ...claudeRole(role) },
     facts: `${laneFacts} ${driveFacts} ${rescopeFacts} ${localCheckFacts} ${turnFacts('fix')}`, pr, tip, source, blocking: listFindings(blocking), findings: blocking.map(f => ({ ...f, kind: kindOf(f) })), foldIns: listFoldIns(foldIn) })
-  if (!answered) return { stop: openResult('failed', 'fix', { reason: `the fixer returned no result; inspect ${A.worktree} for commits past ${tip} and uncommitted work, then start a new run with pr and tip (and fixFirst for what is left)`, lastBlocking: blocking }) }
+  if (!answered) return { stop: await openResult('failed', 'fix', { reason: `the fixer returned no result; inspect ${A.worktree} for commits past ${tip} and uncommitted work, then start a new run with pr and tip (and fixFirst for what is left)`, lastBlocking: blocking }) }
   // What the fixer says it found already done is only reported to the head: an unaccepted fix folds nothing in.
   const unaccepted = (result) => ({ stop: (answered.resolved || []).length ? { ...result, resolved: answered.resolved } : result })
   // A blocked fixer may have run out of turns before the relay line, and the blocked answer reads no tip.
-  if (answered.blocked) return unaccepted(openResult('escalated', 'fix', { reason: answered.blockedReason }))
-  if (answered.problem || failedCommand(answered.values)) return { stop: openResult('failed', 'fix', { reason: `the fixer's relay line ${answered.problem || 'reports a failed git command'}${printedLine(answered)}` }) }
+  if (answered.blocked) return unaccepted(await openResult('escalated', 'fix', { reason: answered.blockedReason }))
+  if (answered.problem || failedCommand(answered.values)) return { stop: await openResult('failed', 'fix', { reason: `the fixer's relay line ${answered.problem || 'reports a failed git command'}${printedLine(answered)}` }) }
   const { values } = answered
   const fixed = { ...answered, tip: values.head.out, heldTip: tipBeforeFix, unchanged: sameCommit(values.head.out, tipBeforeFix), mergeOnly: mergedOnto(values, tipBeforeFix), containsMain: values.main.code === 0 }
-  if ((fixed.disputed || []).length) return isFlakeDispute(fixed, blocking, source) ? { flakes: disputeFlakes(fixed, blocking), fixed } : unaccepted(awaitHeadOnDispute(fixed, blocking))
+  if ((fixed.disputed || []).length) return isFlakeDispute(fixed, blocking, source) ? { flakes: disputeFlakes(fixed, blocking), fixed } : unaccepted(await awaitHeadOnDispute(fixed, blocking))
   const rejection = fixRejection(fixed, blocking, foldIn, source === 'CI')
-  if (rejection) return unaccepted(openResult('failed', 'fix', rejection))
-  const accepted = acceptFix(fixed, blocking, foldIn)
+  if (rejection) return unaccepted(await openResult('failed', 'fix', rejection))
+  const accepted = await acceptFix(fixed, blocking, foldIn)
   if (accepted.stop) return unaccepted(accepted.stop)
   const { deltaFrom, note } = scopeOrigin(carried, tipBeforeFix)
   const scopeStop = await pushAndCheckScope(`scope-${spent.total}`, { note, deltaFrom })
@@ -503,12 +452,12 @@ async function fixRound(blocking, source, budgetKey, carried) {
 // aco decides what the claim covers; the lane only asks.
 // Reached only when aco's outside list is truncated, so the lane cannot judge the unlisted paths: the head chooses between a rescope and a revert.
 // origin says where the hit came from: a note, and the tip the new run reviews from, when the lane knows one.
-function scopeStop(paths, origin, total) {
+async function scopeStop(paths, origin, total) {
   const listed = paths.join(', ')
   const omitted = total > paths.length ? ` and ${total - paths.length} more` : ''
   const newRun = ['a new run with pr and tip', origin.deltaFrom && ` and deltaFrom ${origin.deltaFrom}`].filter(Boolean).join('')
   history.push({ by: 'scope', outside: paths, tip })
-  return { stop: openResult('awaiting-head', 'scope', { outside: paths, reason:
+  return { stop: await openResult('awaiting-head', 'scope', { outside: paths, reason:
     `Outside the claim scope: ${listed}${omitted}. No fixer was launched. ${origin.note} Either run aco rescope for them and start ${newRun}, ` +
     `or start ${newRun} and fixFirst asking a fixer to revert them. Find the commits with git log origin/main..${tip} -- ${listed}.` }) }
 }
@@ -518,8 +467,8 @@ async function pushAndCheckScope(label, origin) {
   const nonce = `${label}-${tip}`
   const quotedArguments = [A.item, `'${A.branch}'`, `'${nonce}'`]
   const checked = await relay({ label, phase: 'Scope', step: 'scope', relayArgs: quotedArguments, nonce, requiredKeys: ['push', 'remote', 'head', 'parents', 'second_parent_in_main', 'brief'], brief: `${laneFacts}\nChange nothing in the files;` })
-  if (!checked) return { stop: openResult('failed', 'scope', { reason: 'the push and claim-scope check returned no result' }) }
-  const fail = (stage, reason) => ({ stop: openResult('failed', stage, { reason: `${reason}${printedLine(checked)}` }) })
+  if (!checked) return { stop: await openResult('failed', 'scope', { reason: 'the push and claim-scope check returned no result' }) }
+  const fail = async (stage, reason) => ({ stop: await openResult('failed', stage, { reason: `${reason}${printedLine(checked)}` }) })
   const { values, problem } = checked
   if (problem) return fail('scope', `the push and claim-scope check ${problem}`)
   const { push, remote, head, brief } = values
@@ -556,12 +505,12 @@ async function reviewUntilClean(which, range, from) {
 }
 
 // A round the head resumes (a Codex reviewer out of usage, a courier whose brief never matched) repeats its range, so the review never moves to another provider.
-function awaitHead(rr, reason, extra = {}) {
+async function awaitHead(rr, reason, extra = {}) {
   const lastBlocking = rr.results.filter(Boolean).flatMap(v => v.blocking || [])
   const resume = `start a new run with pr and tip${rr.from ? ', deltaFrom and answers as returned' : ''}${lastBlocking.length ? ' and fixFirst carrying lastBlocking' : ''}.`
   return openResult('awaiting-head', 'review', { ...extra, lastBlocking, ...(rr.from && { deltaFrom: rr.from, answers: rr.range }), reason: `${reason} ${resume}` })
 }
-function awaitLimit(rr) {
+async function awaitLimit(rr) {
   const limits = rr.results.filter(v => v?.limit).map(v => v.limit)
   const named = limits.filter(l => l.resetsAt).map(l => `${l.role} (${l.model}) at ${l.resetsAt}`).join('; ')
   const resetText = named ? `Codex named the reset time: ${named}.` : 'Codex named no reset time.'
@@ -631,7 +580,7 @@ if (!carriesBatch && A.build) {
 }
 if (firstScopeCheck?.stop) return firstScopeCheck.stop
 // Re-entry after the head settled an awaiting-head result: review only the fix commits no reviewer has seen yet.
-if (A.deltaFrom && !SHA.test(A.deltaFrom)) return openResult('failed', 'input', { reason: 'deltaFrom is not a sha' })
+if (A.deltaFrom && !SHA.test(A.deltaFrom)) return await openResult('failed', 'input', { reason: 'deltaFrom is not a sha' })
 const firstRange = A.deltaFrom
   ? `only this delta: git diff ${A.deltaFrom}..HEAD — fix commits made for earlier blocking findings that no reviewer has seen yet. They answer:\n${A.answers || '(see the commit messages in the range)'}`
   : 'the whole lane: git diff origin/main...HEAD'
@@ -734,30 +683,30 @@ while (true) {
   n++
   if (!ci || ci.problem) {
     const stop = pendingTest && await settleTest(ci)
-    return stop || openResult('failed', 'ci', ci ? { reason: `the CI watcher ${ci.problem}` } : undefined)
+    return stop || await openResult('failed', 'ci', ci ? { reason: `the CI watcher ${ci.problem}` } : undefined)
   }
-  if (!sameCommit(ci.head, tip)) return openResult('failed', 'ci', { reason: `the pull request head ${ci.head} is not the lane tip ${tip}` })
+  if (!sameCommit(ci.head, tip)) return await openResult('failed', 'ci', { reason: `the pull request head ${ci.head} is not the lane tip ${tip}` })
   const { shared, unproven } = ci
   if (pendingTest && (testSettled || ci.green || shared.length || ci.operatorDoor)) {
     const stop = await settleTest(ci, ci.green || shared.length > 0 || Boolean(ci.operatorDoor))
     if (stop) return stop
   }
   history.push({ after: spent.total, by: `ci-${n - 1}`, verdict: ci.green && !unproven && !ci.rulesError ? 'GREEN' : 'RED', blocking: (ci.failing || []).map(f => f.where) })
-  if (ci.rulesError) return openResult('failed', 'ci', { reason: `the required checks of the base branch could not be read: ${ci.rulesError}` })
-  if (unproven) return openResult('failed', 'ci', { reason: `CI reported green, but the check listing does not prove it: ${unproven}` })
+  if (ci.rulesError) return await openResult('failed', 'ci', { reason: `the required checks of the base branch could not be read: ${ci.rulesError}` })
+  if (unproven) return await openResult('failed', 'ci', { reason: `CI reported green, but the check listing does not prove it: ${unproven}` })
   // The one re-run of a disputed flake came back red: the disagreement between the fixer and CI is the head's.
-  if (rerunBatch && !ci.green) return awaitHeadOnDispute(rerunBatch.fixed, rerunBatch.blocking)
+  if (rerunBatch && !ci.green) return await awaitHeadOnDispute(rerunBatch.fixed, rerunBatch.blocking)
   if (testBlocking.length === 0 && ci.green) {
     if (!needTest) break
     continue
   }
   if (shared.length && testBlocking.length === 0) {
     const checkList = shared.map(name => `"${name}"`).join(', ')
-    return openResult('awaiting-head', 'ci', { reason: `the CI check(s) ${checkList} are red on the base branch tip too: the red is shared with main and is fixed there, so no fixer was launched. If this lane's item is that repair, start a new run with pr and tip and fixFirst.` })
+    return await openResult('awaiting-head', 'ci', { reason: `the CI check(s) ${checkList} are red on the base branch tip too: the red is shared with main and is fixed there, so no fixer was launched. If this lane's item is that repair, start a new run with pr and tip and fixFirst.` })
   }
   if (ci.operatorDoor && testBlocking.length === 0) {
     if (needTest) continue
-    return openResult('awaiting-head', 'ci', { reason: `the only red check is the quality verdict, red because the diff holds only declared loosenings, which only the operator merges, so no fixer was launched. It waits at the operator's merge door: run \`${ci.operatorDoor}\`.` })
+    return await openResult('awaiting-head', 'ci', { reason: `the only red check is the quality verdict, red because the diff holds only declared loosenings, which only the operator merges, so no fixer was launched. It waits at the operator's merge door: run \`${ci.operatorDoor}\`.` })
   }
   const taken = testBlocking
   testBlocking = []
@@ -765,7 +714,7 @@ while (true) {
   const f = await fixRound(taken.concat(ciBlocking), taken.length ? 'the end-to-end test and CI' : 'CI', ci.green || shared.length ? 'test' : 'ci')
   if (f.stop) return f.stop
   if (f.flakes) {
-    if (!(ci.red?.length && ci.red.every(job => job.runId && job.jobId))) return awaitHeadOnDispute(f.fixed, ciBlocking)
+    if (!(ci.red?.length && ci.red.every(job => job.runId && job.jobId))) return await awaitHeadOnDispute(f.fixed, ciBlocking)
     flakeRerunUsed = true
     followups.push(...f.flakes)
     adoptFixerTip(f.fixed)
@@ -785,7 +734,7 @@ const rescopeAdds = passedOutsidePaths.map(path => '--add ' + shellQuoted(path))
 const rescopeCommand = 'aco rescope ' + A.item + ' ' + rescopeAdds
 const stillOpen = openFollowups()
 return {
-  status: 'ready-to-land', pr, tip, spent, routing: ROUTING, routingLine: routingLine(), history, followups: stillOpen, raisedBeforeTip: raisedBeforeTip(stillOpen), folded: [...folded.values()], disputed,
+  status: 'ready-to-land', pr, tip, spent, routing: ROUTING, routingLine: await routingLine(), history, followups: stillOpen, raisedBeforeTip: raisedBeforeTip(stillOpen), folded: [...folded.values()], disputed,
   ...gateUnseenView(), pathsOutsideClaim: passedOutsidePaths,
   requiredHeadActions: [
     ...(passedOutsidePaths.length ? [`write these paths into the scope of item #${A.item}'s body (and a one-sentence whole there when the combined scope is wide), then run \`${rescopeCommand}\` from ${A.worktree} before landing: these paths are outside the claim and passed the scope check`] : []),

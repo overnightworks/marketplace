@@ -326,7 +326,7 @@ function ownFailing({ shared, red = [], failing = [] }) {
 }
 
 // What the lane reads from the ci step: the head, the checks red on the base branch too, the red a fixer may not remove, why the listing does not prove green,
-// and the watcher's verdict corrected by the printed listing with its failing checks split into own and shared.
+// and the watcher's verdict corrected by the printed listing: green, proven, the state in words, the failing checks split into own and shared.
 function readCi({ checks, rules, head, shared, log: jobLog }) {
   // The printer reads a job log only for the red verdict check; its two values name the red a fixer may not remove.
   const operatorDoor = checks.open?.length === 1 && jobLog?.code === 0 && jobLog.loosenings && jobLog.merge ? jobLog.merge : null
@@ -335,14 +335,18 @@ function readCi({ checks, rules, head, shared, log: jobLog }) {
   const watched = A.watched
   // A re-run watches only the jobs it re-ran: its green leaves a red shared with main in the listing, which stays red, not unproven.
   const sharedRerun = Boolean(A.rerun) && watched.green && open.length > 0 && open.every(c => c.bucket === 'fail' && shared?.includes(c.name))
-  const failing = sharedRerun ? failedCheckFindings(open) : watched.green || watched.failing?.length ? watched.failing : failedCheckFindings(open)
+  const watcherDecides = !sharedRerun && (watched.green || watched.failing?.length)
+  const failing = watcherDecides ? watched.failing : failedCheckFindings(open)
   const ownRed = ownFailing({ shared, red: watched.red, failing })
+  const green = watched.green && !sharedRerun
+  const unproven = green ? listed : null
+  const rulesError = rules.code === 0 ? null : `gh api exited ${rules.code}: ${rules.err ?? ''}`
+  const proven = green && !unproven && !rulesError
+  const names = (failing || []).map(f => `"${f.where}"`).join(', ')
   return {
-    head, shared, operatorDoor, failing, ownRed,
-    green: sharedRerun ? false : watched.green,
+    head, shared, operatorDoor, failing, ownRed, green, unproven, rulesError, proven,
     sharedOnly: shared.length > 0 && ownRed.length === 0,
-    rulesError: rules.code === 0 ? null : `gh api exited ${rules.code}: ${rules.err ?? ''}`,
-    unproven: watched.green && !sharedRerun ? listed : null,
+    state: proven ? 'green' : names ? `red (${names})` : 'not green',
   }
 }
 

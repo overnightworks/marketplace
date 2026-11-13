@@ -5,6 +5,8 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { execFileSync, spawnSync } from 'node:child_process'
+import vm from 'node:vm'
+import { crc32 } from 'node:zlib'
 import { runLane, runCommandLine, installFake, FAKE_ACO, resumedLane, resumeArgs, resumeTip, resumeFix, defectWithoutDraft, reachesTheEnd, greenCi, tidy, unchangedFix, satisfied } from './lane_workflow_harness.mjs'
 
 const BRANCH = 'lane'
@@ -524,4 +526,21 @@ test('AC-ci-printer-quotes: the ci printer text holds no single quote, so the sh
   const { agentCalls } = await driveCiRead((line) => line)
   const commandLine = agentCalls['ci-read-0'].prompt.split('\n').at(-1)
   assert.match(commandLine, /^cd '[^']*' && python3 -c '[^']+' ci 1 '[^']*' 'ci-0-[^']*'$/)
+})
+
+// The relay child run on its own: its agent prints a hand-made line whose git commands all failed.
+test('lane-relay-judgement: a fixer line whose git commands failed returns the failed command and no judgement, and does not throw', async () => {
+  const nonce = 'fix-1-failed'
+  const payload = JSON.stringify({ nonce, head: { code: 128 }, parents: { code: 128 }, main: { code: 128 } })
+  const printed = `{"crc":"${crc32(payload).toString(16).padStart(8, '0')}","v":${payload}}`
+  const run = vm.runInContext(`(async function (args, agent, log) {\n${readWorkflow('lane-relay').replace(/^export const meta/m, 'const meta')}\n})`, vm.createContext({}))
+  const finding = { where: 'a.py:1', kind: 'defect', text: 't', rule: 'r', evidence: 'e' }
+  const relayArgs = {
+    protocol: protocolOf(readWorkflow('lane-relay')), delegatedLine: 'd', worktree: '/w', label: 'fix-1', phase: 'Fix', step: 'sync', relayArgs: [`'${nonce}'`], nonce, requiredKeys: ['head', 'parents', 'main'],
+    agentOptions: {}, reread: {}, answerKind: 'fix', facts: 'f', pr: 1, tip: resumeTip, source: 'the review', blocking: 'b', findings: [finding], foldIns: '', foldInEntries: [], productionPaths: ['src/'], flakeRerunUsed: false,
+  }
+  const answer = { printed, mergeResolvedLaneConflict: false, files: [], disputed: [], blocked: false }
+  const relayed = await run(relayArgs, async () => answer, () => {})
+  assert.equal(relayed.commandFailed, true)
+  assert.equal(relayed.outcome, undefined)
 })

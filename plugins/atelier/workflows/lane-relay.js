@@ -1,18 +1,30 @@
 
 export const meta = {
   name: 'lane-relay',
-  description: 'Internal to the lane workflow, never started by a head: builds the briefs of the sync and fix steps and owns the schemas of their reports, runs one printer command through an agent and returns the answer of the agent together with the CRC-checked values of the line it relays, for the fix step the judgement of the fixer\'s proofs against the findings it answered, and for the ci step the reading of those values.',
+  description: 'Internal to the lane workflow, never started by a head: builds the briefs of the sync and fix steps and owns the schemas of their reports, runs one printer command through an agent and returns the answer of the agent together with the CRC-checked values of the line it relays, for the fix step the judgement of the fixer\'s answer against the findings and fold-ins it answered (proofs, flake dispute, rejection, paths), and for the ci step the reading of those values with the split of the failing checks into own and shared.',
 }
 
 // Both copies of this number (here and in lane.js) change together in any commit that changes the args or the return shape.
-const LANE_RELAY_PROTOCOL = 19
+const LANE_RELAY_PROTOCOL = 20
 const A = args || {}
 if (A.protocolQuery) return { protocol: LANE_RELAY_PROTOCOL }
 const need = ['protocol', 'delegatedLine', 'worktree', 'label', 'phase', 'step', 'relayArgs', 'nonce', 'requiredKeys', 'agentOptions', 'reread']
 if (A.protocol !== LANE_RELAY_PROTOCOL) return { refused: `lane-relay speaks protocol ${JSON.stringify(LANE_RELAY_PROTOCOL)}, but the lane that started it speaks protocol ${JSON.stringify(A.protocol)}; the installed atelier differs from the running lane` }
 const missing = need.filter(key => A[key] === undefined || A[key] === null || A[key] === '')
 if (missing.length) return { refused: `missing args: ${missing.join(', ')}` }
+if (A.step === 'ci' && (A.watched === undefined || A.watched === null)) return { refused: 'missing args: watched' }
 const { label, phase: phaseName, step, relayArgs, nonce, requiredKeys, agentOptions, reread } = A
+
+// The three commit helpers below also stand in lane.js and change together with it.
+// Language models copy a 40-character hash unreliably; a commit is accepted as 7 to 40 hex characters, as git resolves an unambiguous prefix.
+const SHA = /^[0-9a-f]{7,40}$/
+// Two spellings name the same commit when the shorter is a prefix of the longer (git's own abbreviation rule).
+const sameCommit = (a, b) => SHA.test(a || '') && SHA.test(b || '') && (a.startsWith(b) || b.startsWith(a))
+// Whether the relayed HEAD is a merge whose first parent is base.
+function mergedOnto(values, base) {
+  const [firstParent, mergedIn] = values.parents.out.split('\n')
+  return Boolean(mergedIn) && sameCommit(firstParent, base)
+}
 
 // agent() with a schema throws when the subagent ends without a result; an end without one is a null the lane reports.
 async function safeAgent(prompt, opts) {
@@ -219,10 +231,71 @@ function judgeProofs(fixed, blocking) {
   return { proofRejection, proofNotes: proofNotes(fixed, blocking) }
 }
 
+// A disputed finding of a batch of CI findings only, every one disputed with counter-evidence and nothing committed, is a flake the lane re-runs once before the head sees it.
+function isFlakeDispute(fixed, blocking) {
+  if (A.flakeRerunUsed || A.source !== 'CI' || !fixed.unchanged) return false
+  return blocking.every(f => fixed.disputed.some(d => d.where === f.where && (d.counterEvidence || '').trim()))
+}
+const disputeFlakes = (fixed, blocking) => fixed.disputed.filter(d => blocking.some(f => f.where === d.where)).map(d => ({ where: d.where, text: `${d.text} (a flake; the fixer's counter-evidence: ${d.counterEvidence})`, owner: 'distributor' }))
+// The evidence the fixer gave for a fold-in it found already done, or undefined without any.
+const satisfiedEvidence = (fixed, foldIn) => (fixed.resolved || []).find(r => r.where === foldIn.where && (r.evidence || '').trim())?.evidence
+// An unchanged tip is a fix only when there are no blocking findings and every fold-in is proven already satisfied.
+const everyFoldInSatisfied = (fixed, blocking, foldIn) => !blocking.length && foldIn.length > 0 && foldIn.every(f => satisfiedEvidence(fixed, f))
+// An unchanged tip is a fix too when every blocking finding is answered in the pull request body or an item comment and every fold-in
+// is answered there or proven already satisfied; at least one answer outside the tree is what the re-check then reads.
+const answeredOutside = (fixed, blocking, foldIn) => {
+  const answers = (fixed.outside || []).filter(o => (o.where || '').trim())
+  const blockingAnswered = blocking.every((_, index) => answers.some(o => o.finding === index + 1))
+  const foldInAnswered = foldIn.every(f => answers.some(o => o.foldIn === f.where) || satisfiedEvidence(fixed, f))
+  const anyAnswer = blocking.length > 0 || foldIn.some(f => answers.some(o => o.foldIn === f.where))
+  return anyAnswer && blockingAnswered && foldInAnswered
+}
+// Why a fixer's answer does not count as a fix, or null when it does.
+function fixRejection(fixed, blocking, foldIn) {
+  const { findingNumbers, ...rejection } = fixed.proofRejection ?? {}
+  if (findingNumbers) return { ...rejection, lastBlocking: findingNumbers.map(number => blocking[number - 1]) }
+  // Satisfied fold-ins leave the lane at the held tip, or at a merge of main onto it: anything past that is unasked work.
+  const foldInsOnly = everyFoldInSatisfied(fixed, blocking, foldIn)
+  if (fixed.unchanged) return (foldInsOnly && fixed.containsMain) || answeredOutside(fixed, blocking, foldIn) ? null : { reason: 'the fixer changed nothing', lastBlocking: blocking }
+  const mergeWasTheFinding = A.source === 'CI' || (blocking.length === 1 && blocking[0].where === 'mergeable')
+  if (fixed.mergeOnly && !mergeWasTheFinding && !foldInsOnly) return { reason: 'the fixer only merged main and fixed nothing', lastBlocking: blocking }
+  return null
+}
+// A fixer may report absolute paths; an absolute path once hid a production change and skipped the gate.
+const worktreeRelative = (files) => files.map(f => f.startsWith(`${A.worktree}/`) ? f.slice(A.worktree.length + 1) : f.replace(/^\.\//, ''))
+
+// The facts of a fixer's answer against the tip it started from and the outcome they decide: flake, disputed, rejected or accepted.
+// The lane acts on the outcome and keeps its own state; the relay line is read and no git command failed before this runs.
+function judgeFix(answer, values) {
+  const blocking = A.findings
+  const foldIn = A.foldInEntries
+  const heldTip = A.tip
+  const facts = { ...answer, tip: values.head.out, heldTip, unchanged: sameCommit(values.head.out, heldTip), mergeOnly: mergedOnto(values, heldTip), containsMain: values.main.code === 0 }
+  const { proofRejection, proofNotes } = judgeProofs(facts, blocking)
+  const fixed = { ...facts, proofRejection, proofNotes }
+  const relative = worktreeRelative(fixed.files || [])
+  const disputed = (fixed.disputed || []).length > 0
+  const rejection = disputed ? null : fixRejection(fixed, blocking, foldIn)
+  const flake = disputed && isFlakeDispute(fixed, blocking)
+  const outcome = flake ? 'flake' : disputed ? 'disputed' : rejection ? 'rejected' : 'accepted'
+  return {
+    ...facts,
+    proofNotes,
+    outcome,
+    flakes: flake ? disputeFlakes(fixed, blocking) : [],
+    rejection,
+    outsidePaths: relative.filter(f => f.startsWith('/')),
+    touchesProduction: Boolean(fixed.mergeResolvedLaneConflict) || relative.some(f => A.productionPaths.some(prefix => f.startsWith(prefix))),
+    answeredOutside: fixed.unchanged && answeredOutside(fixed, blocking, foldIn),
+    satisfied: everyFoldInSatisfied(fixed, blocking, foldIn),
+    foldInEvidence: Object.fromEntries(foldIn.map(f => [f.where, satisfiedEvidence(fixed, f)]).filter(([, evidence]) => evidence)),
+  }
+}
+
 // The sync step and the fix step have an agent that works before the printer runs: each brings its own brief and the schema of the report that brief asks for.
 const ANSWER_KINDS = {
   sync: { schema: SYNC_ANSWER, need: ['facts', 'hasLedgers', 'hasGenerated'], brief: syncBrief },
-  fix: { schema: FIX, need: ['facts', 'pr', 'tip', 'source', 'blocking', 'findings', 'foldIns'], brief: fixerBrief },
+  fix: { schema: FIX, need: ['facts', 'pr', 'tip', 'source', 'blocking', 'findings', 'foldIns', 'foldInEntries', 'productionPaths', 'flakeRerunUsed'], brief: fixerBrief },
 }
 const answerKind = ANSWER_KINDS[A.answerKind]
 const kindMissing = (answerKind ? answerKind.need : ['brief']).filter(key => A[key] === undefined || A[key] === null)
@@ -239,11 +312,38 @@ function unprovenGreen({ checks, rules }) {
   ].join('; ') || null
 }
 
-// What the lane reads from the ci step: the head, the checks red on the base branch too, the red a fixer may not remove, and why the listing does not prove green.
+// A watcher that answers red without quoting a log leaves the fixer nothing to act on; the printed listing still names the red checks.
+function failedCheckFindings(openChecks = []) {
+  return openChecks.filter(c => c.bucket === 'fail').map(c => ({
+    where: c.name, kind: 'defect', rule: `CI check ${c.name}`, text: `The check "${c.name}" is red, and the CI watcher quoted no log for it.`, evidence: `The relay's ci line lists "${c.name}" in the fail bucket; read its log with gh run view.`,
+  }))
+}
+
+// The failing findings of checks main does not share: a shared check's red entries and findings named by it are left out.
+function ownFailing({ shared, red = [], failing = [] }) {
+  const sharedEntries = new Set(red.filter(job => shared.includes(job.name)).flatMap(job => job.findings.map(entry => JSON.stringify(entry))))
+  return failing.filter(entry => !sharedEntries.has(JSON.stringify(entry)) && ![entry.where, String(entry.rule).replace(/^CI check /, '')].some(name => shared.includes(name)))
+}
+
+// What the lane reads from the ci step: the head, the checks red on the base branch too, the red a fixer may not remove, why the listing does not prove green,
+// and the watcher's verdict corrected by the printed listing with its failing checks split into own and shared.
 function readCi({ checks, rules, head, shared, log: jobLog }) {
   // The printer reads a job log only for the red verdict check; its two values name the red a fixer may not remove.
   const operatorDoor = checks.open?.length === 1 && jobLog?.code === 0 && jobLog.loosenings && jobLog.merge ? jobLog.merge : null
-  return { head, shared, operatorDoor, rulesError: rules.code === 0 ? null : `gh api exited ${rules.code}: ${rules.err ?? ''}`, unproven: unprovenGreen({ checks, rules }) }
+  const listed = unprovenGreen({ checks, rules })
+  const open = checks.open || []
+  const watched = A.watched
+  // A re-run watches only the jobs it re-ran: its green leaves a red shared with main in the listing, which stays red, not unproven.
+  const sharedRerun = Boolean(A.rerun) && watched.green && open.length > 0 && open.every(c => c.bucket === 'fail' && shared?.includes(c.name))
+  const failing = sharedRerun ? failedCheckFindings(open) : watched.green || watched.failing?.length ? watched.failing : failedCheckFindings(open)
+  const ownRed = ownFailing({ shared, red: watched.red, failing })
+  return {
+    head, shared, operatorDoor, failing, ownRed,
+    green: sharedRerun ? false : watched.green,
+    sharedOnly: shared.length > 0 && ownRed.length === 0,
+    rulesError: rules.code === 0 ? null : `gh api exited ${rules.code}: ${rules.err ?? ''}`,
+    unproven: watched.green && !sharedRerun ? listed : null,
+  }
 }
 
 // The values of a relay line, or why the line cannot be trusted: checked as text first (shape, CRC32), parsed after.
@@ -261,7 +361,8 @@ function readRelay(printed, nonce, requiredKeys = []) {
   const complete = step === 'ci' ? { view: { code: 0 }, runs: { code: 0 }, ...values } : values
   const missing = requiredKeys.find(key => !complete[key])
   if (missing) return { problem: `lacks the ${missing} entry` }
-  return { values: complete, ...(step === 'ci' && complete.view.code === 0 && { ci: readCi(complete) }) }
+  const commandFailed = complete.head && complete.main ? complete.head.code !== 0 || ![0, 1].includes(complete.main.code) : undefined
+  return { values: complete, commandFailed, ...(step === 'ci' && complete.view.code === 0 && { ci: readCi(complete) }) }
 }
 
 const answer = await safeAgent(`${A.delegatedLine}\n${brief} ${RELAY_ASK}\n${relayCommand(step, ...relayArgs)}`, {
@@ -270,9 +371,10 @@ const answer = await safeAgent(`${A.delegatedLine}\n${brief} ${RELAY_ASK}\n${rel
   ...agentOptions,
 })
 if (!answer) return null
-const judged = { ...answer, ...(A.answerKind === 'fix' && judgeProofs(answer, A.findings)) }
+// Only a readable line of a fixer that was not blocked and ran no failed git command is judged.
+const fixJudgement = (fixerAnswer, readLine) => A.answerKind === 'fix' && !fixerAnswer.blocked && !readLine.problem && !readLine.commandFailed ? judgeFix(fixerAnswer, readLine.values) : {}
 const read = readRelay(answer.printed, nonce, requiredKeys)
-if (!read.problem) return { ...judged, ...read }
+if (!read.problem) return { ...answer, ...read, ...fixJudgement(answer, read) }
 
 // An agent that copied the line badly is asked once more, by an agent that only runs the printer: the printer reads the state that is there now, and the CRC and the nonce still guard the second line.
 log(`${label} relayed an unreadable line (${read.problem}); reading it once more: ${String(answer.printed).slice(0, 300)}`)
@@ -282,4 +384,4 @@ const second = await safeAgent(`${A.delegatedLine}\n${RELAY_ASK}\n${relayCommand
   ...reread,
 })
 const secondRead = second ? readRelay(second.printed, nonce, requiredKeys) : read
-return secondRead.problem ? { ...judged, ...read } : { ...judged, printed: second.printed, ...secondRead }
+return secondRead.problem ? { ...answer, ...read } : { ...answer, printed: second.printed, ...secondRead, ...fixJudgement(answer, secondRead) }

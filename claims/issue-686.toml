@@ -1,0 +1,8 @@
+claim_id = "2de71825fd79426e9e8e8a42bfddb7fb"
+agent = "Claude ff1b9f08-53fd-4692-b3b9-2cc410b8d654"
+role = "builder"
+base = "13ecb04ed639bae965e6122180f4b6c17c730f0b"
+branch = "claude/issue-686-routing-line-module-and-counts"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/workflows", "tests"]
+opened_commit = "dc0d93466721022147358379772152bc30308561"
+whole_reason = "The Routing-line code moved into its own module and fixed in how it counts and shortens blocking findings, with tests and the version bump."

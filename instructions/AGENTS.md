@@ -87,7 +87,10 @@ questions, doubts and friction go to its parent.
   built stubbornly nor swapped in silently, and the ruled sentence stands until
   the operator rules again. His newer word, said to the head or quoted with its
   source in an item, beats any older text: say so in one line, follow it, and
-  correct or delete the old text in the same change.
+  correct or delete the old text in the same change. An agent that finds a
+  contract rule hurting or improvable in practice tells its parent, and a head
+  tells marketplace's head at once, with the evidence and a proposal; obeying it
+  silently falls short.
 - **Cleanest solution.** Take what still looks right in a year: one owner, no
   parallel copies, no workaround to undo later. Before presenting a plan or
   demanding an addition, weigh the real alternatives that meet the declared

@@ -11,12 +11,14 @@ const readWorkflow = (name) => fs.readFileSync(new URL(`../plugins/atelier/workf
 const protocolOf = (source) => Number(source.match(/^const LANE_REVIEW_PROTOCOL = (\d+)$/m)?.[1])
 const driveGate = (options) => runLane({ ...resumedLane, risk: 'material' }, { 'r0-review': APPROVE }, { ...options, child: 'atelier:lane-review' })
 
-test('lane-review-protocol: a child with another protocol number fails the lane at review naming both numbers', async () => {
+test('lane-review-protocol: a child with another protocol number returns awaiting-head at review naming both numbers and /reload-plugins', async () => {
   const parentNumber = protocolOf(readWorkflow('lane'))
   const { result, launchedAgents } = await driveGate({ transformChild: (source) => source.replace(/^const LANE_REVIEW_PROTOCOL = \d+$/m, `const LANE_REVIEW_PROTOCOL = ${parentNumber + 1}`) })
-  assert.deepEqual([result.status, result.stage], ['failed', 'review'])
+  assert.deepEqual([result.status, result.stage], ['awaiting-head', 'review'])
   assert.match(result.reason, new RegExp(`${parentNumber}[\\s\\S]*${parentNumber + 1}|${parentNumber + 1}[\\s\\S]*${parentNumber}`))
   assert.ok(!launchedAgents.includes('r0-gate'))
+  assert.match(result.requiredHeadActions.join(' '), /\/reload-plugins/)
+  assert.match(result.requiredHeadActions.join(' '), /pr \d+ and tip \w+/)
 })
 
 test('lane-review-protocol: a call without the worktree fails the lane at review naming the missing args', async () => {
@@ -25,10 +27,10 @@ test('lane-review-protocol: a call without the worktree fails the lane at review
   assert.match(result.reason, /missing args: .*worktree.*scratch/)
 })
 
-test('lane-review-protocol: a child with another protocol number and a missing arg fails the lane with the skew sentence, not missing args', async () => {
+test('lane-review-protocol: a child with another protocol number and a missing arg returns awaiting-head with the skew sentence, not missing args', async () => {
   const skewed = (source) => source.replace(/^const LANE_REVIEW_PROTOCOL = \d+$/m, `const LANE_REVIEW_PROTOCOL = ${protocolOf(readWorkflow('lane')) + 1}`)
   const { result } = await driveGate({ transformChild: skewed, alterChildArgs: ({ worktree: _worktree, ...rest }) => rest })
-  assert.deepEqual([result.status, result.stage], ['failed', 'review'])
+  assert.deepEqual([result.status, result.stage], ['awaiting-head', 'review'])
   assert.match(result.reason, /the installed atelier differs from the running lane/)
   assert.doesNotMatch(result.reason, /missing args/)
 })

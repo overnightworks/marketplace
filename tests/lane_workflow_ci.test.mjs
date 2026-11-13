@@ -156,12 +156,14 @@ const readWorkflow = (name) => fs.readFileSync(new URL(`../plugins/atelier/workf
 const protocolOf = (source) => Number(source.match(/^const LANE_CI_PROTOCOL = (\d+)$/m)?.[1])
 const drivePassingCi = (options) => runLane({ ...lane, foldIn: [tidy] }, { ...reachesCi, 'ci-0': ciAnswer([check(required, 'pass')]) }, { ...options, child: 'atelier:lane-ci' })
 
-test('lane-ci-protocol: a child with another protocol number fails the lane at ci naming both numbers', async () => {
+test('lane-ci-protocol: a child with another protocol number returns awaiting-head at ci naming both numbers and /reload-plugins', async () => {
   const parentNumber = protocolOf(readWorkflow('lane'))
   const { result, launchedAgents } = await drivePassingCi({ transformChild: (source) => source.replace(/^const LANE_CI_PROTOCOL = \d+$/m, `const LANE_CI_PROTOCOL = ${parentNumber + 1}`) })
-  assert.deepEqual([result.status, result.stage], ['failed', 'ci'])
+  assert.deepEqual([result.status, result.stage], ['awaiting-head', 'ci'])
   assert.match(result.reason, new RegExp(`${parentNumber}[\\s\\S]*${parentNumber + 1}|${parentNumber + 1}[\\s\\S]*${parentNumber}`))
   assert.ok(!launchedAgents.includes('ci-0'))
+  assert.match(result.requiredHeadActions.join(' '), /\/reload-plugins/)
+  assert.match(result.requiredHeadActions.join(' '), /pr \d+ and tip \w+/)
 })
 
 test('lane-ci-protocol: a call without the pull request number fails the lane at ci naming the missing args', async () => {
@@ -170,10 +172,10 @@ test('lane-ci-protocol: a call without the pull request number fails the lane at
   assert.match(result.reason, /missing args: .*pr.*worktree/)
 })
 
-test('lane-ci-protocol: a child with another protocol number and a missing arg fails the lane with the skew sentence, not missing args', async () => {
+test('lane-ci-protocol: a child with another protocol number and a missing arg returns awaiting-head with the skew sentence, not missing args', async () => {
   const skewed = (source) => source.replace(/^const LANE_CI_PROTOCOL = \d+$/m, `const LANE_CI_PROTOCOL = ${protocolOf(readWorkflow('lane')) + 1}`)
   const { result } = await drivePassingCi({ transformChild: skewed, alterChildArgs: ({ pr: _pr, ...rest }) => rest })
-  assert.deepEqual([result.status, result.stage], ['failed', 'ci'])
+  assert.deepEqual([result.status, result.stage], ['awaiting-head', 'ci'])
   assert.match(result.reason, /the installed atelier differs from the running lane/)
   assert.doesNotMatch(result.reason, /missing args/)
 })

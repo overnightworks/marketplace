@@ -31,7 +31,11 @@ Licensed under the [MIT License](LICENSE).
   The name, and each child the lane starts by name (`lane-build`, `lane-ci`, `lane-relay`,
   `lane-review`, `lane-routing`, `lane-test`), resolves to the plugin version the session loaded at its
   start: after an install, a running session runs the new version only once
-  the operator types `/reload-plugins`, or in a new session. A run from a
+  the operator types `/reload-plugins`, or in a new session. A lane does not
+  run its children from its own version: when an install changes a child's
+  protocol while the lane runs, the next child that refuses ends the lane
+  `awaiting-head` at that stage, never `failed`, with `/reload-plugins` and a
+  new run with `pr` and `tip` in `requiredHeadActions`. A run from a
   checkout first installs the checkout with
   `python3 scripts/install.py --from-checkout`; without that flag the
   published copy runs. `lane-build`, `lane-ci`, `lane-relay`, `lane-review`, `lane-routing` and `lane-test` are internal

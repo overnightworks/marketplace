@@ -547,3 +547,42 @@ for (const experiment of ['Haiku', 'a b', '', 'x'.repeat(41), 'a;b']) {
     assert.deepEqual(launchedAgents, [])
   })
 }
+
+const skewedProtocol = (constant) => (source) => source.replace(new RegExp(`^const ${constant} = \\d+$`, 'm'), `const ${constant} = 99`)
+
+test('late-protocol-refusal: lane-routing refusing at the end of a green lane returns awaiting-head with the resume arguments, not a crash', async () => {
+  const { result } = await runLane(resumeArgs, reachesTheEnd, { child: 'atelier:lane-routing', transformChild: skewedProtocol('LANE_ROUTING_PROTOCOL') })
+  assert.equal(result.status, 'awaiting-head')
+  assert.equal(result.pr, resumeArgs.pr)
+  assert.equal(result.tip, resumeTip)
+  assert.ok(result.history.length > 0)
+  assert.match(result.requiredHeadActions.join(' '), new RegExp(`/reload-plugins.*pr ${resumeArgs.pr} and tip ${resumeTip}`))
+})
+
+test('late-protocol-refusal: lane-routing refusing in a stage that ends in an open result returns awaiting-head at that stage', async () => {
+  const { result } = await runLane({ ...resumeArgs, deltaFrom: 'not a sha' }, {}, { child: 'atelier:lane-routing', transformChild: skewedProtocol('LANE_ROUTING_PROTOCOL') })
+  assert.deepEqual([result.status, result.stage], ['awaiting-head', 'input'])
+  assert.equal(result.routingLine, undefined)
+})
+
+test('late-protocol-refusal: lane-review refusing in the round that follows a fix names that fix delta in the new run', async () => {
+  const skewedAfterFirstRound = (source) => source.replace(/^const LANE_REVIEW_PROTOCOL = (\d+)$/m, 'const LANE_REVIEW_PROTOCOL = (args.after > 0 ? 99 : $1)')
+  const raised = [{ ...finding('a.py:5', 'defect'), kind: 'docs' }]
+  const { result } = await runLane(resumeArgs, { 'r0-review': { verdict: 'REVISE', blocking: raised, followups: [] }, 'fix-1': { ...resumeFix, regression: [] } }, { child: 'atelier:lane-review', transformChild: skewedAfterFirstRound })
+  assert.deepEqual([result.status, result.stage], ['awaiting-head', 'review'])
+  assert.match(result.requiredHeadActions.join(' '), new RegExp(`pr ${resumeArgs.pr} and tip ${resumeFixedTip} and deltaFrom ${resumeTip} and answers as returned`))
+  assert.equal(result.deltaFrom, resumeTip)
+})
+
+const refusedAtScopeAfterFix = (label) => ({ child: 'atelier:lane-relay', alterChildArgs: (childArgs) => childArgs.label === label ? { ...childArgs, protocol: 99 } : childArgs })
+const raisedDefect = [{ ...finding('a.py:5', 'defect'), kind: 'docs' }]
+for (const [phase, answers] of [
+  ['review', { 'r0-review': { verdict: 'REVISE', blocking: raisedDefect, followups: [] }, 'fix-1': { ...resumeFix, regression: [] } }],
+  ['ci', { 'r0-review': APPROVE, 'e2e-0': PASS, 'ci-0': { ...greenCi(resumeTip), green: false, failing: [{ name: 'quality / verdict', bucket: 'fail' }] }, 'fix-1': { ...resumeFix, regression: [] } }],
+]) {
+  test(`late-protocol-refusal: lane-relay refusing at the claim-scope check after a ${phase} fix names that fix delta in the new run`, async () => {
+    const { result } = await runLane(resumeArgs, answers, refusedAtScopeAfterFix('scope-1'))
+    assert.deepEqual([result.status, result.stage], ['awaiting-head', 'scope'])
+    assert.match(result.requiredHeadActions.join(' '), new RegExp(`pr ${resumeArgs.pr} and tip ${resumeFixedTip} and deltaFrom ${resumeTip}`))
+  })
+}

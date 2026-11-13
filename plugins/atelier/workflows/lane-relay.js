@@ -5,14 +5,14 @@ export const meta = {
 }
 
 // Both copies of this number (here and in lane.js) change together in any commit that changes the args or the return shape.
-const LANE_RELAY_PROTOCOL = 17
+const LANE_RELAY_PROTOCOL = 18
 const A = args || {}
 if (A.protocolQuery) return { protocol: LANE_RELAY_PROTOCOL }
-const need = ['protocol', 'delegatedLine', 'worktree', 'label', 'phase', 'step', 'relayArgs', 'nonce', 'requiredKeys', 'agentOptions', 'mechanical', 'rescope']
+const need = ['protocol', 'delegatedLine', 'worktree', 'label', 'phase', 'step', 'relayArgs', 'nonce', 'requiredKeys', 'agentOptions', 'reread', 'rescope']
 if (A.protocol !== LANE_RELAY_PROTOCOL) return { refused: `lane-relay speaks protocol ${JSON.stringify(LANE_RELAY_PROTOCOL)}, but the lane that started it speaks protocol ${JSON.stringify(A.protocol)}; the installed atelier differs from the running lane` }
 const missing = need.filter(key => A[key] === undefined || A[key] === null || A[key] === '')
 if (missing.length) return { refused: `missing args: ${missing.join(', ')}` }
-const { label, phase: phaseName, step, relayArgs, nonce, requiredKeys, agentOptions, mechanical } = A
+const { label, phase: phaseName, step, relayArgs, nonce, requiredKeys, agentOptions, reread } = A
 
 // agent() with a schema throws when the subagent ends without a result; an end without one is a null the lane reports.
 async function safeAgent(prompt, opts) {
@@ -275,7 +275,7 @@ log(`${label} relayed an unreadable line (${read.problem}); reading it once more
 const second = await safeAgent(`${A.delegatedLine}\n${RELAY_ASK}\n${relayCommand(step, ...relayArgs)}`, {
   label: `${label}-reread`, phase: phaseName,
   schema: { type: 'object', required: ['printed'], properties: { printed: PRINTED } },
-  ...mechanical,
+  ...reread,
 })
 const secondRead = second ? readRelay(second.printed, nonce, requiredKeys) : read
 return secondRead.problem ? { ...judged, ...read } : { ...judged, printed: second.printed, ...secondRead }

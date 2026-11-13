@@ -343,7 +343,7 @@ test('lane-relay-protocol: a child that misses args fails the lane at sync namin
 
 test('lane-relay-protocol: a child with another protocol number and a missing arg fails the lane with the skew sentence, not missing args', async () => {
   const skewed = (source) => source.replace(/^const LANE_RELAY_PROTOCOL = \d+$/m, `const LANE_RELAY_PROTOCOL = ${protocolOf(readWorkflow('lane')) + 1}`)
-  const { result } = await driveRelayChild(resumedLane, { transformChild: skewed, alterChildArgs: ({ mechanical: _mechanical, ...rest }) => rest })
+  const { result } = await driveRelayChild(resumedLane, { transformChild: skewed, alterChildArgs: ({ reread: _reread, ...rest }) => rest })
   assert.deepEqual([result.status, result.stage], ['failed', 'sync'])
   assert.match(result.reason, /the installed atelier differs from the running lane/)
   assert.doesNotMatch(result.reason, /missing args/)
@@ -380,7 +380,7 @@ const JUNK = { printed: '{"crc":"pending","v":"pending"}' }
 const syncFails = (rereads) => runLane(resumedLane, { sync: JUNK, ...rereads })
 const reread = (result) => result.launchedAgents.filter(label => label.endsWith('-reread'))
 
-test('AC-relay-reread: a good re-read replaces the unreadable line and the lane goes on, with the re-read agent holding only the printer command and the mechanical options', async () => {
+test('AC-relay-reread: a good re-read replaces the unreadable line and the lane goes on, with the re-read agent holding only the printer command and the copy options', async () => {
   const run = await syncFails({ 'sync-reread': {} })
   assert.deepEqual(reread(run), ['sync-reread'])
   assert.ok(run.launchedAgents.includes('r0-review'), run.launchedAgents.join())
@@ -390,6 +390,8 @@ test('AC-relay-reread: a good re-read replaces the unreadable line and the lane 
   assert.equal(options.agentType, run.agentCalls.sync.options.agentType)
   assert.equal(options.phase, run.agentCalls.sync.options.phase)
   assert.deepEqual(Object.keys(options.schema.properties), ['printed'])
+  assert.deepEqual([options.model, options.effort], ['sonnet', 'low'])
+  assert.deepEqual(run.result.routing.copy, { model: options.model, effort: options.effort })
 })
 
 test('AC-relay-reread: the re-read line is the printed line the lane quotes, and the first answer keeps its other fields', async () => {

@@ -3,6 +3,6 @@ agent = "Claude ff1b9f08-53fd-4692-b3b9-2cc410b8d654"
 role = "builder"
 base = "5c0841ce34fc632a45f48fd796837d8a270f303b"
 branch = "claude/issue-679-several-probe-stacks-by-load"
-scope = [".claude-plugin/marketplace.json", "README.md", "instructions/AGENTS.md", "plugins/atelier", "scripts/install.py", "tests"]
+scope = [".claude-plugin/marketplace.json", "README.md", "docs/ARCHITECTURE.md", "instructions/AGENTS.md", "plugins/atelier", "scripts/install.py", "scripts/probe_run.sh", "tests"]
 opened_commit = "6a00c2243ed65658d2622c1f336317f27d4b2e78"
 whole_reason = "One ruled change of the machine-load rule: the contract sentences, the one command that waits for load, the tester brief that uses it, their tests and the version bump."

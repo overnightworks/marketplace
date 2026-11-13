@@ -12,7 +12,7 @@
 # While it waits it watches the process that started it and ends without starting the
 # command once that process is gone.
 #
-# Exit status while waiting: 2 bad arguments or an unreadable load, 3 the load stayed at or
+# Exit status while waiting: 2 bad arguments or an unreadable load, 75 the load stayed at or
 # above the limit for the whole wait (no command was started), 4 the starting process died
 # during the wait (no command was started). After the start the status is the command's.
 #
@@ -25,7 +25,7 @@ set -euo pipefail
 readonly LOAD_HALVES_PER_CORE=3
 readonly MAXIMUM_TOTAL_SECONDS=1830
 readonly EXIT_BAD_INPUT=2
-readonly EXIT_LOAD_TIMEOUT=3
+readonly EXIT_LOAD_TIMEOUT=75
 readonly EXIT_PARENT_GONE=4
 kill_after=30
 cap=1800

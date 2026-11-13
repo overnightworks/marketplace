@@ -13,7 +13,7 @@ LOAD_LIMIT = 1.5 * CORES
 ARGUMENT_ECHO = '#!/bin/sh\nprintf "%s\\n" "$@"\n'
 MAXIMUM_TOTAL_SECONDS = 1830
 BAD_INPUT_STATUS = 2
-LOAD_TIMEOUT_STATUS = 3
+LOAD_TIMEOUT_STATUS = 75
 
 
 def install_fake(bin_directory: Path, name: str, script: str) -> None:

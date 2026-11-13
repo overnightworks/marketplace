@@ -35,7 +35,7 @@ const E2E = {
       items: { type: 'object', required: ['cell', 'result', 'command', 'exit'], properties: { cell: { type: 'string', description: 'what was driven' }, result: { type: 'string', enum: ['held', 'failed', 'not driven'] }, command: { type: 'string', description: 'the command or action' }, exit: { type: 'string', description: 'its exit code or observed outcome' } } },
     },
     evidencePath: { type: 'string' },
-    lockBusy: { type: 'boolean', description: 'true when probe-run exited 3 without starting the stack because the load stayed above the limit, and the live part could not run' },
+    lockBusy: { type: 'boolean', description: 'true when probe-run exited 75 without starting the stack because the load stayed above the limit, and the live part could not run' },
   },
 }
 
@@ -49,7 +49,7 @@ function explore() {
     `Never touch another session's server. ` +
     `Drive only the cells no named CI test proves; for every cell you skip, name the CI test that proves it, judge that test against the cell and mark the cell held or failed on that reading. ` +
     `Prepare and check everything that needs no server or browser first (build the page, install dependencies, start a throwaway database), because a setup that fails inside probe-run spends your turn; wrap only the drive in \`probe-run\`, which waits up to 3600 seconds until the 1-minute load is below 1.5 × cores. ` +
-    `If probe-run exits 3 (it ends without starting the stack because the load stayed above the limit), return verdict failed with lockBusy true instead of guessing. ` +
+    `If probe-run exits 75 (it ends without starting the stack because the load stayed above the limit), return verdict failed with lockBusy true instead of guessing. ` +
     `verdict is PASS with no blocking findings and FAIL with at least one. A PASS needs at least one held cell. Return every cell in cells, each with its command and exit; return evidencePath too, keep your evidence under evidencePath and remove your playground before you report.`
   return agentOrNull(prompt, { label: `e2e-${A.n}`, phase: 'Test and CI', schema: E2E, agentType: 'atelier:explorative-tester', ...A.routing })
     .then(r => r || agentOrNull(`Load the atelier:explorative-testing skill first.\n${prompt}`,

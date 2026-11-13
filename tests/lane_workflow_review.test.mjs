@@ -474,6 +474,13 @@ test('routingLine: a blocking finding of the stand-in reviewer counts under the 
   assert.ok(result.routingLine.includes('src/standin.py:9 → gate'))
 })
 
+test('routingLine: a stand-in gate round names the model that ran it for gate, not the routed gate or none', async () => {
+  const { result, agentCalls } = await standInRun()
+  const { model, effort } = agentCalls['r1-standin'].options
+  assert.match(result.routingLine, new RegExp(`; gate ${model}/${effort}; land `))
+  assert.ok(!result.routingLine.includes(`gate ${result.routing.gate.model}`))
+})
+
 const standInRefused = [
   ['the fix resolved a lane conflict', { 'fix-1': { ...resumeFix, files: ['tests/x.py'], mergeResolvedLaneConflict: true } }, {}],
   ['the lane routes its review to Codex', { 'r0-review': { ...APPROVE, codexExit: 0 } }, { reviewer: 'codex' }],

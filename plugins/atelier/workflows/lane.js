@@ -214,6 +214,7 @@ const disputed = []
 let pr = A.pr || null
 let tip = A.tip || null
 const spent = { review: 0, test: 0, ci: 0, total: 0 }
+const fixRolesRun = []  // the role of each fixer that ran, in order
 const seen = new Map()  // finding key -> how often it came back after a fix
 let productionSinceTest = false  // any fix since the last end-to-end test touched production
 let productionSinceGate = false  // any fix since the last unlimited gate result touched production
@@ -233,31 +234,47 @@ const raisedBeforeTip = (open) => open.filter(f => f.tip && !sameCommit(f.tip, t
 const gateUnseenView = () => gateUnseen ? { gateUnseen: { ...gateUnseen, tip } } : {}
 // The Routing line aco reads (aco's specs/lane-record.spec.md owns the grammar), built from what this run used; the head pastes it as is.
 const FINDING_STAGES = [[/^e2e-/, 'test'], [/^ci-/, 'ci'], [/^(review|gate)$/, null], [/^standin$/, 'gate']]
+const ROUTING_LINE_LIMIT = 512  // the length the aco skill's abandon step asks of the line
+const LOCATION_LIMIT = 60
+const PATH_AND_LINE = /[\w./@-]+:\d+/
 function blockingStages() {
   const found = new Set()
   for (const entry of history) {
     if (!Array.isArray(entry.blocking)) continue
     const stage = FINDING_STAGES.map(([pattern, name]) => pattern.test(entry.by) ? name ?? entry.by : null).find(Boolean)
-    if (stage) entry.blocking.forEach(where => found.add(`${String(where).replace(/[\s;→]+/g, ' ').trim()} → ${stage}`))
+    if (!stage) continue
+    entry.blocking.forEach(where => {
+      const text = String(where).replace(/[\s;→]+/g, ' ').trim()
+      found.add(JSON.stringify([text.match(PATH_AND_LINE)?.[0] ?? text, stage]))
+    })
   }
-  return [...found]
+  return [...found].map(key => JSON.parse(key))
+}
+// Each finding keeps its stage arrow, so aco counts it; the locations shrink evenly until the whole line fits, and past the floor the count is unknown on purpose.
+function blockingText(findings, rest) {
+  if (!findings.length) return 'none'
+  const arrows = findings.reduce((sum, [, stage]) => sum + ` → ${stage}`.length, 0) + 2 * (findings.length - 1)
+  const room = ROUTING_LINE_LIMIT - rest.length - arrows
+  const each = Math.min(LOCATION_LIMIT, Math.floor(room / findings.length))
+  if (each < 1) return `${findings.length} findings, too many to list`
+  return findings.map(([where, stage]) => `${where.slice(0, each)} → ${stage}`).join('; ')
 }
 function routingLine() {
   const choice = (role) => `${ROUTING[role].model}/${ROUTING[role].effort}`
   const ran = (key) => history.some(entry => entry.by === key || entry.by?.startsWith(`${key}-`))
-  const fixRole = spent.total >= 3 ? 'rework' : 'fix'
+  const gate = ran('standin') ? choice('review') : ran('gate') ? choice('gate') : 'none'
+  const fixRole = fixRolesRun.at(-1)
   const stages = [
     `build ${choice('build')}`,
-    `fix ${spent.total ? choice(fixRole) : 'none'}`,
+    `fix ${fixRole ? choice(fixRole) : 'none'}`,
     `review ${choice('review')}`,
     `test ${ran('e2e') ? choice('test') : 'none'}`,
-    `gate ${ran('gate') ? choice('gate') : 'none'}`,
+    `gate ${gate}`,
     `land ${choice('mechanical')}`,
   ]
-  const blocking = blockingStages()
   const experiment = A.experiment ? ` Experiment: ${A.experiment}.` : ''
-  const blockingText = blocking.length ? blocking.join('; ') : 'none'
-  return `Routing: ${stages.join('; ')}. Fix rounds: ${spent.total}.${experiment} Blocking: ${blockingText}`
+  const rest = `Routing: ${stages.join('; ')}. Fix rounds: ${spent.total}.${experiment} Blocking: `
+  return rest + blockingText(blockingStages(), rest)
 }
 const openResult = (status, stage, extra) =>
   ({ status, stage, pr, tip, spent, routing: ROUTING, routingLine: routingLine(), history, followups: openFollowups(), raisedBeforeTip: raisedBeforeTip(openFollowups()), folded: [...folded.values()], disputed, ...gateUnseenView(), ...extra })
@@ -438,8 +455,10 @@ async function fixRound(blocking, source, budgetKey, carried) {
   spent[budgetKey]++; spent.total++
   const foldIn = inPlaceFollowups()
   phase('Fix')
+  const role = fixerRole(blocking, foldIn)
+  fixRolesRun.push(role)
   const nonce = `fix-${spent.total}-${tipBeforeFix}`
-  const answered = await relay({ label: `fix-${spent.total}`, phase: 'Fix', step: 'sync', relayArgs: [`'${nonce}'`], nonce, requiredKeys: ['head', 'parents', 'main'], answerKind: 'fix', agentOptions: { agentType: 'atelier:code-fixer', ...claudeRole(fixerRole(blocking, foldIn)) },
+  const answered = await relay({ label: `fix-${spent.total}`, phase: 'Fix', step: 'sync', relayArgs: [`'${nonce}'`], nonce, requiredKeys: ['head', 'parents', 'main'], answerKind: 'fix', agentOptions: { agentType: 'atelier:code-fixer', ...claudeRole(role) },
     facts: `${laneFacts} ${driveFacts} ${rescopeFacts} ${localCheckFacts} ${turnFacts('fix')}`, pr, tip, source, blocking: listFindings(blocking), findings: blocking.map(f => ({ ...f, kind: kindOf(f) })), foldIns: listFoldIns(foldIn) })
   if (!answered) return { stop: openResult('failed', 'fix', { reason: `the fixer returned no result; inspect ${A.worktree} for commits past ${tip} and uncommitted work, then start a new run with pr and tip (and fixFirst for what is left)`, lastBlocking: blocking }) }
   // What the fixer says it found already done is only reported to the head: an unaccepted fix folds nothing in.

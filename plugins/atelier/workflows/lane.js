@@ -668,6 +668,10 @@ async function watchCi(n, rerun) {
   const { view } = read.values
   if (view.code !== 0) return { problem: `could not read the pull request: gh pr view exited ${view.code}: ${view.err ?? ''}` }
   const failing = watched.green || watched.failing?.length ? watched.failing : failedCheckFindings(read.values.checks?.open)
+  // A re-run watches only the jobs it re-ran: its green leaves a red shared with main in the listing, which stays red, not unproven.
+  const open = read.values.checks?.open || []
+  const sharedRemains = Boolean(rerun) && watched.green && open.length > 0 && open.every(c => c.bucket === 'fail' && read.ci.shared?.includes(c.name))
+  if (sharedRemains) return { ...watched, green: false, failing: failedCheckFindings(open), ...read.ci, unproven: null }
   return { ...watched, failing, ...read.ci, unproven: watched.green ? read.ci.unproven : null }
 }
 
@@ -745,8 +749,8 @@ while (true) {
   history.push({ after: spent.total, by: `ci-${n - 1}`, verdict: ci.green && !unproven && !ci.rulesError ? 'GREEN' : 'RED', blocking: (ci.failing || []).map(f => f.where) })
   if (ci.rulesError) return await openResult('failed', 'ci', { reason: `the required checks of the base branch could not be read: ${ci.rulesError}` })
   if (unproven) return await openResult('failed', 'ci', { reason: `CI reported green, but the check listing does not prove it: ${unproven}` })
-  // The one re-run of a disputed flake came back red: the disagreement between the fixer and CI is the head's.
-  if (rerunBatch && !ci.green) return await awaitHeadOnDispute(rerunBatch.fixed, rerunBatch.blocking)
+  // The one re-run of a disputed flake came back red (a red shared with main aside): the disagreement between the fixer and CI is the head's.
+  if (rerunBatch && !ci.green && !sharedOnly) return await awaitHeadOnDispute(rerunBatch.fixed, rerunBatch.blocking)
   if (testBlocking.length === 0 && ci.green) {
     if (!needTest) break
     continue
@@ -763,11 +767,12 @@ while (true) {
   const f = await fixRound(taken.concat(ciBlocking), taken.length ? 'the end-to-end test and CI' : 'CI', ci.green || sharedOnly ? 'test' : 'ci')
   if (f.stop) return f.stop
   if (f.flakes) {
-    if (!(ci.red?.length && ci.red.every(job => job.runId && job.jobId))) return await awaitHeadOnDispute(f.fixed, ciBlocking)
+    const ownJobs = (ci.red || []).filter(job => !shared.includes(job.name))
+    if (!(ownJobs.length && ownJobs.every(job => job.runId && job.jobId))) return await awaitHeadOnDispute(f.fixed, ciBlocking)
     flakeRerunUsed = true
     followups.push(...f.flakes)
     adoptFixerTip(f.fixed)
-    rerunRed = { red: ci.red, fixed: f.fixed, blocking: ciBlocking }
+    rerunRed = { red: ownJobs, fixed: f.fixed, blocking: ciBlocking }
     continue
   }
   const stop = f.range && await reviewUntilClean(f.gateAgain ? ALL : [REVIEW], f.range, f.deltaFrom)

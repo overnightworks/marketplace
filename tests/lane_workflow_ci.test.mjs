@@ -503,6 +503,18 @@ test('ci-flake-rerun: a red after the re-run goes to the head', async () => {
   assert.deepEqual(launchedAgents.filter(label => label.startsWith('ci-1-rerun')), ['ci-1-rerun-1'])
 })
 
+test('ci-flake-rerun: a disputed own flake next to a shared red re-runs only the own job and, once it passes, ends at ci with the shared reason', async () => {
+  const sharedJob = redJob('quality / hygiene', 'Run hygiene', ['11', '23'])
+  const ownJob = redJob('Node: tests', 'Run the node tests')
+  const baseChecks = [run('quality / hygiene', 'failure'), run('Node: tests', 'success')]
+  const stillShared = { checks: [check(required, 'pass'), check('quality / hygiene', 'fail'), check('Node: tests', 'pass')], base_runs: baseChecks }
+  const { result, agentCalls } = await driveCi(ciAnswer([check(required, 'pass'), check('quality / hygiene', 'fail'), check('Node: tests', 'fail')], { green: false, failing: [...sharedJob.findings, ...ownJob.findings], red: [sharedJob, ownJob], baseChecks }), lane, undefined, { 'fix-2': flakeFix('Node: tests'), 'ci-1-rerun-1': reranPass, 'ci-read-1': stillShared })
+  assert.deepEqual([result.status, result.stage], ['awaiting-head', 'ci'])
+  assert.match(result.reason, /quality \/ hygiene/)
+  assert.match(agentCalls['ci-1-rerun-1'].prompt, /gh run rerun 11 --job 22/)
+  assert.doesNotMatch(agentCalls['ci-1-rerun-1'].prompt, /--job 23/)
+})
+
 test('ci-flake-rerun: a dispute of only some CI findings goes to the head without a re-run', async () => {
   const { result, launchedAgents } = await driveCi(redWatch([redJob('Node: tests', 'Run the node tests'), redJob('Python: tests', 'Run the python tests', ['11', '23'])]), lane, undefined, { 'fix-2': flakeFix('Node: tests') })
   assert.deepEqual([result.status, result.stage], ['awaiting-head', 'fix'])

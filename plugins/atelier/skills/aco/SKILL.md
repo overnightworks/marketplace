@@ -31,7 +31,7 @@ claimed, reviewed and landed; this says *how*.
 
 ## Start a lane
 
-- Before the claim, trace callers and owners into the scope (`HEAD.md`: "Lanes", Trace before the claim). A live claim changes scope only through `aco rescope <n> --add PATH` (or `--drop PATH`), after the body's scope says so, run from the claim's own worktree (it refuses the main checkout, unlike `aco start`); a second `aco claim` refuses. A lane that returns `awaiting-head` with a `rescope` list is resumed after that.
+- Before the claim, trace callers and owners into the scope (`HEAD.md`: "Lanes", Trace before the claim). A live claim changes scope only through `aco rescope <n> --add PATH` (or `--drop PATH`), after the body's scope says so, run from the claim's own worktree (it refuses the main checkout, unlike `aco start`); a second `aco claim` refuses. A lane edits a path outside its claim when the work needs it and runs on to ready-to-land; its `pathsOutsideClaim` lists those paths and `requiredHeadActions` names the one `aco rescope <n> --add PATH...` to run from the lane worktree before landing. A lane that stops at the scope stage with `awaiting-head` and an `outside` list is resumed after that rescope or a revert.
 - Issue item: from the main checkout, run the `aco start <n> ...` line that
   `aco next` prints and fill any `<reason>` placeholder it prints (for example after
   `--whole`); it creates the worktree

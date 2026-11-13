@@ -1,8 +1,0 @@
-claim_id = "ee6c48d343a348a3bf4553493ba2b559"
-agent = "Claude ff1b9f08-53fd-4692-b3b9-2cc410b8d654"
-role = "builder"
-base = "a96db4ce2fe7639e55eb8434b931dbb4e191c7e1"
-branch = "claude/issue-656-builder-edits-outside-claim"
-scope = [".claude-plugin/marketplace.json", "instructions/AGENTS.md", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/skills/aco/SKILL.md", "plugins/atelier/workflows/lane-build.js", "plugins/atelier/workflows/lane-relay.js", "plugins/atelier/workflows/lane.js", "tests"]
-opened_commit = "75a9ccd2bf391ab340ddd1f065dc18bdadab59ce"
-whole_reason = "One rule change: the contract sentence, the lane that carries it out, its tests and the version bump."

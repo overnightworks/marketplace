@@ -1,7 +1,7 @@
 export const meta = {
   name: 'lane',
   description: 'One claimed lane to ready-to-land: build, a fresh review (Sonnet at high effort, Opus at medium on material risk, plus a Codex gpt-6-astra gate on material risk, or an Opus gate at high effort through routing.gate; a Claude reviewer that fails is started once more), fresh fixers with evidence-bearing findings and a delta re-check by whoever raised them, then the explorative end-to-end test and CI side by side, a red CI fixed at once while the tester runs on.',
-  whenToUse: 'In any repository that coordinates with aco, after the head ran `aco start <item>` (worktree, branch and claim exist). Landing stays with the head; the result lists requiredHeadActions. Required args: item (the GitHub issue number of the work item; the lane carries only issue items, an issue-less claim runs by hand), worktree (the lane\'s isolated worktree path), branch (the lane branch), contract (the item\'s ruled sentences every reviewer and the tester judge against), e2e (what the explorative tester drives through the real entry point), scratch (a directory for briefs, Codex output and test evidence). Start with build (a builder brief) for a new lane, or with pr and tip (an open pull request and its head sha) to continue one. The builder and every fixer run the targeted tests of their change and the fast static checks the repository names after the last merge of the default branch; the quality gate and the end-to-end tests run in CI. Before anything starts the lane asks each of its children for its protocol and ends at stage input, naming the child, both numbers and `/reload-plugins`, when one differs; a Claude reviewer that fails is started once more and only a second failure ends the round, with both texts in the reason; a Codex courier that wrote a different brief than the script composed is started once more, and a second mismatch returns awaiting-head at stage review with the resume arguments of the usage limit (pr, tip, and on a delta round deltaFrom and answers) instead of failed; a courier that cuts its brief out of its own workflow transcript and finds none, twice, returns awaiting-head at stage review with requiredHeadActions (report the defect to marketplace, run the gate through routing.gate) and no resume; a fixer that answers its whole batch in the pull request body or an item comment and commits nothing is no failure. Optional args and their defaults: risk "normal" (or "material": adds a Codex gpt-6-astra final gate); reviewer "claude" (a fresh Sonnet reviewer at high effort, Opus at medium on material risk; "codex" routes the review to Codex gpt-6-astra at medium effort, high on material risk); routing none (per-role overrides {role: {model, effort}} of the table at the top of the script, for build, fix, rework, test, review, gate, mechanical and copy (the agent that reads a relay line again after an unreadable copy). Defaults on a normal lane: mechanical haiku/low, copy sonnet/low, build and fix sonnet/medium, test sonnet/medium, review sonnet/high; on a material lane: build and fix sonnet/high, test sonnet/high, review opus/medium, gate gpt-6-astra/high. The fixer runs as rework (sonnet/high) from the third fix round of a run on, counted over review, test and ci rounds together, and a continued run counts its rounds anew, so pass routing.fix for a lane already past its second round; a fix batch whose blocking findings are all docs and that carries no fold-ins runs as mechanical in every round. Effort is capped per model, opus at medium (except that stand-in gate) and every other model at high, and an override above its cap is refused; the gate on another provider than the builder, except the one Claude gate opus/high, which routing.gate may name while Codex is at its usage limit and which runs as a fresh Claude reviewer; any other Claude gate is refused at input); repo none (every gh call then targets the worktree\'s own repository; pass owner/name when the head runs elsewhere); productionPaths ["src/", "pyproject.toml", "uv.lock"], a default that fits a src-layout Python repository (path prefixes whose change re-opens the gate on a material lane and re-runs the end-to-end test; passing it also lets a fresh reviewer stand in for a gate at its usage limit on a delta that touched none of them); testPaths none (path prefixes of test files: when every path outside the claim starts with one of them, with the relay\'s list of at most 50 paths complete, the scope check does not stop; the paths go into the history and the result as testPathsOutsideClaim, and requiredHeadActions tells the head to run `aco rescope <item>` with one `--add` per path (and `--whole` past three) from the worktree before landing; any other outside path stops as without testPaths); ledgers [], a default that fits a repository without append-only ledgers (files whose merge conflicts keep both sides, main\'s lines first); generated {}, a map from a generated file\'s path to the command that regenerates it (a merge conflict confined to such files and ledgers is resolved by running the command on the merged tree, not escalated); budgets {review: 5, test: 2, ci: 3, total: 8} (fix rounds per phase and in total; partial objects override single keys); deltaFrom none (a sha: review only the commits since it, after the head settled an awaiting-head result; without it, a new run with pr and tip and fixFirst or foldIn reviews the whole lane, with the gate on a material lane); answers none (what those commits answer); fixFirst none (Finding[]: blocking findings a fresh fixer answers before anything else); foldIn none (Followup[]: follow-ups for that fixer, each handed over whatever its owner or wording; given alone it still starts the fixer).',
+  whenToUse: 'In any repository that coordinates with aco, after the head ran `aco start <item>` (worktree, branch and claim exist). Landing stays with the head; the result lists requiredHeadActions. Required args: item (the GitHub issue number of the work item; the lane carries only issue items, an issue-less claim runs by hand), worktree (the lane\'s isolated worktree path), branch (the lane branch), contract (the item\'s ruled sentences every reviewer and the tester judge against), e2e (what the explorative tester drives through the real entry point), scratch (a directory for briefs, Codex output and test evidence). Start with build (a builder brief) for a new lane, or with pr and tip (an open pull request and its head sha) to continue one. The builder and every fixer run the targeted tests of their change and the fast static checks the repository names after the last merge of the default branch; the quality gate and the end-to-end tests run in CI. Before anything starts the lane asks each of its children for its protocol and ends at stage input, naming the child, both numbers and `/reload-plugins`, when one differs; a Claude reviewer that fails is started once more and only a second failure ends the round, with both texts in the reason; a Codex courier that wrote a different brief than the script composed is started once more, and a second mismatch returns awaiting-head at stage review with the resume arguments of the usage limit (pr, tip, and on a delta round deltaFrom and answers) instead of failed; a courier that cuts its brief out of its own workflow transcript and finds none, twice, returns awaiting-head at stage review with requiredHeadActions (report the defect to marketplace, run the gate through routing.gate) and no resume; a fixer that answers its whole batch in the pull request body or an item comment and commits nothing is no failure. Optional args and their defaults: risk "normal" (or "material": adds a Codex gpt-6-astra final gate); reviewer "claude" (a fresh Sonnet reviewer at high effort, Opus at medium on material risk; "codex" routes the review to Codex gpt-6-astra at medium effort, high on material risk); routing none (per-role overrides {role: {model, effort}} of the table at the top of the script, for build, fix, rework, test, review, gate, mechanical and copy (the agent that reads a relay line again after an unreadable copy). Defaults on a normal lane: mechanical haiku/low, copy sonnet/low, build and fix sonnet/medium, test sonnet/medium, review sonnet/high; on a material lane: build and fix sonnet/high, test sonnet/high, review opus/medium, gate gpt-6-astra/high. The fixer runs as rework (sonnet/high) from the third fix round of a run on, counted over review, test and ci rounds together, and a continued run counts its rounds anew, so pass routing.fix for a lane already past its second round; a fix batch whose blocking findings are all docs and that carries no fold-ins runs as mechanical in every round. Effort is capped per model, opus at medium (except that stand-in gate) and every other model at high, and an override above its cap is refused; the gate on another provider than the builder, except the one Claude gate opus/high, which routing.gate may name while Codex is at its usage limit and which runs as a fresh Claude reviewer; any other Claude gate is refused at input); repo none (every gh call then targets the worktree\'s own repository; pass owner/name when the head runs elsewhere); productionPaths ["src/", "pyproject.toml", "uv.lock"], a default that fits a src-layout Python repository (path prefixes whose change re-opens the gate on a material lane and re-runs the end-to-end test; passing it also lets a fresh reviewer stand in for a gate at its usage limit on a delta that touched none of them); ledgers [], a default that fits a repository without append-only ledgers (files whose merge conflicts keep both sides, main\'s lines first); generated {}, a map from a generated file\'s path to the command that regenerates it (a merge conflict confined to such files and ledgers is resolved by running the command on the merged tree, not escalated); budgets {review: 5, test: 2, ci: 3, total: 8} (fix rounds per phase and in total; partial objects override single keys); deltaFrom none (a sha: review only the commits since it, after the head settled an awaiting-head result; without it, a new run with pr and tip and fixFirst or foldIn reviews the whole lane, with the gate on a material lane); answers none (what those commits answer); fixFirst none (Finding[]: blocking findings a fresh fixer answers before anything else); foldIn none (Followup[]: follow-ups for that fixer, each handed over whatever its owner or wording; given alone it still starts the fixer).',
   phases: [
     { title: 'Build' },
     { title: 'Sync' },
@@ -22,7 +22,6 @@ if (!A.pr && !A.build) return { status: 'failed', stage: 'input', reason: 'pass 
 const isCommandMap = (value) => value !== null && typeof value === 'object' && !Array.isArray(value) && Object.entries(value).every(([path, command]) => path.length > 0 && typeof command === 'string' && command.length > 0)
 const isPathList = (value) => Array.isArray(value) && value.every(path => typeof path === 'string' && path.length > 0)
 if (A.productionPaths !== undefined && !isPathList(A.productionPaths)) return { status: 'failed', stage: 'input', reason: 'productionPaths must be a list of path prefixes' }
-if (A.testPaths !== undefined && !isPathList(A.testPaths)) return { status: 'failed', stage: 'input', reason: 'testPaths must be a list of path prefixes' }
 if (A.ledgers !== undefined && !isPathList(A.ledgers)) return { status: 'failed', stage: 'input', reason: 'ledgers must be a list of file paths' }
 if (A.generated !== undefined && !isCommandMap(A.generated)) return { status: 'failed', stage: 'input', reason: 'generated must map file paths to regenerate commands' }
 // A misspelled choice must never fall back to its default: a misspelled risk would silently drop the material lane's final gate.
@@ -40,9 +39,8 @@ const PRODUCTION = A.productionPaths || ['src/', 'pyproject.toml', 'uv.lock']
 // Separate budgets per phase plus one total: review usually needs 2-4 rounds, a tester or CI rarely more than 2.
 const B = { review: 5, test: 2, ci: 3, total: 8, ...A.budgets }
 const LEDGERS = A.ledgers || []
-// Paths outside the claim that all start with a testPaths prefix do not stop the lane; the head adds them to the claim before landing.
-const TEST_PATHS = A.testPaths || []
-const passedTestPaths = new Set()
+// Paths outside the claim do not stop the lane; the head adds them to the claim before landing.
+const passedOutsidePaths = new Set()
 // `aco rescope` refuses more than this many paths without --whole.
 const MAX_PATHS_WITHOUT_WHOLE = 3
 const GENERATED = Object.entries(A.generated || {})
@@ -177,7 +175,7 @@ const laneFacts =
 
 // For the agents that may run a drive (the builder and the fixer); the tester already writes under its own scratch directory.
 const rescopeFacts =
-  `When the work needs a path outside the claim scope, edit nothing there: finish what lies inside, and list the path, the change it needs and the reason in rescope. A file that \`aco brief\` lists as lane-shared counts as inside the scope and needs no rescope: \`aco brief <item>\` prints it on its \`lane-shared:\` line, which you read before you call a path outside the scope (a stale \`quality/baseline.toml\` entry is lowered in place). ` + (TEST_PATHS.length ? `A path under one of these test prefixes counts as inside the scope and needs no rescope: ${TEST_PATHS.join(', ')}. ` : '') + `The head then runs aco rescope and resumes.`
+  `When the work needs a path outside the claim scope, edit it and list it with the reason in your summary: the head adds it to the claim with aco rescope before landing, and a review still judges whether the change belongs in the lane. A file that \`aco brief\` lists as lane-shared counts as inside the scope: \`aco brief <item>\` prints it on its \`lane-shared:\` line (a stale \`quality/baseline.toml\` entry is lowered in place). Never touch a value another lane holds exclusively.`
 
 // For the builder and the fixer: the fast static checks run before the push; the quality gate and the end-to-end tests run in CI.
 const localCheckFacts =
@@ -236,9 +234,6 @@ function openFollowups() {
   return [...open.values()]
 }
 const raisedBeforeTip = (open) => open.filter(f => f.tip && !sameCommit(f.tip, tip))
-// A builder or fixer that needs a path outside the claim hands the head a rescope request; the scope stage stays the backstop.
-const awaitRescope = (stage, rescope, reason = '', extra = {}, newRun = 'with pr and tip and fixFirst carrying the rescope entries as findings (an entry path becomes where, its change becomes text, its reason becomes evidence, rule the item sentence the change serves, kind defect), so a fixer makes the change') =>
-  openResult('awaiting-head', stage, { reason: `the work needs paths outside the claim scope; run aco rescope for them and start a new run ${newRun}.${reason}`, rescope, ...extra })
 const gateUnseenView = () => gateUnseen ? { gateUnseen: { ...gateUnseen, tip } } : {}
 const openResult = (status, stage, extra) =>
   ({ status, stage, pr, tip, spent, routing: ROUTING, history, followups: openFollowups(), raisedBeforeTip: raisedBeforeTip(openFollowups()), folded: [...folded.values()], disputed, ...gateUnseenView(), ...extra })
@@ -267,11 +262,9 @@ if (A.build) {
   const built = await startChild('lane-build', { protocol: LANE_BUILD_PROTOCOL, delegatedLine: DELEGATED_LINE, laneFacts, driveFacts, rescopeFacts, localCheckFacts: `${localCheckFacts} ${turnFacts('build')}`, build: A.build, rescope: RESCOPE, routing: claudeRole('build') })
   if (built?.problem) return openResult('failed', 'build', { reason: `the builder step ${built.problem}` })
   if (!built) return openResult('failed', 'build', { reason: `the builder returned no result; inspect ${A.worktree} for uncommitted work, checkpoint it, and hand it to a fresh finisher` })
-  if (!(built.rescope || []).length && built.blocked) return openResult('escalated', 'build', { reason: built.blockedReason })
+  if (built.blocked) return openResult('escalated', 'build', { reason: built.blockedReason })
   if (!SHA.test(built.tip || '')) return openResult('failed', 'build', { reason: `the builder returned a tip that is not a sha: ${String(built.tip).slice(0, 80)}` })
   pr = built.pr; tip = built.tip
-  if ((built.rescope || []).length && !pr) return awaitRescope('build', built.rescope, ' No reviewer has seen the build.', {}, 'with build: the original brief plus your decision, since the worktree keeps the uncommitted edits')
-  if ((built.rescope || []).length) return awaitRescope('build', built.rescope, ` The returned tip is the whole build and no reviewer has seen it; the new run takes no deltaFrom, so its first review covers the whole lane.`)
   log(`built PR #${pr} at ${tip}`)
 } else {
   phase('Sync')
@@ -428,14 +421,10 @@ async function fixRound(blocking, source, budgetKey, carried) {
   // What the fixer says it found already done is only reported to the head: an unaccepted fix folds nothing in.
   const unaccepted = (result) => ({ stop: (answered.resolved || []).length ? { ...result, resolved: answered.resolved } : result })
   // A blocked fixer may have run out of turns before the relay line, and the blocked answer reads no tip.
-  if (!(answered.rescope || []).length && answered.blocked) return unaccepted(openResult('escalated', 'fix', { reason: answered.blockedReason }))
+  if (answered.blocked) return unaccepted(openResult('escalated', 'fix', { reason: answered.blockedReason }))
   if (answered.problem || failedCommand(answered.values)) return { stop: openResult('failed', 'fix', { reason: `the fixer's relay line ${answered.problem || 'reports a failed git command'}${printedLine(answered)}` }) }
   const { values } = answered
   const fixed = { ...answered, tip: values.head.out, heldTip: tipBeforeFix, unchanged: sameCommit(values.head.out, tipBeforeFix), mergeOnly: mergedOnto(values, tipBeforeFix), containsMain: values.main.code === 0 }
-  if ((fixed.rescope || []).length) {
-    const committed = adoptFixerTip(fixed)
-    return unaccepted(awaitRescope('fix', fixed.rescope, committed ? ' The returned tip carries fix commits no reviewer has seen; the new run takes deltaFrom.' : '', { lastBlocking: blocking }))
-  }
   if ((fixed.disputed || []).length) return unaccepted(awaitHeadOnDispute(fixed, blocking))
   const rejection = fixRejection(fixed, blocking, foldIn, source === 'CI')
   if (rejection) return unaccepted(openResult('failed', 'fix', rejection))
@@ -494,9 +483,9 @@ async function pushAndCheckScope(label, origin) {
   if (!Array.isArray(paths) || !paths.every(path => typeof path === 'string')) return fail('scope', `aco's outside_claim is neither null nor a list of paths: ${JSON.stringify(paths)}`)
   if (!paths.length) return null
   // The relay lists at most 50 paths; the unlisted ones cannot be judged.
-  if (TEST_PATHS.length && values.count === paths.length && paths.every(path => TEST_PATHS.some(prefix => path.startsWith(prefix)))) {
-    history.push({ by: 'scope', outside: paths, tip, passedAsTestPaths: true })
-    paths.forEach(path => passedTestPaths.add(path))
+  if (values.count === paths.length) {
+    history.push({ by: 'scope', outside: paths, tip, passedOutside: true })
+    paths.forEach(path => passedOutsidePaths.add(path))
     return null
   }
   return scopeStop(paths, origin, values.count)
@@ -723,15 +712,15 @@ while (true) {
   needTest ||= taken.length > 0 || productionSinceTest
 }
 
-const rescopeAdds = [...passedTestPaths].map(path => '--add ' + path).join(' ')
-const rescopeWhole = passedTestPaths.size > MAX_PATHS_WITHOUT_WHOLE ? ' --whole "<one sentence why this scope does not split>"' : ''
+const rescopeAdds = [...passedOutsidePaths].map(path => '--add ' + path).join(' ')
+const rescopeWhole = passedOutsidePaths.size > MAX_PATHS_WITHOUT_WHOLE ? ' --whole "<one sentence why this scope does not split>"' : ''
 const rescopeCommand = 'aco rescope ' + A.item + ' ' + rescopeAdds + rescopeWhole
 const stillOpen = openFollowups()
 return {
   status: 'ready-to-land', pr, tip, spent, routing: ROUTING, history, followups: stillOpen, raisedBeforeTip: raisedBeforeTip(stillOpen), folded: [...folded.values()], disputed,
-  ...gateUnseenView(), testPathsOutsideClaim: [...passedTestPaths],
+  ...gateUnseenView(), pathsOutsideClaim: [...passedOutsidePaths],
   requiredHeadActions: [
-    ...(passedTestPaths.size ? [`run \`${rescopeCommand}\` from ${A.worktree} before landing: these test paths are outside the claim and passed the scope check as testPaths`] : []),
+    ...(passedOutsidePaths.size ? [`run \`${rescopeCommand}\` from ${A.worktree} before landing: these paths are outside the claim and passed the scope check`] : []),
     `land with \`aco land ${pr}\` only while the pull request head is still ${tip}`,
     ...(MATERIAL && isGateStandIn('gate', ROUTING.gate.model, ROUTING.gate.effort) ? [`name the Opus 5.5 stand-in as the final gate in the body of pull request #${pr}: the lane ran no Codex gate`] : []),
     ...(gateUnseen ? [`name ${gateUnseen.seenTip}..${tip} in the body of pull request #${pr}: the final gate, at its usage limit, did not see that range`] : []),

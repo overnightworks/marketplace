@@ -6,6 +6,9 @@ import { runLane, resumedLane, APPROVE, PASS, greenCi, finding, agentProvidersRe
 const builtLane = { ...resumedLane, pr: undefined, tip: undefined, build: 'b' }
 
 const outsideClaim = (paths) => ({ outside_claim: paths })
+// The relay lists at most 50 paths, so only a longer list cannot be judged and stops the scope check.
+const unjudgeableOutside = ['board.py', ...Array.from({ length: 50 }, (_, index) => `src/mod_${index}.py`)]
+const listedOutside = unjudgeableOutside.slice(0, 50)
 const newRunWithBothChoices = /aco rescope[\s\S]*new run with pr and tip[\s\S]*fixFirst[\s\S]*revert[\s\S]*git log origin\/main\.\.\w+ -- board\.py/
 const reviseOnce = { verdict: 'REVISE', blocking: [{ ...defectWithoutDraft, kind: 'docs' }], followups: [] }
 const redCi = { head: resumeFixedTip, green: false, failing: [{ ...finding('ci', 'quality / verdict is red'), kind: 'defect' }], checks: [{ name: 'quality / verdict', bucket: 'fail' }], requiredChecks: ['quality / verdict'] }
@@ -13,19 +16,19 @@ const aFixFor = { ...resumeFix, regression: [] }
 
 const scopeStops = [
   ['AC-scope-stop-not-bounce: a review fixer that changed board.py ends awaiting-head at scope and names the tip before its fix as deltaFrom',
-    resumeArgs, { 'r0-review': reviseOnce, 'fix-1': aFixFor, 'scope-1': outsideClaim(['board.py']) }, ['r0-review', 'fix-1', 'scope-1'], resumeFixedTip, [`deltaFrom ${resumeTip}`, /no reviewer has seen/]],
+    resumeArgs, { 'r0-review': reviseOnce, 'fix-1': aFixFor, 'scope-1': outsideClaim(unjudgeableOutside) }, ['r0-review', 'fix-1', 'scope-1'], resumeFixedTip, [`deltaFrom ${resumeTip}`, /no reviewer has seen/]],
   ['AC-scope-stop-not-bounce: a CI fix outside the claim ends at scope with no fixer after it and names the unreviewed fix commits and the tip before the fix',
-    resumeArgs, { 'r0-review': APPROVE, 'e2e-0': PASS, 'ci-0': { ...redCi, head: resumeTip }, 'fix-1': aFixFor, 'scope-1': outsideClaim(['board.py']) }, ['ci-0', 'ci-read-0', 'fix-1', 'scope-1'], resumeFixedTip, [`deltaFrom ${resumeTip}`, /fix commits no reviewer has seen/]],
+    resumeArgs, { 'r0-review': APPROVE, 'e2e-0': PASS, 'ci-0': { ...redCi, head: resumeTip }, 'fix-1': aFixFor, 'scope-1': outsideClaim(unjudgeableOutside) }, ['ci-0', 'ci-read-0', 'fix-1', 'scope-1'], resumeFixedTip, [`deltaFrom ${resumeTip}`, /fix commits no reviewer has seen/]],
   ['AC-scope-stop-not-bounce: a resume whose inherited commits are outside the claim ends at scope and names no deltaFrom',
-    resumeArgs, { 'scope-resume': outsideClaim(['board.py']) }, ['sync', 'scope-resume'], resumeTip, [/earlier run/]],
+    resumeArgs, { 'scope-resume': outsideClaim(unjudgeableOutside) }, ['sync', 'scope-resume'], resumeTip, [/earlier run/]],
   ['AC-scope-stop-not-bounce: a resume with deltaFrom alone whose inherited commits are outside the claim names no deltaFrom',
-    { ...resumeArgs, deltaFrom: resumeTip }, { 'scope-resume': outsideClaim(['board.py']) }, ['sync', 'scope-resume'], resumeTip, [/earlier run/]],
+    { ...resumeArgs, deltaFrom: resumeTip }, { 'scope-resume': outsideClaim(unjudgeableOutside) }, ['sync', 'scope-resume'], resumeTip, [/earlier run/]],
   ['AC-scope-stop-not-bounce: a builder that left the claim scope ends at scope and names no deltaFrom, so the new run reviews the whole lane',
-    builtLane, { build: built, 'scope-0': outsideClaim(['board.py']) }, ['build', 'scope-0'], resumeTip, [/No reviewer has seen the build/, /whole lane/]],
+    builtLane, { build: built, 'scope-0': outsideClaim(unjudgeableOutside) }, ['build', 'scope-0'], resumeTip, [/No reviewer has seen the build/, /whole lane/]],
   ['AC-scope-stop-not-bounce: a carried batch that ends outside the claim says the paths may come from earlier commits and names no deltaFrom',
-    { ...resumeArgs, fixFirst: [defectWithoutDraft] }, { 'fix-1': aFixFor, 'scope-1': outsideClaim(['board.py']) }, ['sync', 'fix-1', 'scope-1'], resumeFixedTip, [/earlier commits/]],
+    { ...resumeArgs, fixFirst: [defectWithoutDraft] }, { 'fix-1': aFixFor, 'scope-1': outsideClaim(unjudgeableOutside) }, ['sync', 'fix-1', 'scope-1'], resumeFixedTip, [/earlier commits/]],
   ['AC-scope-stop-not-bounce: a carried batch with deltaFrom that ends outside the claim names the deltaFrom the run was given',
-    { ...resumeArgs, fixFirst: [defectWithoutDraft], deltaFrom: resumeTip }, { 'fix-1': aFixFor, 'scope-1': outsideClaim(['board.py']) }, ['sync', 'fix-1', 'scope-1'], resumeFixedTip, [`deltaFrom ${resumeTip}`, /earlier commits/]],
+    { ...resumeArgs, fixFirst: [defectWithoutDraft], deltaFrom: resumeTip }, { 'fix-1': aFixFor, 'scope-1': outsideClaim(unjudgeableOutside) }, ['sync', 'fix-1', 'scope-1'], resumeFixedTip, [`deltaFrom ${resumeTip}`, /earlier commits/]],
 ]
 
 for (const [behaviour, args, answers, expectedAgents, expectedTip, reasonParts] of scopeStops) {
@@ -33,12 +36,12 @@ for (const [behaviour, args, answers, expectedAgents, expectedTip, reasonParts] 
     const { result, launchedAgents } = await runLane(args, answers)
     assert.deepEqual(launchedAgents.slice(-expectedAgents.length), expectedAgents)
     assert.ok(!launchedAgents.some(label => /^(fix-[2-9])$/.test(label)), 'no fixer follows the scope check')
-    assert.deepEqual([result.status, result.stage, result.outside, result.tip], ['awaiting-head', 'scope', ['board.py'], expectedTip])
+    assert.deepEqual([result.status, result.stage, result.outside, result.tip], ['awaiting-head', 'scope', listedOutside, expectedTip])
     assert.match(result.reason, newRunWithBothChoices)
     assert.doesNotMatch(result.reason, /resume/i)
     for (const part of reasonParts) assert.ok(typeof part === 'string' ? result.reason.includes(part) : part.test(result.reason), `${part}: ${result.reason}`)
     if (!reasonParts.some(part => typeof part === 'string')) assert.doesNotMatch(result.reason, /deltaFrom/)
-    assert.deepEqual(result.history.at(-1), { by: 'scope', outside: ['board.py'], tip: expectedTip })
+    assert.deepEqual(result.history.at(-1), { by: 'scope', outside: listedOutside, tip: expectedTip })
   })
 }
 
@@ -55,7 +58,7 @@ test('AC-carried-batch-checked-after: a resume carrying fixFirst over inherited 
 })
 
 test('AC-scope-stop-folds-nothing: a scope stop after a batch with fold-ins reports none of them as folded', async () => {
-  const { result } = await runLane({ ...resumeArgs, foldIn: [tidy] }, { 'fix-1': aFixFor, 'scope-1': outsideClaim(['board.py']) })
+  const { result } = await runLane({ ...resumeArgs, foldIn: [tidy] }, { 'fix-1': aFixFor, 'scope-1': outsideClaim(unjudgeableOutside) })
   assert.equal(result.stage, 'scope')
   assert.deepEqual(result.folded, [])
 })
@@ -77,52 +80,13 @@ for (const [step, args, answers, scopeLabel] of stopsWithoutClaim) {
 
 const rescopeRequest = [{ path: 'src/cli.py', change: 'pass the new argument', reason: 'it calls the changed signature' }]
 
-const rescopeHandbacks = [
-  ['the builder', builtLane, { build: { ...built, rescope: rescopeRequest } }, 'build', { pr: 2, tip: resumeTip, unreviewed: true, lastBlocking: undefined }],
-  ['a fixer', { ...resumeArgs, fixFirst: [defectWithoutDraft] }, { 'fix-1': { ...resumeFix, rescope: rescopeRequest } }, 'fix', { pr: resumeArgs.pr, tip: resumeFixedTip, unreviewed: true, lastBlocking: [defectWithoutDraft] }],
-]
-
-for (const [step, args, answers, stage, resumeFrom] of rescopeHandbacks) {
-  test(`AC-rescope-handback: ${step} that needs a path outside the claim ends awaiting-head with the rescope list before the scope check`, async () => {
-    const { result, launchedAgents } = await runLane(args, answers)
-    assert.deepEqual([result.status, result.stage, result.rescope], ['awaiting-head', stage, rescopeRequest])
-    assert.deepEqual([result.pr, result.tip], [resumeFrom.pr, resumeFrom.tip])
-    assert.match(result.reason, /an entry path becomes where, its change becomes text, its reason becomes evidence, rule the item sentence the change serves, kind defect/)
-    assert.deepEqual(result.lastBlocking, resumeFrom.lastBlocking)
-    assert.equal(/no reviewer has seen/.test(result.reason), resumeFrom.unreviewed)
-    if (stage === 'fix') assert.ok(result.history.some(entry => entry.tip === resumeFixedTip && !entry.reviewed))
-    assert.ok(!launchedAgents.some(label => label.startsWith('scope-') && label !== 'scope-resume'))
-    assert.ok(!launchedAgents.some(label => label.includes('review')))
-  })
-}
-
-test('AC-build-rescope-names-no-base: the build hand-back names no deltaFrom and no merge-base, and says the new run reviews the whole lane', async () => {
-  const { result } = await runLane(builtLane, { build: { ...built, rescope: rescopeRequest } })
-  assert.match(result.reason, /no reviewer has seen it/)
-  assert.match(result.reason, /takes no deltaFrom/)
-  assert.match(result.reason, /whole lane/)
-  assert.doesNotMatch(result.reason, /merge-base|deltaFrom set/)
-})
-
 test('a build together with pr and tip is refused at input', async () => {
   const { result, launchedAgents } = await runLane({ ...builtLane, pr: 2, tip: resumeTip })
   assert.deepEqual([result.status, result.stage], ['failed', 'input'])
   assert.deepEqual(launchedAgents, [])
 })
 
-test('a build rescope stop without a pull request names a new run with build and not resumeFromRunId', async () => {
-  const { result } = await runLane(builtLane, { build: { ...built, pr: 0, rescope: rescopeRequest } })
-  assert.match(result.reason, /new run with build/)
-  assert.doesNotMatch(result.reason, /resume/i)
-})
-
-test('a build rescope stop with a pull request names a new run with pr and tip', async () => {
-  const { result } = await runLane(builtLane, { build: { ...built, rescope: rescopeRequest } })
-  assert.match(result.reason, /new run with pr and tip and fixFirst/)
-  assert.doesNotMatch(result.reason, /resume/i)
-})
-
-test('AC-build-rescope-resume-reviews-the-whole-lane: resuming a build hand-back as its sentence says gives the review and the gate the whole lane', async () => {
+test('AC-build-rescope-resume-reviews-the-whole-lane: resuming with the outside changes as findings gives the review and the gate the whole lane', async () => {
   const fixFirst = rescopeRequest.map(({ path, change, reason }) => ({ ...finding(path, change), evidence: reason, kind: 'defect' }))
   const answers = { 'fix-1': { ...resumeFix, regression: [] }, 'r1-review': APPROVE, 'r1-gate': { ...APPROVE, codexExit: 0 }, 'e2e-0': PASS, 'ci-0': greenCi(resumeFixedTip) }
   const { result, agentCalls } = await runLane({ ...resumeArgs, risk: 'material', fixFirst }, answers)
@@ -437,12 +401,6 @@ test('generated-absent: without generated no prompt mentions generated files', a
   assert.doesNotMatch(agentCalls.sync.prompt, /generated/)
 })
 
-test('resume-wording: a fixer rescope stop names a new run with pr and tip, not a resume', async () => {
-  const { result } = await runLane({ ...resumeArgs, fixFirst: [defectWithoutDraft] }, { 'fix-1': { ...resumeFix, rescope: rescopeRequest } })
-  assert.match(result.reason, /new run with pr and tip and fixFirst/)
-  assert.doesNotMatch(result.reason, /resume with/)
-})
-
 test('reread-report-path: a re-read that fails again still names the report path the review carried', async () => {
   const reportPath = '/scratch/r0-gate-out.json'
   const contradictoryCourier = { verdict: 'failed', blocking: [], followups: [], codexExit: 0, note: 'Verdict was REVISE, not failed' }
@@ -465,10 +423,10 @@ test('resume-wording: the shared-red stop names a new run with pr and tip, not a
   assert.doesNotMatch(result.reason, /resume with/)
 })
 
-test('AC-lane-shared-line-named: the builder and fixer prompts say the lane-shared: line of aco brief lists the files that need no rescope', async () => {
+test('AC-lane-shared-line-named: the builder and fixer prompts say the lane-shared: line of aco brief lists the files inside the scope', async () => {
   const { agentCalls: builderCalls } = await runLane(builtLane, { build: built })
   const { agentCalls: fixerCalls } = await runLane({ ...resumeArgs, fixFirst: [defectWithoutDraft] }, { 'fix-1': resumeFix })
-  for (const prompt of [builderCalls.build.prompt, fixerCalls['fix-1'].prompt]) assert.match(prompt, /`aco brief <item>` prints it on its `lane-shared:` line[^.]*before you call a path outside the scope/)
+  for (const prompt of [builderCalls.build.prompt, fixerCalls['fix-1'].prompt]) assert.match(prompt, /`aco brief <item>` prints it on its `lane-shared:` line/)
 })
 
 test('the sync prompt keeps every git -C command inside a backticked span', async () => {
@@ -480,92 +438,64 @@ test('the sync prompt keeps every git -C command inside a backticked span', asyn
   }
 })
 
-const testPrefixes = ['tests/', 'src/pkg/tests/']
-const testFiles = ['tests/test_board.py', 'src/pkg/tests/builders.py']
+const outsideFiles = ['src/skat/table/lobby.py', 'tests/test_board.py']
 const endsGreenAt = (tip) => ({ 'e2e-0': PASS, 'ci-0': greenCi(tip) })
 
-const testPathsFacts = [['given', testPrefixes, true], ['not given', undefined, false]]
-for (const [when, testPaths, sentenceIsThere] of testPathsFacts) {
-  test(`AC-test-paths-facts: with testPaths ${when} the builder and the fixer prompts ${sentenceIsThere ? 'name the test prefixes as inside the scope and needing no rescope' : 'carry no such sentence'}`, async () => {
-    const { agentCalls: builderCalls } = await runLane({ ...builtLane, testPaths }, { build: built })
-    const { agentCalls: fixerCalls } = await runLane({ ...resumeArgs, fixFirst: [defectWithoutDraft], testPaths }, { 'fix-1': resumeFix })
-    for (const prompt of [builderCalls.build.prompt, fixerCalls['fix-1'].prompt]) {
-      if (sentenceIsThere) assert.match(prompt, /path under one of these test prefixes counts as inside the scope and needs no rescope: tests\/, src\/pkg\/tests\/\./)
-      else assert.doesNotMatch(prompt, /one of these test prefixes/)
-    }
-  })
-}
+test('AC-outside-facts: the builder and the fixer prompts tell them to edit a path outside the claim, list it, and leave exclusive values alone', async () => {
+  const { agentCalls: builderCalls } = await runLane(builtLane, { build: built })
+  const { agentCalls: fixerCalls } = await runLane({ ...resumeArgs, fixFirst: [defectWithoutDraft] }, { 'fix-1': resumeFix })
+  for (const prompt of [builderCalls.build.prompt, fixerCalls['fix-1'].prompt]) {
+    assert.match(prompt, /needs a path outside the claim scope, edit it and list it with the reason/)
+    assert.match(prompt, /Never touch a value another lane holds exclusively/)
+    assert.doesNotMatch(prompt, /edit nothing there/)
+  }
+})
 
-const testPathsPass = [
-  ['after the build', builtLane, { build: built, 'scope-0': outsideClaim(testFiles), 'r0-review': APPROVE, ...endsGreenAt(resumeTip) }, ['build', 'scope-0', 'r0-review']],
-  ['after a review fix', resumeArgs, { 'r0-review': reviseOnce, 'fix-1': aFixFor, 'scope-1': outsideClaim(testFiles), 'r1-review': APPROVE, ...endsGreenAt(resumeFixedTip) }, ['r0-review', 'fix-1', 'scope-1', 'r1-review']],
-  ['after a carried fix', { ...resumeArgs, fixFirst: [defectWithoutDraft] }, { 'fix-1': aFixFor, 'scope-1': outsideClaim(testFiles), 'r1-review': APPROVE, ...endsGreenAt(resumeFixedTip) }, ['fix-1', 'scope-1', 'r1-review']],
-  ['on a continued run', resumeArgs, { 'scope-resume': outsideClaim(testFiles), 'r0-review': APPROVE, ...endsGreenAt(resumeTip) }, ['scope-resume', 'r0-review']],
+const outsidePathsPass = [
+  ['after the build', builtLane, { build: built, 'scope-0': outsideClaim(outsideFiles), 'r0-review': APPROVE, ...endsGreenAt(resumeTip) }, ['build', 'scope-0', 'r0-review']],
+  ['after a review fix', resumeArgs, { 'r0-review': reviseOnce, 'fix-1': aFixFor, 'scope-1': outsideClaim(outsideFiles), 'r1-review': APPROVE, ...endsGreenAt(resumeFixedTip) }, ['r0-review', 'fix-1', 'scope-1', 'r1-review']],
+  ['after a carried fix', { ...resumeArgs, fixFirst: [defectWithoutDraft] }, { 'fix-1': aFixFor, 'scope-1': outsideClaim(outsideFiles), 'r1-review': APPROVE, ...endsGreenAt(resumeFixedTip) }, ['fix-1', 'scope-1', 'r1-review']],
+  ['on a continued run', resumeArgs, { 'scope-resume': outsideClaim(outsideFiles), 'r0-review': APPROVE, ...endsGreenAt(resumeTip) }, ['scope-resume', 'r0-review']],
 ]
 
-for (const [when, args, answers, expectedAgents] of testPathsPass) {
-  test(`AC-test-paths-pass: outside paths that all start with a test prefix ${when} do not stop the lane and come back with the rescope action`, async () => {
-    const { result, launchedAgents } = await runLane({ ...args, testPaths: testPrefixes }, answers)
+for (const [when, args, answers, expectedAgents] of outsidePathsPass) {
+  test(`AC-outside-paths-pass: outside paths ${when} do not stop the lane and come back with the rescope action`, async () => {
+    const { result, launchedAgents } = await runLane(args, answers)
     assert.ok(launchedAgents.join(' ').includes(expectedAgents.join(' ')), launchedAgents.join(' '))
     assert.equal(result.status, 'ready-to-land', result.reason)
-    assert.deepEqual(result.testPathsOutsideClaim, testFiles)
-    assert.ok(result.history.some(entry => entry.by === 'scope' && entry.passedAsTestPaths && testFiles.every(path => entry.outside.includes(path))), 'history records the paths')
+    assert.deepEqual(result.pathsOutsideClaim, outsideFiles)
+    assert.ok(result.history.some(entry => entry.by === 'scope' && entry.passedOutside && outsideFiles.every(path => entry.outside.includes(path))), 'history records the paths')
     const rescopeActions = result.requiredHeadActions.filter(action => action.includes('aco rescope'))
     assert.equal(rescopeActions.length, 1)
-    assert.ok(rescopeActions[0].includes(`aco rescope ${args.item} ${testFiles.map(path => `--add ${path}`).join(' ')}\``), rescopeActions[0])
+    assert.ok(rescopeActions[0].includes(`aco rescope ${args.item} ${outsideFiles.map(path => `--add ${path}`).join(' ')}\``), rescopeActions[0])
     assert.ok(!rescopeActions[0].includes('--whole'), rescopeActions[0])
   })
 }
 
-test('AC-test-paths-pass: a lane whose outside list is empty returns no test paths and no rescope action', async () => {
-  const { result } = await runLane({ ...resumeArgs, testPaths: testPrefixes }, { 'r0-review': APPROVE, ...endsGreenAt(resumeTip) })
+test('AC-outside-paths-pass: a lane whose outside list is empty returns no outside paths and no rescope action', async () => {
+  const { result } = await runLane(resumeArgs, { 'r0-review': APPROVE, ...endsGreenAt(resumeTip) })
   assert.equal(result.status, 'ready-to-land', result.reason)
-  assert.deepEqual(result.testPathsOutsideClaim, [])
+  assert.deepEqual(result.pathsOutsideClaim, [])
   assert.ok(!result.requiredHeadActions.some(action => action.includes('aco rescope')))
 })
 
 const manyTestFiles = Array.from({ length: 51 }, (_, index) => `tests/test_${index}.py`)
-const testPathsStop = [
-  ['a mixed list names every outside path', testPrefixes, ['tests/test_board.py', 'board.py']],
-  ['a lane without testPaths stops as before', undefined, ['tests/test_board.py']],
-  ['an empty testPaths stops as before', [], ['tests/test_board.py']],
-  ['a prefix look-alike is not a test path', testPrefixes, ['testsuite/test_board.py']],
-  ['a list truncated by the relay cannot be judged', testPrefixes, manyTestFiles],
-]
-
-for (const [behaviour, testPaths, paths] of testPathsStop) {
-  test(`AC-test-paths-stop: ${behaviour}`, async () => {
-    const { result, launchedAgents } = await runLane({ ...resumeArgs, testPaths }, { 'scope-resume': outsideClaim(paths) })
-    assert.deepEqual([result.status, result.stage], ['awaiting-head', 'scope'])
-    assert.deepEqual(result.outside, paths.slice(0, 50))
-    for (const path of paths.slice(0, 50)) assert.ok(result.reason.includes(path), path)
-    assert.equal(launchedAgents.at(-1), 'scope-resume')
-  })
-}
-
-test('AC-test-paths-pass: paths listed by two scope checks come back once each, in the order first seen', async () => {
-  const answers = { build: built, 'scope-0': outsideClaim([testFiles[0]]), 'r0-review': reviseOnce, 'fix-1': aFixFor, 'scope-1': outsideClaim(testFiles), 'r1-review': APPROVE, ...endsGreenAt(resumeFixedTip) }
-  const { result } = await runLane({ ...builtLane, testPaths: testPrefixes }, answers)
+test('AC-outside-paths-input: an old caller that still passes testPaths is not refused', async () => {
+  const { result } = await runLane({ ...resumeArgs, testPaths: 'tests/' }, { 'r0-review': APPROVE, ...endsGreenAt(resumeTip) })
   assert.equal(result.status, 'ready-to-land', result.reason)
-  assert.deepEqual(result.testPathsOutsideClaim, testFiles)
+})
+test('AC-outside-paths-pass: paths listed by two scope checks come back once each, in the order first seen', async () => {
+  const answers = { build: built, 'scope-0': outsideClaim([outsideFiles[0]]), 'r0-review': reviseOnce, 'fix-1': aFixFor, 'scope-1': outsideClaim(outsideFiles), 'r1-review': APPROVE, ...endsGreenAt(resumeFixedTip) }
+  const { result } = await runLane(builtLane, answers)
+  assert.equal(result.status, 'ready-to-land', result.reason)
+  assert.deepEqual(result.pathsOutsideClaim, outsideFiles)
   assert.equal(result.requiredHeadActions.filter(action => action.includes('aco rescope')).length, 1)
 })
 
-test('AC-test-paths-pass: more than three test paths add --whole to the rescope action', async () => {
-  const fourFiles = [...testFiles, 'tests/test_a.py', 'tests/test_b.py']
-  const { result } = await runLane({ ...resumeArgs, testPaths: testPrefixes }, { 'scope-resume': outsideClaim(fourFiles), 'r0-review': APPROVE, ...endsGreenAt(resumeTip) })
+test('AC-outside-paths-pass: more than three outside paths add --whole to the rescope action', async () => {
+  const fourFiles = [...outsideFiles, 'tests/test_a.py', 'tests/test_b.py']
+  const { result } = await runLane(resumeArgs, { 'scope-resume': outsideClaim(fourFiles), 'r0-review': APPROVE, ...endsGreenAt(resumeTip) })
   assert.equal(result.status, 'ready-to-land', result.reason)
   const [action] = result.requiredHeadActions.filter(entry => entry.includes('aco rescope'))
   assert.ok(action.includes(`${fourFiles.map(path => `--add ${path}`).join(' ')} --whole "`), action)
 })
-
-const malformedTestPaths = [['a string', 'tests/'], ['an empty prefix', ['tests/', '']], ['a non-string prefix', [1]], ['an object', { 'tests/': true }]]
-
-for (const [what, testPaths] of malformedTestPaths) {
-  test(`AC-test-paths-input: testPaths as ${what} is refused at input before any agent starts`, async () => {
-    const { result, launchedAgents } = await runLane({ ...resumeArgs, testPaths })
-    assert.deepEqual([result.status, result.stage], ['failed', 'input'])
-    assert.match(result.reason, /testPaths/)
-    assert.deepEqual(launchedAgents, [])
-  })
-}

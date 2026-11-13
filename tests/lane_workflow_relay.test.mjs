@@ -115,17 +115,19 @@ test('AC-scope-relay: a rejected push stops the lane at push quoting git, and th
   assert.equal(remoteTip(lane), foreignTip)
 })
 
-test('AC-scope-relay: paths outside the claim that aco prints reach the stop as the list', async (t) => {
+const passedOutside = (result) => result.history.find(entry => entry.by === 'scope' && entry.passedOutside)?.outside
+
+test('AC-scope-relay: paths outside the claim that aco prints pass the scope check and reach the history as the list', async (t) => {
   const lane = laneRepository(t)
   const { result } = await runScopeStep(lane, ['src/other.py'])
-  assert.deepEqual([result.status, result.stage, result.outside], ['awaiting-head', 'scope', ['src/other.py']])
+  assert.deepEqual(passedOutside(result), ['src/other.py'])
 })
 
 test('AC-lane-shared: a lane_shared entry does not change outside_claim', async (t) => {
   const lane = laneRepository(t)
-  const briefExtras = { claim: { lane_shared: [{ path: 'quality/baseline.toml', names_a_file: true }] } }
+  const briefExtras = { claim: { lane_shared: [{ path: 'quality/baseline.toml', tracked: true }] } }
   const { result } = await runScopeStep(lane, ['quality/baseline.toml'], [], briefExtras)
-  assert.deepEqual([result.status, result.stage, result.outside], ['awaiting-head', 'scope', ['quality/baseline.toml']])
+  assert.deepEqual(passedOutside(result), ['quality/baseline.toml'])
 })
 
 test('AC-scope-relay: a null outside_claim stops the lane without a live claim', async (t) => {
@@ -141,7 +143,7 @@ test('AC-scope-relay: the JS checksum accepts the printer line for a non-ASCII p
   const printedLines = []
   const { result } = await runScopeStep(lane, paths, printedLines)
   assert.match(printedLines[0], /\\u00fc/, 'the printer escapes non-ASCII text')
-  assert.deepEqual([result.stage, result.outside], ['scope', paths])
+  assert.deepEqual(passedOutside(result), paths)
 })
 
 test('AC-scope-relay: the printer text holds no single quote, so the shell passes it as one argument', async (t) => {

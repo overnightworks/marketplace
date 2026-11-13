@@ -1,8 +1,0 @@
-claim_id = "27a4af034a134dd6acc87c134710f3d0"
-agent = "Claude ff1b9f08-53fd-4692-b3b9-2cc410b8d654"
-role = "builder"
-base = "c53c15a29e63389f5ba707c920aa16146b8e1964"
-branch = "claude/issue-669-lane-prints-routing-line"
-scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/skills/aco/SKILL.md", "plugins/atelier/workflows/lane.js", "tests/lane_workflow.test.mjs", "tests/lane_workflow_review.test.mjs"]
-opened_commit = "a5282ef757f94832b13e21b492e70d1fb90cda7c"
-whole_reason = "One change: the lane prints the line, the skill points at its grammar, and the version bump."

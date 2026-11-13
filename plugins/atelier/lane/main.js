@@ -138,7 +138,6 @@ async function runPart(name, part, partArgs) {
 const relay = (request) => runPart('lane-relay', laneRelay, { delegatedLine: DELEGATED_LINE, worktree: A.worktree, agentOptions: MECHANICAL, reread: COPY, ...request })
 // The failure reasons name the printed line only when the command printed one.
 const printedLine = (relayed) => relayed.printed === undefined ? '' : `; the printed line: ${relayed.printed}`
-// The three commit helpers below also stand in relay.js and change together with it.
 // Language models copy a 40-character hash unreliably (a sync step once dropped one character). A commit is
 // accepted as 7 to 40 hex characters — git resolves an unambiguous prefix, and fixers often answer with the short form.
 const SHA = /^[0-9a-f]{7,40}$/

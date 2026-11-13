@@ -145,17 +145,6 @@ function afterRerun(red, rerun) {
 async function laneRelay(A) {
   const { label, phase: phaseName, step, relayArgs, nonce, requiredKeys, agentOptions, reread } = A
 
-  // The three commit helpers below also stand in lane.js and change together with it.
-  // Language models copy a 40-character hash unreliably; a commit is accepted as 7 to 40 hex characters, as git resolves an unambiguous prefix.
-  const SHA = /^[0-9a-f]{7,40}$/
-  // Two spellings name the same commit when the shorter is a prefix of the longer (git's own abbreviation rule).
-  const sameCommit = (a, b) => SHA.test(a || '') && SHA.test(b || '') && (a.startsWith(b) || b.startsWith(a))
-  // Whether the relayed HEAD is a merge whose first parent is base.
-  function mergedOnto(values, base) {
-    const [firstParent, mergedIn] = values.parents.out.split('\n')
-    return Boolean(mergedIn) && sameCommit(firstParent, base)
-  }
-
   // agent() with a schema throws when the subagent ends without a result; an end without one is a null the lane reports.
   async function safeAgent(prompt, opts) {
     try {
@@ -1127,7 +1116,6 @@ async function runPart(name, part, partArgs) {
 const relay = (request) => runPart('lane-relay', laneRelay, { delegatedLine: DELEGATED_LINE, worktree: A.worktree, agentOptions: MECHANICAL, reread: COPY, ...request })
 // The failure reasons name the printed line only when the command printed one.
 const printedLine = (relayed) => relayed.printed === undefined ? '' : `; the printed line: ${relayed.printed}`
-// The three commit helpers below also stand in relay.js and change together with it.
 // Language models copy a 40-character hash unreliably (a sync step once dropped one character). A commit is
 // accepted as 7 to 40 hex characters — git resolves an unambiguous prefix, and fixers often answer with the short form.
 const SHA = /^[0-9a-f]{7,40}$/

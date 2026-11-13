@@ -175,12 +175,6 @@ export async function laneRelay(A) {
     return missing.length ? `a regression test did not ${missing.join(' and ')} its fix` : null
   }
 
-  function testGapProofGap(proof, finding) {
-    if (proof.resolution === 'removed-vacuous') return (proof.diff || '').trim() ? null : `the removal of a vacuous test for ${finding.where} carried no diff`
-    if (!proof.passesAfter) return `a test-gap test for ${finding.where} did not pass after the fix`
-    return (proof.mutation || '').trim() || proof.failedBefore ? null : `a test-gap test for ${finding.where} named no mutation under which it fails and did not fail before the fix`
-  }
-
   const isNotRun = (proof) => Boolean((proof.notRun || '').trim())
   // Whether a fix must prove the finding with a test: a test-gap is nothing but a missing test, a defect's test draft
   // asks for one, and a docs finding needs none even when a draft came with it.
@@ -301,22 +295,6 @@ export async function laneRelay(A) {
   const answerSchema = answerKind?.schema || {}
   const brief = answerKind ? answerKind.brief(A) : A.brief
 
-  // The printed values, not the watcher's word, decide whether CI counts as green; null means they prove it.
-  function unprovenGreen({ checks, rules }) {
-    if (checks.code !== 0 || !checks.count) return `no checks are listed for the pull request head (gh pr checks exited ${checks.code}: ${checks.err ?? ''})`
-    return [
-      ...checks.open.map(c => `check "${c.name}" is ${c.bucket}, not pass or skipping`),
-      ...Object.entries(rules.required || {}).filter(([, bucket]) => bucket !== 'pass').map(([name, bucket]) => bucket === 'missing' ? `required check "${name}" is missing from the listing` : `required check "${name}" is ${bucket}, not pass`),
-    ].join('; ') || null
-  }
-
-  // A watcher that answers red without quoting a log leaves the fixer nothing to act on; the printed listing still names the red checks.
-  function failedCheckFindings(openChecks = []) {
-    return openChecks.filter(c => c.bucket === 'fail').map(c => ({
-      where: c.name, kind: 'defect', rule: `CI check ${c.name}`, text: `The check "${c.name}" is red, and the CI watcher quoted no log for it.`, evidence: `The relay's ci line lists "${c.name}" in the fail bucket; read its log with gh run view.`,
-    }))
-  }
-
   // The failing findings of checks main does not share: a shared check's red entries and findings named by it are left out.
   function ownFailing({ shared, red = [], failing = [] }) {
     const sharedEntries = new Set(red.filter(job => shared.includes(job.name)).flatMap(job => job.findings.map(entry => JSON.stringify(entry))))
@@ -390,4 +368,26 @@ export async function laneRelay(A) {
   })
   const secondRead = second ? readRelay(second.printed, nonce, requiredKeys) : read
   return secondRead.problem ? { ...answer, ...read } : { ...answer, printed: second.printed, ...secondRead, ...fixJudgement(answer, secondRead) }
+}
+
+function testGapProofGap(proof, finding) {
+  if (proof.resolution === 'removed-vacuous') return (proof.diff || '').trim() ? null : `the removal of a vacuous test for ${finding.where} carried no diff`
+  if (!proof.passesAfter) return `a test-gap test for ${finding.where} did not pass after the fix`
+  return (proof.mutation || '').trim() || proof.failedBefore ? null : `a test-gap test for ${finding.where} named no mutation under which it fails and did not fail before the fix`
+}
+
+// The printed values, not the watcher's word, decide whether CI counts as green; null means they prove it.
+function unprovenGreen({ checks, rules }) {
+  if (checks.code !== 0 || !checks.count) return `no checks are listed for the pull request head (gh pr checks exited ${checks.code}: ${checks.err ?? ''})`
+  return [
+    ...checks.open.map(c => `check "${c.name}" is ${c.bucket}, not pass or skipping`),
+    ...Object.entries(rules.required || {}).filter(([, bucket]) => bucket !== 'pass').map(([name, bucket]) => bucket === 'missing' ? `required check "${name}" is missing from the listing` : `required check "${name}" is ${bucket}, not pass`),
+  ].join('; ') || null
+}
+
+// A watcher that answers red without quoting a log leaves the fixer nothing to act on; the printed listing still names the red checks.
+function failedCheckFindings(openChecks = []) {
+  return openChecks.filter(c => c.bucket === 'fail').map(c => ({
+    where: c.name, kind: 'defect', rule: `CI check ${c.name}`, text: `The check "${c.name}" is red, and the CI watcher quoted no log for it.`, evidence: `The relay's ci line lists "${c.name}" in the fail bucket; read its log with gh run view.`,
+  }))
 }

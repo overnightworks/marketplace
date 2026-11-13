@@ -38,16 +38,6 @@ async function laneCi(A) {
   const R = A.repo ? ` -R ${A.repo}` : ''
   const IN_REPO = A.repo ? ` in ${A.repo}` : ''
 
-  // agent() with a schema throws when the subagent ends without a result; an end without one is a null the lane reports.
-  async function agentOrNull(prompt, opts) {
-    try {
-      return await agent(prompt, opts)
-    } catch (error) {
-      log(`${opts.label} ended without a result: ${String(error).slice(0, 160)}`)
-      return null
-    }
-  }
-
   // A job qualifies for the one re-run only when the step it failed in is listed here; any other step, or none known, never does.
   const SETUP_STEPS = new Set(['Set up job'])
 
@@ -115,13 +105,6 @@ async function laneCi(A) {
 
   const canRerun = red => SETUP_STEPS.has(red.failingStep) && Boolean(red.runId) && Boolean(red.jobId)
 
-  // The first finding stands unless the re-run reached the check, which shows as another link.
-  function afterRerun(red, rerun) {
-    if (!rerun || rerun.link === red.link) return red.findings
-    if (rerun.bucket === 'pass') return []
-    return rerun.findings.length ? rerun.findings : red.findings
-  }
-
   // The lane hands back the red jobs of a watch whose findings its fixer disputed as flakes: they are re-run once, without a new watch.
   async function rerunAll(red) {
     const reruns = await Promise.all(red.map(rerunJob))
@@ -139,6 +122,23 @@ async function laneCi(A) {
   }
 
   return await ciFindings()
+}
+
+// agent() with a schema throws when the subagent ends without a result; an end without one is a null the lane reports.
+async function agentOrNull(prompt, opts) {
+  try {
+    return await agent(prompt, opts)
+  } catch (error) {
+    log(`${opts.label} ended without a result: ${String(error).slice(0, 160)}`)
+    return null
+  }
+}
+
+// The first finding stands unless the re-run reached the check, which shows as another link.
+function afterRerun(red, rerun) {
+  if (!rerun || rerun.link === red.link) return red.findings
+  if (rerun.bucket === 'pass') return []
+  return rerun.findings.length ? rerun.findings : red.findings
 }
 
 // Builds the briefs of the sync and fix steps and owns the schemas of their reports, runs one printer command through an agent and returns the answer of the agent together with the CRC-checked values of the line it relays; for the fix step it judges the fixer's answer against the findings and fold-ins it answered, and for the ci step it reads those values and splits the failing checks into own and shared.
@@ -318,12 +318,6 @@ async function laneRelay(A) {
     return missing.length ? `a regression test did not ${missing.join(' and ')} its fix` : null
   }
 
-  function testGapProofGap(proof, finding) {
-    if (proof.resolution === 'removed-vacuous') return (proof.diff || '').trim() ? null : `the removal of a vacuous test for ${finding.where} carried no diff`
-    if (!proof.passesAfter) return `a test-gap test for ${finding.where} did not pass after the fix`
-    return (proof.mutation || '').trim() || proof.failedBefore ? null : `a test-gap test for ${finding.where} named no mutation under which it fails and did not fail before the fix`
-  }
-
   const isNotRun = (proof) => Boolean((proof.notRun || '').trim())
   // Whether a fix must prove the finding with a test: a test-gap is nothing but a missing test, a defect's test draft
   // asks for one, and a docs finding needs none even when a draft came with it.
@@ -444,22 +438,6 @@ async function laneRelay(A) {
   const answerSchema = answerKind?.schema || {}
   const brief = answerKind ? answerKind.brief(A) : A.brief
 
-  // The printed values, not the watcher's word, decide whether CI counts as green; null means they prove it.
-  function unprovenGreen({ checks, rules }) {
-    if (checks.code !== 0 || !checks.count) return `no checks are listed for the pull request head (gh pr checks exited ${checks.code}: ${checks.err ?? ''})`
-    return [
-      ...checks.open.map(c => `check "${c.name}" is ${c.bucket}, not pass or skipping`),
-      ...Object.entries(rules.required || {}).filter(([, bucket]) => bucket !== 'pass').map(([name, bucket]) => bucket === 'missing' ? `required check "${name}" is missing from the listing` : `required check "${name}" is ${bucket}, not pass`),
-    ].join('; ') || null
-  }
-
-  // A watcher that answers red without quoting a log leaves the fixer nothing to act on; the printed listing still names the red checks.
-  function failedCheckFindings(openChecks = []) {
-    return openChecks.filter(c => c.bucket === 'fail').map(c => ({
-      where: c.name, kind: 'defect', rule: `CI check ${c.name}`, text: `The check "${c.name}" is red, and the CI watcher quoted no log for it.`, evidence: `The relay's ci line lists "${c.name}" in the fail bucket; read its log with gh run view.`,
-    }))
-  }
-
   // The failing findings of checks main does not share: a shared check's red entries and findings named by it are left out.
   function ownFailing({ shared, red = [], failing = [] }) {
     const sharedEntries = new Set(red.filter(job => shared.includes(job.name)).flatMap(job => job.findings.map(entry => JSON.stringify(entry))))
@@ -533,6 +511,28 @@ async function laneRelay(A) {
   })
   const secondRead = second ? readRelay(second.printed, nonce, requiredKeys) : read
   return secondRead.problem ? { ...answer, ...read } : { ...answer, printed: second.printed, ...secondRead, ...fixJudgement(answer, secondRead) }
+}
+
+function testGapProofGap(proof, finding) {
+  if (proof.resolution === 'removed-vacuous') return (proof.diff || '').trim() ? null : `the removal of a vacuous test for ${finding.where} carried no diff`
+  if (!proof.passesAfter) return `a test-gap test for ${finding.where} did not pass after the fix`
+  return (proof.mutation || '').trim() || proof.failedBefore ? null : `a test-gap test for ${finding.where} named no mutation under which it fails and did not fail before the fix`
+}
+
+// The printed values, not the watcher's word, decide whether CI counts as green; null means they prove it.
+function unprovenGreen({ checks, rules }) {
+  if (checks.code !== 0 || !checks.count) return `no checks are listed for the pull request head (gh pr checks exited ${checks.code}: ${checks.err ?? ''})`
+  return [
+    ...checks.open.map(c => `check "${c.name}" is ${c.bucket}, not pass or skipping`),
+    ...Object.entries(rules.required || {}).filter(([, bucket]) => bucket !== 'pass').map(([name, bucket]) => bucket === 'missing' ? `required check "${name}" is missing from the listing` : `required check "${name}" is ${bucket}, not pass`),
+  ].join('; ') || null
+}
+
+// A watcher that answers red without quoting a log leaves the fixer nothing to act on; the printed listing still names the red checks.
+function failedCheckFindings(openChecks = []) {
+  return openChecks.filter(c => c.bucket === 'fail').map(c => ({
+    where: c.name, kind: 'defect', rule: `CI check ${c.name}`, text: `The check "${c.name}" is red, and the CI watcher quoted no log for it.`, evidence: `The relay's ci line lists "${c.name}" in the fail bucket; read its log with gh run view.`,
+  }))
 }
 
 // Runs every reviewer of one review round (a fresh Claude reviewer, a Codex courier) in parallel and returns their results with the round verdict.
@@ -670,17 +670,6 @@ async function laneReview(A) {
     for (let bit = 0; bit < 8; bit++) crc = crc & 1 ? 0xedb88320 ^ (crc >>> 1) : crc >>> 1
     return crc >>> 0
   })
-  function utf8BytesOf(text) {
-    const bytes = []
-    for (const character of text) {
-      const codePoint = character.codePointAt(0)
-      if (codePoint < 0x80) bytes.push(codePoint)
-      else if (codePoint < 0x800) bytes.push(0xc0 | (codePoint >> 6), 0x80 | (codePoint & 63))
-      else if (codePoint < 0x10000) bytes.push(0xe0 | (codePoint >> 12), 0x80 | ((codePoint >> 6) & 63), 0x80 | (codePoint & 63))
-      else bytes.push(0xf0 | (codePoint >> 18), 0x80 | ((codePoint >> 12) & 63), 0x80 | ((codePoint >> 6) & 63), 0x80 | (codePoint & 63))
-    }
-    return bytes
-  }
   // CRC32 over the UTF-8 bytes, as Python's zlib.crc32 computes it for the file the courier wrote.
   function crc32OfUtf8(text) {
     let crc = 0xffffffff
@@ -816,6 +805,18 @@ open(out,"w",encoding="utf-8").write(textwrap.dedent(cuts[0])+"\n")`
     gateRounds: records.flatMap(record => record.gateRounds),
     followups: records.flatMap(record => record.followups),
   }
+}
+
+function utf8BytesOf(text) {
+  const bytes = []
+  for (const character of text) {
+    const codePoint = character.codePointAt(0)
+    if (codePoint < 0x80) bytes.push(codePoint)
+    else if (codePoint < 0x800) bytes.push(0xc0 | (codePoint >> 6), 0x80 | (codePoint & 63))
+    else if (codePoint < 0x10000) bytes.push(0xe0 | (codePoint >> 12), 0x80 | ((codePoint >> 6) & 63), 0x80 | (codePoint & 63))
+    else bytes.push(0xf0 | (codePoint >> 18), 0x80 | ((codePoint >> 12) & 63), 0x80 | ((codePoint >> 6) & 63), 0x80 | (codePoint & 63))
+  }
+  return bytes
 }
 
 // Prints the one Routing line of a lane from its routing table, its history and its fix rounds, and starts no agent.
@@ -964,13 +965,6 @@ async function laneTest(A) {
         { label: `e2e-${A.n}-fallback`, phase: 'Test and CI', schema: E2E, agentType: 'general-purpose', ...A.routing }))
   }
 
-  // A blocking finding outranks a PASS label, as in the classifier of lane-review.js.
-  function emptyVerdictReason(answer) {
-    if (answer.verdict === 'PASS' && !(answer.cells || []).some(c => c.result === 'held')) return 'a PASS without driven cells: the tester named no held cell'
-    if (answer.verdict === 'FAIL' && (answer.blocking || []).length === 0) return 'a FAIL verdict came without any blocking finding'
-    return ''
-  }
-
   // The lane adds the point of the run where it judges the answer, because fix rounds can pass while the tester works.
   function recordedAnswer(answer) {
     if (!answer) return answer
@@ -984,6 +978,13 @@ async function laneTest(A) {
   }
 
   return recordedAnswer(await explore())
+}
+
+// A blocking finding outranks a PASS label, as in the classifier of review.js.
+function emptyVerdictReason(answer) {
+  if (answer.verdict === 'PASS' && !(answer.cells || []).some(c => c.result === 'held')) return 'a PASS without driven cells: the tester named no held cell'
+  if (answer.verdict === 'FAIL' && (answer.blocking || []).length === 0) return 'a FAIL verdict came without any blocking finding'
+  return ''
 }
 
 // ---------------------------------------------------------------- inputs

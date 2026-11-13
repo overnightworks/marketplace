@@ -45,13 +45,6 @@ export async function laneTest(A) {
         { label: `e2e-${A.n}-fallback`, phase: 'Test and CI', schema: E2E, agentType: 'general-purpose', ...A.routing }))
   }
 
-  // A blocking finding outranks a PASS label, as in the classifier of lane-review.js.
-  function emptyVerdictReason(answer) {
-    if (answer.verdict === 'PASS' && !(answer.cells || []).some(c => c.result === 'held')) return 'a PASS without driven cells: the tester named no held cell'
-    if (answer.verdict === 'FAIL' && (answer.blocking || []).length === 0) return 'a FAIL verdict came without any blocking finding'
-    return ''
-  }
-
   // The lane adds the point of the run where it judges the answer, because fix rounds can pass while the tester works.
   function recordedAnswer(answer) {
     if (!answer) return answer
@@ -65,4 +58,11 @@ export async function laneTest(A) {
   }
 
   return recordedAnswer(await explore())
+}
+
+// A blocking finding outranks a PASS label, as in the classifier of review.js.
+function emptyVerdictReason(answer) {
+  if (answer.verdict === 'PASS' && !(answer.cells || []).some(c => c.result === 'held')) return 'a PASS without driven cells: the tester named no held cell'
+  if (answer.verdict === 'FAIL' && (answer.blocking || []).length === 0) return 'a FAIL verdict came without any blocking finding'
+  return ''
 }

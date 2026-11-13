@@ -133,17 +133,6 @@ export async function laneReview(A) {
     for (let bit = 0; bit < 8; bit++) crc = crc & 1 ? 0xedb88320 ^ (crc >>> 1) : crc >>> 1
     return crc >>> 0
   })
-  function utf8BytesOf(text) {
-    const bytes = []
-    for (const character of text) {
-      const codePoint = character.codePointAt(0)
-      if (codePoint < 0x80) bytes.push(codePoint)
-      else if (codePoint < 0x800) bytes.push(0xc0 | (codePoint >> 6), 0x80 | (codePoint & 63))
-      else if (codePoint < 0x10000) bytes.push(0xe0 | (codePoint >> 12), 0x80 | ((codePoint >> 6) & 63), 0x80 | (codePoint & 63))
-      else bytes.push(0xf0 | (codePoint >> 18), 0x80 | ((codePoint >> 12) & 63), 0x80 | ((codePoint >> 6) & 63), 0x80 | (codePoint & 63))
-    }
-    return bytes
-  }
   // CRC32 over the UTF-8 bytes, as Python's zlib.crc32 computes it for the file the courier wrote.
   function crc32OfUtf8(text) {
     let crc = 0xffffffff
@@ -279,4 +268,16 @@ open(out,"w",encoding="utf-8").write(textwrap.dedent(cuts[0])+"\n")`
     gateRounds: records.flatMap(record => record.gateRounds),
     followups: records.flatMap(record => record.followups),
   }
+}
+
+function utf8BytesOf(text) {
+  const bytes = []
+  for (const character of text) {
+    const codePoint = character.codePointAt(0)
+    if (codePoint < 0x80) bytes.push(codePoint)
+    else if (codePoint < 0x800) bytes.push(0xc0 | (codePoint >> 6), 0x80 | (codePoint & 63))
+    else if (codePoint < 0x10000) bytes.push(0xe0 | (codePoint >> 12), 0x80 | ((codePoint >> 6) & 63), 0x80 | (codePoint & 63))
+    else bytes.push(0xf0 | (codePoint >> 18), 0x80 | ((codePoint >> 12) & 63), 0x80 | ((codePoint >> 6) & 63), 0x80 | (codePoint & 63))
+  }
+  return bytes
 }

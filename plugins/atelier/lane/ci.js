@@ -4,16 +4,6 @@ export async function laneCi(A) {
   const R = A.repo ? ` -R ${A.repo}` : ''
   const IN_REPO = A.repo ? ` in ${A.repo}` : ''
 
-  // agent() with a schema throws when the subagent ends without a result; an end without one is a null the lane reports.
-  async function agentOrNull(prompt, opts) {
-    try {
-      return await agent(prompt, opts)
-    } catch (error) {
-      log(`${opts.label} ended without a result: ${String(error).slice(0, 160)}`)
-      return null
-    }
-  }
-
   // A job qualifies for the one re-run only when the step it failed in is listed here; any other step, or none known, never does.
   const SETUP_STEPS = new Set(['Set up job'])
 
@@ -81,13 +71,6 @@ export async function laneCi(A) {
 
   const canRerun = red => SETUP_STEPS.has(red.failingStep) && Boolean(red.runId) && Boolean(red.jobId)
 
-  // The first finding stands unless the re-run reached the check, which shows as another link.
-  function afterRerun(red, rerun) {
-    if (!rerun || rerun.link === red.link) return red.findings
-    if (rerun.bucket === 'pass') return []
-    return rerun.findings.length ? rerun.findings : red.findings
-  }
-
   // The lane hands back the red jobs of a watch whose findings its fixer disputed as flakes: they are re-run once, without a new watch.
   async function rerunAll(red) {
     const reruns = await Promise.all(red.map(rerunJob))
@@ -105,4 +88,21 @@ export async function laneCi(A) {
   }
 
   return await ciFindings()
+}
+
+// agent() with a schema throws when the subagent ends without a result; an end without one is a null the lane reports.
+async function agentOrNull(prompt, opts) {
+  try {
+    return await agent(prompt, opts)
+  } catch (error) {
+    log(`${opts.label} ended without a result: ${String(error).slice(0, 160)}`)
+    return null
+  }
+}
+
+// The first finding stands unless the re-run reached the check, which shows as another link.
+function afterRerun(red, rerun) {
+  if (!rerun || rerun.link === red.link) return red.findings
+  if (rerun.bucket === 'pass') return []
+  return rerun.findings.length ? rerun.findings : red.findings
 }

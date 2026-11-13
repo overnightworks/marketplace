@@ -3,7 +3,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { runLane, resumeArgs, resumeTip, APPROVE, PASS, greenCi } from './lane_workflow_harness.mjs'
 
-const noWait = { child: 'atelier:lane-relay', transformChild: (source) => source.replace(/^const NETWORK_WAIT_SECONDS = \d+$/m, 'const NETWORK_WAIT_SECONDS = 0') }
+const noWait = { transform: (source) => source.replace(/const NETWORK_WAIT_SECONDS = \d+$/m, 'const NETWORK_WAIT_SECONDS = 0') }
 const acoDown = 'error connecting to api.github.com\ncheck your internet connection or https://githubstatus.com'
 const ghDown = 'Could not resolve host: github.com'
 const throughCi = { 'r0-review': APPROVE, 'e2e-0': PASS, 'ci-0': greenCi(resumeTip) }

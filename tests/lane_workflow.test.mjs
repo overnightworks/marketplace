@@ -1,10 +1,7 @@
 // Drives the atelier lane workflow script through its inputs with a stub agent runner, so no subagent ever starts.
-import fs from 'node:fs'
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { runLane, courierBriefOf, resumedLane, APPROVE, PASS, resumeFixedTip, greenCi, finding, webauthTips, webauthReplay, agentProvidersReplay, answersWith, resumeTip, tidy, defectWithoutDraft, resumeFix, resumeArgs, unchangedFix, satisfied, reachesTheEnd, secondFix, mergedOnlyTip, conflictsWithMain, mergeOnlyFix, delegatedLineOfContract } from './lane_workflow_harness.mjs'
-
-const readWorkflow = (file) => fs.readFileSync(new URL(`../plugins/atelier/workflows/${file}`, import.meta.url), 'utf8')
+import { runLane, partReplaced, courierBriefOf, resumedLane, APPROVE, PASS, resumeFixedTip, greenCi, finding, webauthTips, webauthReplay, agentProvidersReplay, answersWith, resumeTip, tidy, defectWithoutDraft, resumeFix, resumeArgs, unchangedFix, satisfied, reachesTheEnd, secondFix, mergedOnlyTip, conflictsWithMain, mergeOnlyFix, delegatedLineOfContract } from './lane_workflow_harness.mjs'
 
 const misspelledChoices = [
   ['risk', 'Material'], ['risk', 'MATERIAL'], ['risk', 'high'],
@@ -392,41 +389,6 @@ test('every e2e tester, the fallback and a later run create a directory of their
   }
 })
 
-// ---- the lane learns every child's protocol before any agent starts
-const protocolConstant = (child) => `LANE_${child.replace('lane-', '').toUpperCase()}_PROTOCOL`
-const protocolOfLane = (child) => Number(readWorkflow('lane.js').match(new RegExp(`^const ${protocolConstant(child)} = (\\d+)$`, 'm'))[1])
-const queryAnswer = /^if \(A\.protocolQuery\) return .*\n/m
-const installedChildren = {
-  'newer': (child) => (source) => source.replace(new RegExp(`^const ${protocolConstant(child)} = (\\d+)$`, 'm'), (_, number) => `const ${protocolConstant(child)} = ${Number(number) + 1}`),
-  'older': (child) => (source) => source.replace(queryAnswer, '').replace(new RegExp(`^const ${protocolConstant(child)} = (\\d+)$`, 'm'), (_, number) => `const ${protocolConstant(child)} = ${Number(number) - 1}`),
-}
-
-for (const child of ['lane-build', 'lane-relay', 'lane-review', 'lane-test', 'lane-ci']) {
-  for (const [direction, skewed] of Object.entries(installedChildren)) {
-    test(`protocol-preflight: a ${direction} installed ${child} ends the lane at input naming both numbers and /reload-plugins, and no agent starts`, async () => {
-      const { result, launchedAgents } = await runLane(resumedLane, {}, { child: `atelier:${child}`, transformQueriedChild: skewed(child) })
-      const installed = protocolOfLane(child) + (direction === 'newer' ? 1 : -1)
-      assert.deepEqual([result.status, result.stage], ['failed', 'input'])
-      assert.match(result.reason, new RegExp(`${child} speaks protocol ${installed}, this lane speaks protocol ${protocolOfLane(child)}`))
-      assert.match(result.reason, /\/reload-plugins/)
-      assert.deepEqual(launchedAgents, [])
-    })
-  }
-}
-
-test('protocol-preflight: a lane with a build brief ends at input before the builder starts', async () => {
-  const buildLane = { item: 358, worktree: '/w', branch: 'b', contract: 'c', e2e: 'e', scratch: '/s', build: 'recorded' }
-  const { result, launchedAgents } = await runLane(buildLane, { build: { pr: 2, tip: resumeTip, blocked: false } }, { child: 'atelier:lane-review', transformQueriedChild: installedChildren.older('lane-review') })
-  assert.deepEqual([result.status, result.stage], ['failed', 'input'])
-  assert.deepEqual(launchedAgents, [])
-})
-
-test('protocol-preflight: only the mismatching child is named in the reason', async () => {
-  const { result } = await runLane(resumedLane, {}, { child: 'atelier:lane-ci', transformQueriedChild: installedChildren.newer('lane-ci') })
-  assert.match(result.reason, /lane-ci speaks protocol/)
-  assert.doesNotMatch(result.reason, /lane-review/)
-})
-
 test('routingLine: a lane with no fix round names none for fix and no blocking findings', async () => {
   const { result } = await runLane(resumeArgs, { ...reachesTheEnd, 'r0-review': APPROVE })
   assert.equal(result.status, 'ready-to-land')
@@ -565,63 +527,8 @@ for (const experiment of ['Haiku', 'a b', '', 'x'.repeat(41), 'a;b']) {
   })
 }
 
-const skewedProtocol = (constant) => (source) => source.replace(new RegExp(`^const ${constant} = \\d+$`, 'm'), `const ${constant} = 99`)
-
-test('late-protocol-refusal: lane-routing refusing at the end of a green lane returns awaiting-head with the resume arguments, not a crash', async () => {
-  const { result } = await runLane(resumeArgs, reachesTheEnd, { child: 'atelier:lane-routing', transformChild: skewedProtocol('LANE_ROUTING_PROTOCOL') })
-  assert.equal(result.status, 'awaiting-head')
-  assert.equal(result.pr, resumeArgs.pr)
-  assert.equal(result.tip, resumeTip)
-  assert.ok(result.history.length > 0)
-  assert.match(result.requiredHeadActions.join(' '), new RegExp(`/reload-plugins.*pr ${resumeArgs.pr} and tip ${resumeTip}`))
-})
-
-test('late-protocol-refusal: lane-routing refusing in a stage that ends in an open result returns awaiting-head at that stage', async () => {
-  const { result } = await runLane({ ...resumeArgs, deltaFrom: 'not a sha' }, {}, { child: 'atelier:lane-routing', transformChild: skewedProtocol('LANE_ROUTING_PROTOCOL') })
-  assert.deepEqual([result.status, result.stage], ['awaiting-head', 'input'])
-  assert.equal(result.routingLine, undefined)
-})
-
-const printerBroke = () => "return { problem: 'the printer broke' }"
-
 test('routing-line-problem: a lane-routing that answers with a problem leaves the lane result and names the problem in the Routing line', async () => {
-  const { result } = await runLane({ ...resumeArgs, deltaFrom: 'not a sha' }, {}, { child: 'atelier:lane-routing', transformChild: printerBroke })
+  const { result } = await runLane({ ...resumeArgs, deltaFrom: 'not a sha' }, {}, { transform: partReplaced('laneRouting', "return { problem: 'the printer broke' }") })
   assert.deepEqual([result.status, result.stage, result.reason], ['failed', 'input', 'deltaFrom is not a sha'])
   assert.match(result.routingLine, /not printed.*the printer broke/)
 })
-
-const routingProtocolOf = (source) => Number(source.match(/^const LANE_ROUTING_PROTOCOL = (\d+)$/m)?.[1])
-
-test('lane-routing-protocol: lane.js and lane-routing.js hold the same protocol number', () => {
-  assert.ok(Number.isInteger(routingProtocolOf(readWorkflow('lane.js'))))
-  assert.equal(routingProtocolOf(readWorkflow('lane-routing.js')), routingProtocolOf(readWorkflow('lane.js')))
-})
-
-test('late-protocol-refusal: lane-review refusing in the round that follows a fix names that fix delta in the new run', async () => {
-  const skewedAfterFirstRound = (source) => source.replace(/^const LANE_REVIEW_PROTOCOL = (\d+)$/m, 'const LANE_REVIEW_PROTOCOL = (args.after > 0 ? 99 : $1)')
-  const raised = [{ ...finding('a.py:5', 'defect'), kind: 'docs' }]
-  const { result } = await runLane(resumeArgs, { 'r0-review': { verdict: 'REVISE', blocking: raised, followups: [] }, 'fix-1': { ...resumeFix, regression: [] } }, { child: 'atelier:lane-review', transformChild: skewedAfterFirstRound })
-  assert.deepEqual([result.status, result.stage], ['awaiting-head', 'review'])
-  assert.match(result.requiredHeadActions.join(' '), new RegExp(`pr ${resumeArgs.pr} and tip ${resumeFixedTip} and deltaFrom ${resumeTip} and answers as returned`))
-  assert.equal(result.deltaFrom, resumeTip)
-})
-
-test('late-protocol-refusal: a review round that ends without an answer after a fix round fails the lane without deltaFrom', async () => {
-  const raised = [{ ...finding('a.py:5', 'defect'), kind: 'docs' }]
-  const { result } = await runLane(resumeArgs, { 'r0-review': { verdict: 'REVISE', blocking: raised, followups: [] }, 'fix-1': { ...resumeFix, regression: [] }, 'r1-review': null })
-  assert.deepEqual([result.status, result.stage], ['failed', 'review'])
-  assert.ok(!('deltaFrom' in result) && !('answers' in result))
-})
-
-const refusedAtScopeAfterFix = (label) => ({ child: 'atelier:lane-relay', alterChildArgs: (childArgs) => childArgs.label === label ? { ...childArgs, protocol: 99 } : childArgs })
-const raisedDefect = [{ ...finding('a.py:5', 'defect'), kind: 'docs' }]
-for (const [phase, answers] of [
-  ['review', { 'r0-review': { verdict: 'REVISE', blocking: raisedDefect, followups: [] }, 'fix-1': { ...resumeFix, regression: [] } }],
-  ['ci', { 'r0-review': APPROVE, 'e2e-0': PASS, 'ci-0': { ...greenCi(resumeTip), green: false, failing: [{ name: 'quality / verdict', bucket: 'fail' }] }, 'fix-1': { ...resumeFix, regression: [] } }],
-]) {
-  test(`late-protocol-refusal: lane-relay refusing at the claim-scope check after a ${phase} fix names that fix delta in the new run`, async () => {
-    const { result } = await runLane(resumeArgs, answers, refusedAtScopeAfterFix('scope-1'))
-    assert.deepEqual([result.status, result.stage], ['awaiting-head', 'scope'])
-    assert.match(result.requiredHeadActions.join(' '), new RegExp(`pr ${resumeArgs.pr} and tip ${resumeFixedTip} and deltaFrom ${resumeTip}`))
-  })
-}

@@ -5,7 +5,7 @@ import path from 'node:path'
 import { spawnSync } from 'node:child_process'
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { runLane, runCommandLine, installFake, resumeArgs, resumeFix, mergeOnlyFix, mainMovedTip, defectWithoutDraft, PASS, APPROVE, greenCi, tidy } from './lane_workflow_harness.mjs'
+import { runLane, partReplaced, runCommandLine, installFake, resumeArgs, resumeFix, mergeOnlyFix, mainMovedTip, defectWithoutDraft, PASS, APPROVE, greenCi, tidy } from './lane_workflow_harness.mjs'
 
 const tip = 'c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0'
 const lane = { item: 1, worktree: '/w', branch: 'b', contract: 'c', e2e: 'e', scratch: '/s', pr: 1, tip }
@@ -151,49 +151,12 @@ test('AC-ci-listing-proof: without repo the CI brief runs the rules read in the 
   assert.match(agentCalls['ci-0'].prompt, /cd '\/w' && gh api repos\/\{owner\}\/\{repo\}\/rules\/branches/)
 })
 
-const readWorkflow = (name) => fs.readFileSync(new URL(`../plugins/atelier/workflows/${name}.js`, import.meta.url), 'utf8')
-const protocolOf = (source) => Number(source.match(/^const LANE_CI_PROTOCOL = (\d+)$/m)?.[1])
-const drivePassingCi = (options) => runLane({ ...lane, foldIn: [tidy] }, { ...reachesCi, 'ci-0': ciAnswer([check(required, 'pass')]) }, { ...options, child: 'atelier:lane-ci' })
+const drivePassingCi = (options) => runLane({ ...lane, foldIn: [tidy] }, { ...reachesCi, 'ci-0': ciAnswer([check(required, 'pass')]) }, options)
 
-test('lane-ci-protocol: a child with another protocol number returns awaiting-head at ci naming both numbers and /reload-plugins', async () => {
-  const parentNumber = protocolOf(readWorkflow('lane'))
-  const { result, launchedAgents } = await drivePassingCi({ transformChild: (source) => source.replace(/^const LANE_CI_PROTOCOL = \d+$/m, `const LANE_CI_PROTOCOL = ${parentNumber + 1}`) })
-  assert.deepEqual([result.status, result.stage], ['awaiting-head', 'ci'])
-  assert.match(result.reason, new RegExp(`${parentNumber}[\\s\\S]*${parentNumber + 1}|${parentNumber + 1}[\\s\\S]*${parentNumber}`))
-  assert.ok(!launchedAgents.includes('ci-0'))
-  assert.match(result.requiredHeadActions.join(' '), /\/reload-plugins/)
-  assert.match(result.requiredHeadActions.join(' '), /pr \d+ and tip \w+/)
-})
-
-test('lane-ci-protocol: a call without the pull request number fails the lane at ci naming the missing args', async () => {
-  const { result } = await drivePassingCi({ alterChildArgs: ({ pr: _pr, worktree: _worktree, ...rest }) => rest })
-  assert.deepEqual([result.status, result.stage], ['failed', 'ci'])
-  assert.match(result.reason, /missing args: .*pr.*worktree/)
-})
-
-test('lane-ci-protocol: a child with another protocol number and a missing arg returns awaiting-head with the skew sentence, not missing args', async () => {
-  const skewed = (source) => source.replace(/^const LANE_CI_PROTOCOL = \d+$/m, `const LANE_CI_PROTOCOL = ${protocolOf(readWorkflow('lane')) + 1}`)
-  const { result } = await drivePassingCi({ transformChild: skewed, alterChildArgs: ({ pr: _pr, ...rest }) => rest })
-  assert.deepEqual([result.status, result.stage], ['awaiting-head', 'ci'])
-  assert.match(result.reason, /the installed atelier differs from the running lane/)
-  assert.doesNotMatch(result.reason, /missing args/)
-})
-
-test('lane-ci-protocol: a child that throws fails the lane at ci naming the error', async () => {
-  const { result } = await drivePassingCi({ transformChild: () => "throw new Error('the child exploded')" })
+test('a CI part that throws fails the lane at ci naming the error', async () => {
+  const { result } = await drivePassingCi({ transform: partReplaced('laneCi', "throw new Error('the child exploded')") })
   assert.deepEqual([result.status, result.stage], ['failed', 'ci'])
   assert.match(result.reason, /the child exploded/)
-})
-
-test('lane-ci-protocol: lane.js and lane-ci.js hold the same protocol number', () => {
-  assert.ok(Number.isInteger(protocolOf(readWorkflow('lane'))))
-  assert.equal(protocolOf(readWorkflow('lane-ci')), protocolOf(readWorkflow('lane')))
-})
-
-test('lane-ci-protocol: the ci agent is launched by the lane-ci child, not by lane.js', async () => {
-  const { launchedByChild, launchedAgents } = await drivePassingCi({})
-  assert.deepEqual(launchedByChild['atelier:lane-ci'], ['ci-0'])
-  assert.ok(launchedAgents.includes('ci-0'))
 })
 
 const redOnHead = (name) => ({ where: name, kind: 'defect', text: `${name} fails`, rule: `CI check ${name}`, evidence: 'boom' })
@@ -269,11 +232,6 @@ test('ci-shared-red: a shared red with a blocking end-to-end finding gives the f
 test('ci-shared-red: base runs spread over several pages are all searched for the failure', async () => {
   const { result } = await driveCi(redCi(['quality / hygiene'], [run('a', 'success'), run('b', 'success'), run('quality / hygiene', 'failure')]))
   assert.equal(result.status, 'awaiting-head')
-})
-
-test('lane-ci-protocol: the refusal shows each protocol value with its type', async () => {
-  const { result } = await drivePassingCi({ alterChildArgs: (args) => ({ ...args, protocol: '1' }) })
-  assert.match(result.reason, /"1"/)
 })
 
 const registrationLoopOf = (brief) => brief.match(/for i in \$\(seq 1 5\); do .*?; done/)[0]

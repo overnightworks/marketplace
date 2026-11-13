@@ -5,9 +5,14 @@ import path from 'node:path'
 import { spawnSync } from 'node:child_process'
 import vm from 'node:vm'
 
-const workflowSource = (file) => fs.readFileSync(new URL(`../plugins/atelier/workflows/${file}`, import.meta.url), 'utf8').replace(/^export const meta/m, 'const meta')
-// The plugin workflows a workflow can start by name, as the Workflow runtime resolves them.
-const CHILD_WORKFLOWS = { 'atelier:lane-build': 'lane-build.js', 'atelier:lane-ci': 'lane-ci.js', 'atelier:lane-review': 'lane-review.js', 'atelier:lane-relay': 'lane-relay.js', 'atelier:lane-test': 'lane-test.js', 'atelier:lane-routing': 'lane-routing.js' }
+// The generated bundle is the one script the Workflow runtime evaluates.
+export const laneSource = () => fs.readFileSync(new URL('../plugins/atelier/workflows/lane.js', import.meta.url), 'utf8').replace(/^export const meta/m, 'const meta')
+// Makes the named part of the bundle (laneBuild, laneCi, laneRelay, laneReview, laneRouting, laneTest) run the given statements first, so a test can break one part.
+export const partReplaced = (part, statements) => (source) => {
+  const declaration = `async function ${part}(A) {`
+  if (!source.includes(declaration)) throw new Error(`the bundle has no part ${part}`)
+  return source.replace(declaration, `${declaration}\n${statements}\n`)
+}
 
 // Stand-ins for the three programs the printer runs, steered by environment variables the harness sets for the child only.
 const FAKE_GIT = `#!/bin/sh
@@ -57,11 +62,9 @@ export const runCommandLine = (line, { cwd, env }) => {
 
 // answers holds each agent's result by its label; an agent without one ends without a result. Without answers only
 // the sync step answers (an up-to-date lane), so a run gets as far as starting its first review round.
-// options.transformChild rewrites the source and options.alterChildArgs the args of the one child options.child names, so a test can
-// break that parent-child contract (options.transformQueriedChild rewrites the source that answers the lane's protocol query instead); launchedByChild lists the agent labels each child workflow launched.
+// options.transform rewrites the bundle source, so a test can break one part of it (partReplaced) or change one constant.
 export async function runLane(args, answers = {}, options = {}) {
-  const source = workflowSource('lane.js')
-  const launchedByChild = {}
+  const source = (options.transform ?? ((text) => text))(laneSource())
   const launchedAgents = []
   const launchedPrompts = []
   const agentCalls = {}
@@ -131,20 +134,11 @@ export async function runLane(args, answers = {}, options = {}) {
   const parallel = async thunks => Promise.all(thunks.map(thunk => thunk().catch(() => null)))
   const ignore = () => {}
   // A fresh context holds only the ECMAScript built-ins, so a script naming a Node or web global fails with a ReferenceError as in the Workflow runtime.
-  const compile = (body) => vm.runInContext(`(async function (args, agent, parallel, pipeline, phase, log, workflow) {\n${body}\n})`, vm.createContext({}))
-  const startWorkflow = async (name, childArgs) => {
-    if (!Object.hasOwn(CHILD_WORKFLOWS, name)) throw new Error(`unknown workflow ${name}`)
-    const rewrite = name === options.child ? (childArgs.protocolQuery ? options.transformQueriedChild : options.transformChild) : undefined
-    const childSource = rewrite ? rewrite(workflowSource(CHILD_WORKFLOWS[name])) : workflowSource(CHILD_WORKFLOWS[name])
-    const childLabels = launchedByChild[name] ||= []
-    const childAgent = (prompt, agentOptions) => { childLabels.push(agentOptions?.label); return agent(prompt, agentOptions) }
-    const nested = () => { throw new Error('a child workflow cannot start another workflow') }
-    return compile(childSource)(name === options.child && options.alterChildArgs && !childArgs.protocolQuery ? options.alterChildArgs(childArgs) : childArgs, childAgent, parallel, async () => [], ignore, ignore, nested)
-  }
+  const compile = (body) => vm.runInContext(`(async function (args, agent, parallel, pipeline, phase, log) {\n${body}\n})`, vm.createContext({}))
   const callsOf = () => Object.fromEntries(['aco', 'gh'].map(program => [program, fakeBin && fs.existsSync(path.join(fakeBin, `${program}.calls`)) ? Number(fs.readFileSync(path.join(fakeBin, `${program}.calls`), 'utf8')) : 0]))
   try {
-    const result = await compile(source)(args, agent, parallel, async () => [], ignore, ignore, startWorkflow)
-    return { result: structuredClone(result), calls: callsOf(), launchedAgents, launchedPrompts, agentCalls, launchedByChild }
+    const result = await compile(source)(args, agent, parallel, async () => [], ignore, ignore)
+    return { result: structuredClone(result), calls: callsOf(), launchedAgents, launchedPrompts, agentCalls }
   } finally {
     if (fakeBin) fs.rmSync(fakeBin, { recursive: true })
   }

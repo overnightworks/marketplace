@@ -238,23 +238,26 @@ function blockingStages() {
   for (const entry of history) {
     if (!Array.isArray(entry.blocking)) continue
     const stage = FINDING_STAGES.map(([pattern, name]) => pattern.test(entry.by) ? name ?? entry.by : null).find(Boolean)
-    if (stage) entry.blocking.forEach(where => found.add(`${String(where).replace(/\s*[;→]\s*|\s+/g, ' ').trim()} → ${stage}`))
+    if (stage) entry.blocking.forEach(where => found.add(`${String(where).replace(/[\s;→]+/g, ' ').trim()} → ${stage}`))
   }
   return [...found]
 }
 function routingLine() {
   const choice = (role) => `${ROUTING[role].model}/${ROUTING[role].effort}`
   const ran = (key) => history.some(entry => entry.by === key || entry.by?.startsWith(`${key}-`))
+  const fixRole = spent.total >= 3 ? 'rework' : 'fix'
   const stages = [
     `build ${choice('build')}`,
-    `fix ${spent.total ? choice(spent.total >= 3 ? 'rework' : 'fix') : 'none'}`,
+    `fix ${spent.total ? choice(fixRole) : 'none'}`,
     `review ${choice('review')}`,
     `test ${ran('e2e') ? choice('test') : 'none'}`,
     `gate ${ran('gate') ? choice('gate') : 'none'}`,
     `land ${choice('mechanical')}`,
   ]
   const blocking = blockingStages()
-  return `Routing: ${stages.join('; ')}. Fix rounds: ${spent.total}.${A.experiment ? ` Experiment: ${A.experiment}.` : ''} Blocking: ${blocking.length ? blocking.join('; ') : 'none'}`
+  const experiment = A.experiment ? ` Experiment: ${A.experiment}.` : ''
+  const blockingText = blocking.length ? blocking.join('; ') : 'none'
+  return `Routing: ${stages.join('; ')}. Fix rounds: ${spent.total}.${experiment} Blocking: ${blockingText}`
 }
 const openResult = (status, stage, extra) =>
   ({ status, stage, pr, tip, spent, routing: ROUTING, routingLine: routingLine(), history, followups: openFollowups(), raisedBeforeTip: raisedBeforeTip(openFollowups()), folded: [...folded.values()], disputed, ...gateUnseenView(), ...extra })

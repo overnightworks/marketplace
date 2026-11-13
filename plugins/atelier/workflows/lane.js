@@ -158,7 +158,7 @@ async function startChild(name, childArgs) {
   }
 }
 // A value a command prints reaches a decision only through the line the lane-relay child reads back and checks.
-const LANE_RELAY_PROTOCOL = 20
+const LANE_RELAY_PROTOCOL = 21
 const relay = (request) => startChild('lane-relay', { protocol: LANE_RELAY_PROTOCOL, delegatedLine: DELEGATED_LINE, worktree: A.worktree, agentOptions: MECHANICAL, reread: COPY, ...request })
 // The failure reasons name the printed line only when the command printed one.
 const printedLine = (relayed) => relayed.printed === undefined ? '' : `; the printed line: ${relayed.printed}`
@@ -460,6 +460,7 @@ async function fixRound(blocking, source, budgetKey, carried) {
   return { ...accepted, foldIn, deltaFrom }
 }
 
+const newRunOf = origin => ['a new run with pr and tip', origin.deltaFrom && ` and deltaFrom ${origin.deltaFrom}`].filter(Boolean).join('')
 // The script, not the builder or fixer, makes sure the remote branch carries the lane tip, before the claim-scope check
 // and every review. Never a force push: a rejected push stops the lane.
 // aco decides what the claim covers; the lane only asks.
@@ -468,24 +469,23 @@ async function fixRound(blocking, source, budgetKey, carried) {
 async function scopeStop(paths, origin, total) {
   const listed = paths.join(', ')
   const omitted = total > paths.length ? ` and ${total - paths.length} more` : ''
-  const newRun = ['a new run with pr and tip', origin.deltaFrom && ` and deltaFrom ${origin.deltaFrom}`].filter(Boolean).join('')
   history.push({ by: 'scope', outside: paths, tip })
   return { stop: await openResult('awaiting-head', 'scope', { outside: paths, reason:
-    `Outside the claim scope: ${listed}${omitted}. No fixer was launched. ${origin.note} Either run aco rescope for them and start ${newRun}, ` +
-    `or start ${newRun} and fixFirst asking a fixer to revert them. Find the commits with git log origin/main..${tip} -- ${listed}.` }) }
+    `Outside the claim scope: ${listed}${omitted}. No fixer was launched. ${origin.note} Either run aco rescope for them and start ${newRunOf(origin)}, ` +
+    `or start ${newRunOf(origin)} and fixFirst asking a fixer to revert them. Find the commits with git log origin/main..${tip} -- ${listed}.` }) }
 }
 
 async function pushAndCheckScope(label, origin) {
   phase('Scope')
   const nonce = `${label}-${tip}`
-  const quotedArguments = [A.item, `'${A.branch}'`, `'${nonce}'`]
-  const checked = await relay({ label, phase: 'Scope', step: 'scope', relayArgs: quotedArguments, nonce, requiredKeys: ['push', 'remote', 'head', 'parents', 'second_parent_in_main', 'brief'], brief: `${laneFacts}\nChange nothing in the files;` })
+  const checked = await relay({ label, phase: 'Scope', step: 'scope', relayArgs: [A.item, `'${A.branch}'`, `'${nonce}'`], nonce, requiredKeys: ['push', 'remote', 'head', 'parents', 'second_parent_in_main', 'brief'], brief: `${laneFacts}\nChange nothing in the files;` })
   // Only a late refusal turns the stop into a resume, which needs the delta no reviewer has seen.
   const unseenDelta = lateProtocolRefusal && origin.deltaFrom && { deltaFrom: origin.deltaFrom }
   if (!checked) return { stop: await openResult('failed', 'scope', { reason: 'the push and claim-scope check returned no result', ...unseenDelta }) }
   const fail = async (stage, reason) => ({ stop: await openResult('failed', stage, { reason: `${reason}${printedLine(checked)}`, ...unseenDelta }) })
   const { values, problem } = checked
   if (problem) return fail('scope', `the push and claim-scope check ${problem}`)
+  if (checked.unreachable) return { stop: await openResult('awaiting-head', 'scope', { reason: `${checked.unreachable} Start ${newRunOf(origin)} once it answers.`, ...unseenDelta }) }
   const { push, remote, head, brief } = values
   // A fix batch may leave a clean merge of origin/main on top of the tip; the lane goes on from that merge, never from any other difference.
   const adoptedMerge = push.code === 0 && !sameCommit(remote.out, tip) && sameCommit(remote.out, head.out) && mergedOnto(values, tip) &&
@@ -631,6 +631,7 @@ async function watchCi(n, rerun) {
   const read = await relay({ label: `ci-read-${n}`, phase: 'Test and CI', step: 'ci', relayArgs: [pr, `'${A.repo || ''}'`, `'${nonce}'`], nonce, requiredKeys: ['view'], brief: `${laneFacts}\nChange nothing in the files;`, watched, rerun: Boolean(rerun) })
   if (!read) return { problem: 'ended without reading the CI values' }
   if (read.problem) return { problem: `read the CI values, but their relay line ${read.problem}${printedLine(read)}` }
+  if (read.unreachable) return { unreachable: read.unreachable }
   const { view } = read.values
   if (view.code !== 0) return { problem: `could not read the pull request: gh pr view exited ${view.code}: ${view.err ?? ''}` }
   return { ...watched, ...read.ci }
@@ -672,7 +673,7 @@ async function settleTest(ci, awaitRetry = true) {
   if (e2e?.problem) return openResult('failed', 'test', { reason: `the tester ${e2e.problem}` })
   if (e2e && typeof e2e.verdict !== 'string') return openResult('failed', 'test', { reason: `lane-test answered without a verdict: ${JSON.stringify(e2e).slice(0, 200)}` })
   if (e2e?.verdict === 'failed' && e2e.lockBusy) {
-    return openResult('awaiting-head', 'test', { reason: `load wait: the load stayed above the limit for both tries, so the end-to-end test did not run; CI of this round: ${ci && !ci.problem ? ci.state : 'not readable'}. Start a new run with pr and tip once the load falls.` })
+    return openResult('awaiting-head', 'test', { reason: `load wait: the load stayed above the limit for both tries, so the end-to-end test did not run; CI of this round: ${ci && !ci.problem && !ci.unreachable ? ci.state : 'not readable'}. Start a new run with pr and tip once the load falls.` })
   }
   if (!e2e || e2e.verdict === 'failed') return openResult('failed', 'test', { reason: 'the tester returned no usable result' })
   testBlocking = e2e.blocking || []
@@ -689,8 +690,9 @@ while (true) {
   const ci = await watchCi(n, rerunBatch?.red)
   rerunRed = undefined
   n++
-  if (!ci || ci.problem) {
+  if (!ci || ci.problem || ci.unreachable) {
     const stop = pendingTest && await settleTest(ci)
+    if (ci?.unreachable) return stop || await openResult('awaiting-head', 'ci', { reason: `${ci.unreachable} Start a new run with pr ${pr} and tip ${tip} once it answers.` })
     return stop || await openResult('failed', 'ci', ci ? { reason: `the CI watcher ${ci.problem}` } : undefined)
   }
   if (!sameCommit(ci.head, tip)) return await openResult('failed', 'ci', { reason: `the pull request head ${ci.head} is not the lane tip ${tip}` })

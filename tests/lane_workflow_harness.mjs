@@ -19,8 +19,12 @@ case "$1 $2" in
   "rev-parse origin/"*) printf '%s\\n' "$FAKE_REMOTE" ;;
 esac
 `
+// A fake program counts its calls in a file beside itself; while FAKE_NETWORK_ERROR is set it prints that error and fails its first FAKE_NETWORK_FAILS calls, or every call for 'always'.
+const NETWORK_DOWN = `calls=$(( $(cat "$0.calls" 2>/dev/null || echo 0) + 1 )); echo "$calls" > "$0.calls"
+if [ -n "$FAKE_NETWORK_ERROR" ] && { [ "$FAKE_NETWORK_FAILS" = always ] || [ "$calls" -le "$FAKE_NETWORK_FAILS" ]; }; then printf '%s\\n' "$FAKE_NETWORK_ERROR" >&2; exit 1; fi
+`
 const FAKE_GH = `#!/bin/sh
-fail() { printf '%s\\n' "$2" >&2; exit "$1"; }
+${NETWORK_DOWN}fail() { printf '%s\\n' "$2" >&2; exit "$1"; }
 case "$1 $2" in
   "pr view") [ "$FAKE_VIEW_CODE" = 0 ] || fail "$FAKE_VIEW_CODE" "$FAKE_VIEW_ERROR"; printf '{"baseRefName":"main","headRefOid":"%s"}' "$FAKE_PR_HEAD" ;;
   "pr checks") [ "$FAKE_CHECKS_CODE" = 0 ] || fail "$FAKE_CHECKS_CODE" "$FAKE_CHECKS_ERROR"; printf '%s' "$FAKE_CHECKS" ;;
@@ -33,7 +37,7 @@ case "$1 $2" in
 esac
 `
 export const FAKE_ACO = `#!/bin/sh
-[ -z "$FAKE_BRIEF_ERROR" ] || printf '%s\\n' "$FAKE_BRIEF_ERROR" >&2
+${NETWORK_DOWN}[ -z "$FAKE_BRIEF_ERROR" ] || printf '%s\\n' "$FAKE_BRIEF_ERROR" >&2
 printf '%s' "$FAKE_BRIEF_OUTPUT"
 [ -z "$FAKE_BRIEF_ERROR" ]
 `
@@ -101,7 +105,7 @@ export async function runLane(args, answers = {}, options = {}) {
     const env = {
       ...process.env, PATH: `${fakeCommands()}:${process.env.PATH}`, FAKE_HEAD: scenario.head ?? newestTip, FAKE_REMOTE: scenario.remote_tip ?? newestTip,
       FAKE_HEAD_CODE: scenario.head_code ?? 0, FAKE_PARENTS: (scenario.parents ?? []).join('\n'), FAKE_MAIN_CODE: scenario.main_code ?? 0,
-      FAKE_PUSH_ERROR: scenario.push_error ?? '', FAKE_BRIEF_ERROR: scenario.brief_error ?? '',
+      FAKE_PUSH_ERROR: scenario.push_error ?? '', FAKE_NETWORK_ERROR: scenario.network_error ?? '', FAKE_NETWORK_FAILS: scenario.network_fails ?? 1, FAKE_BRIEF_ERROR: scenario.brief_error ?? '',
       FAKE_BRIEF_OUTPUT: JSON.stringify({ outside_claim: 'outside_claim' in scenario ? scenario.outside_claim : [] }), ...ghEnv(scenario),
     }
     const asked = scenario.printerMode ? line.replace(/' scope .* ('[^']*')$/, `' ${scenario.printerMode} $1`) : line
@@ -119,7 +123,7 @@ export async function runLane(args, answers = {}, options = {}) {
     if (!isRelayed(label) || !answer) return answer
     const printed = printedBy(prompt, answer)
     if (answer.head && !base.startsWith('scope-')) newestTip = answer.head
-    const { pr_head: _prHead, checks: _checks, required: _required, base_runs: _baseRuns, head: _head, parents: _parents, head_code: _headCode, main_code: _mainCode, nonce: _nonce, edit: _edit, printerMode: _printerMode, push_error: _pushError, remote_tip: _remoteTip, brief_error: _briefError, outside_claim: _outsideClaim, printed: _printed, ...report } = answer
+    const { pr_head: _prHead, checks: _checks, required: _required, base_runs: _baseRuns, head: _head, parents: _parents, head_code: _headCode, main_code: _mainCode, nonce: _nonce, edit: _edit, printerMode: _printerMode, push_error: _pushError, network_error: _networkError, network_fails: _networkFails, remote_tip: _remoteTip, brief_error: _briefError, outside_claim: _outsideClaim, printed: _printed, ...report } = answer
     return reread ? { printed } : { ...report, printed }
   }
   const agent = async (prompt, agentOptions = {}) => { launchedAgents.push(agentOptions.label); launchedPrompts.push(prompt); agentCalls[agentOptions.label] = { prompt, options: structuredClone(agentOptions) }; return answerFor(agentOptions.label, prompt) }
@@ -137,9 +141,10 @@ export async function runLane(args, answers = {}, options = {}) {
     const nested = () => { throw new Error('a child workflow cannot start another workflow') }
     return compile(childSource)(name === options.child && options.alterChildArgs && !childArgs.protocolQuery ? options.alterChildArgs(childArgs) : childArgs, childAgent, parallel, async () => [], ignore, ignore, nested)
   }
+  const callsOf = () => Object.fromEntries(['aco', 'gh'].map(program => [program, fakeBin && fs.existsSync(path.join(fakeBin, `${program}.calls`)) ? Number(fs.readFileSync(path.join(fakeBin, `${program}.calls`), 'utf8')) : 0]))
   try {
     const result = await compile(source)(args, agent, parallel, async () => [], ignore, ignore, startWorkflow)
-    return { result: structuredClone(result), launchedAgents, launchedPrompts, agentCalls, launchedByChild }
+    return { result: structuredClone(result), calls: callsOf(), launchedAgents, launchedPrompts, agentCalls, launchedByChild }
   } finally {
     if (fakeBin) fs.rmSync(fakeBin, { recursive: true })
   }

@@ -1,8 +1,0 @@
-claim_id = "e49f87253fde401da9dbf7ebd7a2ca40"
-agent = "Claude ff1b9f08-53fd-4692-b3b9-2cc410b8d654"
-role = "builder"
-base = "8088db6f57cbfbfc8f2a346415253fd55af0d6a4"
-branch = "claude/issue-584-load-only-used"
-scope = [".claude-plugin/marketplace.json", "README.md", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/.codex/agents", "plugins/atelier/agents", "plugins/atelier/skills", "plugins/atelier/workflows"]
-opened_commit = "c65e32e4da48a01638dec056505b6d2ae780757c"
-whole_reason = "One cut of what every session loads: an unused agent deleted, used agents named in their skills, and the lane listing moved into its reference, with the version bump."

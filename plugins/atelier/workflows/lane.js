@@ -131,11 +131,6 @@ const FOLLOWUP = {
   required: ['where', 'text', 'owner'],
   properties: { where: { type: 'string' }, text: { type: 'string' }, owner: { type: 'string', description: 'owning item #n, or "distributor"' } },
 }
-const RESCOPE = {
-  type: 'array',
-  description: 'paths outside the claim scope that the work needs changed; you edited none of them',
-  items: { type: 'object', required: ['path', 'change', 'reason'], properties: { path: { type: 'string' }, change: { type: 'string', description: 'the change the path needs' }, reason: { type: 'string', description: 'why the work cannot be done without it' } } },
-}
 // A child's refusal or crash is a problem naming the child, which its caller stops on at the stage of its own step.
 async function startChild(name, childArgs) {
   try {
@@ -146,8 +141,8 @@ async function startChild(name, childArgs) {
   }
 }
 // A value a command prints reaches a decision only through the line the lane-relay child reads back and checks.
-const LANE_RELAY_PROTOCOL = 18
-const relay = (request) => startChild('lane-relay', { protocol: LANE_RELAY_PROTOCOL, delegatedLine: DELEGATED_LINE, worktree: A.worktree, agentOptions: MECHANICAL, reread: COPY, rescope: RESCOPE, ...request })
+const LANE_RELAY_PROTOCOL = 19
+const relay = (request) => startChild('lane-relay', { protocol: LANE_RELAY_PROTOCOL, delegatedLine: DELEGATED_LINE, worktree: A.worktree, agentOptions: MECHANICAL, reread: COPY, ...request })
 // The failure reasons name the printed line only when the command printed one.
 const printedLine = (relayed) => relayed.printed === undefined ? '' : `; the printed line: ${relayed.printed}`
 // Language models copy a 40-character hash unreliably (a sync step once dropped one character). A commit is
@@ -241,7 +236,7 @@ const openResult = (status, stage, extra) =>
 // ---------------------------------------------------------------- children
 // Every child answers { protocolQuery: true } with its protocol before it checks anything else and starts no agent, so a session that
 // resolved a child from another release (plugin snapshot or script read fresh, either one the older) ends the lane before any agent runs.
-const LANE_BUILD_PROTOCOL = 5
+const LANE_BUILD_PROTOCOL = 6
 const LANE_TEST_PROTOCOL = 3
 const LANE_CI_PROTOCOL = 6
 const CHILD_PROTOCOLS = { 'lane-build': LANE_BUILD_PROTOCOL, 'lane-relay': LANE_RELAY_PROTOCOL, 'lane-review': LANE_REVIEW_PROTOCOL, 'lane-test': LANE_TEST_PROTOCOL, 'lane-ci': LANE_CI_PROTOCOL }
@@ -259,7 +254,7 @@ if (mismatches.length) return { status: 'failed', stage: 'input', reason: `${mis
 // ---------------------------------------------------------------- build
 if (A.build) {
   phase('Build')
-  const built = await startChild('lane-build', { protocol: LANE_BUILD_PROTOCOL, delegatedLine: DELEGATED_LINE, laneFacts, driveFacts, rescopeFacts, localCheckFacts: `${localCheckFacts} ${turnFacts('build')}`, build: A.build, rescope: RESCOPE, routing: claudeRole('build') })
+  const built = await startChild('lane-build', { protocol: LANE_BUILD_PROTOCOL, delegatedLine: DELEGATED_LINE, laneFacts, driveFacts, rescopeFacts, localCheckFacts: `${localCheckFacts} ${turnFacts('build')}`, build: A.build, routing: claudeRole('build') })
   if (built?.problem) return openResult('failed', 'build', { reason: `the builder step ${built.problem}` })
   if (!built) return openResult('failed', 'build', { reason: `the builder returned no result; inspect ${A.worktree} for uncommitted work, checkpoint it, and hand it to a fresh finisher` })
   if (built.blocked) return openResult('escalated', 'build', { reason: built.blockedReason })

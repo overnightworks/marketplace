@@ -116,7 +116,7 @@ const withAnyClosingBraces = (text) => {
 const PRINTED = { type: 'string', description: 'the one line the command printed, character for character as printed; when it printed no line, its error output' }
 const FIX = {
   type: 'object',
-  required: ['mergeResolvedLaneConflict', 'files', 'disputed', 'blocked'],
+  required: ['mergeResolvedLaneConflict', 'files', 'disputed', 'regression', 'blocked'],
   properties: {
     mergeResolvedLaneConflict: { type: 'boolean' },
     files: { type: 'array', items: { type: 'string' } },
@@ -133,7 +133,7 @@ const FIX = {
     outside: { type: 'array', description: 'blocking findings and fold-ins you answered by editing the pull request body or posting an item comment, with no commit: a blocking finding by its number in the blocking list (finding), a fold-in by its where (foldIn), and the body section or comment URL', items: { type: 'object', required: ['where'], properties: { finding: { type: 'integer', minimum: 1 }, foldIn: { type: 'string' }, where: { type: 'string' } } } },
     regression: {
       type: 'array',
-      description: "every test you add, strengthen or keep for a blocking finding, and every probe cell you run for it, under that finding's number in the blocking list you were given",
+      description: "empty only when no blocking finding needs a proof; otherwise every test you add, strengthen or keep for a blocking finding, and every probe cell you run for it, under that finding's number in the blocking list you were given",
       items: { type: 'object', required: ['finding', 'test', 'failedBefore', 'passesAfter'], properties: { finding: { type: 'integer', minimum: 1, description: 'the number of the blocking finding in the list you were given' }, resolution: { type: 'string', enum: ['removed-vacuous'], description: 'for a test-gap finding whose test pins no behaviour: the fix removed that test instead of adding one' }, diff: { type: 'string', description: 'for removed-vacuous: the removal diff' }, test: { type: 'string' }, failedBefore: { type: 'boolean' }, passesAfter: { type: 'boolean' }, notRun: { type: 'string', description: 'why this machine could not run the test (a refused command, a machine another lane holds); CI on the pushed tip is its proof. Not for a test you ran and saw fail: that is passesAfter false' }, mutation: { type: 'string', description: 'for a test-gap finding: the production change, made and reverted, under which the test fails' } } },
     },
     summary: { type: 'string' }, blocked: { type: 'boolean' }, blockedReason: { type: 'string' },

@@ -301,6 +301,11 @@ test('the fixer schema takes the finding as an integer from 1 and carries no kin
   assert.ok(!proofItem.required.includes('kind'))
 })
 
+test('the fixer schema requires regression, so a report that leaves it out is refused by the schema', async () => {
+  const { agentCalls } = await runLane({ ...resumeArgs, fixFirst: [testGap] }, { 'fix-1': { ...resumeFix, regression: [proofOf(1, { mutation: 'm' })] } })
+  assert.ok(agentCalls['fix-1'].options.schema.required.includes('regression'))
+})
+
 const supportingProofNotes = [
   ['a test-gap with one proof naming a mutation and a supporting proof naming none', testGap, [proofOf(1, { mutation: 'drop the guard' }), proofOf(1, { test: 'supporting_test.py [image]' })], /named no mutation/],
   ['a defect with a test draft, one proof failed before and a supporting proof did not', defectWithDraft, [proofOf(1, { failedBefore: true }), proofOf(1, { test: 'supporting_test.py [image]' })], /did not fail before/],

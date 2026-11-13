@@ -1,7 +1,0 @@
-claim_id = "9ab8bac6b3b54d2eb609a03950bbbac8"
-agent = "Claude ff1b9f08-53fd-4692-b3b9-2cc410b8d654"
-role = "builder"
-base = "5c7b677fbe761167a13495923bbfc952978dfd30"
-branch = "claude/issue-488-standards-repo-settings"
-scope = ["docs/standards.md"]
-opened_commit = "172f232311f20ab9bfc53bf5285c225c8af75d2a"

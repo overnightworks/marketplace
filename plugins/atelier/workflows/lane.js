@@ -54,17 +54,15 @@ const isGateStandIn = (role, model, effort) => role === 'gate' && model === 'opu
 const REVIEWER_PROVIDER = A.reviewer || 'claude'
 const HARD_ROW = { model: 'sonnet', effort: 'high' }
 const WRITER = MATERIAL ? HARD_ROW : { model: 'sonnet', effort: 'medium' }
-function defaultReviewRouting() {
-  if (REVIEWER_PROVIDER === 'codex') return { model: 'gpt-6-astra', effort: MATERIAL ? 'high' : 'medium' }
-  return MATERIAL ? { model: 'opus', effort: 'medium' } : { model: 'sonnet', effort: 'high' }
-}
+const CLAUDE_REVIEW = MATERIAL ? { model: 'opus', effort: 'medium' } : { model: 'sonnet', effort: 'high' }
+const CODEX_REVIEW = { model: 'gpt-6-astra', effort: MATERIAL ? 'high' : 'medium' }
 const DEFAULT_ROUTING = {
   mechanical: { model: 'haiku', effort: 'low' },
   copy: { model: 'sonnet', effort: 'low' },
   build: WRITER, fix: WRITER,
   rework: HARD_ROW,
   test: { model: 'sonnet', effort: MATERIAL ? 'high' : 'medium' },
-  review: defaultReviewRouting(),
+  review: REVIEWER_PROVIDER === 'codex' ? CODEX_REVIEW : CLAUDE_REVIEW,
   gate: { model: 'gpt-6-astra', effort: 'high' },
 }
 // The provider each role must run on: reviews on the reviewer provider, the gate on any provider but the builder's or the Opus stand-in, every other role on Claude.
@@ -91,16 +89,10 @@ function roleChoiceRefusal(role, choice) {
 // Why a routing override is refused, or null. An override never bypasses reviewer independence, gate provider separation beyond the Opus stand-in, or the per-model effort caps.
 function routingRefusal(overrides) {
   if (typeof overrides !== 'object' || overrides === null || Array.isArray(overrides)) return 'routing must be an object of roles'
-  for (const [role, choice] of Object.entries(overrides)) {
-    const refusal = roleChoiceRefusal(role, choice)
-    if (refusal) return refusal
-  }
-  return null
+  return Object.entries(overrides).map(([role, choice]) => roleChoiceRefusal(role, choice)).find(Boolean) ?? null
 }
-if (A.routing !== undefined) {
-  const refusal = routingRefusal(A.routing)
-  if (refusal) return { status: 'failed', stage: 'input', reason: refusal }
-}
+const routingProblem = A.routing === undefined ? null : routingRefusal(A.routing)
+if (routingProblem) return { status: 'failed', stage: 'input', reason: routingProblem }
 const ROUTING = Object.fromEntries(Object.entries(DEFAULT_ROUTING).map(([role, chosen]) => [role, { ...chosen, ...A.routing?.[role] }]))
 const MECHANICAL = { agentType: 'general-purpose', ...ROUTING.mechanical }
 // The relay re-read copies a line of about 500 characters, which the mechanical tier garbles.
@@ -242,9 +234,8 @@ function pathAndLine(word) {
   let reference = word.replace(/^\(+/, '')
   while (',.;)'.includes(reference.at(-1))) reference = reference.slice(0, -1)
   const colon = reference.lastIndexOf(':')
-  if (colon < 1) return null
   const [line] = reference.slice(colon + 1).split('-', 2)
-  return PATH_CHARACTERS.test(reference.slice(0, colon)) && /^\d+$/.test(line) ? `${reference.slice(0, colon)}:${line}` : null
+  return colon > 0 && PATH_CHARACTERS.test(reference.slice(0, colon)) && /^\d+$/.test(line) ? `${reference.slice(0, colon)}:${line}` : null
 }
 function blockingStages() {
   const found = new Map()  // keyed by the full finding text and stage, so a finding that comes back counts once
@@ -280,20 +271,17 @@ function blockingText(findings, rest) {
 function routingLine() {
   const choice = (role) => `${ROUTING[role].model}/${ROUTING[role].effort}`
   const ran = (key) => history.some(entry => entry.by === key || entry.by?.startsWith(`${key}-`))
-  const gateRole = ran('gate') ? 'gate' : null
-  const standinRole = ran('standin') ? 'review' : gateRole
-  const gate = standinRole ? choice(standinRole) : 'none'
+  const gateRole = [['standin', 'review'], ['gate', 'gate']].find(([key]) => ran(key))?.[1] ?? null
   const fixRole = fixRolesRun.at(-1)
   const stages = [
     `build ${choice('build')}`,
     `fix ${fixRole ? choice(fixRole) : 'none'}`,
     `review ${choice('review')}`,
     `test ${ran('e2e') ? choice('test') : 'none'}`,
-    `gate ${gate}`,
+    `gate ${gateRole ? choice(gateRole) : 'none'}`,
     `land ${choice('mechanical')}`,
   ]
-  const experiment = A.experiment ? ` Experiment: ${A.experiment}.` : ''
-  const rest = `Routing: ${stages.join('; ')}. Fix rounds: ${spent.total}.${experiment} Blocking: `
+  const rest = [`Routing: ${stages.join('; ')}. Fix rounds: ${spent.total}.`, A.experiment && ` Experiment: ${A.experiment}.`, ' Blocking: '].filter(Boolean).join('')
   return rest + blockingText(blockingStages(), rest)
 }
 const openResult = (status, stage, extra) =>
@@ -304,15 +292,14 @@ const openResult = (status, stage, extra) =>
 // resolved a child from another release (plugin snapshot or script read fresh, either one the older) ends the lane before any agent runs.
 const LANE_BUILD_PROTOCOL = 6
 const LANE_TEST_PROTOCOL = 3
-const LANE_CI_PROTOCOL = 6
+const LANE_CI_PROTOCOL = 7
 const CHILD_PROTOCOLS = { 'lane-build': LANE_BUILD_PROTOCOL, 'lane-relay': LANE_RELAY_PROTOCOL, 'lane-review': LANE_REVIEW_PROTOCOL, 'lane-test': LANE_TEST_PROTOCOL, 'lane-ci': LANE_CI_PROTOCOL }
 // A child that predates the query refuses the call and names its protocol in the refusal.
 const protocolMismatch = async ([name, expected]) => {
   const answer = await startChild(name, { protocolQuery: true })
   const installed = answer?.protocol ?? /speaks protocol (\d+)/.exec(answer?.problem ?? '')?.[1]
-  if (Number(installed) === expected) return null
   const spoken = installed ?? 'unknown (' + (answer?.problem ?? JSON.stringify(answer ?? null).slice(0, 200)) + ')'
-  return `${name} speaks protocol ${spoken}, this lane speaks protocol ${expected}`
+  return Number(installed) === expected ? null : `${name} speaks protocol ${spoken}, this lane speaks protocol ${expected}`
 }
 const mismatches = (await Promise.all(Object.entries(CHILD_PROTOCOLS).map(protocolMismatch))).filter(Boolean)
 if (mismatches.length) return { status: 'failed', stage: 'input', reason: `${mismatches.join('; ')}: the installed atelier differs from the running lane; run /reload-plugins and start a new run` }
@@ -407,6 +394,13 @@ function awaitHeadOnDispute(fixed, blocking) {
   return openResult('awaiting-head', 'fix', { reason: committed ? 'the fixer disputes findings with counter-evidence; the returned tip carries fix commits no reviewer has seen' : 'the fixer disputes every finding with counter-evidence and committed nothing', lastBlocking: blocking })
 }
 
+// A batch of CI findings only, every one disputed with counter-evidence and nothing committed, is a flake the lane re-runs once before the head sees it.
+let flakeRerunUsed = false
+function isFlakeDispute(fixed, blocking, source) {
+  if (flakeRerunUsed || source !== 'CI' || !fixed.unchanged) return false
+  return blocking.every(f => fixed.disputed.some(d => d.where === f.where && (d.counterEvidence || '').trim()))
+}
+const disputeFlakes = (fixed, blocking) => fixed.disputed.filter(d => blocking.some(f => f.where === d.where)).map(d => ({ where: d.where, text: `${d.text} (a flake; the fixer's counter-evidence: ${d.counterEvidence})`, owner: 'distributor' }))
 // The evidence the fixer gave for a fold-in it found already done, or undefined without any.
 const satisfiedEvidence = (fixed, foldIn) => (fixed.resolved || []).find(r => r.where === foldIn.where && (r.evidence || '').trim())?.evidence
 // An unchanged tip is a fix only when there are no blocking findings and every fold-in is proven already satisfied.
@@ -488,7 +482,7 @@ async function fixRound(blocking, source, budgetKey, carried) {
   if (answered.problem || failedCommand(answered.values)) return { stop: openResult('failed', 'fix', { reason: `the fixer's relay line ${answered.problem || 'reports a failed git command'}${printedLine(answered)}` }) }
   const { values } = answered
   const fixed = { ...answered, tip: values.head.out, heldTip: tipBeforeFix, unchanged: sameCommit(values.head.out, tipBeforeFix), mergeOnly: mergedOnto(values, tipBeforeFix), containsMain: values.main.code === 0 }
-  if ((fixed.disputed || []).length) return unaccepted(awaitHeadOnDispute(fixed, blocking))
+  if ((fixed.disputed || []).length) return isFlakeDispute(fixed, blocking, source) ? { flakes: disputeFlakes(fixed, blocking), fixed } : unaccepted(awaitHeadOnDispute(fixed, blocking))
   const rejection = fixRejection(fixed, blocking, foldIn, source === 'CI')
   if (rejection) return unaccepted(openResult('failed', 'fix', rejection))
   const accepted = acceptFix(fixed, blocking, foldIn)
@@ -512,8 +506,7 @@ async function fixRound(blocking, source, budgetKey, carried) {
 function scopeStop(paths, origin, total) {
   const listed = paths.join(', ')
   const omitted = total > paths.length ? ` and ${total - paths.length} more` : ''
-  const deltaClause = origin.deltaFrom ? ` and deltaFrom ${origin.deltaFrom}` : ''
-  const newRun = `a new run with pr and tip${deltaClause}`
+  const newRun = ['a new run with pr and tip', origin.deltaFrom && ` and deltaFrom ${origin.deltaFrom}`].filter(Boolean).join('')
   history.push({ by: 'scope', outside: paths, tip })
   return { stop: openResult('awaiting-head', 'scope', { outside: paths, reason:
     `Outside the claim scope: ${listed}${omitted}. No fixer was launched. ${origin.note} Either run aco rescope for them and start ${newRun}, ` +
@@ -568,12 +561,11 @@ function awaitHead(rr, reason, extra = {}) {
   const resume = `start a new run with pr and tip${rr.from ? ', deltaFrom and answers as returned' : ''}${lastBlocking.length ? ' and fixFirst carrying lastBlocking' : ''}.`
   return openResult('awaiting-head', 'review', { ...extra, lastBlocking, ...(rr.from && { deltaFrom: rr.from, answers: rr.range }), reason: `${reason} ${resume}` })
 }
-
 function awaitLimit(rr) {
   const limits = rr.results.filter(v => v?.limit).map(v => v.limit)
-  const named = limits.filter(l => l.resetsAt).map(l => `${l.role} (${l.model}) at ${l.resetsAt}`)
-  const reset = named.length ? `Codex named the reset time: ${named.join('; ')}.` : 'Codex named no reset time.'
-  return awaitHead(rr, `a Codex reviewer hit its usage limit; the review never moves to another provider. ${reset} After the reset`, { limits })
+  const named = limits.filter(l => l.resetsAt).map(l => `${l.role} (${l.model}) at ${l.resetsAt}`).join('; ')
+  const resetText = named ? `Codex named the reset time: ${named}.` : 'Codex named no reset time.'
+  return awaitHead(rr, `a Codex reviewer hit its usage limit; the review never moves to another provider. ${resetText} After the reset`, { limits })
 }
 
 // A courier twice found no brief in its transcript: a defect of the plugin on this host that a resume would meet again, so none is offered.
@@ -581,7 +573,6 @@ const reportNoBriefRecord = rr => openResult('awaiting-head', 'review', {
   lastBlocking: rr.results.filter(Boolean).flatMap(v => v.blocking || []), reason: `a Codex courier found no brief in its own transcript, twice, and started no Codex: ${rr.verdict.reason}.`,
   requiredHeadActions: ['report the defect to the marketplace repository: the courier of lane-review cannot read its brief from the workflow agent transcript', 'until it is repaired, run the gate through routing.gate (the Opus stand-in)'],
 })
-
 const awaitBrief = rr => awaitHead(rr, `a Codex courier wrote a different brief than the script composed, twice, and started no Codex: ${rr.verdict.reason}. Then`)
 
 // A fresh Claude reviewer stands in for a gate at its usage limit only on a delta that touched no productionPaths prefix,
@@ -600,7 +591,6 @@ async function standIn(rr) {
   phase('Review')
   return settleReview(await reviewRound([STANDIN], range, last.tip))
 }
-
 const settleLimit = rr => standInAllowed(rr) ? standIn(rr) : awaitLimit(rr)
 
 // Each round judges the previous fix, so rounds run one after another; the fix budgets bound the recursion.
@@ -671,8 +661,8 @@ function explore(n) {
   return startChild('lane-test', { protocol: LANE_TEST_PROTOCOL, delegatedLine: DELEGATED_LINE, n, pr, tip, worktree: A.worktree, scratch: A.scratch, tag: TAG, e2e: A.e2e, contract: A.contract, laneFacts, blockingLine: BLOCKING_LINE, finding: FINDING, followup: FOLLOWUP, routing: claudeRole('test') })
 }
 
-async function watchCi(n) {
-  const watched = await startChild('lane-ci', { protocol: LANE_CI_PROTOCOL, delegatedLine: DELEGATED_LINE, pr, n, repo: A.repo, worktree: A.worktree, finding: FINDING, mechanical: MECHANICAL })
+async function watchCi(n, rerun) {
+  const watched = await startChild('lane-ci', { protocol: LANE_CI_PROTOCOL, delegatedLine: DELEGATED_LINE, pr, n, rerun, repo: A.repo, worktree: A.worktree, finding: FINDING, mechanical: MECHANICAL })
   if (!watched || watched.problem) return watched
   const nonce = `ci-${n}-${tip}`
   const read = await relay({ label: `ci-read-${n}`, phase: 'Test and CI', step: 'ci', relayArgs: [pr, `'${A.repo || ''}'`, `'${nonce}'`], nonce, requiredKeys: ['view'], brief: `${laneFacts}\nChange nothing in the files;` })
@@ -704,6 +694,7 @@ function lockQueueCiState(ci) {
 // has nothing of its own to fix. The tester judges the tip it started on, which later fixes may move. One tester runs at a time.
 let n = 0, testCalls = 0, needTest = true, lockRetried = false, testSettled = false
 let pendingTest = null  // the tester started and not yet judged
+let rerunRed  // the red jobs a flake dispute hands to the next watch for one re-run
 let testBlocking = []  // the tester's findings, held until a fix batch takes them
 function startTest() {
   needTest = productionSinceTest = testSettled = false
@@ -737,7 +728,9 @@ async function settleTest(ci, awaitRetry = true) {
 while (true) {
   phase('Test and CI')
   if (needTest && !pendingTest) startTest()
-  const ci = await watchCi(n)
+  const rerunBatch = rerunRed
+  const ci = await watchCi(n, rerunBatch?.red)
+  rerunRed = undefined
   n++
   if (!ci || ci.problem) {
     const stop = pendingTest && await settleTest(ci)
@@ -752,6 +745,8 @@ while (true) {
   history.push({ after: spent.total, by: `ci-${n - 1}`, verdict: ci.green && !unproven && !ci.rulesError ? 'GREEN' : 'RED', blocking: (ci.failing || []).map(f => f.where) })
   if (ci.rulesError) return openResult('failed', 'ci', { reason: `the required checks of the base branch could not be read: ${ci.rulesError}` })
   if (unproven) return openResult('failed', 'ci', { reason: `CI reported green, but the check listing does not prove it: ${unproven}` })
+  // The one re-run of a disputed flake came back red: the disagreement between the fixer and CI is the head's.
+  if (rerunBatch && !ci.green) return awaitHeadOnDispute(rerunBatch.fixed, rerunBatch.blocking)
   if (testBlocking.length === 0 && ci.green) {
     if (!needTest) break
     continue
@@ -769,6 +764,14 @@ while (true) {
   const ciBlocking = ci.green || shared.length ? [] : (ci.failing || [])
   const f = await fixRound(taken.concat(ciBlocking), taken.length ? 'the end-to-end test and CI' : 'CI', ci.green || shared.length ? 'test' : 'ci')
   if (f.stop) return f.stop
+  if (f.flakes) {
+    if (!(ci.red?.length && ci.red.every(job => job.runId && job.jobId))) return awaitHeadOnDispute(f.fixed, ciBlocking)
+    flakeRerunUsed = true
+    followups.push(...f.flakes)
+    adoptFixerTip(f.fixed)
+    rerunRed = { red: ci.red, fixed: f.fixed, blocking: ciBlocking }
+    continue
+  }
   const stop = f.range && await reviewUntilClean(f.gateAgain ? ALL : [REVIEW], f.range, f.deltaFrom)
   if (stop) return stop
   // The tester runs again when it had failed or when any fix since its last run (a review fix included) touched production.

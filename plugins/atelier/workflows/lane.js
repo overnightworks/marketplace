@@ -40,8 +40,9 @@ const PRODUCTION = A.productionPaths || ['src/', 'pyproject.toml', 'uv.lock']
 const B = { review: 5, test: 2, ci: 3, total: 8, ...A.budgets }
 const LEDGERS = A.ledgers || []
 // Paths outside the claim do not stop the lane; the head adds them to the claim before landing.
-const passedOutsidePaths = new Set()
-// `aco rescope` refuses more than this many paths without --whole.
+// Only the newest scope check counts: a path a later fixer reverted is no longer outside.
+let passedOutsidePaths = []
+// `aco rescope` refuses more than this many paths, and any directory, without --whole.
 const MAX_PATHS_WITHOUT_WHOLE = 3
 const GENERATED = Object.entries(A.generated || {})
 // The one table of every role's model and effort (instructions/HEAD.md, "Model routing"), by the lane's risk; effort is capped per model (opus medium, others high).
@@ -439,7 +440,7 @@ async function fixRound(blocking, source, budgetKey, carried) {
 // The script, not the builder or fixer, makes sure the remote branch carries the lane tip, before the claim-scope check
 // and every review. Never a force push: a rejected push stops the lane.
 // aco decides what the claim covers; the lane only asks.
-// A stray path is the head's choice, never a fixer's: a fixer can only revert it, and the change may be needed.
+// Reached only when aco's outside list is truncated, so the lane cannot judge the unlisted paths: the head chooses between a rescope and a revert.
 // origin says where the hit came from: a note, and the tip the new run reviews from, when the lane knows one.
 function scopeStop(paths, origin, total) {
   const listed = paths.join(', ')
@@ -476,11 +477,12 @@ async function pushAndCheckScope(label, origin) {
   const paths = values.outside_claim
   if (paths === null) return fail('scope', 'the lane holds no live claim (outside_claim is null); a lane without a claim does not reach review')
   if (!Array.isArray(paths) || !paths.every(path => typeof path === 'string')) return fail('scope', `aco's outside_claim is neither null nor a list of paths: ${JSON.stringify(paths)}`)
+  passedOutsidePaths = []
   if (!paths.length) return null
   // The relay lists at most 50 paths; the unlisted ones cannot be judged.
   if (values.count === paths.length) {
     history.push({ by: 'scope', outside: paths, tip, passedOutside: true })
-    paths.forEach(path => passedOutsidePaths.add(path))
+    passedOutsidePaths = [...new Set(paths)]
     return null
   }
   return scopeStop(paths, origin, values.count)
@@ -707,15 +709,17 @@ while (true) {
   needTest ||= taken.length > 0 || productionSinceTest
 }
 
-const rescopeAdds = [...passedOutsidePaths].map(path => '--add ' + path).join(' ')
-const rescopeWhole = passedOutsidePaths.size > MAX_PATHS_WITHOUT_WHOLE ? ' --whole "<one sentence why this scope does not split>"' : ''
+const shellQuoted = path => `'${path.replaceAll("'", `'\\''`)}'`
+const rescopeAdds = passedOutsidePaths.map(path => '--add ' + shellQuoted(path)).join(' ')
+const needsWhole = passedOutsidePaths.length > MAX_PATHS_WITHOUT_WHOLE || passedOutsidePaths.some(path => path.endsWith('/'))
+const rescopeWhole = needsWhole ? ' --whole "<one sentence why this scope does not split>"' : ''
 const rescopeCommand = 'aco rescope ' + A.item + ' ' + rescopeAdds + rescopeWhole
 const stillOpen = openFollowups()
 return {
   status: 'ready-to-land', pr, tip, spent, routing: ROUTING, history, followups: stillOpen, raisedBeforeTip: raisedBeforeTip(stillOpen), folded: [...folded.values()], disputed,
-  ...gateUnseenView(), pathsOutsideClaim: [...passedOutsidePaths],
+  ...gateUnseenView(), pathsOutsideClaim: passedOutsidePaths,
   requiredHeadActions: [
-    ...(passedOutsidePaths.size ? [`run \`${rescopeCommand}\` from ${A.worktree} before landing: these paths are outside the claim and passed the scope check`] : []),
+    ...(passedOutsidePaths.length ? [`run \`${rescopeCommand}\` from ${A.worktree} before landing: these paths are outside the claim and passed the scope check`] : []),
     `land with \`aco land ${pr}\` only while the pull request head is still ${tip}`,
     ...(MATERIAL && isGateStandIn('gate', ROUTING.gate.model, ROUTING.gate.effort) ? [`name the Opus 5.5 stand-in as the final gate in the body of pull request #${pr}: the lane ran no Codex gate`] : []),
     ...(gateUnseen ? [`name ${gateUnseen.seenTip}..${tip} in the body of pull request #${pr}: the final gate, at its usage limit, did not see that range`] : []),

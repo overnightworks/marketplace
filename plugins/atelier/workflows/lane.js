@@ -232,18 +232,21 @@ const gateUnseenView = () => gateUnseen ? { gateUnseen: { ...gateUnseen, tip } }
 // The Routing line comes from lane-routing (aco's specs/lane-record.spec.md owns the grammar); the head pastes it as is.
 async function routingLine() {
   const line = await startChild('lane-routing', { protocol: LANE_ROUTING_PROTOCOL, routing: ROUTING, history, fixRole: fixRolesRun.at(-1) ?? null, rounds: spent.total, experiment: A.experiment })
+  if (lateProtocolRefusal?.startsWith('lane-routing:') && typeof line !== 'string') return null  // the caller turns the late refusal into awaiting-head
   if (typeof line !== 'string') throw new Error(`the Routing line could not be printed: ${line?.problem ?? JSON.stringify(line)}`)
   return line
 }
-const lateProtocolStop = () => ({
+const lateProtocolStop = (extra) => ({
   status: 'awaiting-head',
   reason: `a child refused after the start-of-run check because atelier was installed while this lane ran (${lateProtocolRefusal})`,
   requiredHeadActions: [pr
-    ? `run /reload-plugins, then start a new run with pr ${pr} and tip ${tip}${A.deltaFrom ? ` and deltaFrom ${A.deltaFrom}` : ''} to continue on the installed version`
+    ? `run /reload-plugins, then start a new run with pr ${pr} and tip ${tip}${(extra.deltaFrom ?? A.deltaFrom) ? ` and deltaFrom ${extra.deltaFrom ?? A.deltaFrom}${extra.answers ? ' and answers as returned' : ''}` : ''} to continue on the installed version`
     : 'run /reload-plugins, then start a new run with the same build brief; the builder did not start'],
 })
-const openResult = async (status, stage, extra) =>
-  ({ status, stage, pr, tip, spent, routing: ROUTING, routingLine: await routingLine(), history, followups: openFollowups(), raisedBeforeTip: raisedBeforeTip(openFollowups()), folded: [...folded.values()], disputed, ...gateUnseenView(), ...extra, ...(status === 'failed' && lateProtocolRefusal && lateProtocolStop()) })
+const openResult = async (status, stage, extra = {}) => {
+  const line = await routingLine()
+  return { status, stage, pr, tip, spent, routing: ROUTING, ...(line !== null && { routingLine: line }), history, followups: openFollowups(), raisedBeforeTip: raisedBeforeTip(openFollowups()), folded: [...folded.values()], disputed, ...gateUnseenView(), ...extra, ...((status === 'failed' || line === null) && lateProtocolRefusal && lateProtocolStop(extra)) }
+}
 
 // ---------------------------------------------------------------- children
 // Every child answers { protocolQuery: true } with its protocol before it checks anything else and starts no agent, so a session that
@@ -300,7 +303,7 @@ async function reviewRound(which, range, from) {
   const reviewers = which.map(r => ({ key: r.key, provider: r.provider, role: r.role, isGate: r === GATE, routing: claudeRole(r === GATE ? 'gate' : 'review') }))
   const answer = await startChild('lane-review', { protocol: LANE_REVIEW_PROTOCOL, item: A.item, pr, repo: A.repo, after: spent.total, tip, delegatedLine: DELEGATED_LINE, worktree: A.worktree, branch: A.branch, scratch: A.scratch, tag: TAG, label: `r${spent.total}`, range, contract: A.contract, blockingLine: BLOCKING_LINE, reviewers, findingKinds: FINDING_KINDS, finding: FINDING, followup: FOLLOWUP, mechanical: MECHANICAL })
   const unfit = unfitRoundAnswer(answer, which.length)
-  if (unfit) return { which, results: [], verdict: { state: 'failed', reason: unfit } }
+  if (unfit) return { which, results: [], verdict: { state: 'failed', reason: unfit }, range, from }
   const { results, verdict } = answer
   history.push(...answer.history)
   followups.push(...answer.followups)
@@ -575,7 +578,7 @@ async function settleReview(rr) {
     phase('Review')
     return settleReview(await reviewRound(next, f.range, f.deltaFrom))
   }
-  if (rr.verdict.state === 'failed') return openResult('failed', 'review', { reason: rr.verdict.reason })
+  if (rr.verdict.state === 'failed') return openResult('failed', 'review', { reason: rr.verdict.reason, ...(rr.from && { deltaFrom: rr.from, answers: rr.range }) })
   if (rr.verdict.state === 'architectural') return openResult('escalated', 'review', { reason: 'architectural verdict' })
   return null
 }
@@ -745,8 +748,10 @@ const shellQuoted = path => "'" + path.replaceAll("'", escapedQuote) + "'"
 const rescopeAdds = passedOutsidePaths.map(path => '--add ' + shellQuoted(path)).join(' ')
 const rescopeCommand = 'aco rescope ' + A.item + ' ' + rescopeAdds
 const stillOpen = openFollowups()
+const finalRoutingLine = await routingLine()
+if (finalRoutingLine === null) return await openResult('awaiting-head', 'routing')
 return {
-  status: 'ready-to-land', pr, tip, spent, routing: ROUTING, routingLine: await routingLine(), history, followups: stillOpen, raisedBeforeTip: raisedBeforeTip(stillOpen), folded: [...folded.values()], disputed,
+  status: 'ready-to-land', pr, tip, spent, routing: ROUTING, routingLine: finalRoutingLine, history, followups: stillOpen, raisedBeforeTip: raisedBeforeTip(stillOpen), folded: [...folded.values()], disputed,
   ...gateUnseenView(), pathsOutsideClaim: passedOutsidePaths,
   requiredHeadActions: [
     ...(passedOutsidePaths.length ? [`write these paths into the scope of item #${A.item}'s body (and a one-sentence whole there when the combined scope is wide), then run \`${rescopeCommand}\` from ${A.worktree} before landing: these paths are outside the claim and passed the scope check`] : []),

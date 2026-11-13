@@ -42,8 +42,6 @@ const LEDGERS = A.ledgers || []
 // Paths outside the claim do not stop the lane; the head adds them to the claim before landing.
 // Only the newest scope check counts: a path a later fixer reverted is no longer outside.
 let passedOutsidePaths = []
-// `aco rescope` refuses more than this many paths, and any directory, without --whole.
-const MAX_PATHS_WITHOUT_WHOLE = 3
 const GENERATED = Object.entries(A.generated || {})
 // The one table of every role's model and effort (instructions/HEAD.md, "Model routing"), by the lane's risk; effort is capped per model (opus medium, others high).
 const MODEL_PROVIDER = { haiku: 'claude', sonnet: 'claude', opus: 'claude', 'gpt-6-astra': 'codex' }
@@ -711,15 +709,13 @@ while (true) {
 
 const shellQuoted = path => `'${path.replaceAll("'", `'\\''`)}'`
 const rescopeAdds = passedOutsidePaths.map(path => '--add ' + shellQuoted(path)).join(' ')
-const needsWhole = passedOutsidePaths.length > MAX_PATHS_WITHOUT_WHOLE || passedOutsidePaths.some(path => path.endsWith('/'))
-const rescopeWhole = needsWhole ? ' --whole "<one sentence why this scope does not split>"' : ''
-const rescopeCommand = 'aco rescope ' + A.item + ' ' + rescopeAdds + rescopeWhole
+const rescopeCommand = 'aco rescope ' + A.item + ' ' + rescopeAdds
 const stillOpen = openFollowups()
 return {
   status: 'ready-to-land', pr, tip, spent, routing: ROUTING, history, followups: stillOpen, raisedBeforeTip: raisedBeforeTip(stillOpen), folded: [...folded.values()], disputed,
   ...gateUnseenView(), pathsOutsideClaim: passedOutsidePaths,
   requiredHeadActions: [
-    ...(passedOutsidePaths.length ? [`run \`${rescopeCommand}\` from ${A.worktree} before landing: these paths are outside the claim and passed the scope check`] : []),
+    ...(passedOutsidePaths.length ? [`write these paths into the scope of item #${A.item}'s body (and a one-sentence whole there when the combined scope is wide), then run \`${rescopeCommand}\` from ${A.worktree} before landing: these paths are outside the claim and passed the scope check`] : []),
     `land with \`aco land ${pr}\` only while the pull request head is still ${tip}`,
     ...(MATERIAL && isGateStandIn('gate', ROUTING.gate.model, ROUTING.gate.effort) ? [`name the Opus 5.5 stand-in as the final gate in the body of pull request #${pr}: the lane ran no Codex gate`] : []),
     ...(gateUnseen ? [`name ${gateUnseen.seenTip}..${tip} in the body of pull request #${pr}: the final gate, at its usage limit, did not see that range`] : []),

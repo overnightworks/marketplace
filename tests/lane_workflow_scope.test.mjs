@@ -495,10 +495,10 @@ test('AC-outside-paths-pass: a fixer that reverts every outside path leaves no r
   assert.ok(!result.requiredHeadActions.some(action => action.includes('aco rescope')))
 })
 
-test('AC-outside-paths-pass: a directory among the outside paths adds --whole to the rescope action', async () => {
+test('AC-outside-paths-pass: a directory among the outside paths adds no --whole to the rescope action', async () => {
   const { result } = await runLane(resumeArgs, { 'scope-resume': outsideClaim(['docs/']), 'r0-review': APPROVE, ...endsGreenAt(resumeTip) })
   const [action] = result.requiredHeadActions.filter(entry => entry.includes('aco rescope'))
-  assert.ok(action.includes(`--add 'docs/' --whole "`), action)
+  assert.ok(action.includes("--add 'docs/'") && !action.includes('--whole'), action)
 })
 
 test('AC-outside-paths-pass: a single quote in an outside path is escaped in the rescope action', async () => {
@@ -507,10 +507,11 @@ test('AC-outside-paths-pass: a single quote in an outside path is escaped in the
   assert.ok(action.includes(`--add 'docs/it'\\''s.md'`), action)
 })
 
-test('AC-outside-paths-pass: more than three outside paths add --whole to the rescope action', async () => {
+test('AC-outside-paths-pass: several outside paths add no --whole and the action names the body\'s scope and whole', async () => {
   const fourFiles = [...outsideFiles, 'tests/test_a.py', 'tests/test_b.py']
   const { result } = await runLane(resumeArgs, { 'scope-resume': outsideClaim(fourFiles), 'r0-review': APPROVE, ...endsGreenAt(resumeTip) })
   assert.equal(result.status, 'ready-to-land', result.reason)
   const [action] = result.requiredHeadActions.filter(entry => entry.includes('aco rescope'))
-  assert.ok(action.includes(`${fourFiles.map(path => `--add '${path}'`).join(' ')} --whole "`), action)
+  assert.ok(action.includes(`${fourFiles.map(path => `--add '${path}'`).join(' ')}\``) && !action.includes('--whole "'), action)
+  assert.ok(action.includes("scope of item #") && action.includes('one-sentence whole'), action)
 })

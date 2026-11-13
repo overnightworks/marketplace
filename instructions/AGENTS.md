@@ -214,17 +214,21 @@ Every review finding is marked **blocking** or **follow-up**.
 - Before a local test run, probe stack, coverage job or image build, read the
   1-minute load average; above 1.5 × cores, wait or do claim-free work.
   Thinking, editing, review and landing stay allowed.
-- One probe stack per machine: a browser proof, live Docker probe stack or
-  targeted E2E runs only as
-  `flock -o -w 3600 /tmp/probe-stack.lock setpriv --pdeathsig TERM timeout -k 30 1800 <command>`.
-  A targeted test run's own throwaway database container is no probe stack: it
-  keeps the load check, the `setpriv`/`timeout` cap and the trapped teardown,
-  and takes no lock. A repository script may choose its own `-k K CAP` with
+- Probe stacks are limited by load alone, with no fixed number of slots: a
+  browser proof, live Docker probe stack or targeted E2E run drives only as
+  `probe-run [-k K CAP] <command>`, the shipped command that waits up to an hour
+  until the 1-minute load is below 1.5 × cores, then runs
+  `setpriv --pdeathsig TERM timeout -k K CAP <command>` (default K 30, CAP 1800).
+  Building the page, installing dependencies and starting a throwaway database
+  run before `probe-run`, which wraps only the drive. A targeted test run's own
+  throwaway database container is no probe stack: it keeps the load check, the
+  `setpriv`/`timeout` cap and the trapped teardown, and does not use
+  `probe-run`. A repository script may choose its own `-k K CAP` with
   CAP + K ≤ 1830 and K at least its measured teardown, stated next to the
   numbers. `<command>` is an executable (a script or `bash -c '…'`); a script
   that starts containers tears them and the images it built down in
   `trap '<teardown>' EXIT TERM` and stops a child that detaches itself by pid.
-  The cap frees the lock even if you stop, and a stack that needs longer is
+  The cap ends the stack even if you stop, and a stack that needs longer is
   cut, not raised. Never skip the proof, never point at the operator's live
   stack. Drive only the slice's flow, at the widths the brief names. A test that
   starts a process ends it before its worktree is removed.

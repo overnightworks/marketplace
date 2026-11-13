@@ -53,7 +53,9 @@ def test_starts_the_command_capped_within_the_total_limit_when_the_load_is_below
     assert result.returncode == 0
     assert timeout_arguments[:4] == ["--pdeathsig", "TERM", "timeout", "-k"]
     kill_after, cap = (int(seconds) for seconds in timeout_arguments[4:])
-    assert 0 < kill_after and 0 < cap and cap + kill_after <= MAXIMUM_TOTAL_SECONDS
+    assert kill_after > 0
+    assert cap > 0
+    assert cap + kill_after <= MAXIMUM_TOTAL_SECONDS
     assert (command, flag) == ("my-stack", "--flag")
 
 

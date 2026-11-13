@@ -25,7 +25,8 @@ fail() {
 
 # Four digits keep every duration far below the Bash integer limit before they are added.
 is_positive_integer() {
-  [[ $1 =~ ^[1-9][0-9]{0,3}$ ]]
+  local candidate=$1
+  [[ $candidate =~ ^[1-9][0-9]{0,3}$ ]]
 }
 
 if [[ ${1:-} == -k ]]; then

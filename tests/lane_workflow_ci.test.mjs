@@ -214,11 +214,22 @@ test('ci-shared-red: a check red on head but green on the base still gets its fi
   assert.ok(launchedAgents.includes('fix-2'))
 })
 
-test('ci-shared-red: a shared red together with a red of the lane own goes to the head, naming the shared one', async () => {
-  const { result, launchedAgents } = await driveCi(redCi(['quality / hygiene', 'Python: tests'], [run('quality / hygiene', 'failure'), run('Python: tests', 'success')]))
-  assert.deepEqual([result.status, result.stage], ['awaiting-head', 'ci'])
-  assert.match(result.reason, /quality \/ hygiene/)
-  assert.ok(!launchedAgents.includes('fix-2'))
+test('ci-shared-red: a shared red together with a red of the lane own sends only the own red to the fixer and does not stop the lane', async () => {
+  const { result, agentCalls } = await driveCi(redCi(['quality / hygiene', 'Python: tests'], [run('quality / hygiene', 'failure'), run('Python: tests', 'success')]))
+  assert.notEqual(result.status, 'awaiting-head')
+  assert.match(agentCalls['fix-2'].prompt, /Python: tests/)
+  assert.doesNotMatch(agentCalls['fix-2'].prompt, /quality \/ hygiene/)
+})
+
+test('ci-shared-red: findings quoted as path:line under a shared check stay out of the fixer while another check own findings go in', async () => {
+  const sonarFinding = { where: 'src/a.py:4', kind: 'defect', text: 'duplicated lines', rule: 'python:S1192', evidence: 'sonar src/a.py:4' }
+  const sharedJob = { ...redJob('quality / sonar', 'Run sonar'), findings: [sonarFinding] }
+  const ownJob = redJob('quality / check', 'Run check', ['11', '23'])
+  const baseChecks = [run('quality / sonar', 'failure'), run('quality / check', 'success')]
+  const answer = ciAnswer([check(required, 'pass'), check('quality / sonar', 'fail'), check('quality / check', 'fail')], { green: false, failing: [sonarFinding, ...ownJob.findings], red: [sharedJob, ownJob], baseChecks })
+  const { agentCalls } = await driveCi(answer)
+  assert.match(agentCalls['fix-2'].prompt, /quality \/ check/)
+  assert.doesNotMatch(agentCalls['fix-2'].prompt, /src\/a\.py:4/)
 })
 
 for (const [what, baseChecks] of [['an empty baseChecks', []], ['no baseChecks', undefined], ['a base run of the same name still pending', [run('quality / hygiene', null)]], ['a name missing on the base', [run('other', 'failure')]]]) {

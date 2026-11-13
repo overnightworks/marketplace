@@ -698,8 +698,7 @@ function startTest() {
   pendingTest = explore(testCalls++).then(e2e => { testSettled = true; return e2e })
 }
 const takePendingTest = () => pendingTest.then(e2e => { pendingTest = null; return e2e })
-// Judges the pending tester's answer; returns the result that stops the lane, or undefined. A lock-busy answer is retried once:
-// awaited here when CI has nothing of its own to fix, else left pending while the fixer starts.
+// Judges the pending tester's answer; returns the result that stops the lane, or undefined. A lock-busy answer is retried once, awaited when CI has nothing of its own to fix.
 async function settleTest(ci, awaitRetry = true) {
   let e2e = await takePendingTest()
   if (e2e?.verdict === 'failed' && e2e.lockBusy && !lockRetried) {
@@ -722,21 +721,25 @@ async function settleTest(ci, awaitRetry = true) {
   // A PASS on a tip a fix has since changed in production is stale: a new tester runs on the current tip.
   if (productionSinceTest) needTest = true
 }
+// The failing findings of the checks main does not share: a shared check's red entries and findings named by it leave the fixer's batch.
+// The failing findings of checks main does not share: a shared check's red entries and findings named by it are left out.
+function ownFailing({ shared, red = [], failing = [] }) {
+  const sharedEntries = red.filter(job => shared.includes(job.name)).flatMap(job => job.findings.map(entry => JSON.stringify(entry)))
+  return failing.filter(entry => !sharedEntries.includes(JSON.stringify(entry)) && ![entry.where, String(entry.rule).replace(/^CI check /, '')].some(name => shared.includes(name)))
+}
 while (true) {
   phase('Test and CI')
   if (needTest && !pendingTest) startTest()
-  const rerunBatch = rerunRed
-  const ci = await watchCi(n, rerunBatch?.red)
-  rerunRed = undefined
-  n++
+  const rerunBatch = rerunRed, ci = await watchCi(n, rerunBatch?.red)
+  rerunRed = undefined; n++
   if (!ci || ci.problem) {
     const stop = pendingTest && await settleTest(ci)
     return stop || await openResult('failed', 'ci', ci ? { reason: `the CI watcher ${ci.problem}` } : undefined)
   }
   if (!sameCommit(ci.head, tip)) return await openResult('failed', 'ci', { reason: `the pull request head ${ci.head} is not the lane tip ${tip}` })
-  const { shared, unproven } = ci
-  if (pendingTest && (testSettled || ci.green || shared.length || ci.operatorDoor)) {
-    const stop = await settleTest(ci, ci.green || shared.length > 0 || Boolean(ci.operatorDoor))
+  const { shared, unproven } = ci, ownRed = ownFailing(ci), sharedOnly = shared.length > 0 && ownRed.length === 0
+  if (pendingTest && (testSettled || ci.green || sharedOnly || ci.operatorDoor)) {
+    const stop = await settleTest(ci, ci.green || sharedOnly || Boolean(ci.operatorDoor))
     if (stop) return stop
   }
   history.push({ after: spent.total, by: `ci-${n - 1}`, verdict: ci.green && !unproven && !ci.rulesError ? 'GREEN' : 'RED', blocking: (ci.failing || []).map(f => f.where) })
@@ -748,18 +751,16 @@ while (true) {
     if (!needTest) break
     continue
   }
-  if (shared.length && testBlocking.length === 0) {
-    const checkList = shared.map(name => `"${name}"`).join(', ')
-    return await openResult('awaiting-head', 'ci', { reason: `the CI check(s) ${checkList} are red on the base branch tip too: the red is shared with main and is fixed there, so no fixer was launched. If this lane's item is that repair, start a new run with pr and tip and fixFirst.` })
+  if (sharedOnly && testBlocking.length === 0) {
+    return await openResult('awaiting-head', 'ci', { reason: `the CI check(s) ${shared.map(name => `"${name}"`).join(', ')} are red on the base branch tip too: the red is shared with main and is fixed there, so no fixer was launched. If this lane's item is that repair, start a new run with pr and tip and fixFirst.` })
   }
   if (ci.operatorDoor && testBlocking.length === 0) {
     if (needTest) continue
     return await openResult('awaiting-head', 'ci', { reason: `the only red check is the quality verdict, red because the diff holds only declared loosenings, which only the operator merges, so no fixer was launched. It waits at the operator's merge door: run \`${ci.operatorDoor}\`.` })
   }
-  const taken = testBlocking
-  testBlocking = []
-  const ciBlocking = ci.green || shared.length ? [] : (ci.failing || [])
-  const f = await fixRound(taken.concat(ciBlocking), taken.length ? 'the end-to-end test and CI' : 'CI', ci.green || shared.length ? 'test' : 'ci')
+  const taken = testBlocking; testBlocking = []
+  const ciBlocking = ci.green || sharedOnly ? [] : ownRed
+  const f = await fixRound(taken.concat(ciBlocking), taken.length ? 'the end-to-end test and CI' : 'CI', ci.green || sharedOnly ? 'test' : 'ci')
   if (f.stop) return f.stop
   if (f.flakes) {
     if (!(ci.red?.length && ci.red.every(job => job.runId && job.jobId))) return await awaitHeadOnDispute(f.fixed, ciBlocking)

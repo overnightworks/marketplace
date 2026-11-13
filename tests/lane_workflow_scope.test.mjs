@@ -129,12 +129,12 @@ test('AC-sync-in-worktree: the sync prompt separates the no-op sentence from the
   assert.ok(agentCalls.sync.prompt.includes('change nothing. Otherwise'), agentCalls.sync.prompt)
 })
 
-test('AC-scratch-and-load: the builder and fixer know the scratch path and the tester re-reads the load after the lock', async () => {
+test('AC-scratch-and-load: the builder and fixer know the scratch path and the tester prepares first, wraps only the drive in probe-run and drives only what CI does not prove', async () => {
   const replay = webauthReplay
   const args = { ...replay.args, scratch: '/drive-scratch' }
   const { agentCalls } = await runLane(args, answersWith(replay, { kind: 'test-gap', mutation: true }))
   for (const label of ['build', 'fix-1']) assert.match(agentCalls[label].prompt, /pidfiles and evidence under \/drive-scratch/)
-  assert.match(agentCalls['e2e-0'].prompt, /Before you queue, prepare and check everything that needs no server or browser.*waits inside the lock, up to 300 seconds.*ends without starting a stack/)
+  assert.match(agentCalls['e2e-0'].prompt, /Drive only the cells no named CI test proves; for every cell you skip, name the CI test that proves it.*Prepare and check everything that needs no server or browser first.*wrap only the drive in `probe-run`.*ends without starting the stack because the load stayed above the limit/)
 })
 
 const stepsThatMustPush = [

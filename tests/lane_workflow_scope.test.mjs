@@ -311,6 +311,12 @@ for (const [what, parents, writesHistory] of [['moved the branch', [otherCommit]
   })
 }
 
+test('AC-scope-relay: a scope step after a review fixer that returns no result fails the lane at scope and names no deltaFrom', async () => {
+  const { result } = await runLane(resumeArgs, { 'r0-review': reviseOnce, 'fix-1': aFixFor, 'scope-1': null })
+  assert.deepEqual([result.status, result.stage], ['failed', 'scope'])
+  assert.equal(result.deltaFrom, undefined)
+})
+
 test('AC-sync-tip-relayed: an up-to-date lane keeps its tip and writes no history', async () => {
   const { result } = await runLane(resumeArgs, reachesTheEndAt(resumeTip))
   assert.equal(result.tip, resumeTip)

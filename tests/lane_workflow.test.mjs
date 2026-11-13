@@ -582,6 +582,21 @@ test('late-protocol-refusal: lane-routing refusing in a stage that ends in an op
   assert.equal(result.routingLine, undefined)
 })
 
+const printerBroke = () => "return { problem: 'the printer broke' }"
+
+test('routing-line-problem: a lane-routing that answers with a problem leaves the lane result and names the problem in the Routing line', async () => {
+  const { result } = await runLane({ ...resumeArgs, deltaFrom: 'not a sha' }, {}, { child: 'atelier:lane-routing', transformChild: printerBroke })
+  assert.deepEqual([result.status, result.stage, result.reason], ['failed', 'input', 'deltaFrom is not a sha'])
+  assert.match(result.routingLine, /not printed.*the printer broke/)
+})
+
+const routingProtocolOf = (source) => Number(source.match(/^const LANE_ROUTING_PROTOCOL = (\d+)$/m)?.[1])
+
+test('lane-routing-protocol: lane.js and lane-routing.js hold the same protocol number', () => {
+  assert.ok(Number.isInteger(routingProtocolOf(readWorkflow('lane.js'))))
+  assert.equal(routingProtocolOf(readWorkflow('lane-routing.js')), routingProtocolOf(readWorkflow('lane.js')))
+})
+
 test('late-protocol-refusal: lane-review refusing in the round that follows a fix names that fix delta in the new run', async () => {
   const skewedAfterFirstRound = (source) => source.replace(/^const LANE_REVIEW_PROTOCOL = (\d+)$/m, 'const LANE_REVIEW_PROTOCOL = (args.after > 0 ? 99 : $1)')
   const raised = [{ ...finding('a.py:5', 'defect'), kind: 'docs' }]

@@ -467,7 +467,7 @@ for (const [when, args, answers, expectedAgents] of outsidePathsPass) {
     assert.ok(result.history.some(entry => entry.by === 'scope' && entry.passedOutside && outsideFiles.every(path => entry.outside.includes(path))), 'history records the paths')
     const rescopeActions = result.requiredHeadActions.filter(action => action.includes('aco rescope'))
     assert.equal(rescopeActions.length, 1)
-    assert.ok(rescopeActions[0].includes(`aco rescope ${args.item} ${outsideFiles.map(path => `--add ${path}`).join(' ')}\``), rescopeActions[0])
+    assert.ok(rescopeActions[0].includes(`aco rescope ${args.item} ${outsideFiles.map(path => `--add '${path}'`).join(' ')}\``), rescopeActions[0])
     assert.ok(!rescopeActions[0].includes('--whole'), rescopeActions[0])
   })
 }
@@ -479,18 +479,39 @@ test('AC-outside-paths-pass: a lane whose outside list is empty returns no outsi
   assert.ok(!result.requiredHeadActions.some(action => action.includes('aco rescope')))
 })
 
-test('AC-outside-paths-pass: paths listed by two scope checks come back once each, in the order first seen', async () => {
-  const answers = { build: built, 'scope-0': outsideClaim([outsideFiles[0]]), 'r0-review': reviseOnce, 'fix-1': aFixFor, 'scope-1': outsideClaim(outsideFiles), 'r1-review': APPROVE, ...endsGreenAt(resumeFixedTip) }
+test('AC-outside-paths-pass: a path the newest scope check no longer lists is dropped from the paths and the rescope action', async () => {
+  const answers = { build: built, 'scope-0': outsideClaim(outsideFiles), 'r0-review': reviseOnce, 'fix-1': aFixFor, 'scope-1': outsideClaim([outsideFiles[0]]), 'r1-review': APPROVE, ...endsGreenAt(resumeFixedTip) }
   const { result } = await runLane(builtLane, answers)
   assert.equal(result.status, 'ready-to-land', result.reason)
-  assert.deepEqual(result.pathsOutsideClaim, outsideFiles)
-  assert.equal(result.requiredHeadActions.filter(action => action.includes('aco rescope')).length, 1)
+  assert.deepEqual(result.pathsOutsideClaim, [outsideFiles[0]])
+  const [action] = result.requiredHeadActions.filter(entry => entry.includes('aco rescope'))
+  assert.ok(action.includes(`--add '${outsideFiles[0]}'`) && !action.includes(outsideFiles[1]), action)
 })
 
-test('AC-outside-paths-pass: more than three outside paths add --whole to the rescope action', async () => {
+test('AC-outside-paths-pass: a fixer that reverts every outside path leaves no rescope action', async () => {
+  const answers = { build: built, 'scope-0': outsideClaim(outsideFiles), 'r0-review': reviseOnce, 'fix-1': aFixFor, 'scope-1': outsideClaim([]), 'r1-review': APPROVE, ...endsGreenAt(resumeFixedTip) }
+  const { result } = await runLane(builtLane, answers)
+  assert.deepEqual(result.pathsOutsideClaim, [])
+  assert.ok(!result.requiredHeadActions.some(action => action.includes('aco rescope')))
+})
+
+test('AC-outside-paths-pass: a directory among the outside paths adds no --whole to the rescope action', async () => {
+  const { result } = await runLane(resumeArgs, { 'scope-resume': outsideClaim(['docs/']), 'r0-review': APPROVE, ...endsGreenAt(resumeTip) })
+  const [action] = result.requiredHeadActions.filter(entry => entry.includes('aco rescope'))
+  assert.ok(action.includes("--add 'docs/'") && !action.includes('--whole'), action)
+})
+
+test('AC-outside-paths-pass: a single quote in an outside path is escaped in the rescope action', async () => {
+  const { result } = await runLane(resumeArgs, { 'scope-resume': outsideClaim(["docs/it's.md"]), 'r0-review': APPROVE, ...endsGreenAt(resumeTip) })
+  const [action] = result.requiredHeadActions.filter(entry => entry.includes('aco rescope'))
+  assert.ok(action.includes(`--add 'docs/it'\\''s.md'`), action)
+})
+
+test('AC-outside-paths-pass: several outside paths add no --whole and the action names the body\'s scope and whole', async () => {
   const fourFiles = [...outsideFiles, 'tests/test_a.py', 'tests/test_b.py']
   const { result } = await runLane(resumeArgs, { 'scope-resume': outsideClaim(fourFiles), 'r0-review': APPROVE, ...endsGreenAt(resumeTip) })
   assert.equal(result.status, 'ready-to-land', result.reason)
   const [action] = result.requiredHeadActions.filter(entry => entry.includes('aco rescope'))
-  assert.ok(action.includes(`${fourFiles.map(path => `--add ${path}`).join(' ')} --whole "`), action)
+  assert.ok(action.includes(`${fourFiles.map(path => `--add '${path}'`).join(' ')}\``) && !action.includes('--whole "'), action)
+  assert.ok(action.includes("scope of item #") && action.includes('one-sentence whole'), action)
 })

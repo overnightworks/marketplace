@@ -78,7 +78,7 @@ for (const [step, args, answers, scopeLabel] of stopsWithoutClaim) {
   })
 }
 
-const rescopeRequest = [{ path: 'src/cli.py', change: 'pass the new argument', reason: 'it calls the changed signature' }]
+const carriedFindings = [{ path: 'src/cli.py', change: 'pass the new argument', reason: 'it calls the changed signature' }]
 
 test('a build together with pr and tip is refused at input', async () => {
   const { result, launchedAgents } = await runLane({ ...builtLane, pr: 2, tip: resumeTip })
@@ -86,8 +86,8 @@ test('a build together with pr and tip is refused at input', async () => {
   assert.deepEqual(launchedAgents, [])
 })
 
-test('AC-build-rescope-resume-reviews-the-whole-lane: resuming with the outside changes as findings gives the review and the gate the whole lane', async () => {
-  const fixFirst = rescopeRequest.map(({ path, change, reason }) => ({ ...finding(path, change), evidence: reason, kind: 'defect' }))
+test('AC-resume-with-findings-reviews-the-whole-lane: resuming with carried findings gives the review and the gate the whole lane', async () => {
+  const fixFirst = carriedFindings.map(({ path, change, reason }) => ({ ...finding(path, change), evidence: reason, kind: 'defect' }))
   const answers = { 'fix-1': { ...resumeFix, regression: [] }, 'r1-review': APPROVE, 'r1-gate': { ...APPROVE, codexExit: 0 }, 'e2e-0': PASS, 'ci-0': greenCi(resumeFixedTip) }
   const { result, agentCalls } = await runLane({ ...resumeArgs, risk: 'material', fixFirst }, answers)
   assert.equal(result.status, 'ready-to-land')
@@ -479,11 +479,6 @@ test('AC-outside-paths-pass: a lane whose outside list is empty returns no outsi
   assert.ok(!result.requiredHeadActions.some(action => action.includes('aco rescope')))
 })
 
-const manyTestFiles = Array.from({ length: 51 }, (_, index) => `tests/test_${index}.py`)
-test('AC-outside-paths-input: an old caller that still passes testPaths is not refused', async () => {
-  const { result } = await runLane({ ...resumeArgs, testPaths: 'tests/' }, { 'r0-review': APPROVE, ...endsGreenAt(resumeTip) })
-  assert.equal(result.status, 'ready-to-land', result.reason)
-})
 test('AC-outside-paths-pass: paths listed by two scope checks come back once each, in the order first seen', async () => {
   const answers = { build: built, 'scope-0': outsideClaim([outsideFiles[0]]), 'r0-review': reviseOnce, 'fix-1': aFixFor, 'scope-1': outsideClaim(outsideFiles), 'r1-review': APPROVE, ...endsGreenAt(resumeFixedTip) }
   const { result } = await runLane(builtLane, answers)

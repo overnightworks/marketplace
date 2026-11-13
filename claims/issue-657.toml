@@ -3,6 +3,6 @@ agent = "Claude ff1b9f08-53fd-4692-b3b9-2cc410b8d654"
 role = "builder"
 base = "f99d6acf241075ed32b0df1604803a2ae9fdf436"
 branch = "claude/issue-657-ci-relay-reread"
-scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/workflows/lane-relay.js", "plugins/atelier/workflows/lane.js", "scripts/tests/lane_workflow_harness.mjs", "scripts/tests/lane_workflow_relay.test.mjs"]
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/workflows/lane-relay.js", "plugins/atelier/workflows/lane.js", "tests/lane_workflow_harness.mjs", "tests/lane_workflow_relay.test.mjs"]
 opened_commit = "9d509b705d66755c6ef090fc48310b1201eae383"
 whole_reason = "One defect: the copy model of the relay re-read, the length of the ci line it copies, their test and the version bump."

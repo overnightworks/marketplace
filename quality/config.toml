@@ -34,3 +34,10 @@ reason = "the operator's documented install command, run after every atelier lan
 path = "instructions/AGENTS.md"
 rule = "agents-md"
 reason = "the global contract every agent reads, installed per machine from here"
+
+[[size.generated]]
+path = "plugins/atelier/workflows/lane.js"
+job = "Sync check and tests"
+item = "#713"
+date = 2026-11-14
+reason = "the lane script bundled from plugins/atelier/lane/ by node scripts/build_lane.mjs, whose --check step is the regeneration gate"

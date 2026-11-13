@@ -92,14 +92,8 @@ gpt-6-astra/high.
   which runs as a fresh Claude reviewer. Any other Claude gate is refused at
   input.
 
-## Protocol and awaiting-head results
+## Awaiting-head results
 
-- Before anything starts, the lane asks each of its children for its protocol.
-  When one differs it ends at stage `input`, naming the child, both numbers and
-  `/reload-plugins`.
-- A child that refuses for a protocol mismatch later in the run (atelier
-  installed while the lane ran) ends the lane awaiting-head at that stage with
-  `/reload-plugins` and the resume arguments (`pr`, `tip`) instead of failed.
 - A Codex courier that wrote a different brief than the script composed is
   started once more. A second mismatch returns awaiting-head at stage `review`
   with the resume arguments of the usage limit (`pr`, `tip`, and on a delta round

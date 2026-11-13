@@ -4,12 +4,14 @@
 
 - `python3 scripts/sync_agents.py`: regenerates `plugins/atelier/.codex/agents/` from `plugins/atelier/agents/`; add `--check` to fail on a difference.
 - `python3 scripts/check_skills.py`: validates the skills.
+- `node scripts/build_lane.mjs`: regenerates `plugins/atelier/workflows/lane.js` from `plugins/atelier/lane/`; add `--check` to fail on a difference.
 - `node scripts/check_workflow_meta.mjs plugins/*/workflows/*.js`: validates the workflow metadata.
 - `python3 scripts/install.py`: installs or updates the plugin and the contract on this machine; precondition: no Codex job runs. `--from-checkout` installs this checkout, which a lane started from a checkout needs.
 
 ## Rules
 
 - Never edit `plugins/atelier/.codex/agents/`; change the Markdown in `plugins/atelier/agents/` and run `sync_agents.py`.
+- Never edit `plugins/atelier/workflows/lane.js`; change `plugins/atelier/lane/` and run `build_lane.mjs`.
 - A change to the plugin raises `version` in `plugins/atelier/.claude-plugin/plugin.json` and `.claude-plugin/marketplace.json`, and in `plugins/atelier/.codex-plugin/plugin.json` to the same number with `+codex.<UTC YYYYMMDDHHMMSS>`.
 
 ## Owners

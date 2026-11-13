@@ -56,6 +56,11 @@ jobs:
           size=$(wc -c < "$file")
           echo "$file: $size bytes, limit $limit"
           [ "$size" -le "$limit" ] || { echo "::error file=$file::$file is $size bytes, over the $limit limit" >&2; exit 1; }
+      # The lane runs as one script bundled from plugins/atelier/lane/, so a
+      # session reload cannot swap a part of a running lane; an empty
+      # regeneration diff proves the committed script.
+      - name: Check the generated lane script
+        run: node scripts/build_lane.mjs --check
       - name: Check the plugin skills
         run: python3 scripts/check_skills.py
       # The Workflow tool refuses a script whose `meta` is not a pure literal,

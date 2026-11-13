@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Install or update the atelier plugin for every provider CLI found, and link the contract."""
+"""Install or update the atelier plugin for every provider CLI found, and link the contract and probe-run."""
 # ruff: noqa: T201 - the install command reports what it ran and found
 
 from __future__ import annotations
@@ -21,7 +21,13 @@ GITHUB_URL = "git@github.com:overnightworks/marketplace.git"
 MARKETPLACE = "atelier"
 PLUGIN = "atelier@atelier"
 
-CONTRACT_LINKS = (Path(".claude") / "CLAUDE.md", Path(".codex") / "AGENTS.md")
+PROBE_RUN = REPO_ROOT / "scripts" / "probe_run.sh"
+
+LINKS = (
+    (Path(".claude") / "CLAUDE.md", CONTRACT),
+    (Path(".codex") / "AGENTS.md", CONTRACT),
+    (Path(".local") / "bin" / "probe-run", PROBE_RUN),
+)
 
 RELOAD_STEP = "Reload: run /reload-plugins in Claude Code, and start a new Codex thread."
 CODEX_PROCESS_NAME = "codex"
@@ -33,7 +39,7 @@ CODEX_WAIT_NOTE = "Codex removes the installed version directory on update, so t
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     try:
-        link_contract(Path.home())
+        link_shared_files(Path.home())
         for provider in (install_claude, install_codex):
             provider(from_checkout=args.from_checkout)
     except InstallError as error:
@@ -59,24 +65,24 @@ class InstallError(Exception):
         self.exit_status = exit_status
 
 
-def link_contract(home: Path) -> None:
-    """Link the contract where it is missing; refuse before touching anything else."""
-    links = [home / relative for relative in CONTRACT_LINKS]
-    missing = [link for link in links if not is_contract_link(link)]
-    for link in missing:
+def link_shared_files(home: Path) -> None:
+    """Link the contract and probe-run where missing; refuse before touching anything else."""
+    links = {home / relative: target for relative, target in LINKS}
+    missing = {link: target for link, target in links.items() if not is_link_to(link, target)}
+    for link, target in missing.items():
         if link.is_symlink() or link.exists():
-            raise InstallError(f"{link} exists and is not a link to {CONTRACT}; leaving it unchanged")
-    for link in missing:
+            raise InstallError(f"{link} exists and is not a link to {target}; leaving it unchanged")
+    for link, target in missing.items():
         link.parent.mkdir(parents=True, exist_ok=True)
-        link.symlink_to(CONTRACT)
-        print(f"linked {link} -> {CONTRACT}")
-    for link in links:
+        link.symlink_to(target)
+        print(f"linked {link} -> {target}")
+    for link, target in links.items():
         if link not in missing:
-            print(f"{link} already links the contract")
+            print(f"{link} already links {target.name}")
 
 
-def is_contract_link(link: Path) -> bool:
-    return link.is_symlink() and link.resolve() == CONTRACT.resolve()
+def is_link_to(link: Path, target: Path) -> bool:
+    return link.is_symlink() and link.resolve() == target.resolve()
 
 
 def install_codex(*, from_checkout: bool) -> None:

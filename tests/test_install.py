@@ -229,6 +229,17 @@ def test_leaves_a_link_that_already_points_to_the_contract(machine):
     assert machine.contract_link(".codex/AGENTS.md").is_symlink()
 
 
+def test_links_probe_run_onto_the_path_and_keeps_an_existing_link(machine):
+    link = machine.contract_link(".local/bin/probe-run")
+
+    assert install.main([]) == 0
+    assert install.main([]) == 0
+
+    assert link.is_symlink()
+    assert link.resolve() == install.PROBE_RUN.resolve()
+    assert os.access(link, os.X_OK)
+
+
 @pytest.mark.parametrize("existing", ["regular-file", "link-elsewhere", "dangling-link"])
 def test_stops_and_changes_nothing_when_a_contract_path_holds_something_else(
     machine, capsys, tmp_path, existing

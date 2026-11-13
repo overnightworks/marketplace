@@ -1,7 +1,0 @@
-claim_id = "2e088011eace44609c16781a82c910c1"
-agent = "Claude ff1b9f08-53fd-4692-b3b9-2cc410b8d654"
-role = "builder"
-base = "df7cd1b89b10aa7b2517b7e69daf3f6c092a6433"
-branch = "claude/issue-696-best-shape-challenge-rulings"
-scope = ["instructions/AGENTS.md"]
-opened_commit = "700f807a9cc6223f74f14745dccca62fadc4bb08"

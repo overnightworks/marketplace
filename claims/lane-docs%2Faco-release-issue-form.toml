@@ -1,0 +1,8 @@
+claim_id = "68723a35f5cd403c9800743cfe76ec07"
+agent = "Claude ff1b9f08-53fd-4692-b3b9-2cc410b8d654"
+role = "builder"
+base = "75cd078a208c65820b7b35b6c9ec32f1ffc828e0"
+branch = "docs/aco-release-issue-form"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/skills/aco/SKILL.md"]
+opened_commit = "26557a6111566b154c09bd4456dcab14f5ab1687"
+whole_reason = "one skill line plus the three version files every plugin change bumps"

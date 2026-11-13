@@ -124,6 +124,12 @@ test('AC-ci-listing-proof: green false with a failing finding still goes to a fi
   assert.ok(launchedAgents.includes('fix-2'))
 })
 
+test('AC-ci-listing-proof: a red watcher answer without findings reaches the fixer with one finding per failed check of the printed listing', async () => {
+  const failed = ['quality / check', 'quality / sonar', 'quality / verdict']
+  const { agentCalls } = await driveCi(ciAnswer(failed.map(name => check(name, 'fail')), { green: false, failing: [] }))
+  for (const name of failed) assert.match(agentCalls['fix-2'].prompt, new RegExp(`CI check ${name}`))
+})
+
 test('AC-ci-listing-proof: green false with all checks passing does not become ready-to-land', async () => {
   const { result } = await driveCi(ciAnswer([check(required, 'pass')], { green: false }))
   assert.notEqual(result.status, 'ready-to-land')

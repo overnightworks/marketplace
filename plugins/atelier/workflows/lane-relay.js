@@ -5,14 +5,14 @@ export const meta = {
 }
 
 // Both copies of this number (here and in lane.js) change together in any commit that changes the args or the return shape.
-const LANE_RELAY_PROTOCOL = 17
+const LANE_RELAY_PROTOCOL = 19
 const A = args || {}
 if (A.protocolQuery) return { protocol: LANE_RELAY_PROTOCOL }
-const need = ['protocol', 'delegatedLine', 'worktree', 'label', 'phase', 'step', 'relayArgs', 'nonce', 'requiredKeys', 'agentOptions', 'mechanical', 'rescope']
+const need = ['protocol', 'delegatedLine', 'worktree', 'label', 'phase', 'step', 'relayArgs', 'nonce', 'requiredKeys', 'agentOptions', 'reread']
 if (A.protocol !== LANE_RELAY_PROTOCOL) return { refused: `lane-relay speaks protocol ${JSON.stringify(LANE_RELAY_PROTOCOL)}, but the lane that started it speaks protocol ${JSON.stringify(A.protocol)}; the installed atelier differs from the running lane` }
 const missing = need.filter(key => A[key] === undefined || A[key] === null || A[key] === '')
 if (missing.length) return { refused: `missing args: ${missing.join(', ')}` }
-const { label, phase: phaseName, step, relayArgs, nonce, requiredKeys, agentOptions, mechanical } = A
+const { label, phase: phaseName, step, relayArgs, nonce, requiredKeys, agentOptions, reread } = A
 
 // agent() with a schema throws when the subagent ends without a result; an end without one is a null the lane reports.
 async function safeAgent(prompt, opts) {
@@ -27,7 +27,7 @@ async function safeAgent(prompt, opts) {
 // A value a command prints reaches a decision only through one line the PRINTER wrote: the agent runs it and relays the
 // line unchanged, and a retyped or edited line fails its CRC32. The printer holds no single quote, so the shell passes
 // it as one argument. Its first argument names the step whose commands it runs; the scope step never forces a push,
-// relays HEAD's parents and whether its second parent is in origin/main, at most 50 paths and no text of aco brief but its exit code and error output, the sync step reports the lane tip, its parents and whether it contains origin/main, and the ci step reports the pull request head, the count of listed checks, the checks that are neither pass nor skipping, each required context of the base with its bucket or missing, the exit code of each gh call and its error output where it is not empty, and the checks red on head that failed on the base tip too; a failed gh pr view ends its reads. Only when the verdict check (the check named quality / verdict) is red, the ci step also reads that job log with gh run view and relays two values of it, never its text: whether a line says that only declared loosenings made it red and only the operator merges it, and the quality merge command of its next line; the lines come in any order and carry a job name, a step and a timestamp before their text.
+// relays HEAD's parents and whether its second parent is in origin/main, at most 50 paths and no text of aco brief but its exit code and error output, the sync step reports the lane tip, its parents and whether it contains origin/main, and the ci step reports the pull request head, the count of listed checks, the checks that are neither pass nor skipping, each required context of the base with its bucket or missing, the exit code of each gh call, left out when it is 0 and the call has nothing else to carry, and its error output where it is not empty, and the checks red on head that failed on the base tip too; a failed gh pr view ends its reads. Only when the verdict check (the check named quality / verdict) is red, the ci step also reads that job log with gh run view and relays two values of it, never its text: whether a line says that only declared loosenings made it red and only the operator merges it, and the quality merge command of its next line; the lines come in any order and carry a job name, a step and a timestamp before their text.
 const PRINTER = [
   'import json,re,shutil,subprocess,sys,zlib',
   'step,*rest,nonce=sys.argv[1:]',
@@ -41,8 +41,7 @@ const PRINTER = [
   'verdict_jobs=[m[1] for c in (json.loads(ran["checks"].stdout) if step=="ci" and "checks" in ran and ran["checks"].returncode==0 else []) if c["name"]=="quality / verdict" and c["bucket"]=="fail" and (m:=re.search("/job/([0-9]+)",c.get("link") or ""))]',
   'ran.update({"log":run("gh","run","view","--job",verdict_jobs[0],*target(rest[1]),"--log")} if verdict_jobs else {})',
   'brief=json.loads(ran["brief"].stdout) if "brief" in ran and ran["brief"].returncode==0 else None',
-  'shared=[] if brief is None or brief.get("claim",{}).get("lane_shared_unavailable") else [e["path"] for e in brief.get("claim",{}).get("lane_shared",[]) if e["names_a_file"]]',
-  'claim=[p for p in brief["outside_claim"] if p not in shared] if brief and isinstance(brief["outside_claim"],list) else brief and brief["outside_claim"]',
+  'claim=brief and brief["outside_claim"]',
   'values={n:{"code":p.returncode,**({"err":e} if ((e:=" ".join(l for l in p.stderr.splitlines() if l[:5]!="hint:")[-300:]) or step!="ci") and (n!="log" or p.returncode) else {}),**({} if n in("brief","view","checks","rules","runs","log") else {"out":p.stdout.strip()[:100]})} for n,p in ran.items()}',
   'parsed=lambda n:json.loads(ran[n].stdout) if n in ran and ran[n].returncode==0 else None',
   'view,listing,rules,pages=parsed("view"),parsed("checks"),parsed("rules"),parsed("runs")',
@@ -54,6 +53,7 @@ const PRINTER = [
   'values.update(**(dict(head=view["headRefOid"],shared=[c["name"] for c in listing or [] if c["bucket"]=="fail" and c["name"] in failed_on_base]) if view else {}))',
   String.raw`values.update(**({"log":{**values["log"],"loosenings":any("only declared loosenings \u00b7 only the operator merges it" in l for l in ran["log"].stdout.splitlines()),"merge":next((m[1] for l in ran["log"].stderr.splitlines()+ran["log"].stdout.splitlines() if "next:" in l and (m:=re.search("(quality merge [A-Za-z0-9._-]+/[A-Za-z0-9._-]+#[0-9]+)",l))),"")}} if "log" in ran else {}))`,
   'values.update(nonce=nonce,**(dict(outside_claim=claim[:50] if isinstance(claim,list) else claim,count=len(claim) if isinstance(claim,list) else None) if "brief" in ran else {}))',
+  'values={n:v for n,v in values.items() if v!={"code":0}}',
   'payload=json.dumps(values,ensure_ascii=True,separators=(",",":"),sort_keys=True)',
   'print("""{"crc":"%08x","v":%s}"""%(zlib.crc32(payload.encode()),payload))',
 ].join(';')
@@ -115,7 +115,7 @@ const FIX = {
       description: "every test you add, strengthen or keep for a blocking finding, and every probe cell you run for it, under that finding's number in the blocking list you were given",
       items: { type: 'object', required: ['finding', 'test', 'failedBefore', 'passesAfter'], properties: { finding: { type: 'integer', minimum: 1, description: 'the number of the blocking finding in the list you were given' }, resolution: { type: 'string', enum: ['removed-vacuous'], description: 'for a test-gap finding whose test pins no behaviour: the fix removed that test instead of adding one' }, diff: { type: 'string', description: 'for removed-vacuous: the removal diff' }, test: { type: 'string' }, failedBefore: { type: 'boolean' }, passesAfter: { type: 'boolean' }, notRun: { type: 'string', description: 'why this machine could not run the test (a refused command, a machine another lane holds); CI on the pushed tip is its proof. Not for a test you ran and saw fail: that is passesAfter false' }, mutation: { type: 'string', description: 'for a test-gap finding: the production change, made and reverted, under which the test fails' } } },
     },
-    summary: { type: 'string' }, blocked: { type: 'boolean' }, blockedReason: { type: 'string' }, rescope: A.rescope,
+    summary: { type: 'string' }, blocked: { type: 'boolean' }, blockedReason: { type: 'string' },
   },
 }
 const SYNC_ANSWER = { properties: { note: { type: 'string', description: 'what stopped the merge: the conflicting paths, or the failed command and its output' } } }
@@ -256,9 +256,11 @@ function readRelay(printed, nonce, requiredKeys = []) {
   try { values = JSON.parse(printedPayload ?? match[2]) } catch { return printedPayload === undefined ? { problem: 'fails its CRC check' } : { problem: 'does not hold JSON' } }
   if (printedPayload === undefined && crc32(printerText(sortedListing(values))) !== match[1]) return { problem: 'fails its CRC check' }
   if (values?.nonce !== nonce) return { problem: `carries the nonce ${values?.nonce}, not ${nonce}` }
-  const missing = requiredKeys.find(key => !values[key])
+  // The printer leaves out an entry of the ci step that carries only exit code 0, so its absence reads as that code.
+  const complete = step === 'ci' ? { view: { code: 0 }, runs: { code: 0 }, ...values } : values
+  const missing = requiredKeys.find(key => !complete[key])
   if (missing) return { problem: `lacks the ${missing} entry` }
-  return { values, ...(step === 'ci' && values.view.code === 0 && { ci: readCi(values) }) }
+  return { values: complete, ...(step === 'ci' && complete.view.code === 0 && { ci: readCi(complete) }) }
 }
 
 const answer = await safeAgent(`${A.delegatedLine}\n${brief} ${RELAY_ASK}\n${relayCommand(step, ...relayArgs)}`, {
@@ -276,7 +278,7 @@ log(`${label} relayed an unreadable line (${read.problem}); reading it once more
 const second = await safeAgent(`${A.delegatedLine}\n${RELAY_ASK}\n${relayCommand(step, ...relayArgs)}`, {
   label: `${label}-reread`, phase: phaseName,
   schema: { type: 'object', required: ['printed'], properties: { printed: PRINTED } },
-  ...mechanical,
+  ...reread,
 })
 const secondRead = second ? readRelay(second.printed, nonce, requiredKeys) : read
 return secondRead.problem ? { ...judged, ...read } : { ...judged, printed: second.printed, ...secondRead }

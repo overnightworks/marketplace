@@ -4,10 +4,10 @@ export const meta = {
 }
 
 // Both copies of this number (here and in lane.js) change together in any commit that changes the args or the return shape.
-const LANE_BUILD_PROTOCOL = 5
+const LANE_BUILD_PROTOCOL = 6
 const A = args || {}
 if (A.protocolQuery) return { protocol: LANE_BUILD_PROTOCOL }
-const need = ['protocol', 'delegatedLine', 'laneFacts', 'driveFacts', 'rescopeFacts', 'localCheckFacts', 'build', 'rescope', 'routing']
+const need = ['protocol', 'delegatedLine', 'laneFacts', 'driveFacts', 'rescopeFacts', 'localCheckFacts', 'build', 'routing']
 if (A.protocol !== LANE_BUILD_PROTOCOL) return { refused: `lane-build speaks protocol ${JSON.stringify(LANE_BUILD_PROTOCOL)}, but the lane that started it speaks protocol ${JSON.stringify(A.protocol)}; the installed atelier differs from the running lane` }
 const missing = need.filter(key => A[key] === undefined || A[key] === null || A[key] === '')
 if (missing.length) return { refused: `missing args: ${missing.join(', ')}` }
@@ -15,7 +15,7 @@ if (missing.length) return { refused: `missing args: ${missing.join(', ')}` }
 const BUILD = {
   type: 'object',
   required: ['pr', 'tip', 'blocked'],
-  properties: { pr: { type: 'number' }, tip: { type: 'string', pattern: '^[0-9a-f]{7,40}$', description: 'a commit sha from git rev-parse, nothing else' }, summary: { type: 'string' }, blocked: { type: 'boolean' }, blockedReason: { type: 'string' }, rescope: A.rescope },
+  properties: { pr: { type: 'number' }, tip: { type: 'string', pattern: '^[0-9a-f]{7,40}$', description: 'a commit sha from git rev-parse, nothing else' }, summary: { type: 'string' }, blocked: { type: 'boolean' }, blockedReason: { type: 'string' } },
 }
 
 // agent() with a schema throws when the subagent ends without a result; an end without one is a null the lane reports.

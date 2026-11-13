@@ -27,6 +27,8 @@ if (A.generated !== undefined && !isCommandMap(A.generated)) return { status: 'f
 // A misspelled choice must never fall back to its default: a misspelled risk would silently drop the material lane's final gate.
 if (A.risk !== undefined && !['normal', 'material'].includes(A.risk)) return { status: 'failed', stage: 'input', reason: 'risk must be "normal" or "material"' }
 if (A.reviewer !== undefined && !['claude', 'codex'].includes(A.reviewer)) return { status: 'failed', stage: 'input', reason: 'reviewer must be "claude" or "codex"' }
+// The tag is a token of the routing line (aco's specs/lane-record.spec.md owns the grammar), so a malformed one fails here.
+if (A.experiment !== undefined && !/^[a-z0-9-]{1,40}$/.test(A.experiment)) return { status: 'failed', stage: 'input', reason: 'experiment must be 1 to 40 lowercase letters, digits or hyphens' }
 const MATERIAL = A.risk === 'material'
 // Every gh call names the repository explicitly: agents start in the head's own checkout, which may be another repository.
 if (A.repo && !/^[\w.-]+\/[\w.-]+$/.test(A.repo)) return { status: 'failed', stage: 'input', reason: 'repo must be owner/name' }
@@ -229,8 +231,33 @@ function openFollowups() {
 }
 const raisedBeforeTip = (open) => open.filter(f => f.tip && !sameCommit(f.tip, tip))
 const gateUnseenView = () => gateUnseen ? { gateUnseen: { ...gateUnseen, tip } } : {}
+// The Routing line aco reads (aco's specs/lane-record.spec.md owns the grammar), built from what this run used; the head pastes it as is.
+const FINDING_STAGES = [[/^e2e-/, 'test'], [/^ci-/, 'ci'], [/^(review|gate)$/, null]]
+function blockingStages() {
+  const found = new Set()
+  for (const entry of history) {
+    if (!Array.isArray(entry.blocking)) continue
+    const stage = FINDING_STAGES.map(([pattern, name]) => pattern.test(entry.by) ? name ?? entry.by : null).find(Boolean)
+    if (stage) entry.blocking.forEach(where => found.add(`${String(where).replace(/\s*[;→]\s*|\s+/g, ' ').trim()} → ${stage}`))
+  }
+  return [...found]
+}
+function routingLine() {
+  const choice = (role) => `${ROUTING[role].model}/${ROUTING[role].effort}`
+  const ran = (key) => history.some(entry => entry.by === key || entry.by?.startsWith(`${key}-`))
+  const stages = [
+    `build ${choice('build')}`,
+    `fix ${spent.total ? choice(spent.total >= 3 ? 'rework' : 'fix') : 'none'}`,
+    `review ${choice('review')}`,
+    `test ${ran('e2e') ? choice('test') : 'none'}`,
+    `gate ${ran('gate') ? choice('gate') : 'none'}`,
+    `land ${choice('mechanical')}`,
+  ]
+  const blocking = blockingStages()
+  return `Routing: ${stages.join('; ')}. Fix rounds: ${spent.total}.${A.experiment ? ` Experiment: ${A.experiment}.` : ''} Blocking: ${blocking.length ? blocking.join('; ') : 'none'}`
+}
 const openResult = (status, stage, extra) =>
-  ({ status, stage, pr, tip, spent, routing: ROUTING, history, followups: openFollowups(), raisedBeforeTip: raisedBeforeTip(openFollowups()), folded: [...folded.values()], disputed, ...gateUnseenView(), ...extra })
+  ({ status, stage, pr, tip, spent, routing: ROUTING, routingLine: routingLine(), history, followups: openFollowups(), raisedBeforeTip: raisedBeforeTip(openFollowups()), folded: [...folded.values()], disputed, ...gateUnseenView(), ...extra })
 
 // ---------------------------------------------------------------- children
 // Every child answers { protocolQuery: true } with its protocol before it checks anything else and starts no agent, so a session that
@@ -713,7 +740,7 @@ const rescopeAdds = passedOutsidePaths.map(path => '--add ' + shellQuoted(path))
 const rescopeCommand = 'aco rescope ' + A.item + ' ' + rescopeAdds
 const stillOpen = openFollowups()
 return {
-  status: 'ready-to-land', pr, tip, spent, routing: ROUTING, history, followups: stillOpen, raisedBeforeTip: raisedBeforeTip(stillOpen), folded: [...folded.values()], disputed,
+  status: 'ready-to-land', pr, tip, spent, routing: ROUTING, routingLine: routingLine(), history, followups: stillOpen, raisedBeforeTip: raisedBeforeTip(stillOpen), folded: [...folded.values()], disputed,
   ...gateUnseenView(), pathsOutsideClaim: passedOutsidePaths,
   requiredHeadActions: [
     ...(passedOutsidePaths.length ? [`write these paths into the scope of item #${A.item}'s body (and a one-sentence whole there when the combined scope is wide), then run \`${rescopeCommand}\` from ${A.worktree} before landing: these paths are outside the claim and passed the scope check`] : []),

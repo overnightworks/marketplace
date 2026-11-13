@@ -494,6 +494,7 @@ test('routingLine: findings whose long locations shorten to the same text print 
   const { result } = await revisedWith(raised)
   assert.ok(result.routingLine.length <= 512)
   assert.match(result.routingLine, laneRecordLine)
+  assert.match(result.routingLine, /Blocking: 30× x → review$/)
   assert.equal(blockingCount(result.routingLine), 30)
 })
 

@@ -140,7 +140,7 @@ def describe_change(directory: Path, old: Snapshot, new: Snapshot, changed: list
     if len(hint) <= HINT_CHARACTER_LIMIT:
         return hint
     commands = [
-        f"git -C {directory} diff {old.blobs[name]} {new.blobs[name]}  # {name}" for name in changed
+        f"git -C {directory} diff {old.commit} {new.commit} -- {name}" for name in changed
     ]
     return "\n".join([header, "The diff is too long to show here; these commands print it:", *commands])
 

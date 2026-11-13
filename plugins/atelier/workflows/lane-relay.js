@@ -27,7 +27,7 @@ async function safeAgent(prompt, opts) {
 // A value a command prints reaches a decision only through one line the PRINTER wrote: the agent runs it and relays the
 // line unchanged, and a retyped or edited line fails its CRC32. The printer holds no single quote, so the shell passes
 // it as one argument. Its first argument names the step whose commands it runs; the scope step never forces a push,
-// relays HEAD's parents and whether its second parent is in origin/main, at most 50 paths and no text of aco brief but its exit code and error output, the sync step reports the lane tip, its parents and whether it contains origin/main, and the ci step reports the pull request head, the count of listed checks, the checks that are neither pass nor skipping, each required context of the base with its bucket or missing, the exit code of each gh call and its error output where it is not empty, and the checks red on head that failed on the base tip too; a failed gh pr view ends its reads. Only when the verdict check (the check named quality / verdict) is red, the ci step also reads that job log with gh run view and relays two values of it, never its text: whether a line says that only declared loosenings made it red and only the operator merges it, and the quality merge command of its next line; the lines come in any order and carry a job name, a step and a timestamp before their text.
+// relays HEAD's parents and whether its second parent is in origin/main, at most 50 paths and no text of aco brief but its exit code and error output, the sync step reports the lane tip, its parents and whether it contains origin/main, and the ci step reports the pull request head, the count of listed checks, the checks that are neither pass nor skipping, each required context of the base with its bucket or missing, the exit code of each gh call, left out when it is 0 and the call has nothing else to carry, and its error output where it is not empty, and the checks red on head that failed on the base tip too; a failed gh pr view ends its reads. Only when the verdict check (the check named quality / verdict) is red, the ci step also reads that job log with gh run view and relays two values of it, never its text: whether a line says that only declared loosenings made it red and only the operator merges it, and the quality merge command of its next line; the lines come in any order and carry a job name, a step and a timestamp before their text.
 const PRINTER = [
   'import json,re,shutil,subprocess,sys,zlib',
   'step,*rest,nonce=sys.argv[1:]',
@@ -53,6 +53,7 @@ const PRINTER = [
   'values.update(**(dict(head=view["headRefOid"],shared=[c["name"] for c in listing or [] if c["bucket"]=="fail" and c["name"] in failed_on_base]) if view else {}))',
   String.raw`values.update(**({"log":{**values["log"],"loosenings":any("only declared loosenings \u00b7 only the operator merges it" in l for l in ran["log"].stdout.splitlines()),"merge":next((m[1] for l in ran["log"].stderr.splitlines()+ran["log"].stdout.splitlines() if "next:" in l and (m:=re.search("(quality merge [A-Za-z0-9._-]+/[A-Za-z0-9._-]+#[0-9]+)",l))),"")}} if "log" in ran else {}))`,
   'values.update(nonce=nonce,**(dict(outside_claim=claim[:50] if isinstance(claim,list) else claim,count=len(claim) if isinstance(claim,list) else None) if "brief" in ran else {}))',
+  'values={n:v for n,v in values.items() if v!={"code":0}}',
   'payload=json.dumps(values,ensure_ascii=True,separators=(",",":"),sort_keys=True)',
   'print("""{"crc":"%08x","v":%s}"""%(zlib.crc32(payload.encode()),payload))',
 ].join(';')
@@ -255,9 +256,11 @@ function readRelay(printed, nonce, requiredKeys = []) {
   try { values = JSON.parse(printedPayload ?? match[2]) } catch { return printedPayload === undefined ? { problem: 'fails its CRC check' } : { problem: 'does not hold JSON' } }
   if (printedPayload === undefined && crc32(printerText(sortedListing(values))) !== match[1]) return { problem: 'fails its CRC check' }
   if (values?.nonce !== nonce) return { problem: `carries the nonce ${values?.nonce}, not ${nonce}` }
-  const missing = requiredKeys.find(key => !values[key])
+  // The printer leaves out an entry of the ci step that carries only exit code 0, so its absence reads as that code.
+  const complete = step === 'ci' ? { view: { code: 0 }, runs: { code: 0 }, ...values } : values
+  const missing = requiredKeys.find(key => !complete[key])
   if (missing) return { problem: `lacks the ${missing} entry` }
-  return { values, ...(step === 'ci' && values.view.code === 0 && { ci: readCi(values) }) }
+  return { values: complete, ...(step === 'ci' && complete.view.code === 0 && { ci: readCi(complete) }) }
 }
 
 const answer = await safeAgent(`${A.delegatedLine}\n${brief} ${RELAY_ASK}\n${relayCommand(step, ...relayArgs)}`, {

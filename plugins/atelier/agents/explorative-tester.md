@@ -29,7 +29,7 @@ Source of Truth:
 
 Procedure:
 - Load the explorative-testing skill.
-- Before a run that starts a server, a container, a browser or an E2E stack, load the explorative-testing skill and follow its Probe lock section.
+- Before a run that starts a server, a container, a browser or an E2E stack, load the explorative-testing skill and follow its Probe stack section.
 - Build the smallest real setup: data in the scratch location the parent names, the environment from the repository's own sync command inside the worktree the parent names.
 - Drive the named area and its neighbours through the real entry point.
 - Repeat commands; probe error paths; check every count and status label the surface claims against its source of truth.

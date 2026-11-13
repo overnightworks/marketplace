@@ -429,6 +429,15 @@ test('routingLine: a lane with a fix round names the fixer, the count and each b
   assert.equal(result.routingLine.split('\n').length, 1)
 })
 
+test('routingLine: blocking findings that share a location or a long prefix each stay in the Blocking count', async () => {
+  const where = ['a.py:3 (first defect)', 'a.py:3 (second defect)', 'a.py:3-9 (third)', 'päth/ü.py:3 (fourth)', `${'x'.repeat(200)} one`, `${'x'.repeat(200)} two`]
+  const raised = where.map(w => ({ ...finding(w, 'd'), kind: 'docs' }))
+  const { result } = await runLane({ ...resumeArgs, fixFirst: [{ ...defectWithoutDraft }] }, { 'fix-1': { ...resumeFix, regression: [] }, 'r1-review': { verdict: 'REVISE', blocking: raised, followups: [] }, 'fix-2': secondFix, 'r2-review': APPROVE, 'e2e-0': PASS, 'ci-0': greenCi(secondFix.head) })
+  const entries = result.routingLine.split('Blocking: ')[1].split('; ')
+  assert.equal(entries.length, where.length, result.routingLine)
+  assert.ok(entries.some(entry => entry.startsWith('päth/ü.py:3 →')))
+})
+
 // The grammar of aco's specs/lane-record.spec.md, LANREC-16 to LANREC-20, written out independently of lane.js.
 const stageText = '[a-z][a-z0-9.-]*/[a-z0-9-]+'
 const laneRecordLine = new RegExp(

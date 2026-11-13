@@ -236,19 +236,19 @@ const gateUnseenView = () => gateUnseen ? { gateUnseen: { ...gateUnseen, tip } }
 const FINDING_STAGES = [[/^e2e-/, 'test'], [/^ci-/, 'ci'], [/^(review|gate)$/, null], [/^standin$/, 'gate']]
 const ROUTING_LINE_LIMIT = 512  // the length the aco skill's abandon step asks of the line
 const LOCATION_LIMIT = 60
-const PATH_AND_LINE = /^[\w./@-]+:\d+$/
+const PATH_AND_LINE = /^[\p{L}\p{N}_./@-]+:\d+$/u
 function blockingStages() {
-  const found = new Set()
+  const found = new Map()  // the full finding text and stage -> the location printed for it, so findings sharing a location stay counted
   for (const entry of history) {
     if (!Array.isArray(entry.blocking)) continue
     const stage = FINDING_STAGES.map(([pattern, name]) => pattern.test(entry.by) ? name ?? entry.by : null).find(Boolean)
     if (!stage) continue
     entry.blocking.forEach(where => {
       const text = String(where).replace(/[\s;→]+/g, ' ').trim()
-      found.add(JSON.stringify([text.split(' ').find(word => PATH_AND_LINE.test(word)) ?? text, stage]))
+      found.set(JSON.stringify([text, stage]), [text.split(' ').find(word => PATH_AND_LINE.test(word)) ?? text, stage])
     })
   }
-  return [...found].map(key => JSON.parse(key))
+  return [...found.values()]
 }
 // Each finding keeps its stage arrow, so aco counts it; the locations shrink evenly until the whole line fits, and past the floor the count is unknown on purpose.
 function blockingText(findings, rest) {
@@ -262,8 +262,9 @@ function blockingText(findings, rest) {
 function routingLine() {
   const choice = (role) => `${ROUTING[role].model}/${ROUTING[role].effort}`
   const ran = (key) => history.some(entry => entry.by === key || entry.by?.startsWith(`${key}-`))
-  const gateRole = ran('standin') ? 'review' : ran('gate') ? 'gate' : null
-  const gate = gateRole ? choice(gateRole) : 'none'
+  const gateRole = ran('gate') ? 'gate' : null
+  const standinRole = ran('standin') ? 'review' : gateRole
+  const gate = standinRole ? choice(standinRole) : 'none'
   const fixRole = fixRolesRun.at(-1)
   const stages = [
     `build ${choice('build')}`,

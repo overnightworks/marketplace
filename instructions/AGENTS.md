@@ -26,8 +26,7 @@ brief opens with this line:
 > session-start routine and do only this brief.
 
 The head reads `HEAD.md` before its first answer, and again after a context
-compaction or a resume, with this command, which fails loud instead of reading
-a wrong file:
+compaction or a resume, with this command, which fails loud on a wrong file:
 
 ```sh
 f=$(readlink -e ~/.claude/CLAUDE.md) && [ "${f##*/}" = AGENTS.md ] && cat "${f%/*}/HEAD.md" || { echo "HEAD.md not read" >&2; false; }
@@ -74,33 +73,36 @@ questions, doubts and friction go to its parent.
   bind. Wording a head wrote is a proposal until it records an existing ruling
   or has passed the expectation-list process (`HEAD.md`); authorship grants no
   authority, and an item names the source of its ruled sentences, applied
-  recommendations included. A second look may revise a proposal; changing ruled
-  behaviour takes the same process. Yet every agent checks, like a good product
+  recommendations included. A second look may revise a proposal; changing
+  ruled behaviour takes the same process. Yet every agent checks, as product
   owner and architect, whether what it is asked to build still makes sense, by
   the pull question: does the problem still exist, or has a landing, a newer
   ruling or the vision overtaken it? Is the long-term gain toward the blessed
   vision, the fleet standards or less upkeep worth its lifetime cost in build,
   review and upkeep? Does another layer or tool cover it better? Is it the
-  symptom of an architecture problem, which then goes to plan review instead of
-  a build? A doubt or a better idea goes with its reason to the parent, and from
-  the head to the operator, before the contested part is built; it is neither
-  built stubbornly nor swapped in silently, and the ruled sentence stands until
-  the operator rules again. His newer word, said to the head or quoted with its
-  source in an item, beats any older text: say so in one line, follow it, and
-  correct or delete the old text in the same change. An agent that finds a
-  contract rule hurting or improvable in practice tells its parent, and a head
-  tells marketplace's head at once, with the evidence and a proposal; obeying it
-  silently falls short.
+  symptom of an architecture problem, which then goes to plan review instead
+  of a build? A doubt or a better idea, a past ruling of his included, goes
+  with its reason to the parent, and from the head to the operator, before the
+  contested part is built; it is neither built stubbornly nor swapped in
+  silently, and the ruled sentence stands until the operator rules again. His
+  newer word, said to the head or quoted with its source in an item, beats any
+  older text: say so in one line, follow it, and correct or delete the old
+  text in the same change. An agent that finds a contract rule hurting or
+  improvable in practice tells its parent, and a head tells marketplace's head
+  at once, with the evidence and a proposal; obeying it silently falls short.
 - **Cleanest solution.** Take what still looks right in a year: one owner, no
-  parallel copies, no workaround to undo later. Before presenting a plan or
-  demanding an addition, weigh the real alternatives that meet the declared
-  requirements (functional, non-functional, the blessed
-  vision, applicable fleet standards) and take the cleanest that meets what
-  applicable external standards require and is the most maintainable and
-  efficient over the long term, counted across the affected repositories, where
-  shared knowledge, fixes and reviews count too. Effort saved now bears only on
-  whether and when work is done. Name the alternatives weighed, what the choice
-  solves for whom, and why its complexity earns its keep.
+  parallel copies, no workaround to undo later. Start from the best long-term
+  cross-repository shape, not from what exists: any contract, boundary or tool
+  may change, and behaviour across apps may extend the shared interface.
+  Before presenting a plan or demanding an addition, weigh the real
+  alternatives that meet the declared requirements (functional,
+  non-functional, the blessed vision, applicable fleet standards) and take the
+  cleanest that meets what applicable external standards require and is the
+  most maintainable and efficient over the long term, counted across the
+  affected repositories, where shared knowledge, fixes and reviews count too.
+  Effort saved now bears only on whether and when work is done. Name the
+  alternatives weighed, what the choice solves for whom, and why its
+  complexity earns its keep.
 - **Safeguards.** Weigh credible failures and attacks (likelihood, severity,
   recovery) against the cost and risk of building, running, keeping or
   deferring the safeguard, and name uncertainty instead of calling it low;
@@ -132,9 +134,8 @@ questions, doubts and friction go to its parent.
 - **Fleet standards.** Repositories of one kind are built the same way unless
   that would be worse. A fleet standard (index and process: marketplace's
   `docs/standards.md`) binds the repositories it covers once its adoption
-  trigger is due; only the operator rules a deviation. Initial effort (a
-  migration, a build step, unfamiliarity) bears on the trigger, never on
-  whether a covered repository conforms.
+  trigger is due; only the operator rules a deviation. Initial effort bears on
+  the trigger, never on whether a covered repository conforms.
 
 ## Lane work
 
@@ -217,32 +218,30 @@ Every review finding is marked **blocking** or **follow-up**.
 - Before a local test run, probe stack, coverage job or image build, read the
   1-minute load average; above 1.5 × cores, wait or do claim-free work.
   Thinking, editing, review and landing stay allowed.
-- Probe stacks are limited by load alone, with no fixed number of slots: a
-  browser proof, live Docker probe stack or targeted E2E run drives only as
-  `probe-run [-k K CAP] <command>`, the shipped command that waits up to an hour
-  until the 1-minute load is below 1.5 × cores, then runs
-  `setpriv --pdeathsig TERM timeout -k K CAP <command>` (default K 30, CAP 1800).
-  Building the page, installing dependencies and starting a throwaway database
-  run before `probe-run`, which wraps only the drive. A targeted test run's own
-  throwaway database container is no probe stack: it keeps the load check, the
-  `setpriv`/`timeout` cap and the trapped teardown, and does not use
-  `probe-run`. A repository script may choose its own `-k K CAP` with
-  CAP + K ≤ 1830 and K at least its measured teardown, stated next to the
-  numbers. `<command>` is an executable (a script or `bash -c '…'`); a script
-  that starts containers tears them and the images it built down in
+- Probe stacks are limited by load alone, not by slots: a browser proof, live
+  Docker probe stack or targeted E2E run drives only as `probe-run [-k K CAP]
+  <command>`, which waits up to an hour for the 1-minute load to fall below
+  1.5 × cores, then runs `setpriv --pdeathsig TERM timeout -k K CAP <command>`
+  (default K 30, CAP 1800). Building the page, installing dependencies and
+  starting a throwaway database run before `probe-run`, which wraps only the
+  drive. A targeted test run's own throwaway database container is no probe
+  stack: it keeps the load check, the `setpriv`/`timeout` cap and the trapped
+  teardown, without `probe-run`. A repository script may choose its own `-k K
+  CAP` with CAP + K ≤ 1830 and K at least its measured teardown, stated next
+  to the numbers. `<command>` is an executable (a script or `bash -c '…'`); a
+  script that starts containers tears them and the images it built down in
   `trap '<teardown>' EXIT TERM` and stops a child that detaches itself by pid.
   The cap ends the stack even if you stop, and a stack that needs longer is
   cut, not raised. Never skip the proof, never point at the operator's live
-  stack. Drive only the slice's flow, at the widths the brief names. A test that
-  starts a process ends it before its worktree is removed.
+  stack. Drive only the slice's flow, at the widths the brief names. A test
+  that starts a process ends it before its worktree is removed.
 - The operator's live store is read only once he allowed it in this session,
   by a delegated agent: read-only queries (a read-only transaction or role),
   only the rows and columns needed, never secrets, credentials or session data,
   evidence as counts and identifiers, never user content. A write to live data
   is material risk: it waits for his spoken yes to that change, after a backup
   whose restore path is known.
-- Poll GitHub at 60 seconds or slower (`gh pr checks --watch --interval 60`),
-  monitors at 90 or more.
+- Poll GitHub at 60 seconds or slower, monitors at 90 or more.
 
 # Code policy
 
@@ -252,8 +251,8 @@ before the work is called done.
 ## Growth and ownership
 
 - Grow a repository only to remove a named problem, keep a real invariant or
-  enable a named capability. Reuse an existing owner first; a new boundary needs
-  a decision no existing owner can honestly own. An index, vector store or
+  enable a named capability. Reuse an existing owner first; a new boundary
+  needs a decision no existing owner can own. An index, vector store or
   knowledge graph over the code also needs a named consumer and a measurement
   that beats plain search.
 - Before editing, identify the owner, state, configuration, failure modes and
@@ -269,11 +268,11 @@ before the work is called done.
   judgement can see in a scheduled agent audit at a fixed cadence (one
   distributor item per run), never in a sentence every agent must remember.
 - The root holds only what a tool must find there and the entry documents
-  (`README.md`, `AGENTS.md`, `CLAUDE.md`, `HEART.md`); a CI check keeps the root
-  to that allowlist (in quality's gate, `root-layout`). Everything else lives in
-  its owner's directory (a baseline beside its check, a fixture beside its test,
-  a helper under `scripts/`), with no catch-all directory and no deeper
-  hierarchy than the owner needs; below the root, placement is judgement.
+  (`README.md`, `AGENTS.md`, `CLAUDE.md`, `HEART.md`); quality's `root-layout`
+  check keeps the root to that allowlist. Everything else lives in its owner's
+  directory (a baseline beside its check, a fixture beside its test, a helper
+  under `scripts/`), with no catch-all directory and no deeper hierarchy than
+  the owner needs; below the root, placement is judgement.
 - Use a maintained library for a solved hard problem the standard library
   lacks; vet its maintenance, security and size, which become yours. No
   dependency for one trivial helper, style or speculative flexibility; say what
@@ -321,8 +320,7 @@ before the work is called done.
 - Comments give only an unavoidable why: an external constraint, security
   reason, protocol quirk, data-loss risk or non-obvious tradeoff, in the
   present tense. A comment, docstring or test name cites no item, ruling or
-  record and carries no date or ageing narrative ("formerly", "superseded",
-  "replaced X with Y").
+  record and carries no date or ageing narrative ("formerly", "superseded").
 - Fix scanner and linter findings in code. An exception needs a code route that
   was tried and measured or judged counterproductive, and lives in the
   repository beside its reason (a rule-specific line marker, or a properties
@@ -426,8 +424,7 @@ before the work is called done.
 - Tests are fast, deterministic and parallel-safe: no sleeps or timing races,
   no order dependence, no state another test can observe; filesystem, process,
   network, clock, randomness and external services come as temporary state or
-  fakes. Whenever tests run, they use the repository's configured parallel
-  execution.
+  fakes. Tests run with the repository's configured parallel execution.
 - Test code meets these rules: shared arrangement in fixtures and builders,
   cases that differ only in data as one parametrized test. A suite several
   times the size of its code is almost always duplication.

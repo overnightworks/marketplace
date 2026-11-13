@@ -100,7 +100,9 @@ contract hook's decision of who is a head, so a helper gets nothing. Its state,
 plan and failure identifiers and the role, lives beside the contract hook's.
 
 Only Claude Code runs the hooks; their file, `hooks/claude-hooks.json`, is named
-in `.claude-plugin/plugin.json` alone, so Codex does not discover it.
+in `.claude-plugin/plugin.json` alone, so Codex does not discover it. A head
+running on Codex or Grok is therefore not told of a contract change; it
+reads the contract again only at its session start, a compaction or a resume.
 
 ## 4. Deployment View
 

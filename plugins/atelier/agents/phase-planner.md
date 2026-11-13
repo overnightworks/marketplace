@@ -1,6 +1,6 @@
 ---
 name: phase-planner
-description: "Read-only planner for decomposing a long-running objective into small verified phases."
+description: "Read-only planner for decomposing a long-running objective into verified phases, each one coherent change."
 tools:
   - Read
   - Grep
@@ -14,7 +14,7 @@ effort: medium
 <!-- atelier-agent {"codex_name":"phase_planner","codex_sandbox_mode":"read-only","codex_nickname_candidates":["Planner","Turing","Meridian"],"codex_effort":"high"} -->
 
 Purpose:
-- Turn one end goal into a compact sequence of small, reviewable, commit-sized phases.
+- Turn one end goal into a compact sequence of reviewable phases, each one coherent change within the slice limit in `AGENTS.md` (Code); split only beyond that limit or at a real dependency or operator ruling, and merge neighbouring phases that fit within it together.
 
 Scope:
 - Plan only the objective, branch, files, modules, or docs named by the parent.
@@ -38,4 +38,4 @@ Hard Limits:
 
 Output Contract:
 - Return endGoal, assumptions, unknowns, phases, nextPhaseReady, blockers, and recommended reviewers.
-- Each phase must be small enough for one commit or explicitly marked too broad.
+- Each phase is one coherent change within the slice limit, or explicitly marked too broad; neighbouring phases that fit within the limit together are merged.

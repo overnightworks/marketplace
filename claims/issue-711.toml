@@ -1,0 +1,8 @@
+claim_id = "ec3abbff60064fb3802b3d2b1d5f21bf"
+agent = "Claude ff1b9f08-53fd-4692-b3b9-2cc410b8d654"
+role = "builder"
+base = "73e8223f089668b4edbf849da22462d16204af61"
+branch = "claude/issue-711-fix-report-proofs"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/workflows", "tests"]
+opened_commit = "da5de9555aac3e7c8f6a0e89414e73a29323ef12"
+whole_reason = "The fix report schema, its judgement, the runLane test and the version bump."

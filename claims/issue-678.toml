@@ -1,0 +1,8 @@
+claim_id = "8256a53166f449d28c2d0a26d48202ae"
+agent = "Claude ff1b9f08-53fd-4692-b3b9-2cc410b8d654"
+role = "builder"
+base = "ab98920afd8499b2328bb7368462a24c4df79acd"
+branch = "claude/issue-678-routing-line-slots-cap-and-stats"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/skills/aco/SKILL.md", "plugins/atelier/workflows/lane.js", "tests/lane_workflow.test.mjs"]
+opened_commit = "9e276109648fefc8c579118f776480920ecac5f8"
+whole_reason = "One polish of the Routing line: its skill text, its test names and the version bump."

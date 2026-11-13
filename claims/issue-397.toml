@@ -1,8 +1,0 @@
-claim_id = "89b310a2910b48c89bb2e0855f4bde41"
-agent = "Claude ff1b9f08-53fd-4692-b3b9-2cc410b8d654"
-role = "builder"
-base = "03ca18b5aaa7e2b29b317f1f9bcf26cbf845c566"
-branch = "claude/issue-397-shared-red-stops-only-shared"
-scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/workflows", "tests"]
-opened_commit = "466be881b8acf324eedc2db20246249d0b9cd6ba"
-whole_reason = "One change to how the lane's ci stage splits shared from own reds, across lane.js and its ci children, with tests and the version bump."

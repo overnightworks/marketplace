@@ -219,7 +219,7 @@ def test_ends_a_wait_without_starting_once_the_process_that_started_it_is_gone(m
         time.sleep(0.1)
 
     assert not is_running(orphan)
-    assert "no probe stack was started" in output.read_text()
+    assert "ended during the wait" in output.read_text()
     assert "my-stack" not in output.read_text().splitlines()
 
 

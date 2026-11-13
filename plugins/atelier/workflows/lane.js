@@ -250,14 +250,19 @@ function blockingStages() {
   }
   return [...found.values()]
 }
-// Each finding keeps its stage arrow, so aco counts it; the locations shrink evenly until the whole line fits, and past the floor the count is unknown on purpose.
+// Each finding keeps its stage arrow, so aco counts it. The locations shrink evenly until the whole line fits, then they go and the stage words shorten;
+// only a line that cannot hold one arrow per finding gives up the count.
+const SHORT_STAGE_LENGTH = 3
 function blockingText(findings, rest) {
   if (!findings.length) return 'none'
+  const room = ROUTING_LINE_LIMIT - rest.length
   const arrows = findings.reduce((sum, [, stage]) => sum + ` → ${stage}`.length, 0) + 2 * (findings.length - 1)
-  const room = ROUTING_LINE_LIMIT - rest.length - arrows
-  const each = Math.min(LOCATION_LIMIT, Math.floor(room / findings.length))
-  if (each < 1) return `${findings.length} findings, too many to list`
-  return findings.map(([where, stage]) => `${where.slice(0, each)} → ${stage}`).join('; ')
+  const each = Math.min(LOCATION_LIMIT, Math.floor((room - arrows) / findings.length))
+  const render = (locationLength, stageLength) => findings
+    .map(([where, stage]) => `${where.slice(0, locationLength)} → ${stage.slice(0, stageLength)}`.trim())
+    .join('; ')
+  const fitting = [render(each, Infinity), render(0, Infinity), render(0, SHORT_STAGE_LENGTH)].find((text, tier) => (tier || each >= 1) && text.length <= room)
+  return fitting ?? `${findings.length} findings, too many to list`
 }
 function routingLine() {
   const choice = (role) => `${ROUTING[role].model}/${ROUTING[role].effort}`

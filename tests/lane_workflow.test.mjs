@@ -442,7 +442,7 @@ test('routingLine: blocking findings that share a location or a long prefix each
 const stageText = '[a-z][a-z0-9.-]*/[a-z0-9-]+'
 const laneRecordLine = new RegExp(
   `^Routing: build ${stageText}; fix (?:${stageText}|none); review ${stageText}; test (?:${stageText}|none); gate (?:${stageText}|none); land ${stageText}\\. ` +
-  `Fix rounds: \\d{1,3}\\.(?: Experiment: [a-z0-9-]{1,40}\\.)? Blocking: (?:none|[^;]+ → \\w+(?:; [^;]+ → \\w+)*)$`)
+  `Fix rounds: \\d{1,3}\\.(?: Experiment: [a-z0-9-]{1,40}\\.)? Blocking: (?:none|(?:[^;]+ )?→ \\w+(?:; (?:[^;]+ )?→ \\w+)*)$`)
 const blockingCount = (line) => line.split('Blocking: ')[1].split('; ').filter(part => part.split('→').length === 2).length
 
 test('routingLine: every printed line fits the LANREC grammar and 512 characters', async () => {
@@ -459,7 +459,7 @@ test('routingLine: a fix batch that ran as mechanical names the mechanical model
   assert.match(result.routingLine, laneRecordLine)
 })
 
-for (const findings of [1, 12, 25]) {
+for (const findings of [1, 12, 25, 40, 50]) {
   test(`routingLine: ${findings} blocking findings with long free-text locations keep the line within 512 characters and the count`, async () => {
     const raised = Array.from({ length: findings }, (_, n) => ({ ...finding(`probe ${n}: ${'the login redirect loses the state '.repeat(6)}`, 'a defect'), kind: 'docs' }))
     const { result } = await runLane({ ...resumeArgs, fixFirst: [{ ...defectWithoutDraft }] }, { 'fix-1': { ...resumeFix, regression: [] }, 'r1-review': { verdict: 'REVISE', blocking: raised, followups: [] }, 'fix-2': secondFix, 'r2-review': APPROVE, 'e2e-0': PASS, 'ci-0': greenCi(secondFix.head) })
@@ -469,7 +469,7 @@ for (const findings of [1, 12, 25]) {
   })
 }
 
-test('routingLine: more findings than the line can hold print an unknown count instead of breaking the bound', async () => {
+test('routingLine: more findings than one arrow each can hold print an unknown count instead of breaking the bound', async () => {
   const raised = Array.from({ length: 80 }, (_, n) => ({ ...finding(`probe ${n}`, 'a defect'), kind: 'docs' }))
   const { result } = await runLane({ ...resumeArgs, fixFirst: [{ ...defectWithoutDraft }] }, { 'fix-1': { ...resumeFix, regression: [] }, 'r1-review': { verdict: 'REVISE', blocking: raised, followups: [] }, 'fix-2': secondFix, 'r2-review': APPROVE, 'e2e-0': PASS, 'ci-0': greenCi(secondFix.head) })
   assert.ok(result.routingLine.length <= 512)

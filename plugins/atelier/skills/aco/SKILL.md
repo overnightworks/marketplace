@@ -189,9 +189,8 @@ missing, doubled or fenced line (`specs/landing-grammar.spec.md`); a pass proves
 classification, the closing reference, a claim on the head branch and the default-branch
 target, not that the work is reviewed or the checks are green.
 
-One more line records the routing, in this form:
-`Routing: build <model>/<effort>; fix <model>/<effort>|none; review <model>/<effort>; test <model>/<effort>|none; gate <model>/<effort>|none; land <model>/<effort>. Fix rounds: <n>[, hard: <why>]. Blocking: <finding> → <stage>; …|none`,
-the bracket from the third round on.
+One more line records the routing: the head pastes the lane result's `routingLine` as is. Its
+grammar belongs to aco's `specs/lane-record.spec.md` (LANREC-*), which is not copied here.
 The head writes it before the landing, because a landing agent does not know the routing.
 
 Push the branch, then open the pull request with `gh pr create` (title, head, base,
@@ -237,7 +236,8 @@ Code's auto mode denies.
 If the merge worked but a step failed, `aco land` prints `follow-up incomplete`
 and the re-run command; re-run it, which resumes and never merges twice.
 Abandoned: `aco release <n> --abandoned REASON`; the item stays open. The head
-puts the lane's `Routing:` line, in the form of a PR body, into the reason;
+starts the reason with the lane's `Routing:` line, on one line within 512 characters, since aco
+parses an abandoned lane's routing only then;
 where the lane has an open pull request, the line goes into that body as usual.
 
 ## Rename a repository

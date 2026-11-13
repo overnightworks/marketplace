@@ -408,3 +408,36 @@ test('protocol-preflight: only the mismatching child is named in the reason', as
   assert.match(result.reason, /lane-ci speaks protocol/)
   assert.doesNotMatch(result.reason, /lane-review/)
 })
+
+test('routingLine: a lane with no fix round names none for fix and no blocking findings', async () => {
+  const { result } = await runLane(resumeArgs, { ...reachesTheEnd, 'r0-review': APPROVE })
+  assert.equal(result.status, 'ready-to-land')
+  assert.equal(result.routingLine, 'Routing: build sonnet/medium; fix none; review sonnet/high; test sonnet/medium; gate none; land haiku/low. Fix rounds: 0. Blocking: none')
+})
+
+test('routingLine: a lane with a fix round names the fixer, the count and each blocking finding with the stage that raised it', async () => {
+  const replay = webauthReplay
+  const answers = answersWith(replay, { kind: 'test-gap', mutation: true })
+  answers['e2e-0'] = { verdict: 'FAIL', blocking: [finding('probe: login redirect', 'the redirect loses the state')], followups: [] }
+  const { result } = await runLane(replay.args, answers)
+  const rounds = result.spent.total
+  assert.ok(rounds > 0)
+  assert.match(result.routingLine, /^Routing: build sonnet\/high; fix sonnet\/high; review \S+\/\w+; test sonnet\/high; gate gpt-6-astra\/high; land haiku\/low\. /)
+  assert.ok(result.routingLine.includes(`Fix rounds: ${rounds}.`))
+  assert.ok(result.routingLine.includes('src/webauth/oidc.py:315 → gate'))
+  assert.ok(result.routingLine.includes('probe: login redirect → test'))
+  assert.equal(result.routingLine.split('\n').length, 1)
+})
+
+test('routingLine: an experiment tag becomes its own sentence before Blocking', async () => {
+  const { result } = await runLane({ ...resumeArgs, experiment: 'haiku-fixer-2' }, { ...reachesTheEnd, 'r0-review': APPROVE })
+  assert.match(result.routingLine, /Fix rounds: 0\. Experiment: haiku-fixer-2\. Blocking: none$/)
+})
+
+for (const experiment of ['Haiku', 'a b', '', 'x'.repeat(41), 'a;b']) {
+  test(`routingLine: refuses the experiment ${JSON.stringify(experiment)} at input before any agent starts`, async () => {
+    const { result, launchedAgents } = await runLane({ ...resumeArgs, experiment })
+    assert.deepEqual([result.status, result.stage], ['failed', 'input'])
+    assert.deepEqual(launchedAgents, [])
+  })
+}

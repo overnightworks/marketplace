@@ -467,6 +467,13 @@ test('gate-stand-in: a limited gate re-check of a test-only fix is re-checked by
   assert.equal(result.requiredHeadActions.filter(line => line.includes(`${resumeTip}..${resumeFixedTip}`)).length, 1)
 })
 
+test('routingLine: a blocking finding of the stand-in reviewer counts under the gate stage', async () => {
+  const standInFinding = finding('src/standin.py:9', 'the stand-in finding')
+  const { result } = await standInRun({}, { 'r1-standin': { verdict: 'REVISE', blocking: [standInFinding], followups: [] } })
+  assert.ok(result.history.some(entry => entry.by === 'standin' && entry.blocking.length))
+  assert.ok(result.routingLine.includes('src/standin.py:9 → gate'))
+})
+
 const standInRefused = [
   ['the fix resolved a lane conflict', { 'fix-1': { ...resumeFix, files: ['tests/x.py'], mergeResolvedLaneConflict: true } }, {}],
   ['the lane routes its review to Codex', { 'r0-review': { ...APPROVE, codexExit: 0 } }, { reviewer: 'codex' }],

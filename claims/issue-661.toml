@@ -1,0 +1,8 @@
+claim_id = "b153127003334a689d9a889b259edd69"
+agent = "Claude ff1b9f08-53fd-4692-b3b9-2cc410b8d654"
+role = "builder"
+base = "3e1b63ee12453b21c71eafdd22448617c7be9805"
+branch = "claude/issue-661-the-lane-s-scope-relay-takes-outside-cla"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/workflows/lane-relay.js", "tests/lane_workflow_relay.test.mjs"]
+opened_commit = "d98d04234bca0c697d2425d9c40c79413996d644"
+whole_reason = "One relay line, its test, and the version bump the plugin change needs."

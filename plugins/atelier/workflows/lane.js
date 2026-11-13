@@ -14,7 +14,8 @@ export const meta = {
 // ---------------------------------------------------------------- inputs
 const A = args || {}
 const need = ['item', 'worktree', 'branch', 'contract', 'e2e', 'scratch']
-const missing = need.filter(k => !A[k]); if (missing.length) return { status: 'failed', stage: 'input', reason: `missing args: ${missing.join(', ')}` }
+const missing = need.filter(k => !A[k])
+if (missing.length) return { status: 'failed', stage: 'input', reason: `missing args: ${missing.join(', ')}` }
 if (!/^[1-9]\d*$/.test(String(A.item))) return { status: 'failed', stage: 'input', reason: 'item must be a GitHub issue number: the lane carries only issue items, and an issue-less claim runs by hand' }
 if (A.pr && !A.tip) return { status: 'failed', stage: 'input', reason: 'with pr, pass tip (the PR head sha) so the first delta range is right' }
 if (A.build && (A.pr || A.tip)) return { status: 'failed', stage: 'input', reason: 'build starts a lane and pr + tip start a new run on an open pull request; pass one of them' }
@@ -157,21 +158,21 @@ async function startChild(name, childArgs) {
   }
 }
 // A value a command prints reaches a decision only through the line the lane-relay child reads back and checks.
-const LANE_RELAY_PROTOCOL = 19
+const LANE_RELAY_PROTOCOL = 20
 const relay = (request) => startChild('lane-relay', { protocol: LANE_RELAY_PROTOCOL, delegatedLine: DELEGATED_LINE, worktree: A.worktree, agentOptions: MECHANICAL, reread: COPY, ...request })
 // The failure reasons name the printed line only when the command printed one.
 const printedLine = (relayed) => relayed.printed === undefined ? '' : `; the printed line: ${relayed.printed}`
+// The three commit helpers below also stand in lane-relay.js and change together with it.
 // Language models copy a 40-character hash unreliably (a sync step once dropped one character). A commit is
 // accepted as 7 to 40 hex characters — git resolves an unambiguous prefix, and fixers often answer with the short form.
 const SHA = /^[0-9a-f]{7,40}$/
 // Two spellings name the same commit when the shorter is a prefix of the longer (git's own abbreviation rule).
 const sameCommit = (a, b) => SHA.test(a || '') && SHA.test(b || '') && (a.startsWith(b) || b.startsWith(a))
-// Whether the relayed HEAD is a merge whose first parent is base, and whether the relayed git commands failed.
+// Whether the relayed HEAD is a merge whose first parent is base.
 function mergedOnto(values, base) {
   const [firstParent, mergedIn] = values.parents.out.split('\n')
   return Boolean(mergedIn) && sameCommit(firstParent, base)
 }
-const failedCommand = (values) => values.head.code !== 0 || ![0, 1].includes(values.main.code)
 // ------------------------------------------------------ shared sentences
 const generatedCommands = GENERATED.map(([path, command]) => `${path}: ${command}`).join('; ')
 const laneFacts =
@@ -305,7 +306,8 @@ if (A.build) {
   if (!built) return await openResult('failed', 'build', { reason: `the builder returned no result; inspect ${A.worktree} for uncommitted work, checkpoint it, and hand it to a fresh finisher` })
   if (built.blocked) return await openResult('escalated', 'build', { reason: built.blockedReason })
   if (!SHA.test(built.tip || '')) return await openResult('failed', 'build', { reason: `the builder returned a tip that is not a sha: ${String(built.tip).slice(0, 80)}` })
-  pr = built.pr; tip = built.tip
+  pr = built.pr
+  tip = built.tip
   log(`built PR #${pr} at ${tip}`)
 } else {
   phase('Sync')
@@ -313,7 +315,7 @@ if (A.build) {
   const synced = await relay({ label: 'sync', phase: 'Sync', step: 'sync', relayArgs: [`'${nonce}'`], nonce, requiredKeys: ['head', 'parents', 'main'], answerKind: 'sync', facts: laneFacts, hasLedgers: LEDGERS.length > 0, hasGenerated: GENERATED.length > 0 })
   if (!synced) return await openResult('failed', 'sync')
   const { values, problem } = synced
-  if (problem || failedCommand(values)) return await openResult('failed', 'sync', { reason: `the sync's relay line ${problem || 'reports a failed git command'}${printedLine(synced)}` })
+  if (problem || synced.commandFailed) return await openResult('failed', 'sync', { reason: `the sync's relay line ${problem || 'reports a failed git command'}${printedLine(synced)}` })
   if (values.main.code === 1) return await openResult('escalated', 'sync', { reason: synced.note || `the lane tip ${values.head.out} does not contain origin/main, and the sync named no cause` })
   if (!sameCommit(values.head.out, tip) && !mergedOnto(values, tip)) history.push({ after: 0, by: 'sync', from: tip, tip: values.head.out })
   tip = values.head.out
@@ -389,58 +391,26 @@ async function awaitHeadOnDispute(fixed, blocking) {
 
 // A batch of CI findings only, every one disputed with counter-evidence and nothing committed, is a flake the lane re-runs once before the head sees it.
 let flakeRerunUsed = false
-function isFlakeDispute(fixed, blocking, source) {
-  if (flakeRerunUsed || source !== 'CI' || !fixed.unchanged) return false
-  return blocking.every(f => fixed.disputed.some(d => d.where === f.where && (d.counterEvidence || '').trim()))
-}
-const disputeFlakes = (fixed, blocking) => fixed.disputed.filter(d => blocking.some(f => f.where === d.where)).map(d => ({ where: d.where, text: `${d.text} (a flake; the fixer's counter-evidence: ${d.counterEvidence})`, owner: 'distributor' }))
-// The evidence the fixer gave for a fold-in it found already done, or undefined without any.
-const satisfiedEvidence = (fixed, foldIn) => (fixed.resolved || []).find(r => r.where === foldIn.where && (r.evidence || '').trim())?.evidence
-// An unchanged tip is a fix only when there are no blocking findings and every fold-in is proven already satisfied.
-const everyFoldInSatisfied = (fixed, blocking, foldIn) => !blocking.length && foldIn.length > 0 && foldIn.every(f => satisfiedEvidence(fixed, f))
-// An unchanged tip is a fix too when every blocking finding is answered in the pull request body or an item comment and every fold-in
-// is answered there or proven already satisfied; at least one answer outside the tree is what the re-check then reads.
-const answeredOutside = (fixed, blocking, foldIn) => {
-  const answers = (fixed.outside || []).filter(o => (o.where || '').trim())
-  const blockingAnswered = blocking.every((_, index) => answers.some(o => o.finding === index + 1))
-  const foldInAnswered = foldIn.every(f => answers.some(o => o.foldIn === f.where) || satisfiedEvidence(fixed, f))
-  const anyAnswer = blocking.length > 0 || foldIn.some(f => answers.some(o => o.foldIn === f.where))
-  return anyAnswer && blockingAnswered && foldInAnswered
-}
-// Why a fixer's answer does not count as a fix, or null when it does.
-function fixRejection(fixed, blocking, foldIn, ciOnly) {
-  const { findingNumbers, ...rejection } = fixed.proofRejection ?? {}
-  if (findingNumbers) return { ...rejection, lastBlocking: findingNumbers.map(number => blocking[number - 1]) }
-  // Satisfied fold-ins leave the lane at the held tip, or at a merge of main onto it: anything past that is unasked work.
-  const foldInsOnly = everyFoldInSatisfied(fixed, blocking, foldIn)
-  if (fixed.unchanged) return (foldInsOnly && fixed.containsMain) || answeredOutside(fixed, blocking, foldIn) ? null : { reason: 'the fixer changed nothing', lastBlocking: blocking }
-  const mergeWasTheFinding = ciOnly || (blocking.length === 1 && blocking[0].where === 'mergeable')
-  if (fixed.mergeOnly && !mergeWasTheFinding && !foldInsOnly) return { reason: 'the fixer only merged main and fixed nothing', lastBlocking: blocking }
-  return null
-}
-// A fixer may report absolute paths; an absolute path once hid a production change and skipped the gate.
-const worktreeRelative = (files) => files.map(f => f.startsWith(`${A.worktree}/`) ? f.slice(A.worktree.length + 1) : f.replace(/^\.\//, ''))
 
 // Takes the fixer's tip and names the delta the reviewers see next, or none when a clean merge of main was the whole fix.
 async function acceptFix(fixed, blocking, foldIn) {
-  const relative = worktreeRelative(fixed.files || [])
-  const outside = relative.filter(f => f.startsWith('/'))
-  if (outside.length) return { stop: await openResult('failed', 'fix', { reason: `the fixer reported paths outside the worktree: ${outside.join(', ')}` }) }
-  const touchesProduction = fixed.mergeResolvedLaneConflict || relative.some(f => PRODUCTION.some(prefix => f.startsWith(prefix)))
+  if (fixed.outsidePaths.length) return { stop: await openResult('failed', 'fix', { reason: `the fixer reported paths outside the worktree: ${fixed.outsidePaths.join(', ')}` }) }
   tip = fixed.tip
-  if (touchesProduction) productionSinceTest = productionSinceGate = true
-  const outsideRange = fixed.unchanged && answeredOutside(fixed, blocking, foldIn)
-  if ((fixed.unchanged && !outsideRange) || (fixed.mergeOnly && !fixed.mergeResolvedLaneConflict)) {  // nothing of the lane changed to review: a clean merge of main answered the mergeable finding
+  if (fixed.touchesProduction) {
+    productionSinceTest = true
+    productionSinceGate = true
+  }
+  if ((fixed.unchanged && !fixed.answeredOutside) || (fixed.mergeOnly && !fixed.mergeResolvedLaneConflict)) {  // nothing of the lane changed to review: a clean merge of main answered the mergeable finding
     log(`fix ${spent.total}: no lane change to review`)
     return { range: null, proofNotes: '', gateAgain: false, touchesProduction: false }
   }
-  const edited = outsideRange ? fixed.outside.map(o => (o.foldIn ? 'fold-in ' + o.foldIn : 'finding ' + o.finding) + ': ' + o.where).join('; ') : ''
+  const edited = fixed.answeredOutside ? fixed.outside.map(o => (o.foldIn ? 'fold-in ' + o.foldIn : 'finding ' + o.finding) + ': ' + o.where).join('; ') : ''
   let delta = `only this delta, the fixer's own commits: git log -p --first-parent --remerge-diff ${fixed.heldTip}..${fixed.tip} (main's clean changes are not shown; a lane edit inside a merge of main is)`
-  if (outsideRange) delta = `no commit changed: read live what the fixer edited outside the tree (${edited}), the pull request body with gh pr view ${pr}${R} --json body and an item comment with gh issue view ${A.item}${R} --comments`
+  if (fixed.answeredOutside) delta = `no commit changed: read live what the fixer edited outside the tree (${edited}), the pull request body with gh pr view ${pr}${R} --json body and an item comment with gh issue view ${A.item}${R} --comments`
   else if (fixed.mergeResolvedLaneConflict) delta = `only this delta: git diff ${fixed.heldTip}..${fixed.tip} (it includes a merge of main whose conflicts in this lane's files were resolved by hand)`
   const range = `${delta}. It answers these findings:\n${listFindings(blocking)}${fixed.proofNotes}${foldInsInRange(foldIn)}`
   log(`fix ${spent.total}: ${fixed.heldTip.slice(0, 7)}..${tip.slice(0, 7)}`)
-  return { range, proofNotes: fixed.proofNotes, gateAgain: MATERIAL && touchesProduction, touchesProduction }
+  return { range, proofNotes: fixed.proofNotes, gateAgain: MATERIAL && fixed.touchesProduction, touchesProduction: fixed.touchesProduction }
 }
 
 // Only a docs finding is provably behaviour-neutral; the third fix round on is rework (fixRound counts the running round in spent.total before it asks).
@@ -459,34 +429,33 @@ async function fixRound(blocking, source, budgetKey, carried) {
   const tipBeforeFix = tip
   const stop = await fixRoundStop(blocking, budgetKey)
   if (stop) return { stop }
-  spent[budgetKey]++; spent.total++
+  spent[budgetKey]++
+  spent.total++
   const foldIn = inPlaceFollowups()
   phase('Fix')
   const role = fixerRole(blocking, foldIn)
   fixRolesRun.push(role)
   const nonce = `fix-${spent.total}-${tipBeforeFix}`
   const answered = await relay({ label: `fix-${spent.total}`, phase: 'Fix', step: 'sync', relayArgs: [`'${nonce}'`], nonce, requiredKeys: ['head', 'parents', 'main'], answerKind: 'fix', agentOptions: { agentType: 'atelier:code-fixer', ...claudeRole(role) },
-    facts: `${laneFacts} ${driveFacts} ${rescopeFacts} ${localCheckFacts} ${turnFacts('fix')}`, pr, tip, source, blocking: listFindings(blocking), findings: blocking.map(f => ({ ...f, kind: kindOf(f) })), foldIns: listFoldIns(foldIn) })
+    facts: `${laneFacts} ${driveFacts} ${rescopeFacts} ${localCheckFacts} ${turnFacts('fix')}`, pr, tip, source, blocking: listFindings(blocking), findings: blocking.map(f => ({ ...f, kind: kindOf(f) })), foldIns: listFoldIns(foldIn), foldInEntries: foldIn, productionPaths: PRODUCTION, flakeRerunUsed })
   if (!answered) return { stop: await openResult('failed', 'fix', { reason: `the fixer returned no result; inspect ${A.worktree} for commits past ${tip} and uncommitted work, then start a new run with pr and tip (and fixFirst for what is left)`, lastBlocking: blocking }) }
   // What the fixer says it found already done is only reported to the head: an unaccepted fix folds nothing in.
   const unaccepted = (result) => ({ stop: (answered.resolved || []).length ? { ...result, resolved: answered.resolved } : result })
   // A blocked fixer may have run out of turns before the relay line, and the blocked answer reads no tip.
   if (answered.blocked) return unaccepted(await openResult('escalated', 'fix', { reason: answered.blockedReason }))
-  if (answered.problem || failedCommand(answered.values)) return { stop: await openResult('failed', 'fix', { reason: `the fixer's relay line ${answered.problem || 'reports a failed git command'}${printedLine(answered)}` }) }
-  const { values } = answered
-  const fixed = { ...answered, tip: values.head.out, heldTip: tipBeforeFix, unchanged: sameCommit(values.head.out, tipBeforeFix), mergeOnly: mergedOnto(values, tipBeforeFix), containsMain: values.main.code === 0 }
-  if ((fixed.disputed || []).length) return isFlakeDispute(fixed, blocking, source) ? { flakes: disputeFlakes(fixed, blocking), fixed } : unaccepted(await awaitHeadOnDispute(fixed, blocking))
-  const rejection = fixRejection(fixed, blocking, foldIn, source === 'CI')
-  if (rejection) return unaccepted(await openResult('failed', 'fix', rejection))
-  const accepted = await acceptFix(fixed, blocking, foldIn)
+  if (answered.problem || answered.commandFailed) return { stop: await openResult('failed', 'fix', { reason: `the fixer's relay line ${answered.problem || 'reports a failed git command'}${printedLine(answered)}` }) }
+  if (answered.outcome === 'flake') return { flakes: answered.flakes, fixed: answered }
+  if (answered.outcome === 'disputed') return unaccepted(await awaitHeadOnDispute(answered, blocking))
+  if (answered.outcome === 'rejected') return unaccepted(await openResult('failed', 'fix', answered.rejection))
+  const accepted = await acceptFix(answered, blocking, foldIn)
   if (accepted.stop) return unaccepted(accepted.stop)
   const { deltaFrom, note } = scopeOrigin(carried, tipBeforeFix)
   const scopeStop = await pushAndCheckScope(`scope-${spent.total}`, { note, deltaFrom })
   if (scopeStop) return unaccepted(scopeStop.stop)
   // A clean merge of main alone carries no lane change, so it cannot carry a fold-in either; an unchanged tip carries
   // them only when the fixer proved each already satisfied. A scope stop folds nothing in.
-  if (accepted.range || everyFoldInSatisfied(fixed, blocking, foldIn)) {
-    foldIn.forEach(f => folded.set(findingKey(f), { ...f, tip: fixed.tip, ...(satisfiedEvidence(fixed, f) && { evidence: satisfiedEvidence(fixed, f) }) }))
+  if (accepted.range || answered.satisfied) {
+    foldIn.forEach(f => folded.set(findingKey(f), { ...f, tip: answered.tip, ...(answered.foldInEvidence[f.where] && { evidence: answered.foldInEvidence[f.where] }) }))
   }
   return { ...accepted, foldIn, deltaFrom }
 }
@@ -654,50 +623,42 @@ if (carriesBatch) {
 
 // ---------------------------- end-to-end test and CI side by side
 // The lane-test child returns the tester's answer, null when both agents ended without a result, or a problem the lane stops on.
-function explore(n) {
-  return startChild('lane-test', { protocol: LANE_TEST_PROTOCOL, delegatedLine: DELEGATED_LINE, n, pr, tip, worktree: A.worktree, scratch: A.scratch, tag: TAG, e2e: A.e2e, contract: A.contract, laneFacts, blockingLine: BLOCKING_LINE, finding: FINDING, followup: FOLLOWUP, routing: claudeRole('test') })
-}
-
+const explore = (n) => startChild('lane-test', { protocol: LANE_TEST_PROTOCOL, delegatedLine: DELEGATED_LINE, n, pr, tip, worktree: A.worktree, scratch: A.scratch, tag: TAG, e2e: A.e2e, contract: A.contract, laneFacts, blockingLine: BLOCKING_LINE, finding: FINDING, followup: FOLLOWUP, routing: claudeRole('test') })
 async function watchCi(n, rerun) {
   const watched = await startChild('lane-ci', { protocol: LANE_CI_PROTOCOL, delegatedLine: DELEGATED_LINE, pr, n, rerun, repo: A.repo, worktree: A.worktree, finding: FINDING, mechanical: MECHANICAL })
   if (!watched || watched.problem) return watched
-  const nonce = `ci-${n}-${tip}`, read = await relay({ label: `ci-read-${n}`, phase: 'Test and CI', step: 'ci', relayArgs: [pr, `'${A.repo || ''}'`, `'${nonce}'`], nonce, requiredKeys: ['view'], brief: `${laneFacts}\nChange nothing in the files;` })
+  const nonce = `ci-${n}-${tip}`
+  const read = await relay({ label: `ci-read-${n}`, phase: 'Test and CI', step: 'ci', relayArgs: [pr, `'${A.repo || ''}'`, `'${nonce}'`], nonce, requiredKeys: ['view'], brief: `${laneFacts}\nChange nothing in the files;`, watched, rerun: Boolean(rerun) })
   if (!read) return { problem: 'ended without reading the CI values' }
   if (read.problem) return { problem: `read the CI values, but their relay line ${read.problem}${printedLine(read)}` }
   const { view } = read.values
   if (view.code !== 0) return { problem: `could not read the pull request: gh pr view exited ${view.code}: ${view.err ?? ''}` }
-  const failing = watched.green || watched.failing?.length ? watched.failing : failedCheckFindings(read.values.checks?.open)
-  // A re-run watches only the jobs it re-ran: its green leaves a red shared with main in the listing, which stays red, not unproven.
-  const open = read.values.checks?.open || []
-  if (rerun && watched.green && open.length > 0 && open.every(c => c.bucket === 'fail' && read.ci.shared?.includes(c.name))) return { ...watched, green: false, failing: failedCheckFindings(open), ...read.ci, unproven: null }
-  return { ...watched, failing, ...read.ci, unproven: watched.green ? read.ci.unproven : null }
-}
-
-// A watcher that answers red without quoting a log leaves the fixer nothing to act on; the printed listing still names the red checks.
-function failedCheckFindings(openChecks = []) {
-  return openChecks.filter(c => c.bucket === 'fail').map(c => ({
-    where: c.name, kind: 'defect', rule: `CI check ${c.name}`, text: `The check "${c.name}" is red, and the CI watcher quoted no log for it.`, evidence: `The relay's ci line lists "${c.name}" in the fail bucket; read its log with gh run view.`,
-  }))
-}
-
-function loadWaitCiState(ci) {
-  if (!ci || ci.problem) return 'not readable'
-  if (ci.green && !ci.unproven && !ci.rulesError) return 'green'
-  const names = (ci.failing || []).map(f => `"${f.where}"`).join(', ')
-  return names ? `red (${names})` : 'not green'
+  return { ...watched, ...read.ci }
 }
 
 // A red CI starts the fixer at once; the tester's answer joins the next batch, and the round awaits the tester only when CI
 // has nothing of its own to fix. The tester judges the tip it started on, which later fixes may move. One tester runs at a time.
-let n = 0, testCalls = 0, needTest = true, lockRetried = false, testSettled = false
+let n = 0
+let testCalls = 0
+let needTest = true
+let lockRetried = false
+let testSettled = false
 let pendingTest = null  // the tester started and not yet judged
 let rerunRed  // the red jobs a flake dispute hands to the next watch for one re-run
 let testBlocking = []  // the tester's findings, held until a fix batch takes them
 function startTest() {
-  needTest = productionSinceTest = testSettled = false
-  pendingTest = explore(testCalls++).then(e2e => { testSettled = true; return e2e })
+  needTest = false
+  productionSinceTest = false
+  testSettled = false
+  pendingTest = explore(testCalls++).then(e2e => {
+    testSettled = true
+    return e2e
+  })
 }
-const takePendingTest = () => pendingTest.then(e2e => { pendingTest = null; return e2e })
+const takePendingTest = () => pendingTest.then(e2e => {
+  pendingTest = null
+  return e2e
+})
 // Judges the pending tester's answer; returns the result that stops the lane, or undefined. A lock-busy answer is retried once, awaited when CI has nothing of its own to fix.
 async function settleTest(ci, awaitRetry = true) {
   let e2e = await takePendingTest()
@@ -711,7 +672,7 @@ async function settleTest(ci, awaitRetry = true) {
   if (e2e?.problem) return openResult('failed', 'test', { reason: `the tester ${e2e.problem}` })
   if (e2e && typeof e2e.verdict !== 'string') return openResult('failed', 'test', { reason: `lane-test answered without a verdict: ${JSON.stringify(e2e).slice(0, 200)}` })
   if (e2e?.verdict === 'failed' && e2e.lockBusy) {
-    return openResult('awaiting-head', 'test', { reason: `load wait: the load stayed above the limit for both tries, so the end-to-end test did not run; CI of this round: ${loadWaitCiState(ci)}. Start a new run with pr and tip once the load falls.` })
+    return openResult('awaiting-head', 'test', { reason: `load wait: the load stayed above the limit for both tries, so the end-to-end test did not run; CI of this round: ${ci && !ci.problem ? ci.state : 'not readable'}. Start a new run with pr and tip once the load falls.` })
   }
   if (!e2e || e2e.verdict === 'failed') return openResult('failed', 'test', { reason: 'the tester returned no usable result' })
   testBlocking = e2e.blocking || []
@@ -721,27 +682,24 @@ async function settleTest(ci, awaitRetry = true) {
   // A PASS on a tip a fix has since changed in production is stale: a new tester runs on the current tip.
   if (productionSinceTest) needTest = true
 }
-// The failing findings of checks main does not share: a shared check's red entries and findings named by it are left out.
-function ownFailing({ shared, red = [], failing = [] }) {
-  const sharedEntries = new Set(red.filter(job => shared.includes(job.name)).flatMap(job => job.findings.map(entry => JSON.stringify(entry))))
-  return failing.filter(entry => !sharedEntries.has(JSON.stringify(entry)) && ![entry.where, String(entry.rule).replace(/^CI check /, '')].some(name => shared.includes(name)))
-}
 while (true) {
   phase('Test and CI')
   if (needTest && !pendingTest) startTest()
-  const rerunBatch = rerunRed, ci = await watchCi(n, rerunBatch?.red)
-  rerunRed = undefined; n++
+  const rerunBatch = rerunRed
+  const ci = await watchCi(n, rerunBatch?.red)
+  rerunRed = undefined
+  n++
   if (!ci || ci.problem) {
     const stop = pendingTest && await settleTest(ci)
     return stop || await openResult('failed', 'ci', ci ? { reason: `the CI watcher ${ci.problem}` } : undefined)
   }
   if (!sameCommit(ci.head, tip)) return await openResult('failed', 'ci', { reason: `the pull request head ${ci.head} is not the lane tip ${tip}` })
-  const { shared, unproven } = ci, ownRed = ownFailing(ci), sharedOnly = shared.length > 0 && ownRed.length === 0
+  const { shared, unproven, ownRed, sharedOnly } = ci
   if (pendingTest && (testSettled || ci.green || sharedOnly || ci.operatorDoor)) {
     const stop = await settleTest(ci, ci.green || sharedOnly || Boolean(ci.operatorDoor))
     if (stop) return stop
   }
-  history.push({ after: spent.total, by: `ci-${n - 1}`, verdict: ci.green && !unproven && !ci.rulesError ? 'GREEN' : 'RED', blocking: (ci.failing || []).map(f => f.where) })
+  history.push({ after: spent.total, by: `ci-${n - 1}`, verdict: ci.proven ? 'GREEN' : 'RED', blocking: (ci.failing || []).map(f => f.where) })
   if (ci.rulesError) return await openResult('failed', 'ci', { reason: `the required checks of the base branch could not be read: ${ci.rulesError}` })
   if (unproven) return await openResult('failed', 'ci', { reason: `CI reported green, but the check listing does not prove it: ${unproven}` })
   // The one re-run of a disputed flake came back red (a red shared with main aside): the disagreement between the fixer and CI is the head's.
@@ -751,13 +709,14 @@ while (true) {
     continue
   }
   if (sharedOnly && testBlocking.length === 0) {
-      return await openResult('awaiting-head', 'ci', { reason: `the CI check(s) ${shared.map(name => '"' + name + '"').join(', ')} are red on the base branch tip too: the red is shared with main and is fixed there, so no fixer was launched. If this lane's item is that repair, start a new run with pr and tip and fixFirst.` })
+    return await openResult('awaiting-head', 'ci', { reason: `the CI check(s) ${shared.map(name => '"' + name + '"').join(', ')} are red on the base branch tip too: the red is shared with main and is fixed there, so no fixer was launched. If this lane's item is that repair, start a new run with pr and tip and fixFirst.` })
   }
   if (ci.operatorDoor && testBlocking.length === 0) {
     if (needTest) continue
     return await openResult('awaiting-head', 'ci', { reason: `the only red check is the quality verdict, red because the diff holds only declared loosenings, which only the operator merges, so no fixer was launched. It waits at the operator's merge door: run \`${ci.operatorDoor}\`.` })
   }
-  const taken = testBlocking; testBlocking = []
+  const taken = testBlocking
+  testBlocking = []
   const ciBlocking = ci.green || sharedOnly ? [] : ownRed
   const f = await fixRound(taken.concat(ciBlocking), taken.length ? 'the end-to-end test and CI' : 'CI', ci.green || sharedOnly ? 'test' : 'ci')
   if (f.stop) return f.stop

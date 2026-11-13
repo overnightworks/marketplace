@@ -525,3 +525,10 @@ test('AC-ci-printer-quotes: the ci printer text holds no single quote, so the sh
   const commandLine = agentCalls['ci-read-0'].prompt.split('\n').at(-1)
   assert.match(commandLine, /^cd '[^']*' && python3 -c '[^']+' ci 1 '[^']*' 'ci-0-[^']*'$/)
 })
+
+// A fixer line whose git commands failed: the lane stops at fix with the failed command named, before any judgement.
+test('lane-relay-judgement: a fixer line whose git commands failed returns the failed command and no judgement, and does not throw', async () => {
+  const { result } = await driveRelayChild({ ...resumedLane, fixFirst: [defectWithoutDraft] }, {}, { 'fix-1': { ...resumeFix, regression: [], head_code: 128, main_code: 128 } })
+  assert.deepEqual([result.status, result.stage], ['failed', 'fix'])
+  assert.match(result.reason, /reports a failed git command/)
+})

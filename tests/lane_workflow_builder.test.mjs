@@ -9,11 +9,13 @@ const protocolOf = (source) => Number(source.match(/^const LANE_BUILD_PROTOCOL =
 const builtLane = { ...resumedLane, pr: undefined, tip: undefined, build: 'b' }
 const driveBuilder = (options) => runLane(builtLane, { build: built }, { ...options, child: 'atelier:lane-build' })
 
-test('lane-build-protocol: a child with another protocol number fails the lane at build naming both numbers', async () => {
+test('lane-build-protocol: a child with another protocol number returns awaiting-head at build naming both numbers and /reload-plugins', async () => {
   const parentNumber = protocolOf(readWorkflow('lane'))
   const { result } = await driveBuilder({ transformChild: (source) => source.replace(/^const LANE_BUILD_PROTOCOL = \d+$/m, `const LANE_BUILD_PROTOCOL = ${parentNumber + 1}`) })
-  assert.deepEqual([result.status, result.stage], ['failed', 'build'])
+  assert.deepEqual([result.status, result.stage], ['awaiting-head', 'build'])
   assert.match(result.reason, new RegExp(`${parentNumber}[\\s\\S]*${parentNumber + 1}|${parentNumber + 1}[\\s\\S]*${parentNumber}`))
+  assert.match(result.requiredHeadActions.join(' '), /\/reload-plugins/)
+  assert.match(result.requiredHeadActions.join(' '), /same build brief/)
 })
 
 test('lane-build-protocol: lane.js and lane-build.js hold the same protocol number', () => {

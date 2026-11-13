@@ -8,11 +8,13 @@ const readWorkflow = (name) => fs.readFileSync(new URL(`../plugins/atelier/workf
 const protocolOf = (source) => Number(source.match(/^const LANE_TEST_PROTOCOL = (\d+)$/m)?.[1])
 const driveTester = (options) => runLane(resumedLane, { 'r0-review': APPROVE, 'e2e-0': PASS, 'ci-0': greenCi(resumedLane.tip) }, { ...options, child: 'atelier:lane-test' })
 
-test('lane-test-protocol: a child with another protocol number fails the lane at test naming both numbers', async () => {
+test('lane-test-protocol: a child with another protocol number returns awaiting-head at test naming both numbers and /reload-plugins', async () => {
   const parentNumber = protocolOf(readWorkflow('lane'))
   const { result } = await driveTester({ transformChild: (source) => source.replace(/^const LANE_TEST_PROTOCOL = \d+$/m, `const LANE_TEST_PROTOCOL = ${parentNumber + 1}`) })
-  assert.deepEqual([result.status, result.stage], ['failed', 'test'])
+  assert.deepEqual([result.status, result.stage], ['awaiting-head', 'test'])
   assert.match(result.reason, new RegExp(`${parentNumber}[\\s\\S]*${parentNumber + 1}|${parentNumber + 1}[\\s\\S]*${parentNumber}`))
+  assert.match(result.requiredHeadActions.join(' '), /\/reload-plugins/)
+  assert.match(result.requiredHeadActions.join(' '), /pr \d+ and tip \w+/)
 })
 
 test('lane-test-protocol: a call without the scratch directory fails the lane at test naming the missing args', async () => {

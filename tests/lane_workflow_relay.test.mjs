@@ -327,13 +327,15 @@ const driveRelayChild = (args, options, answers = {}) => runLane(args, answers, 
 const builtLane = { ...resumedLane, pr: undefined, tip: undefined, build: 'b' }
 const builtAnswer = { pr: 2, tip: 'abcdef1', blocked: false }
 
-test('lane-relay-protocol: a child with another protocol number fails the lane at sync naming both numbers, and no sync agent starts', async () => {
+test('lane-relay-protocol: a child with another protocol number returns awaiting-head at sync naming both numbers and /reload-plugins, and no sync agent starts', async () => {
   const parentNumber = protocolOf(readWorkflow('lane'))
   const { result, launchedAgents } = await driveRelayChild(resumedLane, { transformChild: (source) => source.replace(/^const LANE_RELAY_PROTOCOL = \d+$/m, `const LANE_RELAY_PROTOCOL = ${parentNumber + 1}`) })
-  assert.deepEqual([result.status, result.stage], ['failed', 'sync'])
+  assert.deepEqual([result.status, result.stage], ['awaiting-head', 'sync'])
   assert.match(result.reason, new RegExp(`protocol ${parentNumber + 1}.*protocol ${parentNumber}`))
   assert.doesNotMatch(result.reason, /the printed line/)
   assert.deepEqual(launchedAgents, [])
+  assert.match(result.requiredHeadActions.join(' '), /\/reload-plugins/)
+  assert.match(result.requiredHeadActions.join(' '), /pr \d+ and tip \w+/)
 })
 
 test('lane-relay-protocol: a child that misses args fails the lane at sync naming them', async () => {
@@ -343,10 +345,10 @@ test('lane-relay-protocol: a child that misses args fails the lane at sync namin
   assert.doesNotMatch(result.reason, /the printed line/)
 })
 
-test('lane-relay-protocol: a child with another protocol number and a missing arg fails the lane with the skew sentence, not missing args', async () => {
+test('lane-relay-protocol: a child with another protocol number and a missing arg returns awaiting-head with the skew sentence, not missing args', async () => {
   const skewed = (source) => source.replace(/^const LANE_RELAY_PROTOCOL = \d+$/m, `const LANE_RELAY_PROTOCOL = ${protocolOf(readWorkflow('lane')) + 1}`)
   const { result } = await driveRelayChild(resumedLane, { transformChild: skewed, alterChildArgs: ({ reread: _reread, ...rest }) => rest })
-  assert.deepEqual([result.status, result.stage], ['failed', 'sync'])
+  assert.deepEqual([result.status, result.stage], ['awaiting-head', 'sync'])
   assert.match(result.reason, /the installed atelier differs from the running lane/)
   assert.doesNotMatch(result.reason, /missing args/)
 })

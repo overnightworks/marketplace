@@ -1,8 +1,0 @@
-claim_id = "0f0a7f8dcf6440ebb3318983fd084067"
-agent = "Claude ff1b9f08-53fd-4692-b3b9-2cc410b8d654"
-role = "builder"
-base = "09cb7a4a1b3af7684170cbab41143eab71d20fee"
-branch = "claude/issue-683-rerun-after-disputed-flake"
-scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/workflows/lane-ci.js", "plugins/atelier/workflows/lane-relay.js", "plugins/atelier/workflows/lane.js", "tests"]
-opened_commit = "c7279799efc122e4da63d172a4adfc6ce05dd301"
-whole_reason = "One lane behaviour, a re-run after a disputed flake, its tests and the version bump."

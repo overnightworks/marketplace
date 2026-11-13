@@ -1,0 +1,8 @@
+claim_id = "dcd80c85102247aa940aee42552dda26"
+agent = "Claude ff1b9f08-53fd-4692-b3b9-2cc410b8d654"
+role = "builder"
+base = "df7cd1b89b10aa7b2517b7e69daf3f6c092a6433"
+branch = "claude/issue-691-lane-routing-failure-keeps-result"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/workflows", "tests"]
+opened_commit = "293ac12e9d9c3c2264c3497690a774cd70cd2068"
+whole_reason = "The lane's child-failure paths around openResult (lane-routing failure, late-refusal memory) and the lane-routing protocol test, with the version bump."

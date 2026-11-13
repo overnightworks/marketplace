@@ -1,8 +1,0 @@
-claim_id = "9b15403c06734d10be83984eeed4e8f5"
-agent = "Claude ff1b9f08-53fd-4692-b3b9-2cc410b8d654"
-role = "builder"
-base = "5cac249c006fc4a0c1329b9eb7194be496b91107"
-branch = "claude/issue-694-shared-red-latest-run"
-scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/workflows/lane-relay.js", "plugins/atelier/workflows/lane.js", "tests"]
-opened_commit = "f6ad23ff326583a3006ebedb202f0620d0c53fc2"
-whole_reason = "Two lane input readings (the base branch's checks in the ci printer, the shape of fixFirst and foldIn), with tests and the version bump."

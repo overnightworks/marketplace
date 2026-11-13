@@ -1,6 +1,6 @@
 ---
 name: legal-texts
-description: Write, adapt or check one app's own part of the privacy notice (Datenschutzerklärung) and of the terms of use (Nutzungsbedingungen). Reads the current composed pages and shared sections, inventories what the app's code really processes, reads the current official text of each law it checks (GDPR Art. 12 to 14, BGB §§ 305 to 310), marks every duty as met by a shared section, by the app's part or not applicable, writes only what the app adds and points to the shared sections for the rest, runs a minimality pass and hands the wording to the operator for his yes. Use when asked to write, update, shorten or review an app's privacy notice, Datenschutzerklärung, data protection text, terms of use, Nutzungsbedingungen or AGB, for an app's check before its launch or when the operator asks. Which laws apply at all comes from audit (standards). An assessment, not legal advice.
+description: Write, adapt or check one app's own part of the privacy notice (Datenschutzerklärung) and of the terms of use (Nutzungsbedingungen). Reads the current composed pages and shared sections, inventories what the app's code really processes, reads the current official text of each law it checks (GDPR Art. 12 to 14, BGB §§ 305 to 310), marks every duty as met by a shared section, by the app's part or not applicable, writes only what the app adds and points to the shared sections for the rest, runs a minimality pass and hands the wording to the operator for his yes. Use when asked to write, update, shorten or review an app's privacy notice, Datenschutzerklärung, data protection text, terms of use, Nutzungsbedingungen or AGB, for an app's check before its launch, or when the operator asks. Which laws apply at all comes from audit (standards). An assessment, not legal advice.
 ---
 
 Every app delivers its own privacy part and its own terms part. A part holds
@@ -12,7 +12,7 @@ The skill writes only the app's part, in the app's repository, inside the
 app's claimed lane. It never edits a shared section or a composed page: those
 belong to the repository that composes them.
 
-Until an app has users its texts get no agent work (`AGENTS.md`, Material risk).
+Run this skill for an app's check before its launch or when the operator asks, not when an app gains a processing.
 
 ## Procedure
 

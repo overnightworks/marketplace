@@ -589,7 +589,7 @@ async function standIn(rr) {
 }
 const settleLimit = rr => standInAllowed(rr) ? standIn(rr) : awaitLimit(rr)
 
-const unseenDeltaOf = rr => rr.from ? { deltaFrom: rr.from, answers: rr.range } : {}
+const unseenDeltaOf = rr => lateProtocolRefusal && rr.from ? { deltaFrom: rr.from, answers: rr.range } : {}
 
 // Each round judges the previous fix, so rounds run one after another; the fix budgets bound the recursion.
 async function settleReview(rr) {

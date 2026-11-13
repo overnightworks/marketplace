@@ -606,6 +606,13 @@ test('late-protocol-refusal: lane-review refusing in the round that follows a fi
   assert.equal(result.deltaFrom, resumeTip)
 })
 
+test('late-protocol-refusal: a review round that ends without an answer after a fix round fails the lane without deltaFrom', async () => {
+  const raised = [{ ...finding('a.py:5', 'defect'), kind: 'docs' }]
+  const { result } = await runLane(resumeArgs, { 'r0-review': { verdict: 'REVISE', blocking: raised, followups: [] }, 'fix-1': { ...resumeFix, regression: [] }, 'r1-review': null })
+  assert.deepEqual([result.status, result.stage], ['failed', 'review'])
+  assert.ok(!('deltaFrom' in result) && !('answers' in result))
+})
+
 const refusedAtScopeAfterFix = (label) => ({ child: 'atelier:lane-relay', alterChildArgs: (childArgs) => childArgs.label === label ? { ...childArgs, protocol: 99 } : childArgs })
 const raisedDefect = [{ ...finding('a.py:5', 'defect'), kind: 'docs' }]
 for (const [phase, answers] of [

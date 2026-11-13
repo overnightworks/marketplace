@@ -9,6 +9,7 @@ repository kind, and a link to the owner's standard document.
 - **Document set**, every repository: [write-docs' document set](../plugins/atelier/skills/write-docs/references/document-types.md#repository-document-set).
 - **Release path**, repositories that publish a release and apps that ship an image; owner overnightworks/quality: [quality's release path](https://github.com/overnightworks/quality/blob/main/docs/release.md).
 - **App on the platform**, every app that runs on the platform or moves onto it; owner overnightworks/platform: [an app on the platform](https://github.com/overnightworks/platform/blob/main/docs/app.md).
+- **Repository settings**, every non-archived non-fork repository of the organisation; owner overnightworks/platform: [GitHub settings](https://github.com/overnightworks/platform/blob/main/docs/github-settings.md).
 - **Calling an agent**, every fleet app that has a place an agent with an account of its own can join; owner overnightworks/agents: [calling an agent](https://github.com/overnightworks/agents/blob/main/docs/calling.md).
 - **Languages**, every app with a user-facing surface and the shared kit; owner overnightworks/design: [languages](https://github.com/overnightworks/design/blob/main/docs/languages.md).
 - **Run-time installs in CI**, every repository that runs quality's gate, forks of third-party projects excluded; owner overnightworks/quality: [quality's `runtime-install` rule](https://github.com/overnightworks/quality/blob/main/docs/rules.md).

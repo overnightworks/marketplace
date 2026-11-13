@@ -627,7 +627,17 @@ async function watchCi(n) {
   if (read.problem) return { problem: `read the CI values, but their relay line ${read.problem}${printedLine(read)}` }
   const { view } = read.values
   if (view.code !== 0) return { problem: `could not read the pull request: gh pr view exited ${view.code}: ${view.err ?? ''}` }
-  return { ...watched, ...read.ci, unproven: watched.green ? read.ci.unproven : null }
+  const failing = watched.green || watched.failing?.length ? watched.failing : failedCheckFindings(read.values.checks?.open)
+  return { ...watched, failing, ...read.ci, unproven: watched.green ? read.ci.unproven : null }
+}
+
+// A watcher that answers red without quoting a log leaves the fixer nothing to act on; the printed listing still names the red checks.
+function failedCheckFindings(openChecks = []) {
+  return openChecks.filter(c => c.bucket === 'fail').map(c => ({
+    where: c.name, kind: 'defect', rule: `CI check ${c.name}`,
+    text: `The check "${c.name}" is red, and the CI watcher quoted no log for it.`,
+    evidence: `The relay's ci line lists "${c.name}" in the fail bucket; read its log with gh run view.`,
+  }))
 }
 
 function lockQueueCiState(ci) {

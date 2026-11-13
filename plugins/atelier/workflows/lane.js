@@ -236,13 +236,19 @@ async function routingLine() {
   if (typeof line !== 'string') throw new Error(`the Routing line could not be printed: ${line?.problem ?? JSON.stringify(line)}`)
   return line
 }
-const lateProtocolStop = (extra) => ({
-  status: 'awaiting-head',
-  reason: `a child refused after the start-of-run check because atelier was installed while this lane ran (${lateProtocolRefusal})`,
-  requiredHeadActions: [pr
-    ? `run /reload-plugins, then start a new run with pr ${pr} and tip ${tip}${(extra.deltaFrom ?? A.deltaFrom) ? ` and deltaFrom ${extra.deltaFrom ?? A.deltaFrom}${extra.answers ? ' and answers as returned' : ''}` : ''} to continue on the installed version`
-    : 'run /reload-plugins, then start a new run with the same build brief; the builder did not start'],
-})
+const lateProtocolStop = (extra) => {
+  const deltaFrom = extra.deltaFrom ?? A.deltaFrom
+  const answers = extra.answers ? ' and answers as returned' : ''
+  const delta = deltaFrom ? ` and deltaFrom ${deltaFrom}${answers}` : ''
+  const resume = pr
+    ? `run /reload-plugins, then start a new run with pr ${pr} and tip ${tip}${delta} to continue on the installed version`
+    : 'run /reload-plugins, then start a new run with the same build brief; the builder did not start'
+  return {
+    status: 'awaiting-head',
+    reason: `a child refused after the start-of-run check because atelier was installed while this lane ran (${lateProtocolRefusal})`,
+    requiredHeadActions: [resume],
+  }
+}
 const openResult = async (status, stage, extra = {}) => {
   const line = await routingLine()
   return { status, stage, pr, tip, spent, routing: ROUTING, ...(line !== null && { routingLine: line }), history, followups: openFollowups(), raisedBeforeTip: raisedBeforeTip(openFollowups()), folded: [...folded.values()], disputed, ...gateUnseenView(), ...extra, ...((status === 'failed' || line === null) && lateProtocolRefusal && lateProtocolStop(extra)) }

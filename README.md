@@ -46,7 +46,7 @@ python3 scripts/install.py
 The same command serves a first install and every later update;
 `--from-checkout` adds the marketplace from this checkout, for developing it.
 It also links the contract into each provider's user-level instructions (see
-[Architecture](docs/ARCHITECTURE.md)) and `scripts/probe-run`, which starts a
+[Architecture](docs/ARCHITECTURE.md)) and `scripts/probe_run.sh` as `probe-run`, which starts a
 probe stack once the machine's load allows, into `~/.local/bin`.
 
 `codex plugin add` removes the previously installed version directory, so the

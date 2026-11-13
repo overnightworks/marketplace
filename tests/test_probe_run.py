@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-PROBE_RUN = Path(__file__).resolve().parents[1] / "scripts" / "probe-run"
+PROBE_RUN = Path(__file__).resolve().parents[1] / "scripts" / "probe_run.sh"
 CORES = os.cpu_count() or 1
 LOAD_LIMIT = 1.5 * CORES
 ARGUMENT_ECHO = '#!/bin/sh\nprintf "%s\\n" "$@"\n'

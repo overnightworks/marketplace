@@ -21,7 +21,7 @@ GITHUB_URL = "git@github.com:overnightworks/marketplace.git"
 MARKETPLACE = "atelier"
 PLUGIN = "atelier@atelier"
 
-PROBE_RUN = REPO_ROOT / "scripts" / "probe-run"
+PROBE_RUN = REPO_ROOT / "scripts" / "probe_run.sh"
 
 LINKS = (
     (Path(".claude") / "CLAUDE.md", CONTRACT),

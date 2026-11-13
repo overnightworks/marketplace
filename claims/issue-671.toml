@@ -1,0 +1,8 @@
+claim_id = "6220e38043b94d4c860eacb14835440a"
+agent = "Claude ff1b9f08-53fd-4692-b3b9-2cc410b8d654"
+role = "builder"
+base = "6e620789a7bab7354c721e455be0caf70e20af6a"
+branch = "claude/issue-671-rescope-action-exact-paths"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/workflows/lane.js", "tests/lane_workflow_scope.test.mjs"]
+opened_commit = "c2cf0404be950fe389a0cf70476f4bdb69b7f38e"
+whole_reason = "One fix of the rescope action, its test and the version bump."

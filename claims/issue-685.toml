@@ -1,0 +1,8 @@
+claim_id = "e46265f2079e4d2ea96dd72f84ccad8c"
+agent = "Claude ff1b9f08-53fd-4692-b3b9-2cc410b8d654"
+role = "builder"
+base = "defe68b32a6b1243d3c61f330e410d3a337b0f77"
+branch = "claude/issue-685-probe-run-hardening"
+scope = [".claude-plugin/marketplace.json", "README.md", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/.codex/agents", "plugins/atelier/agents/explorative-tester.md", "plugins/atelier/workflows/lane-test.js", "plugins/atelier/workflows/lane.js", "scripts/install.py", "scripts/probe_run.sh", "tests"]
+opened_commit = "f35aea2fe4894bae2f8fc0a9b3dec19a1ce1d6af"
+whole_reason = "One command's hardening and the lane wording that reads its status, with tests and the version bump."

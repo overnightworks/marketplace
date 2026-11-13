@@ -343,7 +343,7 @@ test('lane-relay-protocol: a child that misses args fails the lane at sync namin
 
 test('lane-relay-protocol: a child with another protocol number and a missing arg fails the lane with the skew sentence, not missing args', async () => {
   const skewed = (source) => source.replace(/^const LANE_RELAY_PROTOCOL = \d+$/m, `const LANE_RELAY_PROTOCOL = ${protocolOf(readWorkflow('lane')) + 1}`)
-  const { result } = await driveRelayChild(resumedLane, { transformChild: skewed, alterChildArgs: ({ mechanical: _mechanical, ...rest }) => rest })
+  const { result } = await driveRelayChild(resumedLane, { transformChild: skewed, alterChildArgs: ({ reread: _reread, ...rest }) => rest })
   assert.deepEqual([result.status, result.stage], ['failed', 'sync'])
   assert.match(result.reason, /the installed atelier differs from the running lane/)
   assert.doesNotMatch(result.reason, /missing args/)
@@ -380,7 +380,7 @@ const JUNK = { printed: '{"crc":"pending","v":"pending"}' }
 const syncFails = (rereads) => runLane(resumedLane, { sync: JUNK, ...rereads })
 const reread = (result) => result.launchedAgents.filter(label => label.endsWith('-reread'))
 
-test('AC-relay-reread: a good re-read replaces the unreadable line and the lane goes on, with the re-read agent holding only the printer command and the mechanical options', async () => {
+test('AC-relay-reread: a good re-read replaces the unreadable line and the lane goes on, with the re-read agent holding only the printer command and the copy options', async () => {
   const run = await syncFails({ 'sync-reread': {} })
   assert.deepEqual(reread(run), ['sync-reread'])
   assert.ok(run.launchedAgents.includes('r0-review'), run.launchedAgents.join())
@@ -390,6 +390,8 @@ test('AC-relay-reread: a good re-read replaces the unreadable line and the lane 
   assert.equal(options.agentType, run.agentCalls.sync.options.agentType)
   assert.equal(options.phase, run.agentCalls.sync.options.phase)
   assert.deepEqual(Object.keys(options.schema.properties), ['printed'])
+  assert.deepEqual([options.model, options.effort], ['sonnet', 'low'])
+  assert.deepEqual(run.result.routing.copy, { model: options.model, effort: options.effort })
 })
 
 test('AC-relay-reread: the re-read line is the printed line the lane quotes, and the first answer keeps its other fields', async () => {
@@ -441,6 +443,27 @@ test('AC-relay-list-order: a relay line whose checks.open entries were swapped v
   assert.deepEqual(reread({ launchedAgents }), [])
 })
 
+// The ci line as one run of a copying agent garbled it: the keys after nonce are gone, or view is renamed to video with a null.
+const copiedWith = (change) => (line) => {
+  const [, crc, payload] = /^\{"crc":"(\w+)","v":(.*)\}$/.exec(line)
+  return `{"crc":"${crc}","v":${JSON.stringify(change(JSON.parse(payload)))}}`
+}
+const dropsKeysAfterNonce = copiedWith(({ rules: _rules, runs: _runs, shared: _shared, view: _view, ...kept }) => kept)
+const renamesView = copiedWith(({ view: _view, ...kept }) => ({ ...kept, video: null }))
+
+test('AC-relay-reread: a ci line whose first copy lost the keys after nonce is read again and a red CI reaches the fixer', async () => {
+  const run = await runLane({ ...resumeArgs, foldIn: [tidy] }, { ...reachesTheEnd, 'fix-1': { ...unchangedFix, resolved: [satisfied(tidy)] }, 'ci-0': { ...greenCi(resumeTip), checks: redListing }, 'ci-read-0': { edit: dropsKeysAfterNonce }, 'ci-read-0-reread': {} })
+  assert.deepEqual(reread(run), ['ci-read-0-reread'])
+  assert.ok(run.launchedAgents.some(label => label.startsWith('fix-')), run.launchedAgents.join())
+})
+
+test('AC-relay-reread: a ci line copied with a renamed key by both agents fails its CRC and stops the lane at ci', async () => {
+  const { result, launchedAgents } = await runLane({ ...resumeArgs, foldIn: [tidy] }, { ...reachesTheEnd, 'fix-1': { ...unchangedFix, resolved: [satisfied(tidy)] }, 'ci-0': { ...greenCi(resumeTip), checks: redListing }, 'ci-read-0': { edit: renamesView } })
+  assert.deepEqual([result.status, result.stage], ['failed', 'ci'])
+  assert.match(result.reason, /fails its CRC check/)
+  assert.deepEqual(reread({ launchedAgents }), ['ci-read-0-reread'])
+})
+
 for (const [what, edit] of [
   ['a dropped entry', withOpenChecks(([, ...rest]) => rest)],
   ['a changed bucket', withOpenChecks(([first, ...rest]) => [{ ...first, bucket: 'pass' }, ...rest])],
@@ -468,6 +491,7 @@ test('AC-relay-line-length: a green line of fourteen checks names no passing che
   assert.deepEqual(reread({ launchedAgents }), [])
   assert.doesNotMatch(printed, /a long check name/)
   assert.ok(printed.length < 400, `${printed.length} characters`)
+  assert.doesNotMatch(printed, /"(view|runs)"/)
 })
 
 // The closing braces at the end of the CI line, where the payload's last entry is the nested view entry.

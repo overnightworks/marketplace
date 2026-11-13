@@ -226,8 +226,9 @@ Code's auto mode denies.
    the release for you: claim released, clean merged worktree and branch removed
    (`--keep-worktree` keeps them). `specs/land.spec.md`. `aco land` has already
    released the claim; after a land, the head's release step is verifying that
-   with `aco status`. `aco release --merged` is for merges made outside
-   `aco land`. `aco land` also fast-forwards this checkout to the landed main
+   with `aco status`. A merge made outside `aco land` is released with
+   `aco release <n> --merged <pr>` for an issue lane; without `<n>` aco
+   takes it for an issue-less lane and refuses. `aco land` also fast-forwards this checkout to the landed main
    (in marketplace that checkout is the installed contract for every agent);
    the landing runs no git command beside or after it.
    Where the target branch has a merge queue, `aco land` writes the body, enqueues

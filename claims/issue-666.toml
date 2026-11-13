@@ -1,8 +1,0 @@
-claim_id = "f4a151c324684f33a39ed31387b43f8c"
-agent = "Claude ff1b9f08-53fd-4692-b3b9-2cc410b8d654"
-role = "builder"
-base = "46f72ed299b156bec25fecba66404c4adbd283d4"
-branch = "claude/issue-666-red-ci-without-findings"
-scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/workflows/lane.js", "tests/lane_workflow.test.mjs", "tests/lane_workflow_ci.test.mjs", "tests/lane_workflow_harness.mjs"]
-opened_commit = "b6b55d33292a8358082286af4100f283f7f40332"
-whole_reason = "One defect: the lane's fallback from the relay's failed checks, its tests and the version bump."

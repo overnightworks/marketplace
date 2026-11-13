@@ -23,8 +23,9 @@ fail() {
   exit 2
 }
 
+# Four digits keep every duration far below the Bash integer limit before they are added.
 is_positive_integer() {
-  [[ $1 =~ ^[1-9][0-9]*$ ]]
+  [[ $1 =~ ^[1-9][0-9]{0,3}$ ]]
 }
 
 if [[ ${1:-} == -k ]]; then
@@ -35,8 +36,8 @@ if [[ ${1:-} == -k ]]; then
 fi
 [[ ${1:-} != -- ]] || shift
 [[ $# -ge 1 ]] || fail "no command given; usage: probe-run [-k K CAP] [--] COMMAND [ARGUMENT...]"
-is_positive_integer "$kill_after" || fail "K must be a positive integer, got '$kill_after'"
-is_positive_integer "$cap" || fail "CAP must be a positive integer, got '$cap'"
+is_positive_integer "$kill_after" || fail "K must be a positive integer of at most 4 digits, got '$kill_after'"
+is_positive_integer "$cap" || fail "CAP must be a positive integer of at most 4 digits, got '$cap'"
 ((cap + kill_after <= MAXIMUM_TOTAL_SECONDS)) ||
   fail "CAP + K must be at most $MAXIMUM_TOTAL_SECONDS, got $((cap + kill_after))"
 
@@ -47,7 +48,8 @@ cores=$(nproc)
 
 load_is_below_limit() {
   local load
-  read -r load _ <"$loadavg_file"
+  read -r load _ <"$loadavg_file" || fail "cannot read a load average from $loadavg_file"
+  [[ $load =~ ^[0-9]+(\.[0-9]+)?$ ]] || fail "no valid 1-minute load in $loadavg_file, got '$load'"
   awk -v load="$load" -v limit="$(awk -v c="$cores" -v p="$LOAD_PER_CORE" 'BEGIN { print c * p }')" \
     'BEGIN { exit !(load < limit) }'
 }

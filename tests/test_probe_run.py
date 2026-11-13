@@ -10,6 +10,13 @@ PROBE_RUN = Path(__file__).resolve().parents[1] / "scripts" / "probe_run.sh"
 CORES = os.cpu_count() or 1
 LOAD_LIMIT = 1.5 * CORES
 ARGUMENT_ECHO = '#!/bin/sh\nprintf "%s\\n" "$@"\n'
+MAXIMUM_TOTAL_SECONDS = 1830
+
+
+def install_fake(bin_directory: Path, name: str, script: str) -> None:
+    fake = bin_directory / name
+    fake.write_text(script)
+    fake.chmod(0o755)
 
 
 @pytest.fixture
@@ -17,9 +24,8 @@ def machine(tmp_path: Path) -> dict[str, str]:
     """An environment whose setpriv prints its arguments and whose load is a file."""
     bin_directory = tmp_path / "bin"
     bin_directory.mkdir()
-    setpriv = bin_directory / "setpriv"
-    setpriv.write_text(ARGUMENT_ECHO)
-    setpriv.chmod(0o755)
+    install_fake(bin_directory, "setpriv", ARGUMENT_ECHO)
+    install_fake(bin_directory, "sleep", "#!/bin/sh\n")
     return {
         "PATH": f"{bin_directory}:{os.environ['PATH']}",
         "PROBE_RUN_LOADAVG_FILE": str(tmp_path / "loadavg"),
@@ -38,13 +44,17 @@ def probe_run(machine: dict[str, str], *arguments: str) -> subprocess.CompletedP
     )
 
 
-def test_starts_the_command_capped_with_the_defaults_when_the_load_is_below_the_limit(machine):
+def test_starts_the_command_capped_within_the_total_limit_when_the_load_is_below_the_limit(machine):
     set_load(machine, LOAD_LIMIT - 0.5)
 
     result = probe_run(machine, "my-stack", "--flag")
 
+    *timeout_arguments, command, flag = result.stdout.split()
     assert result.returncode == 0
-    assert result.stdout.split() == ["--pdeathsig", "TERM", "timeout", "-k", "30", "1800", "my-stack", "--flag"]
+    assert timeout_arguments[:4] == ["--pdeathsig", "TERM", "timeout", "-k"]
+    kill_after, cap = (int(seconds) for seconds in timeout_arguments[4:])
+    assert 0 < kill_after and 0 < cap and cap + kill_after <= MAXIMUM_TOTAL_SECONDS
+    assert (command, flag) == ("my-stack", "--flag")
 
 
 def test_starts_the_command_with_the_given_kill_after_and_cap(machine):
@@ -65,17 +75,26 @@ def test_ends_without_starting_when_the_load_stays_at_the_limit(machine):
     assert result.stdout == ""
 
 
-def test_starts_once_the_load_falls_below_the_limit_while_it_waits(machine, tmp_path):
+def test_starts_once_the_load_falls_below_the_limit_while_it_waits(machine):
     set_load(machine, LOAD_LIMIT + 5)
-    machine["PROBE_RUN_WAIT_SECONDS"] = "20"
-    lower_the_load = subprocess.Popen(
-        ["sh", "-c", f"sleep 1; echo '0.10 0 0 1/1 1' > {machine['PROBE_RUN_LOADAVG_FILE']}"]
-    )
+    bin_directory = Path(machine["PATH"].split(":")[0])
+    install_fake(bin_directory, "sleep", f"#!/bin/sh\necho '0.10 0 0 1/1 1' > {machine['PROBE_RUN_LOADAVG_FILE']}\n")
 
     result = probe_run(machine, "my-stack")
 
-    lower_the_load.wait()
+    assert result.returncode == 0
     assert result.stdout.split()[-1] == "my-stack"
+
+
+@pytest.mark.parametrize("content", ["", "\n", "not-a-number 1 2 3/4 5\n", "-1.0 0 0 1/1 1\n"])
+def test_fails_loud_without_starting_when_the_load_reading_is_not_a_number(machine, content):
+    Path(machine["PROBE_RUN_LOADAVG_FILE"]).write_text(content)
+
+    result = probe_run(machine, "my-stack")
+
+    assert result.returncode == 2
+    assert "no valid 1-minute load" in result.stderr or "cannot read a load average" in result.stderr
+    assert result.stdout == ""
 
 
 @pytest.mark.parametrize(
@@ -88,6 +107,8 @@ def test_starts_once_the_load_falls_below_the_limit_while_it_waits(machine, tmp_
         (("-k", "30", "0", "my-stack"), "CAP must be a positive integer"),
         (("-k", "30", "-5", "my-stack"), "CAP must be a positive integer"),
         (("-k", "31", "1800", "my-stack"), "CAP + K must be at most 1830"),
+        (("-k", "30", "9223372036854775808", "my-stack"), "CAP must be a positive integer"),
+        (("-k", "9223372036854775808", "1800", "my-stack"), "K must be a positive integer"),
     ],
 )
 def test_fails_loud_on_malformed_arguments_without_starting_anything(machine, arguments, complaint):

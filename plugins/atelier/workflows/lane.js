@@ -232,7 +232,7 @@ function openFollowups() {
 const raisedBeforeTip = (open) => open.filter(f => f.tip && !sameCommit(f.tip, tip))
 const gateUnseenView = () => gateUnseen ? { gateUnseen: { ...gateUnseen, tip } } : {}
 // The Routing line aco reads (aco's specs/lane-record.spec.md owns the grammar), built from what this run used; the head pastes it as is.
-const FINDING_STAGES = [[/^e2e-/, 'test'], [/^ci-/, 'ci'], [/^(review|gate)$/, null]]
+const FINDING_STAGES = [[/^e2e-/, 'test'], [/^ci-/, 'ci'], [/^(review|gate)$/, null], [/^standin$/, 'gate']]
 function blockingStages() {
   const found = new Set()
   for (const entry of history) {

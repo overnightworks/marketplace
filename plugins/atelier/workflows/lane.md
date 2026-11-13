@@ -108,6 +108,12 @@ gpt-6-astra/high.
   none, twice, returns awaiting-head at stage `review` with `requiredHeadActions`
   (report the defect to marketplace, run the gate through `routing.gate`) and no
   resume.
+- A networked call of the scope or ci printer that fails with a network error
+  (cannot resolve or connect to GitHub) is retried twice after 30 seconds; a
+  call that stays unreachable ends the lane awaiting-head at `scope` (resume
+  with a new run with `pr` and `tip`, and `deltaFrom` where the stop names it) or
+  at `ci` (resume with `pr` and `tip`; a resume from `ci` runs scope and the
+  review again) with "GitHub is unreachable" instead of failed.
 - A fixer that answers its whole batch in the pull request body or an item
   comment and commits nothing is no failure.
 

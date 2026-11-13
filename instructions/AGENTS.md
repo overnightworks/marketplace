@@ -65,6 +65,8 @@ questions, doubts and friction go to its parent.
   tests prove carries none, needs no drive, and is proven by CI on a clean
   install. Architecture (a new or moved boundary or dependency direction) and
   genuine uncertainty earn an independent plan review, not the final gate.
+  Until an app has users, its privacy and legal texts get no agent work and
+  carry no material risk; they are checked once before its launch.
 
 ## How to decide
 

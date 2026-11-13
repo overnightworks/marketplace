@@ -118,7 +118,7 @@ def test_running_head_gets_the_diff_and_the_subject_of_a_changed_contract_file(
 
     hint = read_events(machine)[event]()
 
-    assert file_name in hint
+    assert f"diff --git a/instructions/{file_name} b/instructions/{file_name}" in hint
     assert "+a changed line" in hint
     assert "Tighten the changed rule" in hint
 
@@ -233,7 +233,10 @@ def test_a_stored_baseline_gone_from_history_is_said_once_and_taken_again(machin
 
     told = machine.batch()
 
-    assert told != ""
+    assert "is gone from" in told
+    assert str(machine.instructions) in told
+    assert "history was rewritten" in told
+    assert "baseline is taken again" in told
     assert "\n" not in told
     assert machine.batch() == ""
     assert json.loads(state_file.read_text())["seen"]["commit"] == machine.git("rev-parse", "HEAD")

@@ -673,7 +673,7 @@ async function settleTest(ci, awaitRetry = true) {
   if (e2e?.problem) return openResult('failed', 'test', { reason: `the tester ${e2e.problem}` })
   if (e2e && typeof e2e.verdict !== 'string') return openResult('failed', 'test', { reason: `lane-test answered without a verdict: ${JSON.stringify(e2e).slice(0, 200)}` })
   if (e2e?.verdict === 'failed' && e2e.lockBusy) {
-    return openResult('awaiting-head', 'test', { reason: `load wait: the load stayed above the limit for both tries, so the end-to-end test did not run; CI of this round: ${ci && !ci.problem ? ci.state : 'not readable'}. Start a new run with pr and tip once the load falls.` })
+    return openResult('awaiting-head', 'test', { reason: `load wait: the load stayed above the limit for both tries, so the end-to-end test did not run; CI of this round: ${ci && !ci.problem && !ci.unreachable ? ci.state : 'not readable'}. Start a new run with pr and tip once the load falls.` })
   }
   if (!e2e || e2e.verdict === 'failed') return openResult('failed', 'test', { reason: 'the tester returned no usable result' })
   testBlocking = e2e.blocking || []

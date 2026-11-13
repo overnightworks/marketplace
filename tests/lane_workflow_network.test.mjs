@@ -25,7 +25,7 @@ test('AC-network-retry: a scope call that fails every time ends the lane awaitin
 test('AC-network-retry: a ci read whose first gh call fails with a network error is retried and the lane goes on', async () => {
   const { result, calls } = await runLane(resumeArgs, { 'ci-read-0': { network_error: ghDown, network_fails: 1 }, ...throughCi }, noWait)
   assert.equal(result.status, 'ready-to-land', result.reason)
-  assert.ok(calls.gh >= 5)
+  assert.equal(calls.gh, 5)
 })
 
 test('AC-network-retry: a ci read that stays unreachable ends the lane awaiting-head at ci and the pending tester is settled first', async () => {

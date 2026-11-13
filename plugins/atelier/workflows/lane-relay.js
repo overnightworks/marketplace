@@ -380,7 +380,7 @@ function readRelay(printed, nonce, requiredKeys = []) {
   const missing = requiredKeys.find(key => !complete[key])
   if (missing) return { problem: `lacks the ${missing} entry` }
   const commandFailed = complete.head && complete.main ? complete.head.code !== 0 || ![0, 1].includes(complete.main.code) : undefined
-  return { values: complete, commandFailed, unreachable: complete.unreachable?.length ? `GitHub is unreachable: ${complete.unreachable.join(', ')} failed with a network error after the retries.` : '', ...(step === 'ci' && complete.view.code === 0 && { ci: readCi(complete) }) }
+  return { values: complete, commandFailed, unreachable: complete.unreachable?.length ? `GitHub is unreachable: ${complete.unreachable.join(', ')} failed with a network error, or timed out, after the retries a network error gets (a timeout is not retried).` : '', ...(step === 'ci' && complete.view.code === 0 && { ci: readCi(complete) }) }
 }
 
 const answer = await safeAgent(`${A.delegatedLine}\n${brief} ${RELAY_ASK}\n${relayCommand(step, ...relayArgs)}`, {

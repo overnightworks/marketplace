@@ -1,8 +1,0 @@
-claim_id = "a8b1f4b289984631b5b54e6a2f5ce7f0"
-agent = "Claude ff1b9f08-53fd-4692-b3b9-2cc410b8d654"
-role = "builder"
-base = "3e1b63ee12453b21c71eafdd22448617c7be9805"
-branch = "claude/issue-659-privacy-and-legal-texts-get-no-agent-wor"
-scope = [".claude-plugin/marketplace.json", "instructions/AGENTS.md", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/skills/legal-texts/SKILL.md"]
-opened_commit = "bbc0c36feaa9ede74126619fddc66ab64c1e8c2a"
-whole_reason = "One ruling: the contract sentence, the skill trigger that contradicts it, and the version bump the plugin change needs."

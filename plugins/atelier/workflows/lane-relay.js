@@ -231,7 +231,7 @@ function judgeProofs(fixed, blocking) {
   return { proofRejection, proofNotes: proofNotes(fixed, blocking) }
 }
 
-// A disputed finding of a batch of CI findings only, every one disputed with counter-evidence and nothing committed, is a flake the lane re-runs once before the head sees it.
+// A batch of CI findings only, every one disputed with counter-evidence and nothing committed, is a flake the lane re-runs once before the head sees it.
 function isFlakeDispute(fixed, blocking) {
   if (A.flakeRerunUsed || A.source !== 'CI' || !fixed.unchanged) return false
   return blocking.every(f => fixed.disputed.some(d => d.where === f.where && (d.counterEvidence || '').trim()))
@@ -277,7 +277,10 @@ function judgeFix(answer, values) {
   const disputed = (fixed.disputed || []).length > 0
   const rejection = disputed ? null : fixRejection(fixed, blocking, foldIn)
   const flake = disputed && isFlakeDispute(fixed, blocking)
-  const outcome = flake ? 'flake' : disputed ? 'disputed' : rejection ? 'rejected' : 'accepted'
+  let outcome = 'accepted'
+  if (flake) outcome = 'flake'
+  else if (disputed) outcome = 'disputed'
+  else if (rejection) outcome = 'rejected'
   return {
     ...facts,
     proofNotes,
@@ -343,10 +346,13 @@ function readCi({ checks, rules, head, shared, log: jobLog }) {
   const rulesError = rules.code === 0 ? null : `gh api exited ${rules.code}: ${rules.err ?? ''}`
   const proven = green && !unproven && !rulesError
   const names = (failing || []).map(f => `"${f.where}"`).join(', ')
+  let state = 'not green'
+  if (proven) state = 'green'
+  else if (names) state = `red (${names})`
   return {
     head, shared, operatorDoor, failing, ownRed, green, unproven, rulesError, proven,
     sharedOnly: shared.length > 0 && ownRed.length === 0,
-    state: proven ? 'green' : names ? `red (${names})` : 'not green',
+    state,
   }
 }
 

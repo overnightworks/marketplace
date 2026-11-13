@@ -331,3 +331,11 @@ export const mergedOnlyTip = 'e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2e2'
 export const conflictsWithMain = { where: 'mergeable', kind: 'defect', text: 'the pull request conflicts with main', rule: 'r', evidence: 'CONFLICTING' }
 
 export const mergeOnlyFix = { ...resumeFix, head: mergedOnlyTip, parents: [resumeTip, mainMovedTip], files: [], regression: [] }
+
+// The contract's 'Head or helper' blockquote owns the delegated line; lane.js keeps a copy no script can read from it.
+export const delegatedLineOfContract = () => {
+  const contract = fs.readFileSync(new URL('../instructions/AGENTS.md', import.meta.url), 'utf8')
+  const section = contract.split('\n## ').find((part) => part.startsWith('Head or helper'))
+  const quoted = section.split('\n').filter((row) => row.startsWith('>')).map((row) => row.slice(1).trim())
+  return quoted.join(' ')
+}

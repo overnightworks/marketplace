@@ -116,7 +116,8 @@ test('AC-watcher-in-repo: the CI watcher enters the worktree when repo is unset 
   for (const command of ['gh pr view', "timeout 540 gh pr checks", 'gh run view']) {
     assert.ok(watcherPrompt.includes(`cd '/w' && ${command}`), `${command}: ${watcherPrompt}`)
   }
-  assert.match(watcherPrompt, /cd '\/w' && timeout 540 gh pr checks \d+ --watch --fail-fast --interval 90/)
+  assert.match(watcherPrompt, /cd '\/w' && timeout 540 gh pr checks \d+ --watch --interval 90/)
+  assert.doesNotMatch(watcherPrompt, /--fail-fast/)
   assert.doesNotMatch(watcherPrompt, /gh run rerun/)
   const set = await runLane({ ...resumeArgs, repo: 'owner/name' }, reachCi)
   assert.match(set.agentCalls['ci-0'].prompt, /gh pr view \d+ -R owner\/name/)

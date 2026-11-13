@@ -661,22 +661,22 @@ function explore(n) {
 async function watchCi(n, rerun) {
   const watched = await startChild('lane-ci', { protocol: LANE_CI_PROTOCOL, delegatedLine: DELEGATED_LINE, pr, n, rerun, repo: A.repo, worktree: A.worktree, finding: FINDING, mechanical: MECHANICAL })
   if (!watched || watched.problem) return watched
-  const nonce = `ci-${n}-${tip}`
-  const read = await relay({ label: `ci-read-${n}`, phase: 'Test and CI', step: 'ci', relayArgs: [pr, `'${A.repo || ''}'`, `'${nonce}'`], nonce, requiredKeys: ['view'], brief: `${laneFacts}\nChange nothing in the files;` })
+  const nonce = `ci-${n}-${tip}`, read = await relay({ label: `ci-read-${n}`, phase: 'Test and CI', step: 'ci', relayArgs: [pr, `'${A.repo || ''}'`, `'${nonce}'`], nonce, requiredKeys: ['view'], brief: `${laneFacts}\nChange nothing in the files;` })
   if (!read) return { problem: 'ended without reading the CI values' }
   if (read.problem) return { problem: `read the CI values, but their relay line ${read.problem}${printedLine(read)}` }
   const { view } = read.values
   if (view.code !== 0) return { problem: `could not read the pull request: gh pr view exited ${view.code}: ${view.err ?? ''}` }
   const failing = watched.green || watched.failing?.length ? watched.failing : failedCheckFindings(read.values.checks?.open)
+  // A re-run watches only the jobs it re-ran: its green leaves a red shared with main in the listing, which stays red, not unproven.
+  const open = read.values.checks?.open || []
+  if (rerun && watched.green && open.length > 0 && open.every(c => c.bucket === 'fail' && read.ci.shared?.includes(c.name))) return { ...watched, green: false, failing: failedCheckFindings(open), ...read.ci, unproven: null }
   return { ...watched, failing, ...read.ci, unproven: watched.green ? read.ci.unproven : null }
 }
 
 // A watcher that answers red without quoting a log leaves the fixer nothing to act on; the printed listing still names the red checks.
 function failedCheckFindings(openChecks = []) {
   return openChecks.filter(c => c.bucket === 'fail').map(c => ({
-    where: c.name, kind: 'defect', rule: `CI check ${c.name}`,
-    text: `The check "${c.name}" is red, and the CI watcher quoted no log for it.`,
-    evidence: `The relay's ci line lists "${c.name}" in the fail bucket; read its log with gh run view.`,
+    where: c.name, kind: 'defect', rule: `CI check ${c.name}`, text: `The check "${c.name}" is red, and the CI watcher quoted no log for it.`, evidence: `The relay's ci line lists "${c.name}" in the fail bucket; read its log with gh run view.`,
   }))
 }
 
@@ -698,8 +698,7 @@ function startTest() {
   pendingTest = explore(testCalls++).then(e2e => { testSettled = true; return e2e })
 }
 const takePendingTest = () => pendingTest.then(e2e => { pendingTest = null; return e2e })
-// Judges the pending tester's answer; returns the result that stops the lane, or undefined. A lock-busy answer is retried once:
-// awaited here when CI has nothing of its own to fix, else left pending while the fixer starts.
+// Judges the pending tester's answer; returns the result that stops the lane, or undefined. A lock-busy answer is retried once, awaited when CI has nothing of its own to fix.
 async function settleTest(ci, awaitRetry = true) {
   let e2e = await takePendingTest()
   if (e2e?.verdict === 'failed' && e2e.lockBusy && !lockRetried) {
@@ -722,51 +721,53 @@ async function settleTest(ci, awaitRetry = true) {
   // A PASS on a tip a fix has since changed in production is stale: a new tester runs on the current tip.
   if (productionSinceTest) needTest = true
 }
+// The failing findings of checks main does not share: a shared check's red entries and findings named by it are left out.
+function ownFailing({ shared, red = [], failing = [] }) {
+  const sharedEntries = new Set(red.filter(job => shared.includes(job.name)).flatMap(job => job.findings.map(entry => JSON.stringify(entry))))
+  return failing.filter(entry => !sharedEntries.has(JSON.stringify(entry)) && ![entry.where, String(entry.rule).replace(/^CI check /, '')].some(name => shared.includes(name)))
+}
 while (true) {
   phase('Test and CI')
   if (needTest && !pendingTest) startTest()
-  const rerunBatch = rerunRed
-  const ci = await watchCi(n, rerunBatch?.red)
-  rerunRed = undefined
-  n++
+  const rerunBatch = rerunRed, ci = await watchCi(n, rerunBatch?.red)
+  rerunRed = undefined; n++
   if (!ci || ci.problem) {
     const stop = pendingTest && await settleTest(ci)
     return stop || await openResult('failed', 'ci', ci ? { reason: `the CI watcher ${ci.problem}` } : undefined)
   }
   if (!sameCommit(ci.head, tip)) return await openResult('failed', 'ci', { reason: `the pull request head ${ci.head} is not the lane tip ${tip}` })
-  const { shared, unproven } = ci
-  if (pendingTest && (testSettled || ci.green || shared.length || ci.operatorDoor)) {
-    const stop = await settleTest(ci, ci.green || shared.length > 0 || Boolean(ci.operatorDoor))
+  const { shared, unproven } = ci, ownRed = ownFailing(ci), sharedOnly = shared.length > 0 && ownRed.length === 0
+  if (pendingTest && (testSettled || ci.green || sharedOnly || ci.operatorDoor)) {
+    const stop = await settleTest(ci, ci.green || sharedOnly || Boolean(ci.operatorDoor))
     if (stop) return stop
   }
   history.push({ after: spent.total, by: `ci-${n - 1}`, verdict: ci.green && !unproven && !ci.rulesError ? 'GREEN' : 'RED', blocking: (ci.failing || []).map(f => f.where) })
   if (ci.rulesError) return await openResult('failed', 'ci', { reason: `the required checks of the base branch could not be read: ${ci.rulesError}` })
   if (unproven) return await openResult('failed', 'ci', { reason: `CI reported green, but the check listing does not prove it: ${unproven}` })
-  // The one re-run of a disputed flake came back red: the disagreement between the fixer and CI is the head's.
-  if (rerunBatch && !ci.green) return await awaitHeadOnDispute(rerunBatch.fixed, rerunBatch.blocking)
+  // The one re-run of a disputed flake came back red (a red shared with main aside): the disagreement between the fixer and CI is the head's.
+  if (rerunBatch && !ci.green && !sharedOnly) return await awaitHeadOnDispute(rerunBatch.fixed, rerunBatch.blocking)
   if (testBlocking.length === 0 && ci.green) {
     if (!needTest) break
     continue
   }
-  if (shared.length && testBlocking.length === 0) {
-    const checkList = shared.map(name => `"${name}"`).join(', ')
-    return await openResult('awaiting-head', 'ci', { reason: `the CI check(s) ${checkList} are red on the base branch tip too: the red is shared with main and is fixed there, so no fixer was launched. If this lane's item is that repair, start a new run with pr and tip and fixFirst.` })
+  if (sharedOnly && testBlocking.length === 0) {
+      return await openResult('awaiting-head', 'ci', { reason: `the CI check(s) ${shared.map(name => '"' + name + '"').join(', ')} are red on the base branch tip too: the red is shared with main and is fixed there, so no fixer was launched. If this lane's item is that repair, start a new run with pr and tip and fixFirst.` })
   }
   if (ci.operatorDoor && testBlocking.length === 0) {
     if (needTest) continue
     return await openResult('awaiting-head', 'ci', { reason: `the only red check is the quality verdict, red because the diff holds only declared loosenings, which only the operator merges, so no fixer was launched. It waits at the operator's merge door: run \`${ci.operatorDoor}\`.` })
   }
-  const taken = testBlocking
-  testBlocking = []
-  const ciBlocking = ci.green || shared.length ? [] : (ci.failing || [])
-  const f = await fixRound(taken.concat(ciBlocking), taken.length ? 'the end-to-end test and CI' : 'CI', ci.green || shared.length ? 'test' : 'ci')
+  const taken = testBlocking; testBlocking = []
+  const ciBlocking = ci.green || sharedOnly ? [] : ownRed
+  const f = await fixRound(taken.concat(ciBlocking), taken.length ? 'the end-to-end test and CI' : 'CI', ci.green || sharedOnly ? 'test' : 'ci')
   if (f.stop) return f.stop
   if (f.flakes) {
-    if (!(ci.red?.length && ci.red.every(job => job.runId && job.jobId))) return await awaitHeadOnDispute(f.fixed, ciBlocking)
+    const ownJobs = (ci.red || []).filter(job => !shared.includes(job.name))
+    if (!(ownJobs.length && ownJobs.every(job => job.runId && job.jobId))) return await awaitHeadOnDispute(f.fixed, ciBlocking)
     flakeRerunUsed = true
     followups.push(...f.flakes)
     adoptFixerTip(f.fixed)
-    rerunRed = { red: ci.red, fixed: f.fixed, blocking: ciBlocking }
+    rerunRed = { red: ownJobs, fixed: f.fixed, blocking: ciBlocking }
     continue
   }
   const stop = f.range && await reviewUntilClean(f.gateAgain ? ALL : [REVIEW], f.range, f.deltaFrom)

@@ -1,0 +1,8 @@
+claim_id = "4a767112f69d46008f42d823ab3a9045"
+agent = "Claude ff1b9f08-53fd-4692-b3b9-2cc410b8d654"
+role = "builder"
+base = "ba0cc1fdf5632fe5cf6c03c18ba9ba52693ed31a"
+branch = "claude/issue-692-late-protocol-refusal-resumable"
+scope = [".claude-plugin/marketplace.json", "README.md", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/workflows", "tests"]
+opened_commit = "bf901321abc73205be6bf928731e172c90b5cb30"
+whole_reason = "How a running lane reaches its children across an install, in the lane, its tests, the README and the version bump."

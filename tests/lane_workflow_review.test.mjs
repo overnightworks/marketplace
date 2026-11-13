@@ -5,7 +5,7 @@ import path from 'node:path'
 import { spawnSync } from 'node:child_process'
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { runLane, courierBriefOf, resumedLane, installFake, APPROVE, PASS, greenCi, finding, resumeArgs, resumeTip, resumeFixedTip, resumeFix, secondFix, tidy } from './lane_workflow_harness.mjs'
+import { runLane, courierBriefOf, resumedLane, installFake, APPROVE, PASS, greenCi, finding, resumeArgs, resumeTip, resumeFixedTip, resumeFix, secondFix, tidy, delegatedLineOfContract } from './lane_workflow_harness.mjs'
 
 const readWorkflow = (name) => fs.readFileSync(new URL(`../plugins/atelier/workflows/${name}.js`, import.meta.url), 'utf8')
 const protocolOf = (source) => Number(source.match(/^const LANE_REVIEW_PROTOCOL = (\d+)$/m)?.[1])
@@ -116,7 +116,7 @@ test('courier-brief-markers: the courier prompt puts the brief between two marke
   assert.ok(token.length > 0 && end === `BRIEF-END ${token}`)
   assert.ok(token.includes('r0-gate'), token)
   assert.ok(!brief.includes(token))
-  assert.match(brief, /^This is a delegated step started by a head, not a main session/)
+  assert.ok(brief.startsWith(delegatedLineOfContract()))
   assert.equal(token.split('-').at(-1), prompt.match(/= ([0-9a-f]{8}) \] \|\|/)[1])
   assert.doesNotMatch(prompt, /copy it verbatim|write the brief to/i)
 })

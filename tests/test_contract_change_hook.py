@@ -3,6 +3,7 @@ from __future__ import annotations
 import io
 import json
 import os
+import shlex
 import subprocess
 import time
 from pathlib import Path
@@ -118,7 +119,7 @@ def test_running_head_gets_the_diff_and_the_subject_of_a_changed_contract_file(
 
     hint = read_events(machine)[event]()
 
-    assert file_name in hint
+    assert f"diff --git a/instructions/{file_name} b/instructions/{file_name}" in hint
     assert "+a changed line" in hint
     assert "Tighten the changed rule" in hint
 
@@ -233,7 +234,10 @@ def test_a_stored_baseline_gone_from_history_is_said_once_and_taken_again(machin
 
     told = machine.batch()
 
-    assert told != ""
+    assert "is gone from" in told
+    assert str(machine.instructions) in told
+    assert "history was rewritten" in told
+    assert "baseline is taken again" in told
     assert "\n" not in told
     assert machine.batch() == ""
     assert json.loads(state_file.read_text())["seen"]["commit"] == machine.git("rev-parse", "HEAD")
@@ -290,8 +294,10 @@ def test_a_hint_over_the_host_limit_gives_the_subjects_and_the_command_that_show
 
     assert len(hint) <= 10_000
     assert "Rewrite the whole contract" in hint
-    assert f"git -C {machine.instructions} diff" in hint
     assert "+long" not in hint
+    command = next(line for line in hint.splitlines() if line.startswith("git -C "))
+    shown = subprocess.run(shlex.split(command), capture_output=True, text=True, check=True).stdout
+    assert "diff --git a/instructions/AGENTS.md b/instructions/AGENTS.md" in shown
 
 
 def test_uncommitted_edits_are_never_told(machine: Machine) -> None:

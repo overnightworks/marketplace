@@ -1,0 +1,8 @@
+claim_id = "d681d7af0c15449b9d482092dd825647"
+agent = "Claude ff1b9f08-53fd-4692-b3b9-2cc410b8d654"
+role = "builder"
+base = "75cd078a208c65820b7b35b6c9ec32f1ffc828e0"
+branch = "claude/issue-713-one-generated-lane-script"
+scope = [".claude-plugin/marketplace.json", ".github/workflows/ci.yml", "AGENTS.md", "README.md", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/lane", "plugins/atelier/skills/providers/SKILL.md", "plugins/atelier/workflows", "quality/config.toml", "scripts/build_lane.mjs", "sonar-project.properties", "tests"]
+opened_commit = "88aa3269e3a3d903ce555c571d6660841de0825c"
+whole_reason = "The lane's runtime boundary moves from six named children to one generated script; generator, gate, sources, tests and docs change together or the lane does not run."

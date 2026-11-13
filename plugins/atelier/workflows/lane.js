@@ -236,33 +236,46 @@ const gateUnseenView = () => gateUnseen ? { gateUnseen: { ...gateUnseen, tip } }
 const FINDING_STAGES = [[/^e2e-/, 'test'], [/^ci-/, 'ci'], [/^(review|gate)$/, null], [/^standin$/, 'gate']]
 const ROUTING_LINE_LIMIT = 512  // the length the aco skill's abandon step asks of the line
 const LOCATION_LIMIT = 60
-const PATH_AND_LINE = /^[\p{L}\p{N}_./@-]+:\d+$/u
+const PATH_CHARACTERS = /^[\p{L}\p{N}_./@-]+$/u
+// One scan over the word: drop wrapping parentheses and trailing punctuation, then a path, a colon, a line and an optional "-end" of a range.
+function pathAndLine(word) {
+  let reference = word.replace(/^\(+/, '')
+  while (',.;)'.includes(reference.at(-1))) reference = reference.slice(0, -1)
+  const colon = reference.lastIndexOf(':')
+  if (colon < 1) return null
+  const [line] = reference.slice(colon + 1).split('-', 2)
+  return PATH_CHARACTERS.test(reference.slice(0, colon)) && /^\d+$/.test(line) ? `${reference.slice(0, colon)}:${line}` : null
+}
 function blockingStages() {
-  const found = new Map()  // the full finding text and stage -> the location printed for it, so findings sharing a location stay counted
+  const found = new Map()  // keyed by the full finding text and stage, so a finding that comes back counts once
   for (const entry of history) {
     if (!Array.isArray(entry.blocking)) continue
     const stage = FINDING_STAGES.map(([pattern, name]) => pattern.test(entry.by) ? name ?? entry.by : null).find(Boolean)
     if (!stage) continue
     entry.blocking.forEach(where => {
       const text = String(where).replace(/[\s;→]+/g, ' ').trim()
-      found.set(JSON.stringify([text, stage]), [text.split(' ').find(word => PATH_AND_LINE.test(word)) ?? text, stage])
+      found.set(JSON.stringify([text, stage]), { where: text.split(' ').map(pathAndLine).find(Boolean) ?? text, stage })
     })
   }
   return [...found.values()]
 }
-// Each finding keeps its stage arrow, so aco counts it. The locations shrink evenly until the whole line fits, then they go and the stage words shorten;
-// only a line that cannot hold one arrow per finding gives up the count.
-const SHORT_STAGE_LENGTH = 3
+// Findings that print the same text and stage share one counted entry "<n>× <text> → <stage>", grouped after the render tier shortens them.
+// The locations shrink evenly until the whole line fits, then they go; one entry per stage word is all that is left.
+const countPrefix = (count) => count > 1 ? `${count}× ` : ''
+const COUNT_LIMIT = 999  // aco reads a count of one to three digits
 function blockingText(findings, rest) {
   if (!findings.length) return 'none'
   const room = ROUTING_LINE_LIMIT - rest.length
-  const arrows = findings.reduce((sum, [, stage]) => sum + ` → ${stage}`.length, 0) + 2 * (findings.length - 1)
+  const arrows = findings.reduce((sum, { stage }) => sum + ` → ${stage}`.length, 0) + 2 * (findings.length - 1)
   const each = Math.min(LOCATION_LIMIT, Math.floor((room - arrows) / findings.length))
-  const render = (locationLength, stageLength) => findings
-    .map(([where, stage]) => `${where.slice(0, locationLength)} → ${stage.slice(0, stageLength)}`.trim())
-    .join('; ')
-  const fitting = [render(each, Infinity), render(0, Infinity), render(0, SHORT_STAGE_LENGTH)].find((text, tier) => (tier || each >= 1) && text.length <= room)
-  return fitting ?? `${findings.length} findings, too many to list`
+  const render = (locationLength) => {
+    const counts = new Map()
+    findings.map(({ where, stage }) => `${where.slice(0, locationLength)} → ${stage}`).forEach(entry => counts.set(entry, (counts.get(entry) ?? 0) + 1))
+    return [...counts].flatMap(([entry, count]) => Array.from({ length: Math.ceil(count / COUNT_LIMIT) }, (_, part) =>
+      `${countPrefix(Math.min(COUNT_LIMIT, count - part * COUNT_LIMIT))}${entry}`.replace(/^(\d+× ) → /, '$1→ ').trim())).join('; ')
+  }
+  const shortened = render(Math.max(each, 0))
+  return shortened.length <= room ? shortened : render(0)
 }
 function routingLine() {
   const choice = (role) => `${ROUTING[role].model}/${ROUTING[role].effort}`

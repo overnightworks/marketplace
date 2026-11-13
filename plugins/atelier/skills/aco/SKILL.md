@@ -192,6 +192,14 @@ target, not that the work is reviewed or the checks are green.
 One more line records the routing: the head pastes the lane result's `routingLine` as is. Its
 grammar belongs to aco's `specs/lane-record.spec.md` (LANREC-*), which is not copied here.
 The head writes it before the landing, because a landing agent does not know the routing.
+The fix and gate slots each hold one value, the last model that ran; an earlier fixer or gate stays out.
+Identical blocking entries print in the counted form the grammar names. On a line too long to hold every entry,
+the lane keeps every count and drops the locations, and the full list stays in the lane result.
+
+A head that changes how lanes run (routing, budgets, a brief) tags those lanes with the lane's `experiment`
+arg and judges the change with `aco stats tag:<tag> <FROM..TO before>` (`specs/stats.spec.md`), where
+`FROM..TO before` is the date range of the lanes that ran before the change, so the tagged lanes are compared
+against them.
 
 Push the branch, then open the pull request with `gh pr create` (title, head, base,
 body).
@@ -237,7 +245,8 @@ If the merge worked but a step failed, `aco land` prints `follow-up incomplete`
 and the re-run command; re-run it, which resumes and never merges twice.
 Abandoned: `aco release <n> --abandoned REASON`; the item stays open. The head
 starts the reason with the lane's `Routing:` line, on one line within 512 characters, since aco
-parses an abandoned lane's routing only then;
+parses an abandoned lane's routing only then (the same slots and counting as in the pull request body: on a line too long
+for every entry the locations go and every count stays, and the full blocking list stays in the lane result);
 where the lane has an open pull request, the line goes into that body as usual.
 
 ## Rename a repository

@@ -132,8 +132,9 @@ it from its branch and claims after adoption.
   `Done when`; and the labels. `aco next` computes from the dependencies and
   labels; the rest of a body is refreshed at its pull or dispatch. A blocker is
   only an open work item, never a claim, branch or pull request (`aco status`
-  says who holds what); a dependency worth recording is worth an item. Close an
-  item only when its `Done when` is met or it was folded into a bundle's lead.
+  says who holds what); a dependency worth recording is worth an item. Who
+  waits on whom is said only from `aco check`, read live. Close an item only
+  when its `Done when` is met or it was folded into a bundle's lead.
 - **Comments** preserve evidence; the body, with its dependencies, is the
   current handoff. Keep threads thin: the pull request carries the proof, and a
   landing gets one close comment (PR link and merge SHA), never an evidence

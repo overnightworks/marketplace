@@ -256,7 +256,8 @@ before the work is called done.
   together; keep short duplication where an abstraction would hide meaning or
   couple unrelated concepts.
 - Check repository claims against files, external ones against primary sources;
-  mark unknowns.
+  mark unknowns; memory and notes hold no system state (where something runs,
+  what is deployed, versions, who waits), only preferences, rulings and how-tos.
 - A rule a machine can check belongs in the repository's checks, one only
   judgement can see in a scheduled agent audit at a fixed cadence (one
   distributor item per run), never in a sentence every agent must remember.

@@ -276,7 +276,7 @@ test('AC-courier-final-action: the courier and its re-read name StructuredOutput
   }
 })
 
-test('delegated-line: every agent prompt the lane and its children start opens with the delegated line', async () => {
+test('delegated-line: every agent prompt the lane starts opens with the delegated line', async () => {
   const line = delegatedLineOfContract()
   const answers = { ...agentProvidersReplay.answers, 'r0-gate': contradictoryCourier, 'r0-gate-reread': { ...gateRevise, codexExit: 0 } }
   const unreadableSync = await runLane(resumedLane, { sync: { printed: '{"crc":"pending","v":"pending"}' }, 'sync-reread': {} })

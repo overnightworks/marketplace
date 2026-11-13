@@ -21,7 +21,8 @@ claimed, reviewed and landed; this says *how*.
 2. `aco next` (`--json`) — the item to pull. `needs-operator` items and
    ideas are never named (ideas are listed apart under `ideas:`);
    an item with unruled expectations is refined first, not dispatched
-   (`specs/next.spec.md`).
+   (`specs/next.spec.md`); start the `atelier:refine` subagent to catalogue the
+   expectations the operator may have omitted.
    Code built ahead of its caller is listed in `.aco/ahead-of-caller.toml`
    (`specs/ahead-of-caller.spec.md`). A red line in `aco next` names an entry
    whose item is no longer open: delete that code, or, where an open item now

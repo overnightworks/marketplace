@@ -22,6 +22,9 @@ item or executes a cut.** Pick the goal, run its lenses, return one report.
 
 ## Dispatch
 
+Start `atelier:code-explorer` before an audit or a change when the code paths,
+owners and evidence are not yet known.
+
 The dispatching seat spawns one read-only `atelier:code-auditor` subagent per
 lens (per numbered lens inside `architecture.md`) and never audits alone. A lens
 subagent reads exactly this file's shared rules and its own reference, and

@@ -6,6 +6,10 @@ description: Review implementation plans before coding. Use when asked to vet a 
 Review one named plan or design artifact. Judge whether an implementation agent
 could execute it without inventing missing decisions.
 
+Start the `atelier:plan-reviewer` subagent to review a plan. Start
+`atelier:phase-planner` first when a long objective has no plan yet and needs
+decomposing into verified phases.
+
 ## Procedure
 
 1. Require the plan as a file path, pasted text, or an issue body

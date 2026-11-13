@@ -143,10 +143,14 @@ if (entryProblem) return { status: 'failed', stage: 'input', reason: entryProble
 // is remembered, and openResult then returns awaiting-head instead of failed.
 let lateProtocolRefusal = null
 const PROTOCOL_REFUSAL = /speaks protocol \S+, but the lane that started it speaks protocol/
+function rememberLateRefusal(name, childArgs, answer) {
+  if (childArgs.protocolQuery) return
+  if (answer?.refused && PROTOCOL_REFUSAL.test(answer.refused)) lateProtocolRefusal = `${name}: ${answer.refused}`
+}
 async function startChild(name, childArgs) {
   try {
     const answer = await workflow(`atelier:${name}`, childArgs)
-    if (answer?.refused && !childArgs.protocolQuery && PROTOCOL_REFUSAL.test(answer.refused)) lateProtocolRefusal = `${name}: ${answer.refused}`
+    rememberLateRefusal(name, childArgs, answer)
     return answer?.refused ? { problem: `was refused by ${name}: ${answer.refused}` } : answer
   } catch (error) {
     return { problem: `ended in ${name} with ${String(error).slice(0, 300)}` }
@@ -247,8 +251,8 @@ const gateUnseenView = () => gateUnseen ? { gateUnseen: { ...gateUnseen, tip } }
 async function routingLine() {
   const line = await startChild('lane-routing', { protocol: LANE_ROUTING_PROTOCOL, routing: ROUTING, history, fixRole: fixRolesRun.at(-1) ?? null, rounds: spent.total, experiment: A.experiment })
   if (lateProtocolRefusal?.startsWith('lane-routing:') && typeof line !== 'string') return null  // the caller turns the late refusal into awaiting-head
-  if (typeof line !== 'string') throw new Error(`the Routing line could not be printed: ${line?.problem ?? JSON.stringify(line)}`)
-  return line
+  // The lane's own result stays; the placeholder names why the line is missing.
+  return typeof line === 'string' ? line : `Routing: not printed (${String(line?.problem ?? JSON.stringify(line)).replace(/\s+/g, ' ').slice(0, 200)})`
 }
 const lateProtocolStop = (extra) => {
   const deltaFrom = extra.deltaFrom ?? A.deltaFrom
@@ -265,7 +269,12 @@ const lateProtocolStop = (extra) => {
 }
 const openResult = async (status, stage, extra = {}) => {
   const line = await routingLine()
-  return { status, stage, pr, tip, spent, routing: ROUTING, ...(line !== null && { routingLine: line }), history, followups: openFollowups(), raisedBeforeTip: raisedBeforeTip(openFollowups()), folded: [...folded.values()], disputed, ...gateUnseenView(), ...extra, ...((status === 'failed' || line === null) && lateProtocolRefusal && lateProtocolStop(extra)) }
+  const turnedAwaitingHead = (status === 'failed' || line === null) && lateProtocolRefusal && lateProtocolStop(extra)
+  const open = openFollowups()
+  return {
+    status, stage, pr, tip, spent, routing: ROUTING, ...(line !== null && { routingLine: line }), history,
+    followups: open, raisedBeforeTip: raisedBeforeTip(open), folded: [...folded.values()], disputed, ...gateUnseenView(), ...extra, ...turnedAwaitingHead,
+  }
 }
 
 // ---------------------------------------------------------------- children
@@ -502,7 +511,8 @@ async function pushAndCheckScope(label, origin) {
   const nonce = `${label}-${tip}`
   const quotedArguments = [A.item, `'${A.branch}'`, `'${nonce}'`]
   const checked = await relay({ label, phase: 'Scope', step: 'scope', relayArgs: quotedArguments, nonce, requiredKeys: ['push', 'remote', 'head', 'parents', 'second_parent_in_main', 'brief'], brief: `${laneFacts}\nChange nothing in the files;` })
-  const unseenDelta = origin.deltaFrom && { deltaFrom: origin.deltaFrom }
+  // Only a late refusal turns the stop into a resume, which needs the delta no reviewer has seen.
+  const unseenDelta = lateProtocolRefusal && origin.deltaFrom && { deltaFrom: origin.deltaFrom }
   if (!checked) return { stop: await openResult('failed', 'scope', { reason: 'the push and claim-scope check returned no result', ...unseenDelta }) }
   const fail = async (stage, reason) => ({ stop: await openResult('failed', stage, { reason: `${reason}${printedLine(checked)}`, ...unseenDelta }) })
   const { values, problem } = checked
@@ -578,7 +588,7 @@ async function standIn(rr) {
 }
 const settleLimit = rr => standInAllowed(rr) ? standIn(rr) : awaitLimit(rr)
 
-const unseenDeltaOf = rr => rr.from ? { deltaFrom: rr.from, answers: rr.range } : {}
+const unseenDeltaOf = rr => lateProtocolRefusal && rr.from ? { deltaFrom: rr.from, answers: rr.range } : {}
 
 // Each round judges the previous fix, so rounds run one after another; the fix budgets bound the recursion.
 async function settleReview(rr) {

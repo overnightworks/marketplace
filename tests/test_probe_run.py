@@ -86,6 +86,36 @@ def test_starts_once_the_load_falls_below_the_limit_while_it_waits(machine):
     assert result.stdout.split()[-1] == "my-stack"
 
 
+def test_decides_the_load_without_calling_awk(machine):
+    set_load(machine, LOAD_LIMIT - 0.5)
+    install_fake(Path(machine["PATH"].split(":")[0]), "awk", "#!/bin/sh\necho 'awk: broken' >&2\nexit 2\n")
+
+    result = probe_run(machine, "my-stack")
+
+    assert result.returncode == 0
+    assert result.stdout.split()[-1] == "my-stack"
+
+
+@pytest.mark.parametrize(
+    ("load", "starts"),
+    [
+        (f"{LOAD_LIMIT - 0.01:.2f}", True),
+        (f"{LOAD_LIMIT - 0.001}", True),
+        (f"{LOAD_LIMIT:.2f}", False),
+        (f"{LOAD_LIMIT + 0.001}", False),
+        (f"00{LOAD_LIMIT - 1:.1f}", True),
+        ("0", True),
+        ("0123456789", False),
+    ],
+)
+def test_starts_only_when_the_exact_load_is_below_the_limit(machine, load, starts):
+    Path(machine["PROBE_RUN_LOADAVG_FILE"]).write_text(f"{load} 0.50 0.50 1/100 1\n")
+
+    result = probe_run(machine, "my-stack")
+
+    assert (result.returncode == 0) is starts
+
+
 @pytest.mark.parametrize("content", ["", "\n", "not-a-number 1 2 3/4 5\n", "-1.0 0 0 1/1 1\n"])
 def test_fails_loud_without_starting_when_the_load_reading_is_not_a_number(machine, content):
     Path(machine["PROBE_RUN_LOADAVG_FILE"]).write_text(content)

@@ -13,7 +13,7 @@
 
 set -euo pipefail
 
-readonly LOAD_PER_CORE=1.5
+readonly LOAD_HALVES_PER_CORE=3
 readonly MAXIMUM_TOTAL_SECONDS=1830
 kill_after=30
 cap=1800
@@ -46,18 +46,26 @@ poll_seconds=${PROBE_RUN_POLL_SECONDS:-5}
 wait_seconds=${PROBE_RUN_WAIT_SECONDS:-3600}
 cores=$(nproc)
 
+limit_text="$((LOAD_HALVES_PER_CORE / 2)).$((LOAD_HALVES_PER_CORE % 2 * 5))"
+limit_whole=$((cores * LOAD_HALVES_PER_CORE / 2))
+limit_has_half=$((cores * LOAD_HALVES_PER_CORE % 2))
+
+# Pure Bash: the limit is a whole number or a whole number and a half, so compare the whole
+# parts, and on a tie the first fraction digit against the half.
 load_is_below_limit() {
   local load
   read -r load _ <"$loadavg_file" || fail "cannot read a load average from $loadavg_file"
-  [[ $load =~ ^[0-9]+(\.[0-9]+)?$ ]] || fail "no valid 1-minute load in $loadavg_file, got '$load'"
-  awk -v load="$load" -v limit="$(awk -v c="$cores" -v p="$LOAD_PER_CORE" 'BEGIN { print c * p }')" \
-    'BEGIN { exit !(load < limit) }'
+  [[ $load =~ ^([0-9]{1,9})(\.([0-9]+))?$ ]] || fail "no valid 1-minute load in $loadavg_file, got '$load'"
+  local whole=$((10#${BASH_REMATCH[1]})) fraction=${BASH_REMATCH[3]:-0}
+  ((whole < limit_whole)) && return 0
+  ((whole > limit_whole || !limit_has_half)) && return 1
+  ((${fraction:0:1} < 5))
 }
 
 waited=0
 until load_is_below_limit; do
   if ((waited >= wait_seconds)); then
-    fail "the 1-minute load stayed at or above $LOAD_PER_CORE x $cores cores for ${wait_seconds}s; no probe stack was started"
+    fail "the 1-minute load stayed at or above $limit_text x $cores cores for ${wait_seconds}s; no probe stack was started"
   fi
   sleep "$poll_seconds"
   waited=$((waited + poll_seconds))

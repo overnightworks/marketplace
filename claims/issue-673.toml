@@ -1,7 +1,0 @@
-claim_id = "9792e35a616b4b29996255dcc3b1d34c"
-agent = "Claude ff1b9f08-53fd-4692-b3b9-2cc410b8d654"
-role = "builder"
-base = "4f44d358f567062568f916ff84a2c4a27ebe34a2"
-branch = "claude/issue-673-read-waits-live-memory-no-state"
-scope = ["instructions/AGENTS.md", "instructions/HEAD.md"]
-opened_commit = "92ec6e10bb13538405cb106619e40a3d4ba20c87"

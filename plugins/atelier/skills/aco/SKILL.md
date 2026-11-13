@@ -198,7 +198,9 @@ entries of at most 999. When the line would run past 512 characters, the locatio
 leaving `<n>× → <stage>` per stage, so every count stays known; the full list stays in the lane result.
 
 A head that changes how lanes run (routing, budgets, a brief) tags those lanes with the lane's `experiment`
-arg and judges the change with `aco stats tag:<tag> <FROM..TO>` (`specs/stats.spec.md`).
+arg and judges the change with `aco stats tag:<tag> <FROM..TO before>` (`specs/stats.spec.md`), where
+`FROM..TO before` is the date range of the lanes that ran before the change, so the tagged lanes are compared
+against them.
 
 Push the branch, then open the pull request with `gh pr create` (title, head, base,
 body).

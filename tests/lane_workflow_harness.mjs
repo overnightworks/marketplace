@@ -7,7 +7,7 @@ import vm from 'node:vm'
 
 const workflowSource = (file) => fs.readFileSync(new URL(`../plugins/atelier/workflows/${file}`, import.meta.url), 'utf8').replace(/^export const meta/m, 'const meta')
 // The plugin workflows a workflow can start by name, as the Workflow runtime resolves them.
-const CHILD_WORKFLOWS = { 'atelier:lane-build': 'lane-build.js', 'atelier:lane-ci': 'lane-ci.js', 'atelier:lane-review': 'lane-review.js', 'atelier:lane-relay': 'lane-relay.js', 'atelier:lane-test': 'lane-test.js' }
+const CHILD_WORKFLOWS = { 'atelier:lane-build': 'lane-build.js', 'atelier:lane-ci': 'lane-ci.js', 'atelier:lane-review': 'lane-review.js', 'atelier:lane-relay': 'lane-relay.js', 'atelier:lane-test': 'lane-test.js', 'atelier:lane-routing': 'lane-routing.js' }
 
 // Stand-ins for the three programs the printer runs, steered by environment variables the harness sets for the child only.
 const FAKE_GIT = `#!/bin/sh

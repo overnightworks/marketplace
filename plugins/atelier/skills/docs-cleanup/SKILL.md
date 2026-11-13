@@ -13,6 +13,9 @@ Code and configured contracts are the source of truth for implemented behavior.
 Out of scope: `AGENTS.md`, `CLAUDE.md`, skills, agents, and hooks. Leave them
 and note "out of scope: agent-documentation" in the report.
 
+Start the `atelier:documentation-curator` subagent to update documentation after
+a bounded repository change.
+
 ## Procedure
 
 1. Read the code policy's documentation rules and the repository's documentation facts

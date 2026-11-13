@@ -1,0 +1,8 @@
+claim_id = "ff7348ae5dde404b91d0bce76fdb4503"
+agent = "Claude ff1b9f08-53fd-4692-b3b9-2cc410b8d654"
+role = "builder"
+base = "e34653e473b4333e5df7defca4e59dde347ab4d8"
+branch = "claude/issue-707-relay-network-retry"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/workflows", "tests"]
+opened_commit = "d153c497b473757cfb4f7acf610bfa6e02dbe568"
+whole_reason = "The retry and the awaiting-head outcome span the relay, its printers and the lane's judgement, with their tests and the version bump."

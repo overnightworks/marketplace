@@ -304,7 +304,7 @@ const openResult = (status, stage, extra) =>
 // resolved a child from another release (plugin snapshot or script read fresh, either one the older) ends the lane before any agent runs.
 const LANE_BUILD_PROTOCOL = 6
 const LANE_TEST_PROTOCOL = 3
-const LANE_CI_PROTOCOL = 6
+const LANE_CI_PROTOCOL = 7
 const CHILD_PROTOCOLS = { 'lane-build': LANE_BUILD_PROTOCOL, 'lane-relay': LANE_RELAY_PROTOCOL, 'lane-review': LANE_REVIEW_PROTOCOL, 'lane-test': LANE_TEST_PROTOCOL, 'lane-ci': LANE_CI_PROTOCOL }
 // A child that predates the query refuses the call and names its protocol in the refusal.
 const protocolMismatch = async ([name, expected]) => {
@@ -407,6 +407,14 @@ function awaitHeadOnDispute(fixed, blocking) {
   return openResult('awaiting-head', 'fix', { reason: committed ? 'the fixer disputes findings with counter-evidence; the returned tip carries fix commits no reviewer has seen' : 'the fixer disputes every finding with counter-evidence and committed nothing', lastBlocking: blocking })
 }
 
+// A batch of CI findings only, every one disputed with counter-evidence and nothing committed, is a flake the lane re-runs once before the head sees it.
+let flakeRerunUsed = false
+function isFlakeDispute(fixed, blocking, source) {
+  if (flakeRerunUsed || source !== 'CI' || !fixed.unchanged) return false
+  return blocking.every(f => fixed.disputed.some(d => d.where === f.where && (d.counterEvidence || '').trim()))
+}
+const disputeFlakes = fixed => fixed.disputed.map(d => ({ where: d.where, text: `${d.text} (a flake; the fixer's counter-evidence: ${d.counterEvidence})`, owner: 'distributor' }))
+
 // The evidence the fixer gave for a fold-in it found already done, or undefined without any.
 const satisfiedEvidence = (fixed, foldIn) => (fixed.resolved || []).find(r => r.where === foldIn.where && (r.evidence || '').trim())?.evidence
 // An unchanged tip is a fix only when there are no blocking findings and every fold-in is proven already satisfied.
@@ -488,7 +496,10 @@ async function fixRound(blocking, source, budgetKey, carried) {
   if (answered.problem || failedCommand(answered.values)) return { stop: openResult('failed', 'fix', { reason: `the fixer's relay line ${answered.problem || 'reports a failed git command'}${printedLine(answered)}` }) }
   const { values } = answered
   const fixed = { ...answered, tip: values.head.out, heldTip: tipBeforeFix, unchanged: sameCommit(values.head.out, tipBeforeFix), mergeOnly: mergedOnto(values, tipBeforeFix), containsMain: values.main.code === 0 }
-  if ((fixed.disputed || []).length) return unaccepted(awaitHeadOnDispute(fixed, blocking))
+  if ((fixed.disputed || []).length) {
+    if (isFlakeDispute(fixed, blocking, source)) return { flakes: disputeFlakes(fixed), fixed }
+    return unaccepted(awaitHeadOnDispute(fixed, blocking))
+  }
   const rejection = fixRejection(fixed, blocking, foldIn, source === 'CI')
   if (rejection) return unaccepted(openResult('failed', 'fix', rejection))
   const accepted = acceptFix(fixed, blocking, foldIn)
@@ -671,8 +682,8 @@ function explore(n) {
   return startChild('lane-test', { protocol: LANE_TEST_PROTOCOL, delegatedLine: DELEGATED_LINE, n, pr, tip, worktree: A.worktree, scratch: A.scratch, tag: TAG, e2e: A.e2e, contract: A.contract, laneFacts, blockingLine: BLOCKING_LINE, finding: FINDING, followup: FOLLOWUP, routing: claudeRole('test') })
 }
 
-async function watchCi(n) {
-  const watched = await startChild('lane-ci', { protocol: LANE_CI_PROTOCOL, delegatedLine: DELEGATED_LINE, pr, n, repo: A.repo, worktree: A.worktree, finding: FINDING, mechanical: MECHANICAL })
+async function watchCi(n, rerun) {
+  const watched = await startChild('lane-ci', { protocol: LANE_CI_PROTOCOL, delegatedLine: DELEGATED_LINE, pr, n, rerun, repo: A.repo, worktree: A.worktree, finding: FINDING, mechanical: MECHANICAL })
   if (!watched || watched.problem) return watched
   const nonce = `ci-${n}-${tip}`
   const read = await relay({ label: `ci-read-${n}`, phase: 'Test and CI', step: 'ci', relayArgs: [pr, `'${A.repo || ''}'`, `'${nonce}'`], nonce, requiredKeys: ['view'], brief: `${laneFacts}\nChange nothing in the files;` })
@@ -704,6 +715,7 @@ function lockQueueCiState(ci) {
 // has nothing of its own to fix. The tester judges the tip it started on, which later fixes may move. One tester runs at a time.
 let n = 0, testCalls = 0, needTest = true, lockRetried = false, testSettled = false
 let pendingTest = null  // the tester started and not yet judged
+let rerunRed  // the red jobs a flake dispute hands to the next watch for one re-run
 let testBlocking = []  // the tester's findings, held until a fix batch takes them
 function startTest() {
   needTest = productionSinceTest = testSettled = false
@@ -737,7 +749,9 @@ async function settleTest(ci, awaitRetry = true) {
 while (true) {
   phase('Test and CI')
   if (needTest && !pendingTest) startTest()
-  const ci = await watchCi(n)
+  const rerunBatch = rerunRed
+  const ci = await watchCi(n, rerunBatch?.red)
+  rerunRed = undefined
   n++
   if (!ci || ci.problem) {
     const stop = pendingTest && await settleTest(ci)
@@ -752,6 +766,8 @@ while (true) {
   history.push({ after: spent.total, by: `ci-${n - 1}`, verdict: ci.green && !unproven && !ci.rulesError ? 'GREEN' : 'RED', blocking: (ci.failing || []).map(f => f.where) })
   if (ci.rulesError) return openResult('failed', 'ci', { reason: `the required checks of the base branch could not be read: ${ci.rulesError}` })
   if (unproven) return openResult('failed', 'ci', { reason: `CI reported green, but the check listing does not prove it: ${unproven}` })
+  // The one re-run of a disputed flake came back red: the disagreement between the fixer and CI is the head's.
+  if (rerunBatch && !ci.green) return awaitHeadOnDispute(rerunBatch.fixed, rerunBatch.blocking)
   if (testBlocking.length === 0 && ci.green) {
     if (!needTest) break
     continue
@@ -769,6 +785,14 @@ while (true) {
   const ciBlocking = ci.green || shared.length ? [] : (ci.failing || [])
   const f = await fixRound(taken.concat(ciBlocking), taken.length ? 'the end-to-end test and CI' : 'CI', ci.green || shared.length ? 'test' : 'ci')
   if (f.stop) return f.stop
+  if (f.flakes && !(ci.red?.length && ci.red.every(job => job.runId && job.jobId))) return awaitHeadOnDispute(f.fixed, ciBlocking)
+  if (f.flakes) {
+    flakeRerunUsed = true
+    followups.push(...f.flakes)
+    adoptFixerTip(f.fixed)
+    rerunRed = { red: ci.red, fixed: f.fixed, blocking: ciBlocking }
+    continue
+  }
   const stop = f.range && await reviewUntilClean(f.gateAgain ? ALL : [REVIEW], f.range, f.deltaFrom)
   if (stop) return stop
   // The tester runs again when it had failed or when any fix since its last run (a review fix included) touched production.

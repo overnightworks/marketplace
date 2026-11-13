@@ -457,6 +457,40 @@ test('ci-fail-fast: a re-run agent that ends without a result keeps the first fi
   assert.match(agentCalls['fix-2'].prompt, /Node: tests fails/)
 })
 
+const flakeFix = (...wheres) => ({ head: tip, mergeResolvedLaneConflict: false, files: [], regression: [], blocked: false, disputed: wheres.map(where => ({ where, text: `${where} fails`, counterEvidence: 'the same job passes on main; the failing test is not in the diff' })) })
+const reranPass = { link: 'https://github.com/o/n/actions/runs/11/job/99', bucket: 'pass', findings: [] }
+
+test('ci-flake-rerun: every CI finding disputed with nothing committed re-runs the job, goes on when it passes and keeps the flake in the follow-ups', async () => {
+  const { result, agentCalls, launchedAgents } = await driveCi(redWatch([redJob('Node: tests', 'Run the node tests')]), lane, undefined, { 'fix-2': flakeFix('Node: tests'), 'ci-1-rerun-1': reranPass, 'ci-read-1': { checks: [check(required, 'pass'), check('Node: tests', 'pass')] } })
+  assert.equal(result.status, 'ready-to-land', result.reason)
+  assert.match(agentCalls['ci-1-rerun-1'].prompt, /gh run rerun 11 --job 22/)
+  assert.ok(!launchedAgents.includes('ci-1'))
+  assert.deepEqual(result.disputed, [])
+  assert.match(result.followups.map(f => f.text).join('\n'), /Node: tests fails[\s\S]*the same job passes on main/)
+})
+
+test('ci-flake-rerun: a red after the re-run goes to the head', async () => {
+  const rerunRed = { link: 'https://github.com/o/n/actions/runs/11/job/99', bucket: 'fail', findings: [redOnHead('Node: tests')] }
+  const { result, launchedAgents } = await driveCi(redWatch([redJob('Node: tests', 'Run the node tests')]), lane, undefined, { 'fix-2': flakeFix('Node: tests'), 'ci-1-rerun-1': rerunRed})
+  assert.equal(result.status, 'awaiting-head', result.reason)
+  assert.equal(result.stage, 'fix')
+  assert.equal(result.disputed.length, 1)
+  assert.deepEqual(launchedAgents.filter(label => label.startsWith('ci-1-rerun')), ['ci-1-rerun-1'])
+})
+
+test('ci-flake-rerun: a dispute of only some CI findings goes to the head without a re-run', async () => {
+  const { result, launchedAgents } = await driveCi(redWatch([redJob('Node: tests', 'Run the node tests'), redJob('Python: tests', 'Run the python tests', ['11', '23'])]), lane, undefined, { 'fix-2': flakeFix('Node: tests') })
+  assert.deepEqual([result.status, result.stage], ['awaiting-head', 'fix'])
+  assert.deepEqual(launchedAgents.filter(label => label.includes('rerun')), [])
+})
+
+test('ci-flake-rerun: a disputed non-CI finding goes to the head without a re-run', async () => {
+  const dispute = { ...flakeFix('x.py:1'), }
+  const { result, launchedAgents } = await runLane({ ...lane, fixFirst: [{ ...defectWithoutDraft, where: 'x.py:1' }] }, { 'fix-1': dispute })
+  assert.deepEqual([result.status, result.stage], ['awaiting-head', 'fix'])
+  assert.deepEqual(launchedAgents.filter(label => label.includes('rerun')), [])
+})
+
 // The fixer starts at once when CI is red; the tester is awaited only when CI has nothing of its own to fix.
 const roundTip = (round) => String(round).repeat(40)
 const roundRed = (round, extra = () => {}) => () => { extra(); return { head: roundTip(round), green: false, failing: [{ ...defectWithoutDraft, where: `t.py:${round}` }] } }

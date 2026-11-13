@@ -4,7 +4,7 @@ export const meta = {
 }
 
 // Both copies of this number (here and in lane.js) change together in any commit that changes the args or the return shape.
-const LANE_CI_PROTOCOL = 6
+const LANE_CI_PROTOCOL = 7
 const A = args || {}
 if (A.protocolQuery) return { protocol: LANE_CI_PROTOCOL }
 const need = ['protocol', 'delegatedLine', 'pr', 'n', 'worktree', 'finding', 'mechanical']
@@ -99,14 +99,20 @@ function afterRerun(red, rerun) {
   return rerun.findings.length ? rerun.findings : red.findings
 }
 
-async function ciFindings() {
-  const first = await watchCi()
-  if (!first) return null
-  const { red = [], ...answer } = first
-  if (answer.green || !red.length || !red.every(canRerun)) return answer
+// The lane hands back the red jobs of a watch whose findings its fixer disputed as flakes: they are re-run once, without a new watch.
+async function rerunAll(red) {
   const reruns = await Promise.all(red.map(rerunJob))
   const failing = red.flatMap((one, index) => afterRerun(one, reruns[index]))
   return { green: failing.length === 0, failing }
+}
+
+async function ciFindings() {
+  if (A.rerun?.length) return await rerunAll(A.rerun)
+  const first = await watchCi()
+  if (!first) return null
+  const { red = [], ...answer } = first
+  if (answer.green || !red.length || !red.every(canRerun)) return { ...answer, red }
+  return await rerunAll(red)
 }
 
 return await ciFindings()

@@ -1,8 +1,0 @@
-claim_id = "0331b034ebdf44c5a47469f7bec4db2c"
-agent = "Claude ff1b9f08-53fd-4692-b3b9-2cc410b8d654"
-role = "builder"
-base = "0eab2f063cb75bb2bbeb11fc82a841fdb35167eb"
-branch = "claude/issue-704-lane-split-relay"
-scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/workflows", "tests"]
-opened_commit = "66ef2abf51f702164b61666a8ad1a93bad847f40"
-whole_reason = "One seam cut out of lane.js into its own workflow module, with its tests and the version bump."

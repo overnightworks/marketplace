@@ -35,7 +35,7 @@ const E2E = {
       items: { type: 'object', required: ['cell', 'result', 'command', 'exit'], properties: { cell: { type: 'string', description: 'what was driven' }, result: { type: 'string', enum: ['held', 'failed', 'not driven'] }, command: { type: 'string', description: 'the command or action' }, exit: { type: 'string', description: 'its exit code or observed outcome' } } },
     },
     evidencePath: { type: 'string' },
-    lockBusy: { type: 'boolean', description: 'true when /tmp/probe-stack.lock stayed held by someone else or the load stayed above the limit, and the live part could not run' },
+    lockBusy: { type: 'boolean', description: 'true when probe-run ended without starting the stack because the load stayed above the limit, and the live part could not run' },
   },
 }
 
@@ -45,10 +45,12 @@ function explore() {
     `Run the lane's code, not the installed tool (from ${A.worktree}). What to drive:\n${A.e2e}\n\nContract:\n${A.contract}\n\n${A.blockingLine}\n` +
     `For every blocking finding give a scenario name in where, unique within your report, the command that shows it in repro, and — when it can be automated stably — a failing test draft ` +
     `under your scratch path in testDraft (a live or UI case stays a manual proof; leave testDraft empty then). ` +
-    `First create your own directory with \`mktemp -d ${A.scratch}/${A.tag}-e2e-${A.n}-XXXXXX\` and write only there, besides the environment the repository's own sync command creates in ${A.worktree}. For any server, browser or E2E run load the atelier:explorative-testing skill and follow its Probe lock section; use a free port above 8790 and keep your pid files in your directory. ` +
+    `First create your own directory with \`mktemp -d ${A.scratch}/${A.tag}-e2e-${A.n}-XXXXXX\` and write only there, besides the environment the repository's own sync command creates in ${A.worktree}. For any server, browser or E2E run load the atelier:explorative-testing skill and follow its Probe stack section; use a free port above 8790 and keep your pid files in your directory. ` +
     `Never touch another session's server. ` +
-    `Before you queue, prepare and check everything that needs no server or browser, because a setup that fails inside the lock spends your turn. The locked command starts by reading the 1-minute load average; while it is above 1.5 × cores it waits inside the lock, up to 300 seconds, because the reading can still carry the previous holder's stack. If the load is still above that, it ends without starting a stack. ` +
-    `If the lock stays held by someone else for those 3600 seconds, or the load stays above the limit, return verdict failed with lockBusy true instead of guessing. verdict is PASS with no blocking findings and FAIL with at least one. A PASS needs at least one held cell. Return every cell in cells, each with its command and exit; return evidencePath too, keep your evidence under evidencePath and remove your playground before you report.`
+    `Drive only the cells no named CI test proves; for every cell you skip, name the CI test that proves it, judge that test against the cell and mark the cell held or failed on that reading. ` +
+    `Prepare and check everything that needs no server or browser first (build the page, install dependencies, start a throwaway database), because a setup that fails inside probe-run spends your turn; wrap only the drive in \`probe-run\`, which waits up to 3600 seconds until the 1-minute load is below 1.5 × cores. ` +
+    `If probe-run ends without starting the stack because the load stayed above the limit, return verdict failed with lockBusy true instead of guessing. ` +
+    `verdict is PASS with no blocking findings and FAIL with at least one. A PASS needs at least one held cell. Return every cell in cells, each with its command and exit; return evidencePath too, keep your evidence under evidencePath and remove your playground before you report.`
   return agentOrNull(prompt, { label: `e2e-${A.n}`, phase: 'Test and CI', schema: E2E, agentType: 'atelier:explorative-tester', ...A.routing })
     .then(r => r || agentOrNull(`Load the atelier:explorative-testing skill first.\n${prompt}`,
       { label: `e2e-${A.n}-fallback`, phase: 'Test and CI', schema: E2E, agentType: 'general-purpose', ...A.routing }))

@@ -36,6 +36,9 @@ real user experiences.
    one interrupt/restart path (state durability), and the empty first-run
    state. A server restarts; a CLI is interrupted mid-run and rerun, and its
    first run starts from absent state (no config, cache or baseline).
+   Drive only the cells no named CI test proves; for every cell you skip, name
+   the CI test that proves it and mark the cell held or failed on reading that
+   test against it.
 4. Probe like a user, not a fuzzer: what would confuse, mislead, or dead-end
    a person? Stale views, vanished state, unlabeled failures, copy that
    overpromises, controls that silently do nothing.
@@ -52,18 +55,18 @@ real user experiences.
    items, a bounded number per exploration, evidence attached. Without a head,
    file through the repository's own intake, if it has one.
 
-## Probe lock
+## Probe stack
 
-Take `/tmp/probe-stack.lock` before a run that starts a server, a container, a browser or an E2E stack. A test run that starts none of them, or only its own throwaway database container, takes no lock; that container still runs under `setpriv --pdeathsig TERM timeout` with a trapped teardown.
+A run that starts a server, a container, a browser or an E2E stack drives only under `probe-run`, which waits for room on the machine by load alone (no lock, no fixed number of stacks). Prepare everything that needs no server or browser first: build the page, install dependencies, start a throwaway database. `probe-run` wraps only the drive. A test run that starts none of them, or only its own throwaway database container, does not use `probe-run`; that container still runs under `setpriv --pdeathsig TERM timeout` with a trapped teardown.
 
 - Read the 1-minute load average before a test run, a probe stack, a coverage job or an image build.
 - Run only the command or tests that prove a cell (named modules or `-k`), never a full suite or a repeated full run; CI runs the full suite.
-- A repository script that takes the lock itself (its own text or the brief says so) runs directly. Wrapped in a second `flock`, its inner lock waits on the outer one and deadlocks.
-- Otherwise take the lock with `flock -o -w 3600 /tmp/probe-stack.lock setpriv --pdeathsig TERM timeout -k 30 1800 <command>` in exactly this form. `<command>` is an executable such as `bash -c '…'` or a script, because `timeout` cannot run a shell builtin or function.
+- A repository script that wraps its own `probe-run` (its own text or the brief says so) runs directly, never inside a second `probe-run`.
+- Otherwise run `probe-run <command>`, or `probe-run -k K CAP <command>` with CAP + K at most 1830. `<command>` is an executable such as `bash -c '…'` or a script, because `timeout` cannot run a shell builtin or function. `probe-run` waits up to an hour until the 1-minute load is below 1.5 × cores; it ends non-zero without starting the command if the load stays above that.
 - Run it as a background command that writes its exit code to a marker file, and wait in the foreground, repeating `timeout 280 bash -c 'until [ -f <marker> ]; do sleep 30; done'` until the marker exists. You cannot be woken later, so never answer before that.
-- If `flock` cannot run `setpriv`, stop and report it, never drop it.
-- `-o` keeps the lock out of every process you start. `setpriv` makes `timeout` send TERM to your whole stack the moment the lock holder dies, so the lock is free only while that stack tears down, which must finish within the 30 s of `-k`. The cap frees the lock even if you stop; a stack that needs longer is cut, not raised.
-- A process that detaches itself (`setsid`, a daemon, a browser in its own session) escapes both the lock and the cap, so your teardown trap stops it by pid.
+- If `probe-run` is not on PATH or cannot run `setpriv`, stop and report it, never drop it.
+- `setpriv` makes `timeout` send TERM to your whole stack the moment the process that started `probe-run` dies; the teardown must finish within the 30 s of `-k`. The cap ends the stack even if you stop; a stack that needs longer is cut, not raised.
+- A process that detaches itself (`setsid`, a daemon, a browser in its own session) escapes the cap, so your teardown trap stops it by pid.
 - A script that starts containers tears them and the images it built down in `trap '<teardown>' EXIT TERM`.
 - Run every server under `timeout <cap>`, write its pid to a file under the scratch dir, and kill it before reporting. Stop every other process you start (a container, a background browser) before reporting too. `lsof` in the report is evidence only, never a guard.
 
@@ -81,9 +84,9 @@ complete. A matrix crosses the axes that matter for the change -- typically
 short list of ruled sentences. Where there is no running surface, the cells are
 driven through the change's real entry points -- CLI invocation, API call, or
 public function. Report every cell as **held**, **failed**, or **not driven**;
-an unmarked cell is not a completed gate. A cell that a test in CI proves you
-judge by reading that test against its row, not by driving it, and mark it
-held or failed on that reading; only the cells you drive by hand count toward
+an unmarked cell is not a completed gate. A cell that a named test in CI proves you
+judge by reading that test against its row, not by driving it, naming the test
+and marking the cell held or failed on that reading; only the cells you drive by hand count toward
 the global contract's matrix limit.
 
 ## Hard Limits

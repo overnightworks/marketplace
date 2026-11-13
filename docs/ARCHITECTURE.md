@@ -115,8 +115,9 @@ published GitHub copy. CI runs on GitHub Actions.
 change to a contract rule lands only with the operator's ruling, and the
 [README](../README.md) names the check that protects `main`. The installer is
 trusted with the operator's home directory: it creates only the two contract
-links, and their parent directories, where they are missing; it refuses before
-touching anything when either path holds something else; and it runs the
+links and the `probe-run` link in `~/.local/bin`, and their parent directories,
+where they are missing; it refuses before touching anything when any of the
+three paths holds something else; and it runs the
 `claude` and `codex` CLIs with fixed arguments, nothing built from external
 input. The plugin hosts (Claude Code, Codex) and Grok, which reads the contract
 through its Claude compatibility, are trusted to load what they read. The

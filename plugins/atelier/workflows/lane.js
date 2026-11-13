@@ -564,6 +564,8 @@ async function standIn(rr) {
 }
 const settleLimit = rr => standInAllowed(rr) ? standIn(rr) : awaitLimit(rr)
 
+const unseenDeltaOf = rr => rr.from ? { deltaFrom: rr.from, answers: rr.range } : {}
+
 // Each round judges the previous fix, so rounds run one after another; the fix budgets bound the recursion.
 async function settleReview(rr) {
   if (rr.verdict.state === 'limited') return settleLimit(rr)
@@ -585,7 +587,7 @@ async function settleReview(rr) {
     phase('Review')
     return settleReview(await reviewRound(next, f.range, f.deltaFrom))
   }
-  if (rr.verdict.state === 'failed') return openResult('failed', 'review', { reason: rr.verdict.reason, ...(rr.from && { deltaFrom: rr.from, answers: rr.range }) })
+  if (rr.verdict.state === 'failed') return openResult('failed', 'review', { reason: rr.verdict.reason, ...unseenDeltaOf(rr) })
   if (rr.verdict.state === 'architectural') return openResult('escalated', 'review', { reason: 'architectural verdict' })
   return null
 }

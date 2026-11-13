@@ -228,7 +228,7 @@ for (const [what, baseChecks] of [['an empty baseChecks', []], ['no baseChecks',
   })
 }
 
-test('ci-shared-red: a base check whose latest completed run passed is no shared red, however many earlier runs failed', async () => {
+test('ci-shared-red: a base check whose latest completed run passed is no shared red, even when an earlier run failed', async () => {
   const { launchedAgents } = await driveCi(redCi(['quality / hygiene'], [run('quality / hygiene', 'failure', '2026-11-13T10:00:00Z'), run('quality / hygiene', 'success', '2026-11-13T11:00:00Z')]))
   assert.ok(launchedAgents.includes('fix-2'))
 })

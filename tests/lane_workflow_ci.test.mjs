@@ -5,11 +5,10 @@ import path from 'node:path'
 import { spawnSync } from 'node:child_process'
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { runLane, runCommandLine, installFake, resumeArgs, resumeFix, mergeOnlyFix, mainMovedTip, defectWithoutDraft, PASS, APPROVE, greenCi } from './lane_workflow_harness.mjs'
+import { runLane, runCommandLine, installFake, resumeArgs, resumeFix, mergeOnlyFix, mainMovedTip, defectWithoutDraft, PASS, APPROVE, greenCi, tidy } from './lane_workflow_harness.mjs'
 
 const tip = 'c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0'
 const lane = { item: 1, worktree: '/w', branch: 'b', contract: 'c', e2e: 'e', scratch: '/s', pr: 1, tip }
-const tidy = { where: 'x.py:1', text: 'tidy the import order', kind: 'follow-up (fix in place)' }
 const alreadySatisfied = { head: tip, mergeResolvedLaneConflict: false, files: [], regression: [], disputed: [], blocked: false, resolved: [{ where: tidy.where, text: tidy.text, evidence: 'already pinned' }] }
 const reachesCi = { 'fix-1': alreadySatisfied, 'r1-review': { verdict: 'APPROVE', blocking: [], followups: [] }, 'e2e-0': { verdict: 'PASS', blocking: [], followups: [], cells: [{ cell: 'c', result: 'held', command: 'run', exit: '0' }] } }
 const required = 'quality / verdict'
@@ -198,7 +197,8 @@ test('lane-ci-protocol: the ci agent is launched by the lane-ci child, not by la
 })
 
 const redOnHead = (name) => ({ where: name, kind: 'defect', text: `${name} fails`, rule: `CI check ${name}`, evidence: 'boom' })
-const run = (name, conclusion) => ({ name, status: conclusion ? 'completed' : 'in_progress', conclusion })
+let runId = 0
+const run = (name, conclusion, completedAt = '2026-11-13T10:00:00Z') => ({ id: ++runId, name, status: conclusion ? 'completed' : 'in_progress', conclusion, completed_at: conclusion ? completedAt : null })
 const redCi = (names, baseChecks) => ciAnswer([check(required, 'pass'), ...names.map(name => check(name, 'fail'))], { green: false, failing: names.map(redOnHead), ...(baseChecks ? { baseChecks } : {}) })
 
 test('ci-shared-red: a check red on head and on the base launches no fixer and goes to the head naming it', async () => {
@@ -228,10 +228,22 @@ for (const [what, baseChecks] of [['an empty baseChecks', []], ['no baseChecks',
   })
 }
 
-test('ci-shared-red: a rerun on the base with one failure counts as shared', async () => {
-  const { result, launchedAgents } = await driveCi(redCi(['quality / hygiene'], [run('quality / hygiene', 'success'), run('quality / hygiene', 'failure')]))
+test('ci-shared-red: a base check whose latest completed run passed is no shared red, however many earlier runs failed', async () => {
+  const { launchedAgents } = await driveCi(redCi(['quality / hygiene'], [run('quality / hygiene', 'failure', '2026-11-13T10:00:00Z'), run('quality / hygiene', 'success', '2026-11-13T11:00:00Z')]))
+  assert.ok(launchedAgents.includes('fix-2'))
+})
+
+test('ci-shared-red: a base check whose latest completed run failed is shared red, whatever the order of the listing', async () => {
+  const { result, launchedAgents } = await driveCi(redCi(['quality / hygiene'], [run('quality / hygiene', 'failure', '2026-11-13T11:00:00Z'), run('quality / hygiene', 'success', '2026-11-13T10:00:00Z')]))
   assert.equal(result.status, 'awaiting-head')
   assert.ok(!launchedAgents.includes('fix-2'))
+})
+
+test('ci-shared-red: two runs completed at the same second: the higher id is the latest', async () => {
+  const failed = run('quality / hygiene', 'failure')
+  const passed = run('quality / hygiene', 'success')
+  const { launchedAgents } = await driveCi(redCi(['quality / hygiene'], [passed, failed]))
+  assert.ok(launchedAgents.includes('fix-2'))
 })
 
 test('ci-shared-red: a shared red with a blocking end-to-end finding gives the fixer only the end-to-end finding', async () => {

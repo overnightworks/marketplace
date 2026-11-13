@@ -1,8 +1,0 @@
-claim_id = "f377599a9b01446b8c250a14938a9d3b"
-agent = "Claude ff1b9f08-53fd-4692-b3b9-2cc410b8d654"
-role = "builder"
-base = "6d762266b8ae43c00b53b8674e5482e86089109c"
-branch = "claude/issue-688-contract-hint-file-names"
-scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/hooks/contract_change.py", "plugins/atelier/workflows", "tests"]
-opened_commit = "302c6813bee0ba7b45e983f8e5a6ee8e79b1da2a"
-whole_reason = "One polish of the contract-change hint and its delegated-line owner, with tests and the version bump."

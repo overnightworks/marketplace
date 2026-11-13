@@ -236,7 +236,7 @@ const gateUnseenView = () => gateUnseen ? { gateUnseen: { ...gateUnseen, tip } }
 const FINDING_STAGES = [[/^e2e-/, 'test'], [/^ci-/, 'ci'], [/^(review|gate)$/, null], [/^standin$/, 'gate']]
 const ROUTING_LINE_LIMIT = 512  // the length the aco skill's abandon step asks of the line
 const LOCATION_LIMIT = 60
-const PATH_AND_LINE = /[\w./@-]+:\d+/
+const PATH_AND_LINE = /^[\w./@-]+:\d+$/
 function blockingStages() {
   const found = new Set()
   for (const entry of history) {
@@ -245,7 +245,7 @@ function blockingStages() {
     if (!stage) continue
     entry.blocking.forEach(where => {
       const text = String(where).replace(/[\s;→]+/g, ' ').trim()
-      found.add(JSON.stringify([text.match(PATH_AND_LINE)?.[0] ?? text, stage]))
+      found.add(JSON.stringify([text.split(' ').find(word => PATH_AND_LINE.test(word)) ?? text, stage]))
     })
   }
   return [...found].map(key => JSON.parse(key))
@@ -262,7 +262,8 @@ function blockingText(findings, rest) {
 function routingLine() {
   const choice = (role) => `${ROUTING[role].model}/${ROUTING[role].effort}`
   const ran = (key) => history.some(entry => entry.by === key || entry.by?.startsWith(`${key}-`))
-  const gate = ran('standin') ? choice('review') : ran('gate') ? choice('gate') : 'none'
+  const gateRole = ran('standin') ? 'review' : ran('gate') ? 'gate' : null
+  const gate = gateRole ? choice(gateRole) : 'none'
   const fixRole = fixRolesRun.at(-1)
   const stages = [
     `build ${choice('build')}`,

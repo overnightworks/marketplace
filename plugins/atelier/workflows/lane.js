@@ -54,15 +54,15 @@ const isGateStandIn = (role, model, effort) => role === 'gate' && model === 'opu
 const REVIEWER_PROVIDER = A.reviewer || 'claude'
 const HARD_ROW = { model: 'sonnet', effort: 'high' }
 const WRITER = MATERIAL ? HARD_ROW : { model: 'sonnet', effort: 'medium' }
-const defaultReviewRouting = () => REVIEWER_PROVIDER === 'codex' ? { model: 'gpt-6-astra', effort: MATERIAL ? 'high' : 'medium' }
-  : MATERIAL ? { model: 'opus', effort: 'medium' } : { model: 'sonnet', effort: 'high' }
+const CLAUDE_REVIEW = MATERIAL ? { model: 'opus', effort: 'medium' } : { model: 'sonnet', effort: 'high' }
+const CODEX_REVIEW = { model: 'gpt-6-astra', effort: MATERIAL ? 'high' : 'medium' }
 const DEFAULT_ROUTING = {
   mechanical: { model: 'haiku', effort: 'low' },
   copy: { model: 'sonnet', effort: 'low' },
   build: WRITER, fix: WRITER,
   rework: HARD_ROW,
   test: { model: 'sonnet', effort: MATERIAL ? 'high' : 'medium' },
-  review: defaultReviewRouting(),
+  review: REVIEWER_PROVIDER === 'codex' ? CODEX_REVIEW : CLAUDE_REVIEW,
   gate: { model: 'gpt-6-astra', effort: 'high' },
 }
 // The provider each role must run on: reviews on the reviewer provider, the gate on any provider but the builder's or the Opus stand-in, every other role on Claude.
@@ -271,7 +271,7 @@ function blockingText(findings, rest) {
 function routingLine() {
   const choice = (role) => `${ROUTING[role].model}/${ROUTING[role].effort}`
   const ran = (key) => history.some(entry => entry.by === key || entry.by?.startsWith(`${key}-`))
-  const gateRole = ran('standin') ? 'review' : ran('gate') ? 'gate' : null
+  const gateRole = [['standin', 'review'], ['gate', 'gate']].find(([key]) => ran(key))?.[1] ?? null
   const fixRole = fixRolesRun.at(-1)
   const stages = [
     `build ${choice('build')}`,
@@ -281,7 +281,7 @@ function routingLine() {
     `gate ${gateRole ? choice(gateRole) : 'none'}`,
     `land ${choice('mechanical')}`,
   ]
-  const rest = `Routing: ${stages.join('; ')}. Fix rounds: ${spent.total}.${A.experiment ? ` Experiment: ${A.experiment}.` : ''} Blocking: `
+  const rest = [`Routing: ${stages.join('; ')}. Fix rounds: ${spent.total}.`, A.experiment && ` Experiment: ${A.experiment}.`, ' Blocking: '].filter(Boolean).join('')
   return rest + blockingText(blockingStages(), rest)
 }
 const openResult = (status, stage, extra) =>
@@ -401,7 +401,6 @@ function isFlakeDispute(fixed, blocking, source) {
   return blocking.every(f => fixed.disputed.some(d => d.where === f.where && (d.counterEvidence || '').trim()))
 }
 const disputeFlakes = (fixed, blocking) => fixed.disputed.filter(d => blocking.some(f => f.where === d.where)).map(d => ({ where: d.where, text: `${d.text} (a flake; the fixer's counter-evidence: ${d.counterEvidence})`, owner: 'distributor' }))
-
 // The evidence the fixer gave for a fold-in it found already done, or undefined without any.
 const satisfiedEvidence = (fixed, foldIn) => (fixed.resolved || []).find(r => r.where === foldIn.where && (r.evidence || '').trim())?.evidence
 // An unchanged tip is a fix only when there are no blocking findings and every fold-in is proven already satisfied.
@@ -507,7 +506,7 @@ async function fixRound(blocking, source, budgetKey, carried) {
 function scopeStop(paths, origin, total) {
   const listed = paths.join(', ')
   const omitted = total > paths.length ? ` and ${total - paths.length} more` : ''
-  const newRun = `a new run with pr and tip${origin.deltaFrom ? ` and deltaFrom ${origin.deltaFrom}` : ''}`
+  const newRun = ['a new run with pr and tip', origin.deltaFrom && ` and deltaFrom ${origin.deltaFrom}`].filter(Boolean).join('')
   history.push({ by: 'scope', outside: paths, tip })
   return { stop: openResult('awaiting-head', 'scope', { outside: paths, reason:
     `Outside the claim scope: ${listed}${omitted}. No fixer was launched. ${origin.note} Either run aco rescope for them and start ${newRun}, ` +
@@ -564,8 +563,9 @@ function awaitHead(rr, reason, extra = {}) {
 }
 function awaitLimit(rr) {
   const limits = rr.results.filter(v => v?.limit).map(v => v.limit)
-  const named = limits.filter(l => l.resetsAt).map(l => `${l.role} (${l.model}) at ${l.resetsAt}`)
-  return awaitHead(rr, `a Codex reviewer hit its usage limit; the review never moves to another provider. ${named.length ? `Codex named the reset time: ${named.join('; ')}.` : 'Codex named no reset time.'} After the reset`, { limits })
+  const named = limits.filter(l => l.resetsAt).map(l => `${l.role} (${l.model}) at ${l.resetsAt}`).join('; ')
+  const resetText = named ? `Codex named the reset time: ${named}.` : 'Codex named no reset time.'
+  return awaitHead(rr, `a Codex reviewer hit its usage limit; the review never moves to another provider. ${resetText} After the reset`, { limits })
 }
 
 // A courier twice found no brief in its transcript: a defect of the plugin on this host that a resume would meet again, so none is offered.

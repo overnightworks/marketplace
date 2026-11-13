@@ -482,8 +482,9 @@ async function pushAndCheckScope(label, origin) {
   const nonce = `${label}-${tip}`
   const quotedArguments = [A.item, `'${A.branch}'`, `'${nonce}'`]
   const checked = await relay({ label, phase: 'Scope', step: 'scope', relayArgs: quotedArguments, nonce, requiredKeys: ['push', 'remote', 'head', 'parents', 'second_parent_in_main', 'brief'], brief: `${laneFacts}\nChange nothing in the files;` })
-  if (!checked) return { stop: await openResult('failed', 'scope', { reason: 'the push and claim-scope check returned no result' }) }
-  const fail = async (stage, reason) => ({ stop: await openResult('failed', stage, { reason: `${reason}${printedLine(checked)}` }) })
+  const unseenDelta = origin.deltaFrom && { deltaFrom: origin.deltaFrom }
+  if (!checked) return { stop: await openResult('failed', 'scope', { reason: 'the push and claim-scope check returned no result', ...unseenDelta }) }
+  const fail = async (stage, reason) => ({ stop: await openResult('failed', stage, { reason: `${reason}${printedLine(checked)}`, ...unseenDelta }) })
   const { values, problem } = checked
   if (problem) return fail('scope', `the push and claim-scope check ${problem}`)
   const { push, remote, head, brief } = values

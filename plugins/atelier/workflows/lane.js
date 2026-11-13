@@ -140,13 +140,12 @@ const entryProblem = badEntry('fixFirst', A.fixFirst, FINDING) || badEntry('fold
 if (entryProblem) return { status: 'failed', stage: 'input', reason: entryProblem }
 // A child's refusal or crash is a problem naming the child, which its caller stops on at the stage of its own step.
 // An install between two stages can swap a child for a version of another protocol; the refusal that follows the passed start-of-run check
-// is remembered, and openResult then returns awaiting-head instead of failed, until a later answer of the same child supersedes it.
+// is remembered, and openResult then returns awaiting-head instead of failed.
 let lateProtocolRefusal = null
 const PROTOCOL_REFUSAL = /speaks protocol \S+, but the lane that started it speaks protocol/
 function rememberLateRefusal(name, childArgs, answer) {
   if (childArgs.protocolQuery) return
   if (answer?.refused && PROTOCOL_REFUSAL.test(answer.refused)) lateProtocolRefusal = `${name}: ${answer.refused}`
-  else if (lateProtocolRefusal?.startsWith(`${name}:`)) lateProtocolRefusal = null
 }
 async function startChild(name, childArgs) {
   try {

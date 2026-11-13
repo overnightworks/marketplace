@@ -60,7 +60,11 @@ function blockingStages(history) {
 }
 
 const countParts = (count) => Array.from({ length: Math.ceil(count / COUNT_LIMIT) }, (_, part) => Math.min(COUNT_LIMIT, count - part * COUNT_LIMIT))
-const printedEntry = (count, location, stage) => `${count > 1 ? `${count}× ` : ''}${location ? `${location} ` : ''}→ ${stage}`
+const printedEntry = (count, location, stage) => {
+  const times = count > 1 ? `${count}× ` : ''
+  const place = location ? `${location} ` : ''
+  return `${times}${place}→ ${stage}`
+}
 
 // Findings that print the same shortened location and stage share one counted entry "<n>× <location> → <stage>".
 function groupedEntries(findings, locationLength) {

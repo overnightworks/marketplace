@@ -2,7 +2,7 @@
 import fs from 'node:fs'
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { runLane, courierBriefOf, resumedLane, APPROVE, greenCi, finding, webauthTips, webauthReplay, agentProvidersReplay, answersWith, resumeTip, tidy, defectWithoutDraft, resumeFix, resumeArgs, unchangedFix, satisfied, reachesTheEnd, secondFix, mergedOnlyTip, conflictsWithMain, mergeOnlyFix } from './lane_workflow_harness.mjs'
+import { runLane, courierBriefOf, resumedLane, APPROVE, PASS, resumeFixedTip, greenCi, finding, webauthTips, webauthReplay, agentProvidersReplay, answersWith, resumeTip, tidy, defectWithoutDraft, resumeFix, resumeArgs, unchangedFix, satisfied, reachesTheEnd, secondFix, mergedOnlyTip, conflictsWithMain, mergeOnlyFix } from './lane_workflow_harness.mjs'
 
 const readWorkflow = (file) => fs.readFileSync(new URL(`../plugins/atelier/workflows/${file}`, import.meta.url), 'utf8')
 
@@ -427,6 +427,59 @@ test('routingLine: a lane with a fix round names the fixer, the count and each b
   assert.ok(result.routingLine.includes('src/webauth/oidc.py:315 → gate'))
   assert.ok(result.routingLine.includes('probe: login redirect → test'))
   assert.equal(result.routingLine.split('\n').length, 1)
+})
+
+test('routingLine: blocking findings that share a location or a long prefix each stay in the Blocking count', async () => {
+  const where = ['a.py:3 (first defect)', 'a.py:3 (second defect)', 'a.py:3-9 (third)', 'päth/ü.py:3 (fourth)', `${'x'.repeat(200)} one`, `${'x'.repeat(200)} two`]
+  const raised = where.map(w => ({ ...finding(w, 'd'), kind: 'docs' }))
+  const { result } = await runLane({ ...resumeArgs, fixFirst: [{ ...defectWithoutDraft }] }, { 'fix-1': { ...resumeFix, regression: [] }, 'r1-review': { verdict: 'REVISE', blocking: raised, followups: [] }, 'fix-2': secondFix, 'r2-review': APPROVE, 'e2e-0': PASS, 'ci-0': greenCi(secondFix.head) })
+  const entries = result.routingLine.split('Blocking: ')[1].split('; ')
+  assert.equal(entries.length, where.length, result.routingLine)
+  assert.ok(entries.some(entry => entry.startsWith('päth/ü.py:3 →')))
+})
+
+// The grammar of aco's specs/lane-record.spec.md, LANREC-16 to LANREC-20, written out independently of lane.js.
+const stageText = '[a-z][a-z0-9.-]*/[a-z0-9-]+'
+const laneRecordLine = new RegExp(
+  `^Routing: build ${stageText}; fix (?:${stageText}|none); review ${stageText}; test (?:${stageText}|none); gate (?:${stageText}|none); land ${stageText}\\. ` +
+  `Fix rounds: \\d{1,3}\\.(?: Experiment: [a-z0-9-]{1,40}\\.)? Blocking: (?:none|(?:[^;]+ )?→ \\w+(?:; (?:[^;]+ )?→ \\w+)*)$`)
+const blockingCount = (line) => line.split('Blocking: ')[1].split('; ').filter(part => part.split('→').length === 2).length
+
+test('routingLine: every printed line fits the LANREC grammar and 512 characters', async () => {
+  const { result } = await runLane(resumeArgs, { ...reachesTheEnd, 'r0-review': APPROVE })
+  assert.match(result.routingLine, laneRecordLine)
+  assert.ok(result.routingLine.length <= 512)
+})
+
+test('routingLine: a fix batch that ran as mechanical names the mechanical model for fix', async () => {
+  const docsFinding = { ...finding('y.py:2', 'a docs defect'), kind: 'docs' }
+  const { result } = await runLane({ ...resumeArgs, fixFirst: [docsFinding] }, { 'fix-1': { ...resumeFix, regression: [] }, 'r1-review': APPROVE, 'e2e-0': PASS, 'ci-0': greenCi(resumeFixedTip) })
+  assert.equal(result.status, 'ready-to-land')
+  assert.match(result.routingLine, /; fix haiku\/low; /)
+  assert.match(result.routingLine, laneRecordLine)
+})
+
+for (const findings of [1, 12, 25, 40, 50]) {
+  test(`routingLine: ${findings} blocking findings with long free-text locations keep the line within 512 characters and the count`, async () => {
+    const raised = Array.from({ length: findings }, (_, n) => ({ ...finding(`probe ${n}: ${'the login redirect loses the state '.repeat(6)}`, 'a defect'), kind: 'docs' }))
+    const { result } = await runLane({ ...resumeArgs, fixFirst: [{ ...defectWithoutDraft }] }, { 'fix-1': { ...resumeFix, regression: [] }, 'r1-review': { verdict: 'REVISE', blocking: raised, followups: [] }, 'fix-2': secondFix, 'r2-review': APPROVE, 'e2e-0': PASS, 'ci-0': greenCi(secondFix.head) })
+    assert.ok(result.routingLine.length <= 512, String(result.routingLine.length))
+    assert.match(result.routingLine, laneRecordLine)
+    assert.equal(blockingCount(result.routingLine), findings)
+  })
+}
+
+test('routingLine: more findings than one arrow each can hold print an unknown count instead of breaking the bound', async () => {
+  const raised = Array.from({ length: 80 }, (_, n) => ({ ...finding(`probe ${n}`, 'a defect'), kind: 'docs' }))
+  const { result } = await runLane({ ...resumeArgs, fixFirst: [{ ...defectWithoutDraft }] }, { 'fix-1': { ...resumeFix, regression: [] }, 'r1-review': { verdict: 'REVISE', blocking: raised, followups: [] }, 'fix-2': secondFix, 'r2-review': APPROVE, 'e2e-0': PASS, 'ci-0': greenCi(secondFix.head) })
+  assert.ok(result.routingLine.length <= 512)
+  assert.match(result.routingLine, /Blocking: 80 findings, too many to list$/)
+})
+
+test('routingLine: a long location with a path and a line prints only the path and the line', async () => {
+  const raised = [{ ...finding('src/a/b.py:77 and then a long sentence about it', 'a defect'), kind: 'docs' }]
+  const { result } = await runLane({ ...resumeArgs, fixFirst: [{ ...defectWithoutDraft }] }, { 'fix-1': { ...resumeFix, regression: [] }, 'r1-review': { verdict: 'REVISE', blocking: raised, followups: [] }, 'fix-2': secondFix, 'r2-review': APPROVE, 'e2e-0': PASS, 'ci-0': greenCi(secondFix.head) })
+  assert.match(result.routingLine, /Blocking: src\/a\/b\.py:77 → review$/)
 })
 
 test('routingLine: an experiment tag becomes its own sentence before Blocking', async () => {

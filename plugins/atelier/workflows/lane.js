@@ -707,7 +707,8 @@ while (true) {
   needTest ||= taken.length > 0 || productionSinceTest
 }
 
-const shellQuoted = path => `'${path.replaceAll("'", `'\\''`)}'`
+const escapedQuote = String.raw`'\''`
+const shellQuoted = path => "'" + path.replaceAll("'", escapedQuote) + "'"
 const rescopeAdds = passedOutsidePaths.map(path => '--add ' + shellQuoted(path)).join(' ')
 const rescopeCommand = 'aco rescope ' + A.item + ' ' + rescopeAdds
 const stillOpen = openFollowups()

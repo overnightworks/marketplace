@@ -1,8 +1,0 @@
-claim_id = "7c72b1f952864a7c82ffc8b172953c00"
-agent = "Claude ff1b9f08-53fd-4692-b3b9-2cc410b8d654"
-role = "builder"
-base = "f03a1b34c67fdb907cacdbeda94eadf5ac9d89f9"
-branch = "claude/issue-676-routing-line-states-what-ran"
-scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/workflows/lane.js", "tests/lane_workflow.test.mjs", "tests/lane_workflow_review.test.mjs"]
-opened_commit = "775e917021be512adf8cbd40f92739cf4e35cd61"
-whole_reason = "One fix of the printed Routing line, its tests and the version bump."

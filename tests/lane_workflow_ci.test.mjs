@@ -285,15 +285,15 @@ test('ci-registration-wait: the loop stops after 5 tries with status 0 when no c
 })
 
 const lockBusy = { verdict: 'failed', lockBusy: true, blocking: [], followups: [] }
-const lockQueue = [
+const loadWaits = [
   ['green', ciAnswer([check(required, 'pass')]), /green/],
   ['unreadable', { problem: 'lane-ci failed: boom' }, /not readable/],
 ]
-for (const [what, ci, state] of lockQueue) {
-  test(`lock-queue: two busy probe locks with CI ${what} go to the head at test and launch no fixer`, async () => {
+for (const [what, ci, state] of loadWaits) {
+  test(`load-wait: the load staying high twice with CI ${what} go to the head at test and launch no fixer`, async () => {
     const { result, launchedAgents } = await runLane({ ...lane, foldIn: [tidy] }, { ...reachesCi, 'e2e-0': lockBusy, 'e2e-1': lockBusy, 'ci-0': ci, 'ci-1': ci })
     assert.deepEqual([result.status, result.stage], ['awaiting-head', 'test'])
-    assert.match(result.reason, /^lock queue:/)
+    assert.match(result.reason, /^load wait:/)
     assert.match(result.reason, state)
     assert.match(result.reason, /pr and tip/)
     assert.ok(!launchedAgents.some(agent => agent.startsWith('fix-2')))

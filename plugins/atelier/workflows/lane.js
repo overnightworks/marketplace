@@ -632,7 +632,7 @@ function failedCheckFindings(openChecks = []) {
   }))
 }
 
-function lockQueueCiState(ci) {
+function loadWaitCiState(ci) {
   if (!ci || ci.problem) return 'not readable'
   if (ci.green && !ci.unproven && !ci.rulesError) return 'green'
   const names = (ci.failing || []).map(f => `"${f.where}"`).join(', ')
@@ -656,7 +656,7 @@ async function settleTest(ci, awaitRetry = true) {
   let e2e = await takePendingTest()
   if (e2e?.verdict === 'failed' && e2e.lockBusy && !lockRetried) {
     lockRetried = true
-    log('the probe lock or the load was busy; trying the end-to-end test once more')
+    log('the load stayed above the limit; trying the end-to-end test once more')
     startTest()
     if (!awaitRetry) return
     e2e = await takePendingTest()
@@ -664,7 +664,7 @@ async function settleTest(ci, awaitRetry = true) {
   if (e2e?.problem) return openResult('failed', 'test', { reason: `the tester ${e2e.problem}` })
   if (e2e && typeof e2e.verdict !== 'string') return openResult('failed', 'test', { reason: `lane-test answered without a verdict: ${JSON.stringify(e2e).slice(0, 200)}` })
   if (e2e?.verdict === 'failed' && e2e.lockBusy) {
-    return openResult('awaiting-head', 'test', { reason: `lock queue: the shared probe lock stayed busy or the load stayed above the limit for both tries, so the end-to-end test did not run; CI of this round: ${lockQueueCiState(ci)}. Start a new run with pr and tip once the queue clears.` })
+    return openResult('awaiting-head', 'test', { reason: `load wait: the load stayed above the limit for both tries, so the end-to-end test did not run; CI of this round: ${loadWaitCiState(ci)}. Start a new run with pr and tip once the load falls.` })
   }
   if (!e2e || e2e.verdict === 'failed') return openResult('failed', 'test', { reason: 'the tester returned no usable result' })
   testBlocking = e2e.blocking || []

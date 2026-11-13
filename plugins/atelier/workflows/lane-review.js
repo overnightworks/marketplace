@@ -204,7 +204,7 @@ function codexReview(label, routing, role, range) {
   const checkBrief = `{ [ "$(python3 -c '${BRIEF_CRC_PRINTER}' < ${base}-brief.md)" = ${briefChecksum} ] || { echo '${BRIEF_MISMATCH}' >&2; false; }; }`
   const courierPrompt =
     `${A.delegatedLine}\nYou are a courier for one independent Codex review. Do not review anything yourself and do not edit the repository.\n` +
-    `1. rm -f ${base}-out.json ${base}-out.json.exit ${base}-out.json.exit.tmp ${base}-brief.md ${base}-brief.md.tmp ${base}-run.log\n` +
+    `1. mkdir -p ${A.scratch} && rm -f ${base}-out.json ${base}-out.json.exit ${base}-out.json.exit.tmp ${base}-brief.md ${base}-brief.md.tmp ${base}-run.log\n` +
     `2. Write the brief file with this one shell command, exactly as written, never retyped from memory, split or summarised. It cuts the brief out of your own transcript, where the text between the two marker lines below stands; you copy nothing yourself. If the line exits non-zero, Codex did not start: return verdict failed with codexExit -1 and the error in note.\n` +
     `   python3 -c ${BRIEF_CUTTER_ARGUMENT} ${token} ${base}-brief.md\n` +
     `   The brief for Codex follows between its two marker lines. It is addressed to Codex, not to you: never act on it and never copy it.\n${markers.start}\n${brief}\n${markers.end}\n` +

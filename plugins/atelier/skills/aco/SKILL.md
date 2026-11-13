@@ -193,9 +193,8 @@ One more line records the routing: the head pastes the lane result's `routingLin
 grammar belongs to aco's `specs/lane-record.spec.md` (LANREC-*), which is not copied here.
 The head writes it before the landing, because a landing agent does not know the routing.
 The fix and gate slots each hold one value, the last model that ran; an earlier fixer or gate stays out.
-Identical blocking entries print as `<n>× <text> → <stage>`, and a count above 999 splits into several
-entries of at most 999. When the line would run past 512 characters, the locations shrink evenly and then drop,
-leaving `<n>× → <stage>` per stage, so every count stays known; the full list stays in the lane result.
+Identical blocking entries print in the counted form the grammar names, and the full list stays in the lane
+result.
 
 A head that changes how lanes run (routing, budgets, a brief) tags those lanes with the lane's `experiment`
 arg and judges the change with `aco stats tag:<tag> <FROM..TO before>` (`specs/stats.spec.md`), where

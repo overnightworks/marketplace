@@ -20,6 +20,23 @@ for (const [name, value] of misspelledChoices) {
   })
 }
 
+const malformedEntries = [
+  ['fixFirst', [defectWithoutDraft, 'src/a.py:3 breaks the rule'], /fixFirst\[1\] is not an object/],
+  ['fixFirst', [{ ...defectWithoutDraft, evidence: undefined }], /fixFirst\[0\] lacks evidence/],
+  ['fixFirst', 'src/a.py:3', /fixFirst must be a list/],
+  ['foldIn', [tidy, { where: 'x.py:2', text: 'rename it' }], /foldIn\[1\] lacks owner/],
+  ['foldIn', ['x.py:2 rename it'], /foldIn\[0\] is not an object/],
+]
+
+for (const [name, entries, reason] of malformedEntries) {
+  test(`refuses ${name} ${JSON.stringify(entries).slice(0, 40)} at input naming the entry before any agent starts`, async () => {
+    const { result, launchedAgents } = await runLane({ ...resumeArgs, [name]: entries })
+    assert.deepEqual([result.status, result.stage], ['failed', 'input'])
+    assert.match(result.reason, reason)
+    assert.deepEqual(launchedAgents, [])
+  })
+}
+
 const refusedItems = ['fix/sonar-s1110', '12; id', '0', '-3', '1.5']
 
 for (const item of refusedItems) {

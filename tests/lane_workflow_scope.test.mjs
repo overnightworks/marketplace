@@ -416,7 +416,7 @@ test('resume-wording: the shared-red stop names a new run with pr and tip, not a
     head: resumeTip, green: false, requiredChecks: ['quality / verdict'],
     checks: [check('quality / verdict', 'pass'), check(sharedRed, 'fail')],
     failing: [{ where: sharedRed, kind: 'defect', text: `${sharedRed} fails`, rule: `CI check ${sharedRed}`, evidence: 'boom' }],
-    baseChecks: [{ name: sharedRed, status: 'completed', conclusion: 'failure' }],
+    baseChecks: [{ id: 1, name: sharedRed, status: 'completed', conclusion: 'failure' }],
   }
   const { result } = await runLane({ ...resumeArgs, foldIn: [tidy] }, { 'fix-1': { ...unchangedFix, resolved: [satisfied(tidy)] }, 'r1-review': APPROVE, 'e2e-0': PASS, 'ci-0': red })
   assert.match(result.reason, /new run with pr and tip and fixFirst/)

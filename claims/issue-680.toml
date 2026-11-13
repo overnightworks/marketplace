@@ -1,7 +1,0 @@
-claim_id = "57aa477c7d944c4cb9d6997e7965e8c1"
-agent = "Claude ff1b9f08-53fd-4692-b3b9-2cc410b8d654"
-role = "builder"
-base = "5c0841ce34fc632a45f48fd796837d8a270f303b"
-branch = "claude/issue-680-contract-rule-hurts-tell-marketplace"
-scope = ["instructions/AGENTS.md"]
-opened_commit = "0fd25319d5dd6bc60e036cfc031c613ee86bede6"

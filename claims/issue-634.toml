@@ -1,7 +1,0 @@
-claim_id = "ad23d63fb2ea4afda7959cd8f328465c"
-agent = "Claude ff1b9f08-53fd-4692-b3b9-2cc410b8d654"
-role = "builder"
-base = "13ecb04ed639bae965e6122180f4b6c17c730f0b"
-branch = "claude/issue-634-codex-grok-heads-stay-uncovered"
-scope = ["docs/ARCHITECTURE.md", "plugins/atelier/hooks/contract_change.py", "tests/test_contract_change_hook.py"]
-opened_commit = "2b0c4ef90472d3be9403e477b23fe0d5133bb418"

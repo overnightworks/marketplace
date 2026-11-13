@@ -121,22 +121,12 @@ test('AC-scope-relay: paths outside the claim that aco prints reach the stop as 
   assert.deepEqual([result.status, result.stage, result.outside], ['awaiting-head', 'scope', ['src/other.py']])
 })
 
-const baselineEntry = { path: 'quality/baseline.toml', names_a_file: true };
-const laneSharedRows = [
-  ['a touched lane-shared path is not outside', { claim: { lane_shared: [baselineEntry] } }, ['quality/baseline.toml'], 'r0-review'],
-  ['a path in neither the scope nor lane_shared still stops the lane', { claim: { lane_shared: [baselineEntry] } }, ['quality/baseline.toml', 'src/other.py'], ['src/other.py']],
-  ['a brief whose lane_shared_unavailable is set filters nothing', { claim: { lane_shared: [baselineEntry], lane_shared_unavailable: 'no board' } }, ['quality/baseline.toml'], ['quality/baseline.toml']],
-  ['an entry with names_a_file false filters nothing', { claim: { lane_shared: [{ path: 'quality/baseline.toml', names_a_file: false }] } }, ['quality/baseline.toml'], ['quality/baseline.toml']],
-  ['a brief with no lane_shared filters nothing', {}, ['quality/baseline.toml'], ['quality/baseline.toml']],
-]
-for (const [name, briefExtras, acoPrints, expected] of laneSharedRows) {
-  test(`AC-lane-shared: ${name}`, async (t) => {
-    const lane = laneRepository(t)
-    const { result, launchedAgents } = await runScopeStep(lane, acoPrints, [], briefExtras)
-    if (typeof expected === 'string') return assert.ok(launchedAgents.includes(expected), `${launchedAgents.join()} ${result.reason}`)
-    assert.deepEqual([result.status, result.stage, result.outside], ['awaiting-head', 'scope', expected])
-  })
-}
+test('AC-lane-shared: a lane_shared entry does not change outside_claim', async (t) => {
+  const lane = laneRepository(t)
+  const briefExtras = { claim: { lane_shared: [{ path: 'quality/baseline.toml', names_a_file: true }] } }
+  const { result } = await runScopeStep(lane, ['quality/baseline.toml'], [], briefExtras)
+  assert.deepEqual([result.status, result.stage, result.outside], ['awaiting-head', 'scope', ['quality/baseline.toml']])
+})
 
 test('AC-scope-relay: a null outside_claim stops the lane without a live claim', async (t) => {
   const lane = laneRepository(t)

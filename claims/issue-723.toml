@@ -1,8 +1,0 @@
-claim_id = "f27cb12f91f1483b99c35e489d3bde95"
-agent = "Claude ff1b9f08-53fd-4692-b3b9-2cc410b8d654"
-role = "builder"
-base = "2b9689a272daaf682d47aefa1c44e65f340f2637"
-branch = "claude/issue-723-ci-printer-changed-files"
-scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/lane", "plugins/atelier/workflows", "tests"]
-opened_commit = "4e145825a05d3e1a72a98075aaa36643e0f679d1"
-whole_reason = "The ci printer and its reading live in the relay source and its generated bundle, which change with their harness test and the version files."

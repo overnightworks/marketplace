@@ -1,80 +1,43 @@
-// One review round runs as the lane-review child under a protocol number; a refusal or a crash fails the lane naming it.
+// One review round runs as laneReview inside the lane script; a crash or a malformed answer fails the lane naming it.
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { spawnSync } from 'node:child_process'
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { runLane, courierBriefOf, resumedLane, installFake, APPROVE, PASS, greenCi, finding, resumeArgs, resumeTip, resumeFixedTip, resumeFix, secondFix, tidy, delegatedLineOfContract } from './lane_workflow_harness.mjs'
+import { runLane, partReplaced, courierBriefOf, resumedLane, installFake, APPROVE, PASS, greenCi, finding, resumeArgs, resumeTip, resumeFixedTip, resumeFix, secondFix, tidy, delegatedLineOfContract } from './lane_workflow_harness.mjs'
 
-const readWorkflow = (name) => fs.readFileSync(new URL(`../plugins/atelier/workflows/${name}.js`, import.meta.url), 'utf8')
-const protocolOf = (source) => Number(source.match(/^const LANE_REVIEW_PROTOCOL = (\d+)$/m)?.[1])
-const driveGate = (options) => runLane({ ...resumedLane, risk: 'material' }, { 'r0-review': APPROVE }, { ...options, child: 'atelier:lane-review' })
+const driveGate = (options) => runLane({ ...resumedLane, risk: 'material' }, { 'r0-review': APPROVE }, options)
 
-test('lane-review-protocol: a child with another protocol number returns awaiting-head at review naming both numbers and /reload-plugins', async () => {
-  const parentNumber = protocolOf(readWorkflow('lane'))
-  const { result, launchedAgents } = await driveGate({ transformChild: (source) => source.replace(/^const LANE_REVIEW_PROTOCOL = \d+$/m, `const LANE_REVIEW_PROTOCOL = ${parentNumber + 1}`) })
-  assert.deepEqual([result.status, result.stage], ['awaiting-head', 'review'])
-  assert.match(result.reason, new RegExp(`${parentNumber}[\\s\\S]*${parentNumber + 1}|${parentNumber + 1}[\\s\\S]*${parentNumber}`))
-  assert.ok(!launchedAgents.includes('r0-gate'))
-  assert.match(result.requiredHeadActions.join(' '), /\/reload-plugins/)
-  assert.match(result.requiredHeadActions.join(' '), /pr \d+ and tip \w+/)
-})
-
-test('lane-review-protocol: a call without the worktree fails the lane at review naming the missing args', async () => {
-  const { result } = await driveGate({ alterChildArgs: ({ worktree: _worktree, scratch: _scratch, ...rest }) => rest })
-  assert.deepEqual([result.status, result.stage], ['failed', 'review'])
-  assert.match(result.reason, /missing args: .*worktree.*scratch/)
-})
-
-test('lane-review-protocol: a child with another protocol number and a missing arg returns awaiting-head with the skew sentence, not missing args', async () => {
-  const skewed = (source) => source.replace(/^const LANE_REVIEW_PROTOCOL = \d+$/m, `const LANE_REVIEW_PROTOCOL = ${protocolOf(readWorkflow('lane')) + 1}`)
-  const { result } = await driveGate({ transformChild: skewed, alterChildArgs: ({ worktree: _worktree, ...rest }) => rest })
-  assert.deepEqual([result.status, result.stage], ['awaiting-head', 'review'])
-  assert.match(result.reason, /the installed atelier differs from the running lane/)
-  assert.doesNotMatch(result.reason, /missing args/)
-})
-
-test('lane-review-protocol: a child that throws fails the lane at review naming the error', async () => {
-  const { result } = await driveGate({ transformChild: () => "throw new Error('the child exploded')" })
+test('a review part that throws fails the lane at review naming the error', async () => {
+  const { result } = await driveGate({ transform: partReplaced('laneReview', "throw new Error('the child exploded')") })
   assert.deepEqual([result.status, result.stage], ['failed', 'review'])
   assert.match(result.reason, /the child exploded/)
 })
 
-test('lane-review-protocol: an answer without results fails the lane at review naming what came back', async () => {
-  const { result } = await driveGate({ transformChild: () => "return { surprise: 'no verdict' }" })
+test('a review answer without results fails the lane at review naming what came back', async () => {
+  const { result } = await driveGate({ transform: partReplaced('laneReview', "return { surprise: 'no verdict' }") })
   assert.deepEqual([result.status, result.stage], ['failed', 'review'])
   assert.match(result.reason, /lane-review answered without a valid result.*surprise/)
 })
 
-test('lane-review-protocol: a child that answers nothing fails the lane at review naming the problem', async () => {
-  const { result } = await driveGate({ transformChild: () => 'return undefined' })
+test('a review part that answers nothing fails the lane at review naming the problem', async () => {
+  const { result } = await driveGate({ transform: partReplaced('laneReview', 'return undefined') })
   assert.deepEqual([result.status, result.stage], ['failed', 'review'])
   assert.match(result.reason, /lane-review answered without a valid result/)
 })
 
-test('lane-review-protocol: an answer with results but no verdict fails the lane at review naming the problem', async () => {
-  const { result } = await driveGate({ transformChild: () => 'return { results: [null, null] }' })
+test('a review answer with results but no verdict fails the lane at review naming the problem', async () => {
+  const { result } = await driveGate({ transform: partReplaced('laneReview', 'return { results: [null, null] }') })
   assert.deepEqual([result.status, result.stage], ['failed', 'review'])
   assert.match(result.reason, /lane-review answered with an unknown round state/)
 })
 
-test('lane-review-protocol: an answer whose verdict state is no round state fails the lane at review naming it', async () => {
-  const { result, launchedAgents } = await driveGate({ transformChild: () => "return { results: [null, null], verdict: { state: 'aprove' } }" })
+test('a review answer whose verdict state is no round state fails the lane at review naming it', async () => {
+  const { result, launchedAgents } = await driveGate({ transform: partReplaced('laneReview', "return { results: [null, null], verdict: { state: 'aprove' } }") })
   assert.deepEqual([result.status, result.stage], ['failed', 'review'])
   assert.match(result.reason, /lane-review[\s\S]*aprove/)
   assert.ok(!launchedAgents.includes('r0-gate'))
-})
-
-test('lane-review-protocol: lane.js and lane-review.js hold the same protocol number', () => {
-  assert.ok(Number.isInteger(protocolOf(readWorkflow('lane'))))
-  assert.equal(protocolOf(readWorkflow('lane-review')), protocolOf(readWorkflow('lane')))
-})
-
-test('lane-review-protocol: the review and the gate courier are launched by the lane-review child, not by lane.js', async () => {
-  const { launchedByChild, launchedAgents } = await driveGate({})
-  assert.deepEqual(launchedByChild['atelier:lane-review'], ['r0-review', 'r0-gate'])
-  assert.ok(launchedAgents.includes('r0-gate'))
 })
 
 const bodyCommands = (repoFlag) => [`gh issue view 7${repoFlag} --json body --jq .body`, `gh pr view 9${repoFlag} --json body --jq .body`]
@@ -126,11 +89,6 @@ test('courier-brief-markers: one brief gives one token in every run and another 
   const [first, again, other] = [await tokenOf('one contract'), await tokenOf('one contract'), await tokenOf('another contract')]
   assert.equal(again, first)
   assert.notEqual(other, first)
-})
-
-test('review-reads-body: a lane-review call without the pull request number fails the lane naming it', async () => {
-  const { result } = await driveGate({ alterChildArgs: ({ pr: _pr, ...rest }) => rest })
-  assert.match(result.reason, /missing args: .*pr/)
 })
 
 // Runs the courier's start command as written in a scratch directory with stub gh and codex; the stub codex copies its stdin aside.
@@ -575,7 +533,7 @@ test('review-reads-body: without repo the Codex courier line enters the worktree
 })
 
 test('workflow-runtime: a workflow script naming a Node or web global fails under the harness with a ReferenceError', async () => {
-  const { result } = await driveGate({ transformChild: (source) => `new TextEncoder()\n${source}` })
+  const { result } = await driveGate({ transform: partReplaced('laneReview', 'new TextEncoder()') })
   assert.deepEqual([result.status, result.stage], ['failed', 'review'])
   assert.match(result.reason, /TextEncoder is not defined/)
 })

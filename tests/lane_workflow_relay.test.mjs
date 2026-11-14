@@ -1,11 +1,11 @@
-// Drives the scope and sync steps' printer against real git and a temp bare remote, with a fake aco, through the lane's own checks, and holds the lane-relay child contract.
+// Drives the scope and sync steps' printer against real git and a temp bare remote, with a fake aco, through the lane's own checks.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { execFileSync, spawnSync } from 'node:child_process'
-import { runLane, runCommandLine, installFake, FAKE_ACO, resumedLane, resumeArgs, resumeTip, resumeFix, defectWithoutDraft, reachesTheEnd, greenCi, tidy, unchangedFix, satisfied } from './lane_workflow_harness.mjs'
+import { runLane, partReplaced, runCommandLine, installFake, FAKE_ACO, resumedLane, resumeArgs, resumeTip, resumeFix, defectWithoutDraft, reachesTheEnd, greenCi, tidy, unchangedFix, satisfied } from './lane_workflow_harness.mjs'
 
 const BRANCH = 'lane'
 const LONGEST_PATH_COMPONENT = 255
@@ -320,63 +320,20 @@ test('AC-merge-only-real-git: a fixer that only merged main fixes nothing for a 
   assert.ok(!launchedAgents.includes('r1-review'))
 })
 
-// The lane-relay child contract: the lane starts sync and scope through it, and any break of it stops the lane at the step that asked.
-const readWorkflow = (name) => fs.readFileSync(new URL(`../plugins/atelier/workflows/${name}.js`, import.meta.url), 'utf8')
-const protocolOf = (source) => Number(source.match(/^const LANE_RELAY_PROTOCOL = (\d+)$/m)?.[1])
-const driveRelayChild = (args, options, answers = {}) => runLane(args, answers, { ...options, child: 'atelier:lane-relay' })
+// The lane starts sync and scope through laneRelay, and a crash of it stops the lane at the step that asked.
 const builtLane = { ...resumedLane, pr: undefined, tip: undefined, build: 'b' }
 const builtAnswer = { pr: 2, tip: 'abcdef1', blocked: false }
 
-test('lane-relay-protocol: a child with another protocol number returns awaiting-head at sync naming both numbers and /reload-plugins, and no sync agent starts', async () => {
-  const parentNumber = protocolOf(readWorkflow('lane'))
-  const { result, launchedAgents } = await driveRelayChild(resumedLane, { transformChild: (source) => source.replace(/^const LANE_RELAY_PROTOCOL = \d+$/m, `const LANE_RELAY_PROTOCOL = ${parentNumber + 1}`) })
-  assert.deepEqual([result.status, result.stage], ['awaiting-head', 'sync'])
-  assert.match(result.reason, new RegExp(`protocol ${parentNumber + 1}.*protocol ${parentNumber}`))
-  assert.doesNotMatch(result.reason, /the printed line/)
-  assert.deepEqual(launchedAgents, [])
-  assert.match(result.requiredHeadActions.join(' '), /\/reload-plugins/)
-  assert.match(result.requiredHeadActions.join(' '), /pr \d+ and tip \w+/)
-})
-
-test('lane-relay-protocol: a child that misses args fails the lane at sync naming them', async () => {
-  const { result } = await driveRelayChild(resumedLane, { alterChildArgs: ({ worktree: _worktree, nonce: _nonce, ...rest }) => rest })
-  assert.deepEqual([result.status, result.stage], ['failed', 'sync'])
-  assert.match(result.reason, /missing args: .*worktree.*nonce/)
-  assert.doesNotMatch(result.reason, /the printed line/)
-})
-
-test('lane-relay-protocol: a child with another protocol number and a missing arg returns awaiting-head with the skew sentence, not missing args', async () => {
-  const skewed = (source) => source.replace(/^const LANE_RELAY_PROTOCOL = \d+$/m, `const LANE_RELAY_PROTOCOL = ${protocolOf(readWorkflow('lane')) + 1}`)
-  const { result } = await driveRelayChild(resumedLane, { transformChild: skewed, alterChildArgs: ({ reread: _reread, ...rest }) => rest })
-  assert.deepEqual([result.status, result.stage], ['awaiting-head', 'sync'])
-  assert.match(result.reason, /the installed atelier differs from the running lane/)
-  assert.doesNotMatch(result.reason, /missing args/)
-})
-
-test('lane-relay-protocol: a child that throws fails a resumed lane at sync and a built lane at scope, naming the error', async () => {
-  const throwing = { transformChild: () => "throw new Error('the child exploded')" }
-  const resumed = await driveRelayChild(resumedLane, throwing)
+test('a relay part that throws fails a resumed lane at sync and a built lane at scope, naming the error', async () => {
+  const throwing = { transform: partReplaced('laneRelay', "throw new Error('the child exploded')") }
+  const resumed = await runLane(resumedLane, {}, throwing)
   assert.deepEqual([resumed.result.status, resumed.result.stage], ['failed', 'sync'])
   assert.match(resumed.result.reason, /the child exploded/)
   assert.doesNotMatch(resumed.result.reason, /the printed line/)
-  const built = await driveRelayChild(builtLane, throwing, { build: builtAnswer })
+  const built = await runLane(builtLane, { build: builtAnswer }, throwing)
   assert.deepEqual([built.result.status, built.result.stage], ['failed', 'scope'])
   assert.match(built.result.reason, /the child exploded/)
   assert.doesNotMatch(built.result.reason, /the printed line/)
-})
-
-test('lane-relay-protocol: lane.js and lane-relay.js hold the same protocol number', () => {
-  assert.ok(Number.isInteger(protocolOf(readWorkflow('lane'))))
-  assert.equal(protocolOf(readWorkflow('lane-relay')), protocolOf(readWorkflow('lane')))
-})
-
-test('lane-relay-protocol: the sync and scope agents are launched by the lane-relay child, not by lane.js', async () => {
-  const built = await driveRelayChild(builtLane, {}, { build: builtAnswer, 'scope-0': { outside_claim: [] } })
-  assert.deepEqual(built.launchedByChild['atelier:lane-relay'], ['scope-0'])
-  const resumed = await driveRelayChild(resumedLane, {})
-  assert.deepEqual(resumed.launchedByChild['atelier:lane-relay'], ['sync', 'scope-resume'])
-  const fixed = await driveRelayChild({ ...resumedLane, fixFirst: [defectWithoutDraft] }, {}, { 'fix-1': { ...resumeFix, regression: [] } })
-  assert.deepEqual(fixed.launchedByChild['atelier:lane-relay'], ['sync', 'fix-1', 'scope-1'])
 })
 
 // The re-read: an unreadable relay line is read once more by a printer-only agent before the lane fails.
@@ -528,7 +485,7 @@ test('AC-ci-printer-quotes: the ci printer text holds no single quote, so the sh
 
 // A fixer line whose git commands failed: the lane stops at fix with the failed command named, before any judgement.
 test('lane-relay-judgement: a fixer line whose git commands failed returns the failed command and no judgement, and does not throw', async () => {
-  const { result } = await driveRelayChild({ ...resumedLane, fixFirst: [defectWithoutDraft] }, {}, { 'fix-1': { ...resumeFix, regression: [], head_code: 128, main_code: 128 } })
+  const { result } = await runLane({ ...resumedLane, fixFirst: [defectWithoutDraft] }, { 'fix-1': { ...resumeFix, regression: [], head_code: 128, main_code: 128 } })
   assert.deepEqual([result.status, result.stage], ['failed', 'fix'])
   assert.match(result.reason, /reports a failed git command/)
 })

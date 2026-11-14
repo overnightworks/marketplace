@@ -1,0 +1,7 @@
+claim_id = "706c599a1c5e4eed8fca2306e68746c8"
+agent = "Claude ff1b9f08-53fd-4692-b3b9-2cc410b8d654"
+role = "builder"
+base = "9ac71c8ab985830e7e45d3591c7ac87a6ec94ea9"
+branch = "claude/issue-718-standards-agent-kinds"
+scope = ["docs/standards.md"]
+opened_commit = "246599e895db37eb6a44e9f97c2802032025e010"

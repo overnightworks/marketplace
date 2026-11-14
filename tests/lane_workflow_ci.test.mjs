@@ -95,8 +95,8 @@ for (const [what, mishandling] of [['an edited line', { edit: (line) => line.rep
 test('ci-relay-line: with repo set the printer is told the repository, without it the worktree repository', async () => {
   const withRepo = await driveCi(ciAnswer([check(required, 'pass')]), { ...lane, repo: 'o/n' })
   const without = await driveCi(ciAnswer([check(required, 'pass')]))
-  assert.match(withRepo.agentCalls['ci-read-0'].prompt, / ci 1 'o\/n' 'ci-0-/)
-  assert.match(without.agentCalls['ci-read-0'].prompt, / ci 1 '' 'ci-0-/)
+  assert.match(withRepo.agentCalls['ci-read-0'].prompt, / ci 1 'o\/n' '\[\]' 'ci-0-/)
+  assert.match(without.agentCalls['ci-read-0'].prompt, / ci 1 '' '\[\]' 'ci-0-/)
 })
 
 const proven = [
@@ -210,6 +210,49 @@ test('ci-own-finding: a finding in a file the lane changed reaches the fixer alt
 test('ci-own-finding: a finding of the same check in a file the lane did not change stays shared with the base', async () => {
   const { result, launchedAgents } = await driveCi(sonarRed(['src/other.py']))
   assert.deepEqual([result.status, result.stage], ['awaiting-head', 'ci'])
+  assert.ok(!launchedAgents.includes('fix-2'))
+})
+
+const manyFiles = (count) => Array.from({ length: count }, (_, index) => `src/file${index + 1}.py`)
+const findingIn = (where) => ({ ...sonarFinding, where, evidence: `sonar ${where}` })
+const sonarRedIn = (where, changedFiles) => {
+  const finding = findingIn(where)
+  return ciAnswer([check(required, 'pass'), check('quality / sonar', 'fail')], { green: false, failing: [finding], red: [{ ...redJob('quality / sonar', 'Run sonar'), findings: [finding] }], baseChecks: [run('quality / sonar', 'failure')], changedFiles })
+}
+
+test('ci-own-finding: a finding in the 130th of 150 changed files counts as own although its check is red on the base', async () => {
+  const files = manyFiles(150)
+  const { result, agentCalls } = await driveCi(sonarRedIn(files[129], files))
+  assert.notEqual(result.status, 'awaiting-head')
+  assert.match(agentCalls['fix-2'].prompt, /src\/file130\.py/)
+})
+
+test('ci-own-finding: a finding in a file after the first hundred that the lane did not change stays shared', async () => {
+  const { result } = await driveCi(sonarRedIn('src/other.py', manyFiles(150)))
+  assert.deepEqual([result.status, result.stage], ['awaiting-head', 'ci'])
+})
+
+test('ci-own-finding: the relayed line does not grow with the number of changed files', async () => {
+  const lineLengths = []
+  const measured = { edit: (printed) => { lineLengths.push(printed.length); return printed } }
+  for (const count of [3, 150]) {
+    const files = manyFiles(count)
+    await driveCi(sonarRedIn(files[2], files), lane, measured)
+  }
+  assert.equal(lineLengths[1], lineLengths[0])
+})
+
+test('ci-run-list: a run listing that fails for another reason than the network ends the lane at ci naming the exit and the error', async () => {
+  const { result, launchedAgents } = await driveCi(ciAnswer([check(required, 'pass')]), lane, { runlist_code: 4, runlist_error: 'HTTP 403: rate limit' })
+  assert.deepEqual([result.status, result.stage], ['failed', 'ci'])
+  assert.match(result.reason, /workflow runs.*gh run list exited 4: HTTP 403: rate limit/)
+  assert.ok(!launchedAgents.includes('fix-2'))
+})
+
+test('ci-changed-list: a changed-file listing that fails for another reason than the network ends the lane at ci naming the exit and the error', async () => {
+  const { result, launchedAgents } = await driveCi(ciAnswer([check(required, 'pass')]), lane, { changed_code: 4, changed_error: 'HTTP 403: rate limit' })
+  assert.deepEqual([result.status, result.stage], ['failed', 'ci'])
+  assert.match(result.reason, /changed files.*gh api exited 4: HTTP 403: rate limit/)
   assert.ok(!launchedAgents.includes('fix-2'))
 })
 

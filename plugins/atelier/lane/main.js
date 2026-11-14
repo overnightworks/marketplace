@@ -559,11 +559,13 @@ if (carriesBatch) {
 // ---------------------------- end-to-end test and CI side by side
 // laneTest returns the tester's answer, null when both agents ended without a result, or a problem the lane stops on.
 const explore = (n) => runPart('lane-test', laneTest, { delegatedLine: DELEGATED_LINE, n, pr, tip, worktree: A.worktree, scratch: A.scratch, tag: TAG, e2e: A.e2e, contract: A.contract, laneFacts, blockingLine: BLOCKING_LINE, finding: FINDING, followup: FOLLOWUP, routing: claudeRole('test') })
+// The paths the watcher's findings name, as one shell-safe JSON argument for the printer, which keeps those among the pull request's changed files.
+const findingPaths = (failing = []) => JSON.stringify([...new Set(failing.map(f => String(f.where).replace(/:\d+(:\d+)?$/, '')))]).replaceAll("'", String.raw`\u0027`)
 async function watchCi(n, rerun) {
   const watched = await runPart('lane-ci', laneCi, { delegatedLine: DELEGATED_LINE, pr, n, rerun, repo: A.repo, worktree: A.worktree, finding: FINDING, mechanical: MECHANICAL })
   if (!watched || watched.problem) return watched
   const nonce = `ci-${n}-${tip}`
-  const read = await relay({ label: `ci-read-${n}`, phase: 'Test and CI', step: 'ci', relayArgs: [pr, `'${A.repo || ''}'`, `'${nonce}'`], nonce, requiredKeys: ['view'], brief: `${laneFacts}\nChange nothing in the files;`, watched, rerun: Boolean(rerun) })
+  const read = await relay({ label: `ci-read-${n}`, phase: 'Test and CI', step: 'ci', relayArgs: [pr, `'${A.repo || ''}'`, `'${findingPaths(watched.failing)}'`, `'${nonce}'`], nonce, requiredKeys: ['view'], brief: `${laneFacts}\nChange nothing in the files;`, watched, rerun: Boolean(rerun) })
   if (!read) return { problem: 'ended without reading the CI values' }
   if (read.problem) return { problem: `read the CI values, but their relay line ${read.problem}${printedLine(read)}` }
   if (read.unreachable) return { unreachable: read.unreachable }
@@ -637,6 +639,8 @@ while (true) {
     if (stop) return stop
   }
   history.push({ after: spent.total, by: `ci-${n - 1}`, verdict: ci.proven ? 'GREEN' : 'RED', blocking: (ci.failing || []).map(f => f.where) })
+  if (ci.runsError) return await openResult('failed', 'ci', { reason: `the workflow runs of the pull request head could not be read: ${ci.runsError}` })
+  if (ci.changedError) return await openResult('failed', 'ci', { reason: `the changed files of the pull request could not be listed: ${ci.changedError}` })
   if (ci.rulesError) return await openResult('failed', 'ci', { reason: `the required checks of the base branch could not be read: ${ci.rulesError}` })
   if (unproven) return await openResult('failed', 'ci', { reason: `CI reported green, but the check listing does not prove it: ${unproven}` })
   // The one re-run of a disputed flake came back red (a red shared with main aside): the disagreement between the fixer and CI is the head's.

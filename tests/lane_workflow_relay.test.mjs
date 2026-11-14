@@ -480,7 +480,7 @@ for (const [what, edit] of [
 test('AC-ci-printer-quotes: the ci printer text holds no single quote, so the shell passes it as one argument', async () => {
   const { agentCalls } = await driveCiRead((line) => line)
   const commandLine = agentCalls['ci-read-0'].prompt.split('\n').at(-1)
-  assert.match(commandLine, /^cd '[^']*' && python3 -c '[^']+' ci 1 '[^']*' 'ci-0-[^']*'$/)
+  assert.match(commandLine, /^cd '[^']*' && python3 -c '[^']+' ci 1 '[^']*' '[^']*' 'ci-0-[^']*'$/)
 })
 
 // A fixer line whose git commands failed: the lane stops at fix with the failed command named, before any judgement.

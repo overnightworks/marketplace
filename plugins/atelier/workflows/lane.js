@@ -1541,7 +1541,7 @@ if (carriesBatch) {
 // laneTest returns the tester's answer, null when both agents ended without a result, or a problem the lane stops on.
 const explore = (n) => runPart('lane-test', laneTest, { delegatedLine: DELEGATED_LINE, n, pr, tip, worktree: A.worktree, scratch: A.scratch, tag: TAG, e2e: A.e2e, contract: A.contract, laneFacts, blockingLine: BLOCKING_LINE, finding: FINDING, followup: FOLLOWUP, routing: claudeRole('test') })
 // The paths the watcher's findings name, as one shell-safe JSON argument for the printer, which keeps those among the pull request's changed files.
-const findingPaths = (failing = []) => JSON.stringify([...new Set(failing.map(f => String(f.where).replace(/:\d+(:\d+)?$/, '')))]).replace(/'/g, '\\u0027')
+const findingPaths = (failing = []) => JSON.stringify([...new Set(failing.map(f => String(f.where).replace(/:\d+(:\d+)?$/, '')))]).replaceAll("'", String.raw`\u0027`)
 async function watchCi(n, rerun) {
   const watched = await runPart('lane-ci', laneCi, { delegatedLine: DELEGATED_LINE, pr, n, rerun, repo: A.repo, worktree: A.worktree, finding: FINDING, mechanical: MECHANICAL })
   if (!watched || watched.problem) return watched

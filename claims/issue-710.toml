@@ -1,8 +1,0 @@
-claim_id = "ab24f04c7ddf4777b3c3a1a83860bfd7"
-agent = "Claude ff1b9f08-53fd-4692-b3b9-2cc410b8d654"
-role = "builder"
-base = "f3cd0655ce77500763778e2f45c25a0fc856fadf"
-branch = "claude/issue-710-typed-unreachable-reason"
-scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/lane", "plugins/atelier/workflows", "tests"]
-opened_commit = "21bbc03b72fd981b84f127030d0f7b5bc61aa5e0"
-whole_reason = "The printer change in the relay source and its generated bundle, its runLane test and the version bump."

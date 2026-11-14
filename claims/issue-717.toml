@@ -1,0 +1,8 @@
+claim_id = "65230089e5d3451ea80a8175c8112f1b"
+agent = "Claude ff1b9f08-53fd-4692-b3b9-2cc410b8d654"
+role = "builder"
+base = "99bc1a507ed39433861f2943e193014a2fd6267e"
+branch = "claude/issue-717-ci-own-findings-and-run-wait"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/lane", "plugins/atelier/workflows", "tests"]
+opened_commit = "92d985801a41023c7c96b89255a64b73596226a2"
+whole_reason = "The split and the CI watch live in the ci and relay sources and their generated bundle, which change with their harness test and the version files."

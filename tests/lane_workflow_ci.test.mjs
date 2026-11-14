@@ -213,6 +213,17 @@ test('ci-own-finding: a finding of the same check in a file the lane did not cha
   assert.ok(!launchedAgents.includes('fix-2'))
 })
 
+test('ci-path-digest: a printer run that received the finding paths the lane sent is trusted without a reread', async () => {
+  const { launchedAgents } = await driveCi(sonarRed(['src/a.py']))
+  assert.ok(!launchedAgents.includes('ci-read-0-reread'))
+})
+
+test('ci-path-digest: a printer run whose command lost a finding path is reread, and the reread keeps the own finding for the fixer', async () => {
+  const { launchedAgents, agentCalls } = await driveCi(sonarRed(['src/a.py']), lane, { typedCommand: (line) => line.replace(/'\["[^']*"\]'/, "'[]'") })
+  assert.ok(launchedAgents.includes('ci-read-0-reread'))
+  assert.match(agentCalls['fix-2'].prompt, /src\/a\.py:4/)
+})
+
 const manyFiles = (count) => Array.from({ length: count }, (_, index) => `src/file${index + 1}.py`)
 const findingIn = (where) => ({ ...sonarFinding, where, evidence: `sonar ${where}` })
 const sonarRedIn = (where, changedFiles) => {

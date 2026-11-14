@@ -1,0 +1,8 @@
+claim_id = "b686f0f7444f48af9f8f73efe94d06da"
+agent = "Claude ff1b9f08-53fd-4692-b3b9-2cc410b8d654"
+role = "builder"
+base = "2706890bc30deea31137f15119def0addddb793b"
+branch = "claude/issue-725-finding-path-owner"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/lane", "plugins/atelier/workflows", "tests"]
+opened_commit = "970efbb0be2402187a50dfc5d07029ab54ec85a5"
+whole_reason = "The path rule and the printer input live in the main and relay sources and their generated bundle, which change with their harness test and the version files."

@@ -36,7 +36,7 @@ case "$1 $2" in
   "pr checks") [ "$FAKE_CHECKS_CODE" = 0 ] || fail "$FAKE_CHECKS_CODE" "$FAKE_CHECKS_ERROR"; printf '%s' "$FAKE_CHECKS" ;;
   "api repos/"*) case "$2" in
     */rules/branches/main) [ "$FAKE_RULES_CODE" = 0 ] || fail "$FAKE_RULES_CODE" "$FAKE_RULES_ERROR"; printf '%s' "$FAKE_RULES" ;;
-    */pulls/*/files) printf '%s' "$FAKE_FILES" ;;
+    */pulls/*/files) [ "$FAKE_CHANGED_CODE" = 0 ] || fail "$FAKE_CHANGED_CODE" "$FAKE_CHANGED_ERROR"; printf '%s' "$FAKE_FILES" ;;
     */commits/main/check-runs) printf '%s' "$FAKE_BASE_RUNS" ;;
     *) fail 1 "unexpected gh api path $2" ;;
   esac ;;
@@ -98,6 +98,7 @@ export async function runLane(args, answers = {}, options = {}) {
     FAKE_RULES: JSON.stringify([{ type: 'deletion' }, { type: 'required_status_checks', parameters: { required_status_checks: (scenario.required ?? []).map(context => ({ context })) } }]),
     FAKE_RULES_CODE: scenario.rules_code ?? 0, FAKE_RULES_ERROR: scenario.rules_error ?? '',
     FAKE_FILES: JSON.stringify(Array.from({ length: Math.ceil((scenario.changed_files ?? []).length / 100) }, (_, page) => scenario.changed_files.slice(page * 100, page * 100 + 100).map(filename => ({ filename })))),
+    FAKE_CHANGED_CODE: scenario.changed_code ?? 0, FAKE_CHANGED_ERROR: scenario.changed_error ?? '',
     FAKE_RUNLIST_CODE: scenario.runlist_code ?? 0, FAKE_RUNLIST_ERROR: scenario.runlist_error ?? '',
     FAKE_BASE_RUNS: JSON.stringify((scenario.base_runs ?? []).map(run => ({ check_runs: [run] }))),
   })
@@ -130,7 +131,7 @@ export async function runLane(args, answers = {}, options = {}) {
     if (!isRelayed(label) || !answer) return answer
     const printed = printedBy(prompt, answer)
     if (answer.head && !base.startsWith('scope-')) newestTip = answer.head
-    const { pr_head: _prHead, checks: _checks, required: _required, base_runs: _baseRuns, changed_files: _changedFiles, runlist_code: _runlistCode, runlist_error: _runlistError, head: _head, parents: _parents, head_code: _headCode, main_code: _mainCode, nonce: _nonce, edit: _edit, printerMode: _printerMode, push_error: _pushError, network_error: _networkError, network_fails: _networkFails, remote_tip: _remoteTip, brief_error: _briefError, outside_claim: _outsideClaim, printed: _printed, ...report } = answer
+    const { pr_head: _prHead, checks: _checks, required: _required, base_runs: _baseRuns, changed_files: _changedFiles, changed_code: _changedCode, changed_error: _changedError, runlist_code: _runlistCode, runlist_error: _runlistError, head: _head, parents: _parents, head_code: _headCode, main_code: _mainCode, nonce: _nonce, edit: _edit, printerMode: _printerMode, push_error: _pushError, network_error: _networkError, network_fails: _networkFails, remote_tip: _remoteTip, brief_error: _briefError, outside_claim: _outsideClaim, printed: _printed, ...report } = answer
     return reread ? { printed } : { ...report, printed }
   }
   const agent = async (prompt, agentOptions = {}) => { launchedAgents.push(agentOptions.label); launchedPrompts.push(prompt); agentCalls[agentOptions.label] = { prompt, options: structuredClone(agentOptions) }; return answerFor(agentOptions.label, prompt) }

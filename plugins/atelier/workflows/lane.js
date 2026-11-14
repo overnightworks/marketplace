@@ -436,7 +436,7 @@ async function laneRelay(A) {
 
   // What the lane reads from the ci step: the head, the checks red on the base branch too, the red a fixer may not remove, why the listing does not prove green,
   // and the watcher's verdict corrected by the printed listing: green, proven, the state in words, the failing checks split into own and shared.
-  function readCi({ checks, rules, headruns, head, shared, files, log: jobLog }) {
+  function readCi({ checks, rules, headruns, changed, head, shared, files, log: jobLog }) {
     // The printer reads a job log only for the red verdict check; its two values name the red a fixer may not remove.
     const operatorDoor = checks.open?.length === 1 && jobLog?.code === 0 && jobLog.loosenings && jobLog.merge ? jobLog.merge : null
     const listed = unprovenGreen({ checks, rules })
@@ -451,13 +451,14 @@ async function laneRelay(A) {
     const unproven = green ? listed : null
     const rulesError = rules.code === 0 ? null : `gh api exited ${rules.code}: ${rules.err ?? ''}`
     const runsError = headruns.code === 0 ? null : `gh run list exited ${headruns.code}: ${headruns.err ?? ''}`
-    const proven = green && !unproven && !rulesError && !runsError
+    const changedError = changed.code === 0 ? null : `gh api exited ${changed.code}: ${changed.err ?? ''}`
+    const proven = green && !unproven && !rulesError && !runsError && !changedError
     const names = (failing || []).map(f => `"${f.where}"`).join(', ')
     let state = 'not green'
     if (proven) state = 'green'
     else if (names) state = `red (${names})`
     return {
-      head, shared, operatorDoor, failing, ownRed, green, unproven, rulesError, runsError, proven,
+      head, shared, operatorDoor, failing, ownRed, green, unproven, rulesError, runsError, changedError, proven,
       sharedOnly: shared.length > 0 && ownRed.length === 0,
       state,
     }
@@ -1620,6 +1621,7 @@ while (true) {
   }
   history.push({ after: spent.total, by: `ci-${n - 1}`, verdict: ci.proven ? 'GREEN' : 'RED', blocking: (ci.failing || []).map(f => f.where) })
   if (ci.runsError) return await openResult('failed', 'ci', { reason: `the workflow runs of the pull request head could not be read: ${ci.runsError}` })
+  if (ci.changedError) return await openResult('failed', 'ci', { reason: `the changed files of the pull request could not be listed: ${ci.changedError}` })
   if (ci.rulesError) return await openResult('failed', 'ci', { reason: `the required checks of the base branch could not be read: ${ci.rulesError}` })
   if (unproven) return await openResult('failed', 'ci', { reason: `CI reported green, but the check listing does not prove it: ${unproven}` })
   // The one re-run of a disputed flake came back red (a red shared with main aside): the disagreement between the fixer and CI is the head's.

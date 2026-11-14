@@ -249,6 +249,13 @@ test('ci-run-list: a run listing that fails for another reason than the network 
   assert.ok(!launchedAgents.includes('fix-2'))
 })
 
+test('ci-changed-list: a changed-file listing that fails for another reason than the network ends the lane at ci naming the exit and the error', async () => {
+  const { result, launchedAgents } = await driveCi(ciAnswer([check(required, 'pass')]), lane, { changed_code: 4, changed_error: 'HTTP 403: rate limit' })
+  assert.deepEqual([result.status, result.stage], ['failed', 'ci'])
+  assert.match(result.reason, /changed files.*gh api exited 4: HTTP 403: rate limit/)
+  assert.ok(!launchedAgents.includes('fix-2'))
+})
+
 test('ci-run-wait: the ci brief tells the watcher to read the head workflow runs and keep watching while one is open', async () => {
   const { agentCalls } = await driveCi(ciAnswer([check(required, 'pass')]))
   assert.match(agentCalls['ci-0'].prompt, /gh run list --commit/)

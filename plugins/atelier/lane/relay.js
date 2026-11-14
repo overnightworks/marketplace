@@ -293,7 +293,7 @@ export async function laneRelay(A) {
 
   // What the lane reads from the ci step: the head, the checks red on the base branch too, the red a fixer may not remove, why the listing does not prove green,
   // and the watcher's verdict corrected by the printed listing: green, proven, the state in words, the failing checks split into own and shared.
-  function readCi({ checks, rules, headruns, head, shared, files, log: jobLog }) {
+  function readCi({ checks, rules, headruns, changed, head, shared, files, log: jobLog }) {
     // The printer reads a job log only for the red verdict check; its two values name the red a fixer may not remove.
     const operatorDoor = checks.open?.length === 1 && jobLog?.code === 0 && jobLog.loosenings && jobLog.merge ? jobLog.merge : null
     const listed = unprovenGreen({ checks, rules })
@@ -308,13 +308,14 @@ export async function laneRelay(A) {
     const unproven = green ? listed : null
     const rulesError = rules.code === 0 ? null : `gh api exited ${rules.code}: ${rules.err ?? ''}`
     const runsError = headruns.code === 0 ? null : `gh run list exited ${headruns.code}: ${headruns.err ?? ''}`
-    const proven = green && !unproven && !rulesError && !runsError
+    const changedError = changed.code === 0 ? null : `gh api exited ${changed.code}: ${changed.err ?? ''}`
+    const proven = green && !unproven && !rulesError && !runsError && !changedError
     const names = (failing || []).map(f => `"${f.where}"`).join(', ')
     let state = 'not green'
     if (proven) state = 'green'
     else if (names) state = `red (${names})`
     return {
-      head, shared, operatorDoor, failing, ownRed, green, unproven, rulesError, runsError, proven,
+      head, shared, operatorDoor, failing, ownRed, green, unproven, rulesError, runsError, changedError, proven,
       sharedOnly: shared.length > 0 && ownRed.length === 0,
       state,
     }

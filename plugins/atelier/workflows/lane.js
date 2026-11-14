@@ -194,6 +194,7 @@ async function laneRelay(A) {
     String.raw`values.update(**({"log":{**values["log"],"loosenings":any("only declared loosenings \u00b7 only the operator merges it" in l for l in ran["log"].stdout.splitlines()),"merge":next((m[1] for l in ran["log"].stderr.splitlines()+ran["log"].stdout.splitlines() if "next:" in l and (m:=re.search("(quality merge [A-Za-z0-9._-]+/[A-Za-z0-9._-]+#[0-9]+)",l))),"")}} if "log" in ran else {}))`,
     'values.update(nonce=nonce,**({"unreachable":sorted(n for n,p in ran.items() if getattr(p,"down",0))} if any(getattr(p,"down",0) for p in ran.values()) else {}),**(dict(outside_claim=claim[:50] if isinstance(claim,list) else claim,count=len(claim) if isinstance(claim,list) else None) if "brief" in ran else {}))',
     'values={n:v for n,v in values.items() if v!={"code":0}}',
+    'values.update(**(dict(paths=dict(count=len(received),hash="%08x"%zlib.crc32(json.dumps(received,ensure_ascii=True,separators=(",",":")).encode()))) if (received:=json.loads(rest[2]) if step=="ci" else None) is not None else {}))',
     'payload=json.dumps(values,ensure_ascii=True,separators=(",",":"),sort_keys=True)',
     'print("""{"crc":"%08x","v":%s}"""%(zlib.crc32(payload.encode()),payload))',
   ].join(';')
@@ -430,7 +431,7 @@ async function laneRelay(A) {
   // The failing findings of checks main does not share, and every finding that names a file the lane changed: a shared check's red entries and findings named by it are left out otherwise.
   function ownFailing({ shared, red = [], failing = [], files = [] }) {
     const sharedEntries = new Set(red.filter(job => shared.includes(job.name)).flatMap(job => job.findings.map(entry => JSON.stringify(entry))))
-    const inChangedFile = entry => files.includes(String(entry.where).replace(/:\d+(:\d+)?$/, ''))
+    const inChangedFile = entry => files.includes(A.findingPath(entry.where))
     return failing.filter(entry => inChangedFile(entry) || (!sharedEntries.has(JSON.stringify(entry)) && ![entry.where, String(entry.rule).replace(/^CI check /, '')].some(name => shared.includes(name))))
   }
 
@@ -464,6 +465,10 @@ async function laneRelay(A) {
     }
   }
 
+  // The count and CRC32 of the finding paths, as the printer computes them over the list it received (JSON with ASCII escapes).
+  const pathsDigest = (paths) => ({ count: paths.length, hash: crc32(JSON.stringify(paths).replace(/[^\x20-\x7e]/g, char => String.raw`\u` + char.codePointAt(0).toString(16).padStart(4, '0'))) })
+  const sameDigest = (echoed, sent) => echoed?.count === sent.count && echoed?.hash === sent.hash
+
   // The values of a relay line, or why the line cannot be trusted: checked as text first (shape, CRC32), parsed after.
   // A caller stops at the stage of the step that ran the printer, so an unreadable scope line stops at scope, because it
   // proves nothing about the push; push is only for a readable line that shows the push failed or the remote lacks the tip.
@@ -475,6 +480,7 @@ async function laneRelay(A) {
     try { values = JSON.parse(printedPayload ?? match[2]) } catch { return printedPayload === undefined ? { problem: 'fails its CRC check' } : { problem: 'does not hold JSON' } }
     if (printedPayload === undefined && crc32(printerText(sortedListing(values))) !== match[1]) return { problem: 'fails its CRC check' }
     if (values?.nonce !== nonce) return { problem: `carries the nonce ${values?.nonce}, not ${nonce}` }
+    if (step === 'ci' && A.sentPaths && !sameDigest(values.paths, pathsDigest(A.sentPaths))) return { problem: 'echoes other finding paths than the lane sent' }
     // The printer leaves out an entry of the ci step that carries only exit code 0, so its absence reads as that code.
     const complete = step === 'ci' ? { view: { code: 0 }, runs: { code: 0 }, changed: { code: 0 }, headruns: { code: 0 }, ...values } : values
     const missing = requiredKeys.find(key => !complete[key])
@@ -1115,8 +1121,10 @@ async function runPart(name, part, partArgs) {
     return { problem: `ended in ${name} with ${String(error).slice(0, 300)}` }
   }
 }
+// The path of a finding is its `where` without the line and column suffix: the one rule the printer's match, the lane's own-finding match and the printer's input digest share.
+const findingPath = (where) => String(where).replace(/:\d+(:\d+)?$/, '')
 // A value a command prints reaches a decision only through the line laneRelay reads back and checks.
-const relay = (request) => runPart('lane-relay', laneRelay, { delegatedLine: DELEGATED_LINE, worktree: A.worktree, agentOptions: MECHANICAL, reread: COPY, ...request })
+const relay = (request) => runPart('lane-relay', laneRelay, { delegatedLine: DELEGATED_LINE, worktree: A.worktree, agentOptions: MECHANICAL, reread: COPY, findingPath, ...request })
 // The failure reasons name the printed line only when the command printed one.
 const printedLine = (relayed) => relayed.printed === undefined ? '' : `; the printed line: ${relayed.printed}`
 // Language models copy a 40-character hash unreliably (a sync step once dropped one character). A commit is
@@ -1540,13 +1548,16 @@ if (carriesBatch) {
 // ---------------------------- end-to-end test and CI side by side
 // laneTest returns the tester's answer, null when both agents ended without a result, or a problem the lane stops on.
 const explore = (n) => runPart('lane-test', laneTest, { delegatedLine: DELEGATED_LINE, n, pr, tip, worktree: A.worktree, scratch: A.scratch, tag: TAG, e2e: A.e2e, contract: A.contract, laneFacts, blockingLine: BLOCKING_LINE, finding: FINDING, followup: FOLLOWUP, routing: claudeRole('test') })
-// The paths the watcher's findings name, as one shell-safe JSON argument for the printer, which keeps those among the pull request's changed files.
-const findingPaths = (failing = []) => JSON.stringify([...new Set(failing.map(f => String(f.where).replace(/:\d+(:\d+)?$/, '')))]).replaceAll("'", String.raw`\u0027`)
+// The paths the watcher's findings name; the printer keeps those among the pull request's changed files.
+const findingPaths = (failing = []) => [...new Set(failing.map(finding => findingPath(finding.where)))]
+// The paths as one shell-safe JSON argument for the printer.
+const pathsArgument = (paths) => JSON.stringify(paths).replaceAll("'", String.raw`\u0027`)
 async function watchCi(n, rerun) {
   const watched = await runPart('lane-ci', laneCi, { delegatedLine: DELEGATED_LINE, pr, n, rerun, repo: A.repo, worktree: A.worktree, finding: FINDING, mechanical: MECHANICAL })
   if (!watched || watched.problem) return watched
   const nonce = `ci-${n}-${tip}`
-  const read = await relay({ label: `ci-read-${n}`, phase: 'Test and CI', step: 'ci', relayArgs: [pr, `'${A.repo || ''}'`, `'${findingPaths(watched.failing)}'`, `'${nonce}'`], nonce, requiredKeys: ['view'], brief: `${laneFacts}\nChange nothing in the files;`, watched, rerun: Boolean(rerun) })
+  const sentPaths = findingPaths(watched.failing)
+  const read = await relay({ label: `ci-read-${n}`, phase: 'Test and CI', step: 'ci', relayArgs: [pr, `'${A.repo || ''}'`, `'${pathsArgument(sentPaths)}'`, `'${nonce}'`], sentPaths, nonce, requiredKeys: ['view'], brief: `${laneFacts}\nChange nothing in the files;`, watched, rerun: Boolean(rerun) })
   if (!read) return { problem: 'ended without reading the CI values' }
   if (read.problem) return { problem: `read the CI values, but their relay line ${read.problem}${printedLine(read)}` }
   if (read.unreachable) return { unreachable: read.unreachable }

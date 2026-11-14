@@ -107,7 +107,7 @@ export async function runLane(args, answers = {}, options = {}) {
     const watcher = answers[label.replace('ci-read-', 'ci-')]
     return watcher && typeof watcher === 'object' ? { pr_head: watcher.head, checks: watcher.checks, required: watcher.requiredChecks, base_runs: watcher.baseChecks, changed_files: watcher.changedFiles } : {}
   }
-  const printedBy = (prompt, scenario) => {
+  const printedBy = (prompt, scenario, reread) => {
     if ('printed' in scenario) return scenario.printed
     const line = prompt.split('\n').at(-1).replace(/^cd '[^']*' && /, '')
     const env = {
@@ -116,7 +116,8 @@ export async function runLane(args, answers = {}, options = {}) {
       FAKE_PUSH_ERROR: scenario.push_error ?? '', FAKE_NETWORK_ERROR: scenario.network_error ?? '', FAKE_NETWORK_STDOUT: scenario.network_stdout ?? '', FAKE_NETWORK_FAILS: scenario.network_fails ?? 1, FAKE_BRIEF_ERROR: scenario.brief_error ?? '',
       FAKE_BRIEF_OUTPUT: JSON.stringify({ outside_claim: 'outside_claim' in scenario ? scenario.outside_claim : [] }), ...ghEnv(scenario),
     }
-    const asked = scenario.printerMode ? line.replace(/' scope .* ('[^']*')$/, `' ${scenario.printerMode} $1`) : line
+    const typed = scenario.typedCommand && !reread ? scenario.typedCommand(line) : line
+    const asked = scenario.printerMode ? typed.replace(/' scope .* ('[^']*')$/, `' ${scenario.printerMode} $1`) : typed
     const printed = runCommandLine(scenario.nonce ? asked.replace(/'[^']*'$/, `'${scenario.nonce}'`) : asked, { cwd: os.tmpdir(), env })
     return scenario.edit ? scenario.edit(printed) : printed
   }
@@ -129,9 +130,9 @@ export async function runLane(args, answers = {}, options = {}) {
     const answer = isRelayed(label) && given ? { ...(base.startsWith('ci-read-') ? ciWorldOf(base) : {}), ...given } : structuredClone(given)
     if (answer?.tip && label === 'build') newestTip = answer.tip
     if (!isRelayed(label) || !answer) return answer
-    const printed = printedBy(prompt, answer)
+    const printed = printedBy(prompt, answer, reread)
     if (answer.head && !base.startsWith('scope-')) newestTip = answer.head
-    const { pr_head: _prHead, checks: _checks, required: _required, base_runs: _baseRuns, changed_files: _changedFiles, changed_code: _changedCode, changed_error: _changedError, runlist_code: _runlistCode, runlist_error: _runlistError, head: _head, parents: _parents, head_code: _headCode, main_code: _mainCode, nonce: _nonce, edit: _edit, printerMode: _printerMode, push_error: _pushError, network_error: _networkError, network_fails: _networkFails, remote_tip: _remoteTip, brief_error: _briefError, outside_claim: _outsideClaim, printed: _printed, ...report } = answer
+    const { pr_head: _prHead, checks: _checks, required: _required, base_runs: _baseRuns, changed_files: _changedFiles, changed_code: _changedCode, changed_error: _changedError, runlist_code: _runlistCode, runlist_error: _runlistError, head: _head, parents: _parents, head_code: _headCode, main_code: _mainCode, nonce: _nonce, edit: _edit, typedCommand: _typedCommand, printerMode: _printerMode, push_error: _pushError, network_error: _networkError, network_fails: _networkFails, remote_tip: _remoteTip, brief_error: _briefError, outside_claim: _outsideClaim, printed: _printed, ...report } = answer
     return reread ? { printed } : { ...report, printed }
   }
   const agent = async (prompt, agentOptions = {}) => { launchedAgents.push(agentOptions.label); launchedPrompts.push(prompt); agentCalls[agentOptions.label] = { prompt, options: structuredClone(agentOptions) }; return answerFor(agentOptions.label, prompt) }

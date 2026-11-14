@@ -134,8 +134,10 @@ async function runPart(name, part, partArgs) {
     return { problem: `ended in ${name} with ${String(error).slice(0, 300)}` }
   }
 }
+// The path of a finding is its `where` without the line and column suffix: the one rule the printer's match, the lane's own-finding match and the printer's input digest share.
+const findingPath = (where) => String(where).replace(/:\d+(:\d+)?$/, '')
 // A value a command prints reaches a decision only through the line laneRelay reads back and checks.
-const relay = (request) => runPart('lane-relay', laneRelay, { delegatedLine: DELEGATED_LINE, worktree: A.worktree, agentOptions: MECHANICAL, reread: COPY, ...request })
+const relay = (request) => runPart('lane-relay', laneRelay, { delegatedLine: DELEGATED_LINE, worktree: A.worktree, agentOptions: MECHANICAL, reread: COPY, findingPath, ...request })
 // The failure reasons name the printed line only when the command printed one.
 const printedLine = (relayed) => relayed.printed === undefined ? '' : `; the printed line: ${relayed.printed}`
 // Language models copy a 40-character hash unreliably (a sync step once dropped one character). A commit is
@@ -559,13 +561,16 @@ if (carriesBatch) {
 // ---------------------------- end-to-end test and CI side by side
 // laneTest returns the tester's answer, null when both agents ended without a result, or a problem the lane stops on.
 const explore = (n) => runPart('lane-test', laneTest, { delegatedLine: DELEGATED_LINE, n, pr, tip, worktree: A.worktree, scratch: A.scratch, tag: TAG, e2e: A.e2e, contract: A.contract, laneFacts, blockingLine: BLOCKING_LINE, finding: FINDING, followup: FOLLOWUP, routing: claudeRole('test') })
-// The paths the watcher's findings name, as one shell-safe JSON argument for the printer, which keeps those among the pull request's changed files.
-const findingPaths = (failing = []) => JSON.stringify([...new Set(failing.map(f => String(f.where).replace(/:\d+(:\d+)?$/, '')))]).replaceAll("'", String.raw`\u0027`)
+// The paths the watcher's findings name; the printer keeps those among the pull request's changed files.
+const findingPaths = (failing = []) => [...new Set(failing.map(finding => findingPath(finding.where)))]
+// The paths as one shell-safe JSON argument for the printer.
+const pathsArgument = (paths) => JSON.stringify(paths).replaceAll("'", String.raw`\u0027`)
 async function watchCi(n, rerun) {
   const watched = await runPart('lane-ci', laneCi, { delegatedLine: DELEGATED_LINE, pr, n, rerun, repo: A.repo, worktree: A.worktree, finding: FINDING, mechanical: MECHANICAL })
   if (!watched || watched.problem) return watched
   const nonce = `ci-${n}-${tip}`
-  const read = await relay({ label: `ci-read-${n}`, phase: 'Test and CI', step: 'ci', relayArgs: [pr, `'${A.repo || ''}'`, `'${findingPaths(watched.failing)}'`, `'${nonce}'`], nonce, requiredKeys: ['view'], brief: `${laneFacts}\nChange nothing in the files;`, watched, rerun: Boolean(rerun) })
+  const sentPaths = findingPaths(watched.failing)
+  const read = await relay({ label: `ci-read-${n}`, phase: 'Test and CI', step: 'ci', relayArgs: [pr, `'${A.repo || ''}'`, `'${pathsArgument(sentPaths)}'`, `'${nonce}'`], sentPaths, nonce, requiredKeys: ['view'], brief: `${laneFacts}\nChange nothing in the files;`, watched, rerun: Boolean(rerun) })
   if (!read) return { problem: 'ended without reading the CI values' }
   if (read.problem) return { problem: `read the CI values, but their relay line ${read.problem}${printedLine(read)}` }
   if (read.unreachable) return { unreachable: read.unreachable }

@@ -15,7 +15,7 @@ export async function laneRelay(A) {
   // A value a command prints reaches a decision only through one line the PRINTER wrote: the agent runs it and relays the
   // line unchanged, and a retyped or edited line fails its CRC32. The printer holds no single quote, so the shell passes
   // it as one argument. Its first argument names the step whose commands it runs; the scope step never forces a push,
-  // relays HEAD's parents and whether its second parent is in origin/main, at most 50 paths and no text of aco brief but its exit code and error output, the sync step reports the lane tip, its parents and whether it contains origin/main, and the ci step reports the pull request head, the count of listed checks, the checks that are neither pass nor skipping, each required context of the base with its bucket or missing, the exit code of each gh call, left out when it is 0 and the call has nothing else to carry, and its error output where it is not empty, and the checks red on head that failed on the base tip too; a failed gh pr view ends its reads. A call that fails with a network marker is retried (see NETWORK_WAIT_SECONDS) and, still failing, puts its name into unreachable. Only when the verdict check (the check named quality / verdict) is red, the ci step also reads that job log with gh run view and relays two values of it, never its text: whether a line says that only declared loosenings made it red and only the operator merges it, and the quality merge command of its next line; the lines come in any order and carry a job name, a step and a timestamp before their text.
+  // relays HEAD's parents and whether its second parent is in origin/main, at most 50 paths and no text of aco brief but its exit code and error output, the sync step reports the lane tip, its parents and whether it contains origin/main, and the ci step reports the pull request head, the count of listed checks, the checks that are neither pass nor skipping, each required context of the base with its bucket or missing, the exit code of each gh call, left out when it is 0 and the call has nothing else to carry, and its error output where it is not empty, the paths of the files the pull request changes, and the checks red on head that failed on the base tip too; a failed gh pr view ends its reads. A call that fails with a network marker is retried (see NETWORK_WAIT_SECONDS) and, still failing, puts its name into unreachable. Only when the verdict check (the check named quality / verdict) is red, the ci step also reads that job log with gh run view and relays two values of it, never its text: whether a line says that only declared loosenings made it red and only the operator merges it, and the quality merge command of its next line; the lines come in any order and carry a job name, a step and a timestamp before their text.
   // A git or gh call that fails with one of these untranslated network markers, or an aco brief call whose stdout JSON has the reason unreachable, is run again after this many seconds; the tests rewrite the constant to 0.
   const NETWORK_WAIT_SECONDS = 30
   // The printer waits at most twice, gives each call 60 s and stops retrying once its run nears 240 s, inside the 300 s Bash timeout RELAY_ASK asks for.
@@ -31,7 +31,7 @@ export async function laneRelay(A) {
     'target=lambda repo:("-R",repo) if repo else ()',
     'api=lambda repo:"repos/"+(repo or "{owner}/{repo}")',
     'base=lambda r:json.loads(r["view"].stdout)["baseRefName"]',
-    'steps=dict(scope=lambda item,branch:(("push",("git","push","origin",branch)),("remote",("git","rev-parse","origin/"+branch)),("head",("git","rev-parse","HEAD")),("parents",("git","rev-parse","HEAD^@")),("second_parent_in_main",("git","merge-base","--is-ancestor","HEAD^2","origin/main")),("brief",("aco","brief",item,"--json"))),sync=lambda:(("head",("git","rev-parse","HEAD")),("parents",("git","rev-parse","HEAD^@")),("main",("git","merge-base","--is-ancestor","origin/main","HEAD"))),ci=lambda pr,repo:(("view",("gh","pr","view",pr,"--json","headRefOid,baseRefName",*target(repo))),("checks",("gh","pr","checks",pr,"--json","name,bucket,link",*target(repo))),("rules",lambda r:("gh","api",api(repo)+"/rules/branches/"+base(r))),("runs",lambda r:("gh","api",api(repo)+"/commits/"+base(r)+"/check-runs","--paginate","--slurp"))))',
+    'steps=dict(scope=lambda item,branch:(("push",("git","push","origin",branch)),("remote",("git","rev-parse","origin/"+branch)),("head",("git","rev-parse","HEAD")),("parents",("git","rev-parse","HEAD^@")),("second_parent_in_main",("git","merge-base","--is-ancestor","HEAD^2","origin/main")),("brief",("aco","brief",item,"--json"))),sync=lambda:(("head",("git","rev-parse","HEAD")),("parents",("git","rev-parse","HEAD^@")),("main",("git","merge-base","--is-ancestor","origin/main","HEAD"))),ci=lambda pr,repo:(("view",("gh","pr","view",pr,"--json","headRefOid,baseRefName,files",*target(repo))),("checks",("gh","pr","checks",pr,"--json","name,bucket,link",*target(repo))),("rules",lambda r:("gh","api",api(repo)+"/rules/branches/"+base(r))),("runs",lambda r:("gh","api",api(repo)+"/commits/"+base(r)+"/check-runs","--paginate","--slurp"))))',
     'ran={}',
     '[ran.__setitem__(n,run(*(c(ran) if callable(c) else c))) for n,c in steps[step](*rest) if "view" not in ran or ran["view"].returncode==0]',
     'verdict_jobs=[m[1] for c in (json.loads(ran["checks"].stdout) if step=="ci" and "checks" in ran and ran["checks"].returncode==0 else []) if c["name"]=="quality / verdict" and c["bucket"]=="fail" and (m:=re.search("/job/([0-9]+)",c.get("link") or ""))]',
@@ -47,7 +47,7 @@ export async function laneRelay(A) {
     'buckets={c["name"]:c["bucket"] for c in listing or []}',
     'contexts=None if rules is None else [c["context"] for r in rules if r["type"]=="required_status_checks" for c in r["parameters"]["required_status_checks"]]',
     'values.update({n:{**values[n],**x} for n,x in(("checks",None if listing is None else dict(count=len(listing),open=[dict(name=c["name"],bucket=c["bucket"]) for c in listing if c["bucket"] not in("pass","skipping")])),("rules",None if contexts is None else dict(required={c:buckets.get(c,"missing") for c in contexts}))) if x is not None})',
-    'values.update(**(dict(head=view["headRefOid"],shared=[c["name"] for c in listing or [] if c["bucket"]=="fail" and c["name"] in failed_on_base]) if view else {}))',
+    'values.update(**(dict(head=view["headRefOid"],files=[f["path"] for f in view["files"]],shared=[c["name"] for c in listing or [] if c["bucket"]=="fail" and c["name"] in failed_on_base]) if view else {}))',
     String.raw`values.update(**({"log":{**values["log"],"loosenings":any("only declared loosenings \u00b7 only the operator merges it" in l for l in ran["log"].stdout.splitlines()),"merge":next((m[1] for l in ran["log"].stderr.splitlines()+ran["log"].stdout.splitlines() if "next:" in l and (m:=re.search("(quality merge [A-Za-z0-9._-]+/[A-Za-z0-9._-]+#[0-9]+)",l))),"")}} if "log" in ran else {}))`,
     'values.update(nonce=nonce,**({"unreachable":sorted(n for n,p in ran.items() if getattr(p,"down",0))} if any(getattr(p,"down",0) for p in ran.values()) else {}),**(dict(outside_claim=claim[:50] if isinstance(claim,list) else claim,count=len(claim) if isinstance(claim,list) else None) if "brief" in ran else {}))',
     'values={n:v for n,v in values.items() if v!={"code":0}}',
@@ -284,15 +284,16 @@ export async function laneRelay(A) {
   const answerSchema = answerKind?.schema || {}
   const brief = answerKind ? answerKind.brief(A) : A.brief
 
-  // The failing findings of checks main does not share: a shared check's red entries and findings named by it are left out.
-  function ownFailing({ shared, red = [], failing = [] }) {
+  // The failing findings of checks main does not share, and every finding that names a file the lane changed: a shared check's red entries and findings named by it are left out otherwise.
+  function ownFailing({ shared, red = [], failing = [], files = [] }) {
     const sharedEntries = new Set(red.filter(job => shared.includes(job.name)).flatMap(job => job.findings.map(entry => JSON.stringify(entry))))
-    return failing.filter(entry => !sharedEntries.has(JSON.stringify(entry)) && ![entry.where, String(entry.rule).replace(/^CI check /, '')].some(name => shared.includes(name)))
+    const inChangedFile = entry => files.includes(String(entry.where).replace(/:\d+(:\d+)?$/, ''))
+    return failing.filter(entry => inChangedFile(entry) || (!sharedEntries.has(JSON.stringify(entry)) && ![entry.where, String(entry.rule).replace(/^CI check /, '')].some(name => shared.includes(name))))
   }
 
   // What the lane reads from the ci step: the head, the checks red on the base branch too, the red a fixer may not remove, why the listing does not prove green,
   // and the watcher's verdict corrected by the printed listing: green, proven, the state in words, the failing checks split into own and shared.
-  function readCi({ checks, rules, head, shared, log: jobLog }) {
+  function readCi({ checks, rules, head, shared, files, log: jobLog }) {
     // The printer reads a job log only for the red verdict check; its two values name the red a fixer may not remove.
     const operatorDoor = checks.open?.length === 1 && jobLog?.code === 0 && jobLog.loosenings && jobLog.merge ? jobLog.merge : null
     const listed = unprovenGreen({ checks, rules })
@@ -302,7 +303,7 @@ export async function laneRelay(A) {
     const sharedRerun = Boolean(A.rerun) && watched.green && open.length > 0 && open.every(c => c.bucket === 'fail' && shared?.includes(c.name))
     const watcherDecides = !sharedRerun && (watched.green || watched.failing?.length)
     const failing = watcherDecides ? watched.failing : failedCheckFindings(open)
-    const ownRed = ownFailing({ shared, red: watched.red, failing })
+    const ownRed = ownFailing({ shared, red: watched.red, failing, files })
     const green = watched.green && !sharedRerun
     const unproven = green ? listed : null
     const rulesError = rules.code === 0 ? null : `gh api exited ${rules.code}: ${rules.err ?? ''}`

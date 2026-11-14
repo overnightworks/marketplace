@@ -195,6 +195,32 @@ test('ci-shared-red: findings quoted as path:line under a shared check stay out 
   assert.doesNotMatch(agentCalls['fix-2'].prompt, /src\/a\.py:4/)
 })
 
+const sonarFinding = { where: 'src/a.py:4', kind: 'defect', text: 'duplicated lines', rule: 'python:S1192', evidence: 'sonar src/a.py:4' }
+const sonarRed = (changedFiles) => {
+  const sonarJob = { ...redJob('quality / sonar', 'Run sonar'), findings: [sonarFinding] }
+  return ciAnswer([check(required, 'pass'), check('quality / sonar', 'fail')], { green: false, failing: [sonarFinding], red: [sonarJob], baseChecks: [run('quality / sonar', 'failure')], changedFiles })
+}
+
+test('ci-own-finding: a finding in a file the lane changed reaches the fixer although its check is red on the base', async () => {
+  const { result, agentCalls } = await driveCi(sonarRed(['src/a.py']))
+  assert.notEqual(result.status, 'awaiting-head')
+  assert.match(agentCalls['fix-2'].prompt, /src\/a\.py:4/)
+})
+
+test('ci-own-finding: a finding of the same check in a file the lane did not change stays shared with the base', async () => {
+  const { result, launchedAgents } = await driveCi(sonarRed(['src/other.py']))
+  assert.deepEqual([result.status, result.stage], ['awaiting-head', 'ci'])
+  assert.ok(!launchedAgents.includes('fix-2'))
+})
+
+test('ci-run-wait: the ci brief tells the watcher to read the head workflow runs and keep watching while one is open', async () => {
+  const { agentCalls } = await driveCi(ciAnswer([check(required, 'pass')]))
+  assert.match(agentCalls['ci-0'].prompt, /gh run list --commit/)
+  assert.match(agentCalls['ci-0'].prompt, /while any run is not completed, watch again/)
+  assert.match(agentCalls['ci-0'].prompt, /while a run of head is not completed, or a check is still pending after the watch, watch again/)
+  assert.match(agentCalls['ci-0'].prompt, /missing required context is judged as it stands and is not watched for/)
+})
+
 for (const [what, baseChecks] of [['an empty baseChecks', []], ['no baseChecks', undefined], ['a base run of the same name still pending', [run('quality / hygiene', null)]], ['a name missing on the base', [run('other', 'failure')]]]) {
   test(`ci-shared-red: ${what} runs CI fixing as before`, async () => {
     const { launchedAgents } = await driveCi(redCi(['quality / hygiene'], baseChecks))
@@ -318,7 +344,7 @@ const fakeGhWithLog = (t, { logLines, logCode = 0 }) => {
   installFake(bin, 'gh', `#!/bin/sh
 echo "$*" >> '${calls}'
 case "$1 $2" in
-  "pr view") printf '{"baseRefName":"main","headRefOid":"%s"}' "$FAKE_PR_HEAD" ;;
+  "pr view") printf '{"baseRefName":"main","headRefOid":"%s","files":[]}' "$FAKE_PR_HEAD" ;;
   "pr checks") printf '%s' "$FAKE_CHECKS" ;;
   "run view") [ ${logCode} = 0 ] || { echo 'HTTP 410: logs expired' >&2; exit ${logCode}; }; cat '${path.join(bin, 'log')}' ;;
   *) printf '[]' ;;

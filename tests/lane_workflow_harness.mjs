@@ -24,9 +24,9 @@ case "$1 $2" in
   "rev-parse origin/"*) printf '%s\\n' "$FAKE_REMOTE" ;;
 esac
 `
-// A fake program counts its calls in a file beside itself; while FAKE_NETWORK_ERROR is set it prints that error and fails its first FAKE_NETWORK_FAILS calls, or every call for 'always'.
+// A fake program counts its calls in a file beside itself; while FAKE_NETWORK_ERROR is set it prints that error (and FAKE_NETWORK_STDOUT on stdout) and fails its first FAKE_NETWORK_FAILS calls, or every call for 'always'.
 const NETWORK_DOWN = `calls=$(( $(cat "$0.calls" 2>/dev/null || echo 0) + 1 )); echo "$calls" > "$0.calls"
-if [ -n "$FAKE_NETWORK_ERROR" ] && { [ "$FAKE_NETWORK_FAILS" = always ] || [ "$calls" -le "$FAKE_NETWORK_FAILS" ]; }; then printf '%s\\n' "$FAKE_NETWORK_ERROR" >&2; exit 1; fi
+if [ -n "$FAKE_NETWORK_ERROR" ] && { [ "$FAKE_NETWORK_FAILS" = always ] || [ "$calls" -le "$FAKE_NETWORK_FAILS" ]; }; then [ -z "$FAKE_NETWORK_STDOUT" ] || printf '%s\\n' "$FAKE_NETWORK_STDOUT"; printf '%s\\n' "$FAKE_NETWORK_ERROR" >&2; exit 1; fi
 `
 const FAKE_GH = `#!/bin/sh
 ${NETWORK_DOWN}fail() { printf '%s\\n' "$2" >&2; exit "$1"; }
@@ -108,7 +108,7 @@ export async function runLane(args, answers = {}, options = {}) {
     const env = {
       ...process.env, PATH: `${fakeCommands()}:${process.env.PATH}`, FAKE_HEAD: scenario.head ?? newestTip, FAKE_REMOTE: scenario.remote_tip ?? newestTip,
       FAKE_HEAD_CODE: scenario.head_code ?? 0, FAKE_PARENTS: (scenario.parents ?? []).join('\n'), FAKE_MAIN_CODE: scenario.main_code ?? 0,
-      FAKE_PUSH_ERROR: scenario.push_error ?? '', FAKE_NETWORK_ERROR: scenario.network_error ?? '', FAKE_NETWORK_FAILS: scenario.network_fails ?? 1, FAKE_BRIEF_ERROR: scenario.brief_error ?? '',
+      FAKE_PUSH_ERROR: scenario.push_error ?? '', FAKE_NETWORK_ERROR: scenario.network_error ?? '', FAKE_NETWORK_STDOUT: scenario.network_stdout ?? '', FAKE_NETWORK_FAILS: scenario.network_fails ?? 1, FAKE_BRIEF_ERROR: scenario.brief_error ?? '',
       FAKE_BRIEF_OUTPUT: JSON.stringify({ outside_claim: 'outside_claim' in scenario ? scenario.outside_claim : [] }), ...ghEnv(scenario),
     }
     const asked = scenario.printerMode ? line.replace(/' scope .* ('[^']*')$/, `' ${scenario.printerMode} $1`) : line

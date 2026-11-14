@@ -578,8 +578,6 @@ let n = 0
 let testCalls = 0
 let needTest = true
 let lockRetried = false
-let runWaits = 0
-const MAX_RUN_WAITS = 3
 let testSettled = false
 let pendingTest = null  // the tester started and not yet judged
 let rerunRed  // the red jobs a flake dispute hands to the next watch for one re-run
@@ -633,11 +631,6 @@ while (true) {
     return stop || await openResult('failed', 'ci', ci ? { reason: `the CI watcher ${ci.problem}` } : undefined)
   }
   if (!sameCommit(ci.head, tip)) return await openResult('failed', 'ci', { reason: `the pull request head ${ci.head} is not the lane tip ${tip}` })
-  // A required check missing while a run of the tip is still going has not been created yet: the lane watches again, a bounded number of times.
-  if (!rerunBatch && ci.requiredMissing && ci.runsOpen > 0 && runWaits < MAX_RUN_WAITS) {
-    runWaits++
-    continue
-  }
   const { shared, unproven, ownRed, sharedOnly } = ci
   if (pendingTest && (testSettled || ci.green || sharedOnly || ci.operatorDoor)) {
     const stop = await settleTest(ci, ci.green || sharedOnly || Boolean(ci.operatorDoor))

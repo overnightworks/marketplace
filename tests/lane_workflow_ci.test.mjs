@@ -213,20 +213,9 @@ test('ci-own-finding: a finding of the same check in a file the lane did not cha
   assert.ok(!launchedAgents.includes('fix-2'))
 })
 
-const missingRequired = (tipRuns) => ciAnswer([check('Python: tests', 'pass')], { tipRuns })
-
-test('ci-run-wait: a required check missing while a run of the tip is not completed watches again instead of failing', async () => {
-  const { result, launchedAgents, agentCalls } = await driveCi(missingRequired(['in_progress', 'completed']), lane, undefined, { 'ci-1': ciAnswer([check(required, 'pass')]) })
-  assert.ok(launchedAgents.includes('ci-1'))
-  assert.notEqual(result.stage, 'ci')
+test('ci-run-wait: the ci brief tells the watcher to read the head workflow runs and keep watching while one is open', async () => {
+  const { agentCalls } = await driveCi(ciAnswer([check(required, 'pass')]))
   assert.match(agentCalls['ci-0'].prompt, /gh run list --commit/)
-})
-
-test('ci-run-wait: a required check missing while every run of the tip has completed fails the lane at ci', async () => {
-  const { result, launchedAgents } = await driveCi(missingRequired(['completed', 'completed']))
-  assert.deepEqual([result.status, result.stage], ['failed', 'ci'])
-  assert.match(result.reason, /quality \/ verdict/)
-  assert.ok(!launchedAgents.includes('ci-1'))
 })
 
 for (const [what, baseChecks] of [['an empty baseChecks', []], ['no baseChecks', undefined], ['a base run of the same name still pending', [run('quality / hygiene', null)]], ['a name missing on the base', [run('other', 'failure')]]]) {

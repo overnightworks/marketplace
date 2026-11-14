@@ -158,7 +158,7 @@ async function laneRelay(A) {
   // A value a command prints reaches a decision only through one line the PRINTER wrote: the agent runs it and relays the
   // line unchanged, and a retyped or edited line fails its CRC32. The printer holds no single quote, so the shell passes
   // it as one argument. Its first argument names the step whose commands it runs; the scope step never forces a push,
-  // relays HEAD's parents and whether its second parent is in origin/main, at most 50 paths and no text of aco brief but its exit code and error output, the sync step reports the lane tip, its parents and whether it contains origin/main, and the ci step reports the pull request head, the count of listed checks, the checks that are neither pass nor skipping, each required context of the base with its bucket or missing, the exit code of each gh call, left out when it is 0 and the call has nothing else to carry, and its error output where it is not empty, the paths of the files the pull request changes, the count of workflow runs of the head that are not completed, and the checks red on head that failed on the base tip too; a failed gh pr view ends its reads. A call that fails with a network marker is retried (see NETWORK_WAIT_SECONDS) and, still failing, puts its name into unreachable. Only when the verdict check (the check named quality / verdict) is red, the ci step also reads that job log with gh run view and relays two values of it, never its text: whether a line says that only declared loosenings made it red and only the operator merges it, and the quality merge command of its next line; the lines come in any order and carry a job name, a step and a timestamp before their text.
+  // relays HEAD's parents and whether its second parent is in origin/main, at most 50 paths and no text of aco brief but its exit code and error output, the sync step reports the lane tip, its parents and whether it contains origin/main, and the ci step reports the pull request head, the count of listed checks, the checks that are neither pass nor skipping, each required context of the base with its bucket or missing, the exit code of each gh call, left out when it is 0 and the call has nothing else to carry, and its error output where it is not empty, the paths of the files the pull request changes, and the checks red on head that failed on the base tip too; a failed gh pr view ends its reads. A call that fails with a network marker is retried (see NETWORK_WAIT_SECONDS) and, still failing, puts its name into unreachable. Only when the verdict check (the check named quality / verdict) is red, the ci step also reads that job log with gh run view and relays two values of it, never its text: whether a line says that only declared loosenings made it red and only the operator merges it, and the quality merge command of its next line; the lines come in any order and carry a job name, a step and a timestamp before their text.
   // A git or gh call that fails with one of these untranslated network markers, or an aco brief call whose stdout JSON has the reason unreachable, is run again after this many seconds; the tests rewrite the constant to 0.
   const NETWORK_WAIT_SECONDS = 30
   // The printer waits at most twice, gives each call 60 s and stops retrying once its run nears 240 s, inside the 300 s Bash timeout RELAY_ASK asks for.
@@ -174,23 +174,22 @@ async function laneRelay(A) {
     'target=lambda repo:("-R",repo) if repo else ()',
     'api=lambda repo:"repos/"+(repo or "{owner}/{repo}")',
     'base=lambda r:json.loads(r["view"].stdout)["baseRefName"]',
-    'steps=dict(scope=lambda item,branch:(("push",("git","push","origin",branch)),("remote",("git","rev-parse","origin/"+branch)),("head",("git","rev-parse","HEAD")),("parents",("git","rev-parse","HEAD^@")),("second_parent_in_main",("git","merge-base","--is-ancestor","HEAD^2","origin/main")),("brief",("aco","brief",item,"--json"))),sync=lambda:(("head",("git","rev-parse","HEAD")),("parents",("git","rev-parse","HEAD^@")),("main",("git","merge-base","--is-ancestor","origin/main","HEAD"))),ci=lambda pr,repo:(("view",("gh","pr","view",pr,"--json","headRefOid,baseRefName,files",*target(repo))),("checks",("gh","pr","checks",pr,"--json","name,bucket,link",*target(repo))),("rules",lambda r:("gh","api",api(repo)+"/rules/branches/"+base(r))),("tip",lambda r:("gh","run","list","--commit",json.loads(r["view"].stdout)["headRefOid"],"--json","status","--limit","100",*target(repo))),("runs",lambda r:("gh","api",api(repo)+"/commits/"+base(r)+"/check-runs","--paginate","--slurp"))))',
+    'steps=dict(scope=lambda item,branch:(("push",("git","push","origin",branch)),("remote",("git","rev-parse","origin/"+branch)),("head",("git","rev-parse","HEAD")),("parents",("git","rev-parse","HEAD^@")),("second_parent_in_main",("git","merge-base","--is-ancestor","HEAD^2","origin/main")),("brief",("aco","brief",item,"--json"))),sync=lambda:(("head",("git","rev-parse","HEAD")),("parents",("git","rev-parse","HEAD^@")),("main",("git","merge-base","--is-ancestor","origin/main","HEAD"))),ci=lambda pr,repo:(("view",("gh","pr","view",pr,"--json","headRefOid,baseRefName,files",*target(repo))),("checks",("gh","pr","checks",pr,"--json","name,bucket,link",*target(repo))),("rules",lambda r:("gh","api",api(repo)+"/rules/branches/"+base(r))),("runs",lambda r:("gh","api",api(repo)+"/commits/"+base(r)+"/check-runs","--paginate","--slurp"))))',
     'ran={}',
     '[ran.__setitem__(n,run(*(c(ran) if callable(c) else c))) for n,c in steps[step](*rest) if "view" not in ran or ran["view"].returncode==0]',
     'verdict_jobs=[m[1] for c in (json.loads(ran["checks"].stdout) if step=="ci" and "checks" in ran and ran["checks"].returncode==0 else []) if c["name"]=="quality / verdict" and c["bucket"]=="fail" and (m:=re.search("/job/([0-9]+)",c.get("link") or ""))]',
     'ran.update({"log":run("gh","run","view","--job",verdict_jobs[0],*target(rest[1]),"--log")} if verdict_jobs else {})',
     'brief=json.loads(ran["brief"].stdout) if "brief" in ran and ran["brief"].returncode==0 else None',
     'claim=brief and brief["outside_claim"]',
-    'values={n:{"code":p.returncode,**({"err":e} if ((e:=" ".join(l for l in p.stderr.splitlines() if l[:5]!="hint:")[-300:]) or step!="ci") and (n!="log" or p.returncode) else {}),**({} if n in("brief","view","checks","rules","runs","tip","log") else {"out":p.stdout.strip()[:100]})} for n,p in ran.items()}',
+    'values={n:{"code":p.returncode,**({"err":e} if ((e:=" ".join(l for l in p.stderr.splitlines() if l[:5]!="hint:")[-300:]) or step!="ci") and (n!="log" or p.returncode) else {}),**({} if n in("brief","view","checks","rules","runs","log") else {"out":p.stdout.strip()[:100]})} for n,p in ran.items()}',
     'parsed=lambda n:json.loads(ran[n].stdout) if n in ran and ran[n].returncode==0 else None',
-    'view,listing,rules,pages,tip_runs=parsed("view"),parsed("checks"),parsed("rules"),parsed("runs"),parsed("tip")',
+    'view,listing,rules,pages=parsed("view"),parsed("checks"),parsed("rules"),parsed("runs")',
     'listing=listing and sorted(listing,key=lambda c:(c["name"],c["bucket"]))',
     'latest_on_base={r["name"]:r for r in sorted((r for page in pages or [] for r in page["check_runs"] if r["status"]=="completed"),key=lambda r:(r.get("completed_at") or "",r["id"]))}',
     'failed_on_base={n for n,r in latest_on_base.items() if r["conclusion"]=="failure"}',
     'buckets={c["name"]:c["bucket"] for c in listing or []}',
     'contexts=None if rules is None else [c["context"] for r in rules if r["type"]=="required_status_checks" for c in r["parameters"]["required_status_checks"]]',
     'values.update({n:{**values[n],**x} for n,x in(("checks",None if listing is None else dict(count=len(listing),open=[dict(name=c["name"],bucket=c["bucket"]) for c in listing if c["bucket"] not in("pass","skipping")])),("rules",None if contexts is None else dict(required={c:buckets.get(c,"missing") for c in contexts}))) if x is not None})',
-    'values.update(**({"tip":{**values["tip"],"open":sum(r["status"]!="completed" for r in tip_runs)}} if tip_runs is not None else {}))',
     'values.update(**(dict(head=view["headRefOid"],files=[f["path"] for f in view["files"]],shared=[c["name"] for c in listing or [] if c["bucket"]=="fail" and c["name"] in failed_on_base]) if view else {}))',
     String.raw`values.update(**({"log":{**values["log"],"loosenings":any("only declared loosenings \u00b7 only the operator merges it" in l for l in ran["log"].stdout.splitlines()),"merge":next((m[1] for l in ran["log"].stderr.splitlines()+ran["log"].stdout.splitlines() if "next:" in l and (m:=re.search("(quality merge [A-Za-z0-9._-]+/[A-Za-z0-9._-]+#[0-9]+)",l))),"")}} if "log" in ran else {}))`,
     'values.update(nonce=nonce,**({"unreachable":sorted(n for n,p in ran.items() if getattr(p,"down",0))} if any(getattr(p,"down",0) for p in ran.values()) else {}),**(dict(outside_claim=claim[:50] if isinstance(claim,list) else claim,count=len(claim) if isinstance(claim,list) else None) if "brief" in ran else {}))',
@@ -437,7 +436,7 @@ async function laneRelay(A) {
 
   // What the lane reads from the ci step: the head, the checks red on the base branch too, the red a fixer may not remove, why the listing does not prove green,
   // and the watcher's verdict corrected by the printed listing: green, proven, the state in words, the failing checks split into own and shared.
-  function readCi({ checks, rules, head, shared, files, tip, log: jobLog }) {
+  function readCi({ checks, rules, head, shared, files, log: jobLog }) {
     // The printer reads a job log only for the red verdict check; its two values name the red a fixer may not remove.
     const operatorDoor = checks.open?.length === 1 && jobLog?.code === 0 && jobLog.loosenings && jobLog.merge ? jobLog.merge : null
     const listed = unprovenGreen({ checks, rules })
@@ -457,7 +456,7 @@ async function laneRelay(A) {
     if (proven) state = 'green'
     else if (names) state = `red (${names})`
     return {
-      head, shared, operatorDoor, failing, ownRed, runsOpen: tip?.open ?? 0, requiredMissing: Object.values(rules.required || {}).includes('missing'), green, unproven, rulesError, proven,
+      head, shared, operatorDoor, failing, ownRed, green, unproven, rulesError, proven,
       sharedOnly: shared.length > 0 && ownRed.length === 0,
       state,
     }
@@ -1558,8 +1557,6 @@ let n = 0
 let testCalls = 0
 let needTest = true
 let lockRetried = false
-let runWaits = 0
-const MAX_RUN_WAITS = 3
 let testSettled = false
 let pendingTest = null  // the tester started and not yet judged
 let rerunRed  // the red jobs a flake dispute hands to the next watch for one re-run
@@ -1613,11 +1610,6 @@ while (true) {
     return stop || await openResult('failed', 'ci', ci ? { reason: `the CI watcher ${ci.problem}` } : undefined)
   }
   if (!sameCommit(ci.head, tip)) return await openResult('failed', 'ci', { reason: `the pull request head ${ci.head} is not the lane tip ${tip}` })
-  // A required check missing while a run of the tip is still going has not been created yet: the lane watches again, a bounded number of times.
-  if (!rerunBatch && ci.requiredMissing && ci.runsOpen > 0 && runWaits < MAX_RUN_WAITS) {
-    runWaits++
-    continue
-  }
   const { shared, unproven, ownRed, sharedOnly } = ci
   if (pendingTest && (testSettled || ci.green || sharedOnly || ci.operatorDoor)) {
     const stop = await settleTest(ci, ci.green || sharedOnly || Boolean(ci.operatorDoor))

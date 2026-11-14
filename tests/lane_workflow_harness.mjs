@@ -32,7 +32,6 @@ const FAKE_GH = `#!/bin/sh
 ${NETWORK_DOWN}fail() { printf '%s\\n' "$2" >&2; exit "$1"; }
 case "$1 $2" in
   "pr view") [ "$FAKE_VIEW_CODE" = 0 ] || fail "$FAKE_VIEW_CODE" "$FAKE_VIEW_ERROR"; printf '{"baseRefName":"main","headRefOid":"%s","files":%s}' "$FAKE_PR_HEAD" "$FAKE_FILES" ;;
-  "run list") printf '%s' "$FAKE_TIP_RUNS" ;;
   "pr checks") [ "$FAKE_CHECKS_CODE" = 0 ] || fail "$FAKE_CHECKS_CODE" "$FAKE_CHECKS_ERROR"; printf '%s' "$FAKE_CHECKS" ;;
   "api repos/"*) case "$2" in
     */rules/branches/main) [ "$FAKE_RULES_CODE" = 0 ] || fail "$FAKE_RULES_CODE" "$FAKE_RULES_ERROR"; printf '%s' "$FAKE_RULES" ;;
@@ -96,13 +95,13 @@ export async function runLane(args, answers = {}, options = {}) {
     FAKE_CHECKS: JSON.stringify(scenario.checks ?? []), FAKE_CHECKS_CODE: scenario.checks_code ?? 0, FAKE_CHECKS_ERROR: scenario.checks_error ?? '',
     FAKE_RULES: JSON.stringify([{ type: 'deletion' }, { type: 'required_status_checks', parameters: { required_status_checks: (scenario.required ?? []).map(context => ({ context })) } }]),
     FAKE_RULES_CODE: scenario.rules_code ?? 0, FAKE_RULES_ERROR: scenario.rules_error ?? '',
-    FAKE_FILES: JSON.stringify((scenario.changed_files ?? []).map(path => ({ path }))), FAKE_TIP_RUNS: JSON.stringify((scenario.tip_runs ?? []).map(status => ({ status }))),
+    FAKE_FILES: JSON.stringify((scenario.changed_files ?? []).map(path => ({ path }))),
     FAKE_BASE_RUNS: JSON.stringify((scenario.base_runs ?? []).map(run => ({ check_runs: [run] }))),
   })
   // A ci-read answer defaults to the world the same round's watcher answer describes with its head, checks, requiredChecks and baseChecks, which the lane must not read from the watcher.
   const ciWorldOf = (label) => {
     const watcher = answers[label.replace('ci-read-', 'ci-')]
-    return watcher && typeof watcher === 'object' ? { pr_head: watcher.head, checks: watcher.checks, required: watcher.requiredChecks, base_runs: watcher.baseChecks, changed_files: watcher.changedFiles, tip_runs: watcher.tipRuns } : {}
+    return watcher && typeof watcher === 'object' ? { pr_head: watcher.head, checks: watcher.checks, required: watcher.requiredChecks, base_runs: watcher.baseChecks, changed_files: watcher.changedFiles } : {}
   }
   const printedBy = (prompt, scenario) => {
     if ('printed' in scenario) return scenario.printed
@@ -128,7 +127,7 @@ export async function runLane(args, answers = {}, options = {}) {
     if (!isRelayed(label) || !answer) return answer
     const printed = printedBy(prompt, answer)
     if (answer.head && !base.startsWith('scope-')) newestTip = answer.head
-    const { pr_head: _prHead, checks: _checks, required: _required, base_runs: _baseRuns, changed_files: _changedFiles, tip_runs: _tipRuns, head: _head, parents: _parents, head_code: _headCode, main_code: _mainCode, nonce: _nonce, edit: _edit, printerMode: _printerMode, push_error: _pushError, network_error: _networkError, network_fails: _networkFails, remote_tip: _remoteTip, brief_error: _briefError, outside_claim: _outsideClaim, printed: _printed, ...report } = answer
+    const { pr_head: _prHead, checks: _checks, required: _required, base_runs: _baseRuns, changed_files: _changedFiles, head: _head, parents: _parents, head_code: _headCode, main_code: _mainCode, nonce: _nonce, edit: _edit, printerMode: _printerMode, push_error: _pushError, network_error: _networkError, network_fails: _networkFails, remote_tip: _remoteTip, brief_error: _briefError, outside_claim: _outsideClaim, printed: _printed, ...report } = answer
     return reread ? { printed } : { ...report, printed }
   }
   const agent = async (prompt, agentOptions = {}) => { launchedAgents.push(agentOptions.label); launchedPrompts.push(prompt); agentCalls[agentOptions.label] = { prompt, options: structuredClone(agentOptions) }; return answerFor(agentOptions.label, prompt) }

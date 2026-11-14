@@ -1,7 +1,0 @@
-claim_id = "a3705247ad954fbabddaca2781f26323"
-agent = "Claude ff1b9f08-53fd-4692-b3b9-2cc410b8d654"
-role = "builder"
-base = "451f541a49c7ee6f758f2b00f842600326709fd4"
-branch = "docs/languages-checks"
-scope = ["docs/standards.md"]
-opened_commit = "a35e07706bb075939fe883d1eba4884348d6d9cf"

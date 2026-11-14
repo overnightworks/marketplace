@@ -195,6 +195,40 @@ test('ci-shared-red: findings quoted as path:line under a shared check stay out 
   assert.doesNotMatch(agentCalls['fix-2'].prompt, /src\/a\.py:4/)
 })
 
+const sonarFinding = { where: 'src/a.py:4', kind: 'defect', text: 'duplicated lines', rule: 'python:S1192', evidence: 'sonar src/a.py:4' }
+const sonarRed = (changedFiles) => {
+  const sonarJob = { ...redJob('quality / sonar', 'Run sonar'), findings: [sonarFinding] }
+  return ciAnswer([check(required, 'pass'), check('quality / sonar', 'fail')], { green: false, failing: [sonarFinding], red: [sonarJob], baseChecks: [run('quality / sonar', 'failure')], changedFiles })
+}
+
+test('ci-own-finding: a finding in a file the lane changed reaches the fixer although its check is red on the base', async () => {
+  const { result, agentCalls } = await driveCi(sonarRed(['src/a.py']))
+  assert.notEqual(result.status, 'awaiting-head')
+  assert.match(agentCalls['fix-2'].prompt, /src\/a\.py:4/)
+})
+
+test('ci-own-finding: a finding of the same check in a file the lane did not change stays shared with the base', async () => {
+  const { result, launchedAgents } = await driveCi(sonarRed(['src/other.py']))
+  assert.deepEqual([result.status, result.stage], ['awaiting-head', 'ci'])
+  assert.ok(!launchedAgents.includes('fix-2'))
+})
+
+const missingRequired = (tipRuns) => ciAnswer([check('Python: tests', 'pass')], { tipRuns })
+
+test('ci-run-wait: a required check missing while a run of the tip is not completed watches again instead of failing', async () => {
+  const { result, launchedAgents, agentCalls } = await driveCi(missingRequired(['in_progress', 'completed']), lane, undefined, { 'ci-1': ciAnswer([check(required, 'pass')]) })
+  assert.ok(launchedAgents.includes('ci-1'))
+  assert.notEqual(result.stage, 'ci')
+  assert.match(agentCalls['ci-0'].prompt, /gh run list --commit/)
+})
+
+test('ci-run-wait: a required check missing while every run of the tip has completed fails the lane at ci', async () => {
+  const { result, launchedAgents } = await driveCi(missingRequired(['completed', 'completed']))
+  assert.deepEqual([result.status, result.stage], ['failed', 'ci'])
+  assert.match(result.reason, /quality \/ verdict/)
+  assert.ok(!launchedAgents.includes('ci-1'))
+})
+
 for (const [what, baseChecks] of [['an empty baseChecks', []], ['no baseChecks', undefined], ['a base run of the same name still pending', [run('quality / hygiene', null)]], ['a name missing on the base', [run('other', 'failure')]]]) {
   test(`ci-shared-red: ${what} runs CI fixing as before`, async () => {
     const { launchedAgents } = await driveCi(redCi(['quality / hygiene'], baseChecks))
@@ -318,7 +352,7 @@ const fakeGhWithLog = (t, { logLines, logCode = 0 }) => {
   installFake(bin, 'gh', `#!/bin/sh
 echo "$*" >> '${calls}'
 case "$1 $2" in
-  "pr view") printf '{"baseRefName":"main","headRefOid":"%s"}' "$FAKE_PR_HEAD" ;;
+  "pr view") printf '{"baseRefName":"main","headRefOid":"%s","files":[]}' "$FAKE_PR_HEAD" ;;
   "pr checks") printf '%s' "$FAKE_CHECKS" ;;
   "run view") [ ${logCode} = 0 ] || { echo 'HTTP 410: logs expired' >&2; exit ${logCode}; }; cat '${path.join(bin, 'log')}' ;;
   *) printf '[]' ;;

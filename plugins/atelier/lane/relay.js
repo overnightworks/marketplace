@@ -323,7 +323,7 @@ export async function laneRelay(A) {
   }
 
   // The count and CRC32 of the finding paths, as the printer computes them over the list it received (JSON with ASCII escapes).
-  const pathsDigest = (paths) => ({ count: paths.length, hash: crc32(JSON.stringify(paths).replace(/[^\x20-\x7e]/g, char => String.raw`\u` + char.charCodeAt(0).toString(16).padStart(4, '0'))) })
+  const pathsDigest = (paths) => ({ count: paths.length, hash: crc32(JSON.stringify(paths).replace(/[^\x20-\x7e]/g, char => String.raw`\u` + char.codePointAt(0).toString(16).padStart(4, '0'))) })
   const sameDigest = (echoed, sent) => echoed?.count === sent.count && echoed?.hash === sent.hash
 
   // The values of a relay line, or why the line cannot be trusted: checked as text first (shape, CRC32), parsed after.

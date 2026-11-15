@@ -43,7 +43,9 @@ a bounded repository change.
   mockup, is a finding. A plan, roadmap, unbuilt target, concept or status table
   is `PROPOSE move-to-board <file:section>` naming its owning item (`gh issue
   list --state all --search`), whose body takes the open part; with `no owner`,
-  the head decides between an idea and dropping it, and the pass opens no item.
+  the head decides between the gap list of the item that owns the area and
+  dropping it (an idea only in the operator's words), and the pass opens no
+  item.
 - A mockup is checked only for being blessed (named in its item); one whose
   surface is finished is a finding to delete. It has no length budget.
 - Each part of a plan is sorted as built (current document), decided
@@ -83,6 +85,6 @@ UNVERIFIED <file:line> (claim; why it cannot be checked here)
 ```
 
 Plans and shell sequences without an owner go to the head as one table,
-`| plan or sequence (file:section) | recommendation: idea or drop | reason |`.
+`| plan or sequence (file:section) | recommendation: gap list or drop | reason |`.
 
 End with `CLEAN` when no changes or proposals remain.

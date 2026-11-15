@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import shlex
 import sys
 from collections.abc import Callable
 from pathlib import Path
@@ -561,6 +562,16 @@ def test_creates_no_user_file_when_there_is_none(machine):
     assert install.main([]) == 0
 
     assert not machine.user_settings.exists()
+
+
+def test_prints_a_sudo_step_that_survives_a_home_with_spaces(machine, tmp_path, capsys):
+    spaced_home = tmp_path / "home with spaces"
+
+    install.install_managed_settings(spaced_home)
+
+    ln_line = next(line for line in capsys.readouterr().out.splitlines() if "sudo ln" in line)
+    operands = shlex.split(ln_line.split("&&", 1)[1])
+    assert operands[-2:] == [str(spaced_home / install.MANAGED_SETTINGS_COPY), str(machine.drop_in)]
 
 
 def test_shipped_settings_hold_no_machine_specific_path():

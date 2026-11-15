@@ -7,6 +7,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import shlex
 import shutil
 import subprocess
 import sys
@@ -112,9 +113,10 @@ def install_managed_settings(home: Path) -> None:
     print(f"copied {SHIPPED_SETTINGS.name} to {copy}")
     if not is_link_to(MANAGED_DROP_IN, copy):
         print("One-time step, run it yourself (install.py never runs sudo):")
-        print(f"  sudo mkdir -p {MANAGED_DROP_IN.parent} && sudo ln -sfn {copy} {MANAGED_DROP_IN}")
+        quoted_copy, quoted_drop_in = shlex.quote(str(copy)), shlex.quote(str(MANAGED_DROP_IN))
+        print(f"  sudo mkdir -p {shlex.quote(str(MANAGED_DROP_IN.parent))} && sudo ln -sfn {quoted_copy} {quoted_drop_in}")
         print("Recovery if Claude Code stops starting:")
-        print(f"  sudo rm {MANAGED_DROP_IN}")
+        print(f"  sudo rm {quoted_drop_in}")
 
 
 def find_unowned_settings(settings: dict) -> list[str]:

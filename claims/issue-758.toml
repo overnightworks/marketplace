@@ -1,0 +1,8 @@
+claim_id = "0e68bb802cb1436da0734eb90e4ad344"
+agent = "Claude 30ec126a-30e5-431d-a4c3-088d393726d4"
+role = "builder"
+base = "dc7230195cf0eaeb35070dbba7145dc78f616d4a"
+branch = "claude/issue-758-skills-point-at-contract-blocking"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/skills/agent-documentation/SKILL.md", "plugins/atelier/skills/agent-documentation/references/skill-audit.md", "plugins/atelier/skills/audit/SKILL.md"]
+opened_commit = "64e85bea8087eff790cf699f27dc9971674316fe"
+whole_reason = "Three skill texts change together with the version files."

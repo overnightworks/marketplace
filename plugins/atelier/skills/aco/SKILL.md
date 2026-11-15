@@ -115,9 +115,11 @@ contract and this skill.
   which is not a container; only a container holds children` (LAND-27,
   `specs/landing-grammar.spec.md`); set the parent's type with `gh api -X PATCH
   repos/<owner>/<repo>/issues/<parent> -f type=Container`.
-- `aco --repo` refuses `item new` for a foreign repository (`forge target ...
-  does not match canonical remote`): open a dependent's item from that
-  repository's own checkout.
+- `aco --repo OWNER/NAME item new ...` opens the item in another repository
+  this machine has a checkout of, under that repository's storage and rules; one
+  it cannot find is refused by name and nothing is written. It prints only the
+  item id, so name the repository with it when you report. Only `item new` takes
+  a foreign `--repo` this way; every other command acts on the checkout it runs in.
 - Pulling an idea is a decision, not an idle step: remove the board's
   idea label and replace the body with a work-item body (the fenced `aco`
   block); `aco claim` refuses an idea whose body still lacks the

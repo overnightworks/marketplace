@@ -239,6 +239,7 @@ const openResult = async (status, stage, extra = {}) => {
   }
 }
 
+if (A.deltaFrom && !SHA.test(A.deltaFrom)) return await openResult('failed', 'input', { reason: 'deltaFrom is not a sha' })
 // An empty delta has no reviewer to satisfy, and the lane cannot verify an earlier approval; the head names the honest resume.
 if (sameCommit(A.deltaFrom, A.tip)) return await openResult('failed', 'input', { reason: 'deltaFrom is the tip, so the delta is empty and nothing is reviewed. Start the run again without deltaFrom for a full review, or name the commit before the commits no reviewer has seen as deltaFrom.' })
 
@@ -537,7 +538,6 @@ if (!carriesBatch && A.build) {
 }
 if (firstScopeCheck?.stop) return firstScopeCheck.stop
 // Re-entry after the head settled an awaiting-head result: review only the fix commits no reviewer has seen yet.
-if (A.deltaFrom && !SHA.test(A.deltaFrom)) return await openResult('failed', 'input', { reason: 'deltaFrom is not a sha' })
 const firstRange = A.deltaFrom
   ? `only this delta: git diff ${A.deltaFrom}..HEAD — fix commits made for earlier blocking findings that no reviewer has seen yet. They answer:\n${A.answers || '(see the commit messages in the range)'}`
   : 'the whole lane: git diff origin/main...HEAD'

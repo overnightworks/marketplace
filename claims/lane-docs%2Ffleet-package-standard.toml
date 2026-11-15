@@ -1,7 +1,0 @@
-claim_id = "9ec5628527274900a67dfb0dbc998241"
-agent = "Claude 30ec126a-30e5-431d-a4c3-088d393726d4"
-role = "builder"
-base = "a98f18e459b09accdaa7de0823eb0a4bff872331"
-branch = "docs/fleet-package-standard"
-scope = ["docs/standards.md"]
-opened_commit = "4757f5ed0d57392ccf0362eea10e0d83324c3f45"

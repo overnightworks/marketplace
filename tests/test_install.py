@@ -604,4 +604,4 @@ def test_leaves_no_temporary_file_and_keeps_the_target_when_the_replace_fails(tm
 def test_shipped_settings_hold_no_machine_specific_path():
     shipped = install.SHIPPED_SETTINGS.read_text(encoding="utf-8")
 
-    assert not re.search(r"/tmp/claude-\d+|/home/|/Users/", shipped)
+    assert not re.search(r"/tmp/claude-\d+|/home/|/Users/", shipped)  # noqa: S108 - the pattern names the machine paths the shipped file must not hold

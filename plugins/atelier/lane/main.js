@@ -506,10 +506,8 @@ const settleLimit = rr => standInAllowed(rr) ? standIn(rr) : awaitLimit(rr)
 
 // Each round judges the previous fix, so rounds run one after another; the fix budgets bound the recursion.
 async function settleReview(rr) {
-  if (rr.verdict.state === 'limited') return settleLimit(rr)
-  if (rr.verdict.state === 'brief-mismatch') return awaitBrief(rr)
-  if (rr.verdict.state === 'no-brief-record') return reportNoBriefRecord(rr)
-  if (rr.verdict.state === 'hung') return awaitHung(rr)
+  const settleSlip = { limited: settleLimit, 'brief-mismatch': awaitBrief, 'no-brief-record': reportNoBriefRecord, hung: awaitHung }[rr.verdict.state]
+  if (settleSlip) return settleSlip(rr)
   if (rr.verdict.state === 'revise') {
     const blocking = rr.results.filter(Boolean).flatMap(v => v.blocking || [])
     const raised = rr.which.filter((r, i) => rr.results[i] && (rr.results[i].blocking || []).length > 0)

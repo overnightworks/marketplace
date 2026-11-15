@@ -35,7 +35,7 @@ export async function laneReview(A) {
   const BRIEF_MISMATCH = 'brief file differs from the brief the script wrote'
   // What the courier's extraction command prints when no transcript record of the courier holds both marker lines of the brief.
   const NO_BRIEF_RECORD = 'no transcript record of this courier holds the brief between its two marker lines'
-  // A courier that started no Codex because its brief file is not the brief the script wrote, or because no brief could be cut out of its transcript.
+  // A courier whose Codex never produced a verdict: it started none (its brief file is not the brief the script wrote, or no brief could be cut out of its transcript), or its run was killed.
   const startedNoCodex = (answer, reason) => answer?.verdict === 'failed' && answer.codexExit === -1 && String(answer.note ?? '').includes(reason)
   const isBriefMismatch = answer => startedNoCodex(answer, BRIEF_MISMATCH)
   // What the courier reports when it killed a Codex run whose run log stayed silent.
@@ -238,12 +238,14 @@ open(out,"w",encoding="utf-8").write(textwrap.dedent(cuts[0])+"\n")`
     const got = results.filter(Boolean)
     if (got.length !== expected) return { state: 'failed', reason: `${expected - got.length} review(s) returned nothing` }
     const failures = got.filter(v => v.verdict === 'failed' && !v.limit)
-    // A courier that twice wrote a different brief is a slip of the courier, not a verdict: the head resumes the round.
-    if (failures.length && failures.every(isBriefMismatch)) return { state: 'brief-mismatch', reason: failures.map(v => shortened(v.note, 700)).join(' | ') }
-    // A courier whose transcript twice held no brief points at the host's transcript layout, which a resume would meet again.
-    // A Codex run that hung and was killed twice: the head resumes the round; the review never moves to another model.
-    if (failures.length && failures.every(isCodexHung)) return { state: 'hung', reason: failures.map(v => shortened(v.note, 700)).join(' | ') }
-    if (failures.length && failures.every(isNoBriefRecord)) return { state: 'no-brief-record', reason: failures.map(v => shortened(v.note, 700)).join(' | ') }
+    if (failures.length) {
+      // Brief mismatch: a courier that twice wrote a different brief is a slip of the courier, not a verdict, and the head resumes the round.
+      // Hung: a Codex run that was killed twice; the head resumes the round and the review never moves to another model.
+      // No brief record: the host's transcript layout, which a resume would meet again.
+      const slips = [['brief-mismatch', isBriefMismatch], ['hung', isCodexHung], ['no-brief-record', isNoBriefRecord]]
+      const slip = slips.find(([, isSlip]) => failures.every(isSlip))
+      if (slip) return { state: slip[0], reason: failures.map(v => shortened(v.note, 700)).join(' | ') }
+    }
     if (failures.length) {
       const reportPaths = got.filter(v => v.verdict === 'failed' && v.reportPath).map(v => v.reportPath)
       return { state: 'failed', reason: failures.map(v => shortened(v.note, 700)).join(' | ') + (reportPaths.length ? '; read the report ' + reportPaths.join(' and ') : '') }

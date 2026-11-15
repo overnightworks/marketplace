@@ -589,19 +589,15 @@ def test_leaves_a_file_beside_the_user_file_alone_whatever_its_name(machine, tmp
     assert json.loads(real.read_text()) == {}
 
 
-def test_leaves_no_temporary_file_and_keeps_the_target_when_the_replace_fails(tmp_path, monkeypatch):
+def test_leaves_no_temporary_file_and_keeps_the_target_when_the_replace_fails(tmp_path):
     target = tmp_path / "settings.json"
-    target.write_text("before")
+    target.mkdir()
+    (target / "kept.txt").write_text("before")
 
-    def refuse(self, destination):
-        raise OSError("refused")
-
-    monkeypatch.setattr(Path, "replace", refuse)
-
-    with pytest.raises(OSError, match="refused"):
+    with pytest.raises(OSError):
         install.write_atomically(target, "after")
 
-    assert target.read_text() == "before"
+    assert (target / "kept.txt").read_text() == "before"
     assert [path.name for path in tmp_path.iterdir()] == ["settings.json"]
 
 

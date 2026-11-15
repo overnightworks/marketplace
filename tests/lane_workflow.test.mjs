@@ -346,7 +346,7 @@ const wholeLaneRounds = [
 ]
 
 for (const [what, args, answers] of wholeLaneRounds) {
-  for (const [risk, deltaFrom] of [['normal'], ['material'], ['normal', olderTip], ['material', olderTip]]) {
+  for (const [risk, deltaFrom] of [['normal'], ['material'], ['normal', olderTip], ['material', olderTip], ['normal', resumeTip], ['material', resumeTip], ['normal', resumeTip.slice(0, 7)], ['material', resumeTip.slice(0, 7)]]) {
     const gated = risk === 'material'
     const diffCommand = deltaFrom ? `git diff ${deltaFrom}..HEAD` : 'git diff origin/main...HEAD'
     test(`resume round (${risk}, ${what}${deltaFrom ? ', deltaFrom' : ''}) reviews ${gated ? 'and gates ' : ''}on ${diffCommand}`, async () => {
@@ -527,9 +527,14 @@ for (const experiment of ['Haiku', 'a b', '', 'x'.repeat(41), 'a;b']) {
   })
 }
 
-for (const [what, deltaFrom] of [['the full sha', resumeTip], ['a short sha', resumeTip.slice(0, 12)]]) {
+for (const [what, deltaFrom, batch] of [
+  ['the full sha', resumeTip, {}],
+  ['a short sha', resumeTip.slice(0, 12), {}],
+  ['the full sha with empty fixFirst and foldIn', resumeTip, { fixFirst: [], foldIn: [] }],
+  ['a short sha with empty fixFirst and foldIn', resumeTip.slice(0, 7), { fixFirst: [], foldIn: [] }],
+]) {
   test(`deltaFrom equal to the tip as ${what} ends failed at input before any agent runs, naming both resumes`, async () => {
-    const { result, launchedAgents } = await runLane({ ...resumeArgs, deltaFrom })
+    const { result, launchedAgents } = await runLane({ ...resumeArgs, ...batch, deltaFrom })
     assert.deepEqual([result.status, result.stage], ['failed', 'input'])
     assert.match(result.reason, /without deltaFrom for a full review/)
     assert.match(result.reason, /commit before the commits no reviewer has seen/)

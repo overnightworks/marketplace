@@ -239,9 +239,11 @@ const openResult = async (status, stage, extra = {}) => {
   }
 }
 
+const carriedOver = A.fixFirst || []
+const carriesBatch = carriedOver.length || A.foldIn?.length
 if (A.deltaFrom && !SHA.test(A.deltaFrom)) return await openResult('failed', 'input', { reason: 'deltaFrom is not a sha' })
-// An empty delta has no reviewer to satisfy, and the lane cannot verify an earlier approval; the head names the honest resume.
-if (sameCommit(A.deltaFrom, A.tip)) return await openResult('failed', 'input', { reason: 'deltaFrom is the tip, so the delta is empty and nothing is reviewed. Start the run again without deltaFrom for a full review, or name the commit before the commits no reviewer has seen as deltaFrom.' })
+// Without fixFirst or foldIn an empty delta has no reviewer to satisfy, and the lane cannot verify an earlier approval; the head names the honest resume. With either, the fixer's commits are the delta.
+if (sameCommit(A.deltaFrom, A.tip) && !carriesBatch) return await openResult('failed', 'input', { reason: 'deltaFrom is the tip, so the delta is empty and nothing is reviewed. Start the run again without deltaFrom for a full review, or name the commit before the commits no reviewer has seen as deltaFrom.' })
 
 // ---------------------------------------------------------------- build
 if (A.build) {
@@ -528,8 +530,6 @@ async function settleReview(rr) {
 
 // A builder's work, and the commits a resumed run inherits, are checked against the claim before the first review, like every fixer's.
 // A carried batch is checked after it instead: that check is branch-wide, and a fixer must be able to revert what the head names.
-const carriedOver = A.fixFirst || []
-const carriesBatch = carriedOver.length || A.foldIn?.length
 let firstScopeCheck = null
 if (!carriesBatch && A.build) {
   firstScopeCheck = await pushAndCheckScope(`scope-${spent.total}`, { note: 'No reviewer has seen the build, so the new run reviews the whole lane.' })

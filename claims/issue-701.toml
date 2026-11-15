@@ -1,7 +1,0 @@
-claim_id = "a718e7054a6c483888d8b8d962953811"
-agent = "Claude 30ec126a-30e5-431d-a4c3-088d393726d4"
-role = "builder"
-base = "6b81c42e0a1c91e550c1df34ef9dbbf297b8ce22"
-branch = "claude/issue-701-prepare-step-cap"
-scope = ["instructions/AGENTS.md"]
-opened_commit = "04ee1ed0a510757debc6f5e4f81d084a3b49423c"

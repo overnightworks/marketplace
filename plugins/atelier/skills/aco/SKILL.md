@@ -151,6 +151,10 @@ contract and this skill.
   no longer open (`specs/wait.spec.md`). Start it again after a restart or a
   compaction and when it ends with exit 2; stop it when the card is settled
   another way.
+- When `aco next` names nothing actionable, run `aco wait` without an item as a
+  background command, and `aco next` once it ends: it ends when `aco next` would
+  name an action, such as a closed blocker or a ruled card (`specs/wait.spec.md`).
+  Start it again after a restart or a compaction.
 - Outside an option's `contract`, a card carries no issue numbers, paths, file names,
   backticks, code names or flags; the problem is at most 20 words and an option name
   2 to 5 words. `aco check -` refuses an open or

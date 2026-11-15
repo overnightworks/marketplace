@@ -92,10 +92,9 @@ gpt-6-astra/high.
 - A fix batch whose blocking findings are all docs and that carries no fold-ins
   runs as `mechanical` in every round.
 - Effort is capped per model: opus at medium (except the stand-in gate) and every
-  other model at high. An override above its cap, or a model the table lacks
-  (Fable), is refused: a model or effort the operator ruled above the table runs
-  outside the lane, by hand (`HEAD.md`, "Model routing"), never on a cheaper
-  stand-in.
+  other model at high. An override above its cap, or a model the lane's routing
+  lacks (Fable, Grok), is refused; more needs the operator's word and runs
+  outside the lane workflow (`HEAD.md`, "Model routing").
 - The gate runs on another provider than the builder, except the one Claude gate
   opus/high, which `routing.gate` may name while Codex is at its usage limit and
   which runs as a fresh Claude reviewer. Any other Claude gate is refused at

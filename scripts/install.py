@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Install or update the atelier plugin for every provider CLI found, and link the contract and probe-run."""
+"""Install or update the atelier plugin for every provider CLI found, link the contract and probe-run, and deliver the shared Claude Code settings."""
 # ruff: noqa: T201 - the install command reports what it ran and found
 
 from __future__ import annotations
@@ -7,10 +7,14 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import shlex
 import shutil
+import stat
 import subprocess
 import sys
+import tempfile
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -23,7 +27,29 @@ PLUGIN = "atelier@atelier"
 
 PROBE_RUN = REPO_ROOT / "scripts" / "probe_run.sh"
 
+SHIPPED_SETTINGS = REPO_ROOT / "settings" / "claude-managed.json"
+MANAGED_SETTINGS_COPY = Path(".local") / "share" / "marketplace" / "claude-managed.json"
+USER_SETTINGS = Path(".claude") / "settings.json"
+MANAGED_DROP_IN = Path("/etc/claude-code/managed-settings.d/50-marketplace.json")
+# The settings marketplace owns: a top-level key maps to the nested keys it owns,
+# or to None when the whole key is owned. The shipped file may hold nothing else,
+# and the install removes exactly these from the user file.
+OWNED_SETTINGS: dict[str, tuple[str, ...] | None] = {
+    "env": ("PYTEST_XDIST_AUTO_NUM_WORKERS",),
+    "autoMode": ("allow",),
+    "autoCompactEnabled": None,
+}
+
+# The value type of each owned setting, by dotted path, with the check that holds it.
+OWNED_SETTING_TYPES: dict[str, tuple[str, Callable[[object], bool]]] = {
+    "env.PYTEST_XDIST_AUTO_NUM_WORKERS": ("a string", lambda value: isinstance(value, str)),
+    "autoMode.allow": ("a list of strings", lambda value: isinstance(value, list) and all(isinstance(item, str) for item in value)),
+    "autoCompactEnabled": ("a boolean", lambda value: isinstance(value, bool)),
+}
+
 LOCAL_BIN = Path(".local") / "bin"
+NEW_FILE_MODE = 0o644
+ABSENT = object()  # distinguishes a missing key from one holding null or false
 
 LINKS = (
     (Path(".claude") / "CLAUDE.md", CONTRACT),
@@ -41,8 +67,14 @@ CODEX_WAIT_NOTE = "Codex removes the installed version directory on update, so t
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     try:
-        link_shared_files(Path.home())
-        warn_when_probe_run_is_off_path(Path.home())
+        home = Path.home()
+        user_file = home / USER_SETTINGS
+        user_settings = read_json_object(user_file) if user_file.exists() else None
+        link_shared_files(home)
+        warn_when_probe_run_is_off_path(home)
+        install_managed_settings(home)
+        if user_settings is not None:
+            strip_owned_settings_from_user_file(user_file, user_settings, linked=is_link_to(MANAGED_DROP_IN, home / MANAGED_SETTINGS_COPY))
         for provider in (install_claude, install_codex):
             provider(from_checkout=args.from_checkout)
     except InstallError as error:
@@ -82,6 +114,102 @@ def link_shared_files(home: Path) -> None:
     for link, target in links.items():
         if link not in missing:
             print(f"{link} already links {target.name}")
+
+
+def install_managed_settings(home: Path) -> None:
+    """Copy the validated shipped settings under home and say how to link them; a file that fails validation leaves the previous copy intact."""
+    shipped = read_json_object(SHIPPED_SETTINGS)
+    unowned = find_unowned_settings(shipped)
+    if unowned:
+        raise InstallError(f"{SHIPPED_SETTINGS} holds settings marketplace does not own: {', '.join(unowned)}")
+    mistyped = find_mistyped_settings(shipped)
+    if mistyped:
+        raise InstallError(f"{SHIPPED_SETTINGS} holds settings of the wrong type: {', '.join(mistyped)}")
+    copy = home / MANAGED_SETTINGS_COPY
+    copy.parent.mkdir(parents=True, exist_ok=True)
+    write_atomically(copy, SHIPPED_SETTINGS.read_text(encoding="utf-8"))
+    print(f"copied {SHIPPED_SETTINGS.name} to {copy}")
+    if not is_link_to(MANAGED_DROP_IN, copy):
+        print("One-time step, run it yourself (install.py never runs sudo):")
+        quoted_copy, quoted_drop_in = shlex.quote(str(copy)), shlex.quote(str(MANAGED_DROP_IN))
+        print(f"  sudo mkdir -p {shlex.quote(str(MANAGED_DROP_IN.parent))} && sudo ln -sfn {quoted_copy} {quoted_drop_in}")
+        print("Recovery if Claude Code stops starting:")
+        print(f"  sudo rm {quoted_drop_in}")
+
+
+def find_unowned_settings(settings: dict) -> list[str]:
+    """Name every shipped path outside OWNED_SETTINGS; a nested key that is not an object counts as unowned."""
+    unowned = []
+    for key, value in settings.items():
+        owned_keys = OWNED_SETTINGS.get(key, ())
+        if key not in OWNED_SETTINGS or (owned_keys is not None and not isinstance(value, dict)):
+            unowned.append(key)
+        elif owned_keys is not None:
+            unowned.extend(f"{key}.{nested}" for nested in value if nested not in owned_keys)
+    return unowned
+
+
+def find_mistyped_settings(settings: dict) -> list[str]:
+    """Name every owned shipped value whose type is wrong; only paths that hold a value count."""
+    mistyped = []
+    for path, (description, holds) in OWNED_SETTING_TYPES.items():
+        value = settings
+        for part in path.split("."):
+            value = value.get(part, ABSENT) if isinstance(value, dict) else ABSENT
+        if value is not ABSENT and not holds(value):
+            mistyped.append(f"{path} must be {description}")
+    return mistyped
+
+
+def strip_owned_settings_from_user_file(user_file: Path, settings: dict, *, linked: bool) -> None:
+    """Remove the owned settings from the user file once the drop-in links the installed copy, so a value is never in neither layer; writes only when one was there."""
+    removed = [path for key, owned_keys in OWNED_SETTINGS.items() for path in remove_owned(settings, key, owned_keys)]
+    if not removed:
+        return
+    if not linked:
+        print(f"{user_file} keeps its shipped settings ({', '.join(removed)}) until the drop-in links the copy; the next install removes them")
+        return
+    write_atomically(user_file, json.dumps(settings, indent=2, ensure_ascii=False) + "\n")
+    print(f"removed from {user_file}, now shipped: {', '.join(removed)}")
+
+
+def remove_owned(settings: dict, key: str, owned_keys: tuple[str, ...] | None) -> list[str]:
+    """Delete one owned entry from settings and return its dotted paths; a container this empties goes too."""
+    if owned_keys is None:
+        return [key] if settings.pop(key, ABSENT) is not ABSENT else []
+    container = settings.get(key)
+    if not isinstance(container, dict):
+        return []
+    removed = [f"{key}.{nested}" for nested in owned_keys if container.pop(nested, ABSENT) is not ABSENT]
+    if removed and not container:
+        del settings[key]
+    return removed
+
+
+def read_json_object(path: Path) -> dict:
+    try:
+        settings = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as error:
+        raise InstallError(f"{path} cannot be read as JSON: {error}") from error
+    if not isinstance(settings, dict):
+        raise InstallError(f"{path} is not a JSON object")
+    return settings
+
+
+def write_atomically(path: Path, text: str) -> None:
+    """Replace path in one step, keeping its mode and following a link, so a reader never sees half a file; the text sits in a private, uniquely named file until it is complete."""
+    target = path.resolve()
+    mode = stat.S_IMODE(target.stat().st_mode) if target.exists() else NEW_FILE_MODE
+    descriptor, temporary_name = tempfile.mkstemp(dir=target.parent, prefix=f".{target.name}.", suffix=".tmp")
+    temporary = Path(temporary_name)
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+            handle.write(text)
+        temporary.chmod(mode)
+        temporary.replace(target)
+    except BaseException:
+        temporary.unlink(missing_ok=True)
+        raise
 
 
 def warn_when_probe_run_is_off_path(home: Path) -> None:

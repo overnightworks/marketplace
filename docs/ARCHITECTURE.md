@@ -13,7 +13,8 @@ several of the operator's repositories and links to its owner.
 
 Guidance has three owners, and each reaches an agent by its own route: the
 contract and code policy by a per-machine link, the plugin by plugin install,
-and a repository's own facts through git. This repository owns the first two.
+and a repository's own facts through git. This repository owns the first two,
+and the Claude Code settings every session shares (section 5).
 Outside it stand the hosts that read the guidance (Claude Code, Codex, Grok),
 the operator's machine, and every repository the operator's agents work in.
 
@@ -119,7 +120,8 @@ change to a contract rule lands only with the operator's ruling, and the
 trusted with the operator's home directory: it creates only the two contract
 links and the `probe-run` link in `~/.local/bin`, and their parent directories,
 where they are missing; it refuses before touching anything when any of the
-three paths holds something else; and it runs the
+three paths holds something else; it writes the managed-settings copy and,
+once the drop-in links it, removes the shipped keys from `~/.claude/settings.json`; and it runs the
 `claude` and `codex` CLIs with fixed arguments, nothing built from external
 input. The plugin hosts (Claude Code, Codex) and Grok, which reads the contract
 through its Claude compatibility, are trusted to load what they read. The
@@ -131,10 +133,25 @@ SHA, `uv` and Python by version, test dependencies in `uv.lock`; Dependabot
 proposes monthly bumps that are reviewed like any change. No narrower trust
 model than the audit skill's default is declared.
 
+**Shipped Claude Code settings.** `settings/claude-managed.json` is the only
+owner of the keys it holds, and `scripts/install.py` is the only owner of which
+keys that may be. Claude Code reads the managed layer above the user file and
+no `/config` write reaches it, so a shipped value is changed here, never
+locally. The installer validates the file and writes a copy under
+`~/.local/share/marketplace/`; the operator links the copy as a drop-in once,
+because `/etc` needs root and the installer never runs `sudo`. A branch switch
+or half-finished edit in the checkout therefore never reaches a session. The
+managed layer only delivers settings and is no security boundary: its target is
+a file the operator owns. The file holds no private repository name or secret
+location; those stay in the user file with whatever `/config` writes. Plugin
+registration (`enabledPlugins`, `extraKnownMarketplaces`) stays with the
+installer's `claude plugin` calls.
+
 **Proof strategy.** CI on every pull request checks that the generated Codex
 agents match their source, that no symlink is tracked, that the contract fits
-Codex's instruction-file size limit, that every skill is valid and every
-workflow's metadata parses, and runs the workflow tests, and the script and hook tests
+Codex's instruction-file size limit, that every skill is valid, that every
+workflow's metadata parses, that the shipped Claude Code settings pass the
+published settings schema, and runs the workflow tests, and the script and hook tests
 at 100 % branch coverage; the shared quality gate then judges the whole.
 Documentation is proven by review.
 

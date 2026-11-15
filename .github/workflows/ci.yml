@@ -79,6 +79,13 @@ jobs:
       # of being silently updated.
       - name: Install the test dependencies from the lockfile
         run: uv sync --locked --no-build
+      # Claude Code stops every session on a managed settings file it cannot
+      # use, so the shipped file must pass the published settings schema.
+      - name: Check the shipped Claude Code settings against the published schema
+        run: >-
+          uv run --locked --no-build
+          check-jsonschema --schemafile https://json.schemastore.org/claude-code-settings.json
+          settings/claude-managed.json
       - name: Run tests
         run: >-
           uv run --locked --no-build

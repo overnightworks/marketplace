@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 import os
+import re
+import shlex
 import sys
 from collections.abc import Callable
 from pathlib import Path
@@ -58,6 +60,8 @@ class Machine:
         self.bin = root / "bin"
         self.bin.mkdir()
         self.log = root / "log"
+        self.drop_in = root / "etc" / "50-marketplace.json"
+        monkeypatch.setattr(install, "MANAGED_DROP_IN", self.drop_in)
         self.state_file = root / "state.json"
         self.state: dict[str, object] = {}
         monkeypatch.setenv("HOME", str(self.home))
@@ -77,6 +81,23 @@ class Machine:
 
     def contract_link(self, relative: str) -> Path:
         return self.home / relative
+
+    @property
+    def managed_copy(self) -> Path:
+        return self.home / ".local" / "share" / "marketplace" / "claude-managed.json"
+
+    @property
+    def user_settings(self) -> Path:
+        return self.home / ".claude" / "settings.json"
+
+    def link_drop_in(self) -> None:
+        self.drop_in.parent.mkdir(parents=True, exist_ok=True)
+        self.drop_in.symlink_to(self.managed_copy)
+
+    def write_user_settings(self, text: str) -> Path:
+        self.user_settings.parent.mkdir(parents=True, exist_ok=True)
+        self.user_settings.write_text(text)
+        return self.user_settings
 
 
 class CodexJobs:
@@ -403,3 +424,226 @@ def test_pause_sleeps_for_the_given_seconds(monkeypatch):
     install.pause(30)
 
     assert slept == [30]
+
+
+@pytest.fixture
+def shipped(machine, tmp_path, monkeypatch) -> Path:
+    """A stand-in for the shipped settings file, which a test fills with the case under test."""
+    file = tmp_path / "claude-managed.json"
+    monkeypatch.setattr(install, "SHIPPED_SETTINGS", file)
+    return file
+
+
+def test_copies_the_shipped_settings_and_prints_the_one_time_sudo_step(machine, capsys):
+    assert install.main([]) == 0
+
+    assert machine.managed_copy.read_bytes() == install.SHIPPED_SETTINGS.read_bytes()
+    output = capsys.readouterr().out
+    assert f"sudo ln -sfn {machine.managed_copy} {machine.drop_in}" in output
+    assert f"sudo rm {machine.drop_in}" in output
+
+
+def test_refreshes_the_copy_and_stays_quiet_when_the_drop_in_links_the_copy(machine, capsys):
+    machine.managed_copy.parent.mkdir(parents=True)
+    machine.managed_copy.write_text("{}")
+    machine.drop_in.parent.mkdir()
+    machine.drop_in.symlink_to(machine.managed_copy)
+
+    assert install.main([]) == 0
+
+    assert machine.managed_copy.read_bytes() == install.SHIPPED_SETTINGS.read_bytes()
+    assert "sudo" not in capsys.readouterr().out
+
+
+def test_prints_the_sudo_step_again_when_the_drop_in_links_elsewhere(machine, tmp_path, capsys):
+    machine.drop_in.parent.mkdir()
+    machine.drop_in.symlink_to(tmp_path / "elsewhere.json")
+
+    assert install.main([]) == 0
+
+    assert f"sudo ln -sfn {machine.managed_copy} {machine.drop_in}" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize(
+    ("content", "problem"),
+    [
+        pytest.param("{not json", "cannot be read as JSON", id="malformed-json"),
+        pytest.param(None, "cannot be read as JSON", id="file-missing"),
+        pytest.param("[]", "is not a JSON object", id="not-an-object"),
+        pytest.param('{"enabledPlugins": {}}', "enabledPlugins", id="unshipped-top-level-key"),
+        pytest.param('{"env": {"HOME": "/tmp"}}', "env.HOME", id="unshipped-nested-key"),
+        pytest.param('{"autoMode": ["allow"]}', "autoMode", id="owned-container-not-an-object"),
+        pytest.param('{"autoCompactEnabled": "yes"}', "autoCompactEnabled must be a boolean", id="flag-not-a-boolean"),
+        pytest.param('{"env": {"PYTEST_XDIST_AUTO_NUM_WORKERS": 4}}', "PYTEST_XDIST_AUTO_NUM_WORKERS must be a string", id="env-value-not-a-string"),
+        pytest.param('{"autoMode": {"allow": "$defaults"}}', "autoMode.allow must be a list of strings", id="allow-not-a-list"),
+        pytest.param('{"autoMode": {"allow": ["fine", 1]}}', "autoMode.allow must be a list of strings", id="allow-item-not-a-string"),
+    ],
+)
+def test_fails_loud_and_keeps_the_previous_copy_when_the_shipped_settings_are_invalid(
+    machine, shipped, capsys, content, problem
+):
+    machine.managed_copy.parent.mkdir(parents=True)
+    machine.managed_copy.write_text("previous")
+    user_text = '{"autoMode": {"allow": ["mine"]}}'
+    machine.write_user_settings(user_text)
+    if content is not None:
+        shipped.write_text(content)
+
+    assert install.main([]) == 1
+
+    assert problem in capsys.readouterr().err
+    assert machine.managed_copy.read_text() == "previous"
+    assert machine.user_settings.read_text() == user_text
+    assert machine.commands() == []
+
+
+def test_removes_only_the_shipped_settings_from_the_user_file(machine, capsys):
+    machine.link_drop_in()
+    machine.write_user_settings(
+        json.dumps(
+            {
+                "theme": "dark",
+                "env": {"PYTEST_XDIST_AUTO_NUM_WORKERS": "2", "OTHER": "kept"},
+                "autoMode": {"allow": ["mine"], "environment": ["private"]},
+                "autoCompactEnabled": False,
+                "hooks": {},
+            }
+        )
+    )
+
+    assert install.main([]) == 0
+
+    assert json.loads(machine.user_settings.read_text()) == {
+        "theme": "dark",
+        "env": {"OTHER": "kept"},
+        "autoMode": {"environment": ["private"]},
+        "hooks": {},
+    }
+    assert "autoMode.allow" in capsys.readouterr().out
+
+
+def test_writes_the_user_file_with_two_space_indentation_and_drops_a_container_it_emptied(machine):
+    machine.link_drop_in()
+    machine.write_user_settings('{"env": {"PYTEST_XDIST_AUTO_NUM_WORKERS": "2"}, "theme": "ünï"}')
+
+    assert install.main([]) == 0
+
+    assert machine.user_settings.read_text() == '{\n  "theme": "ünï"\n}\n'
+
+
+def test_follows_a_user_file_link_and_keeps_its_mode(machine, tmp_path):
+    machine.link_drop_in()
+    real = tmp_path / "dotfiles-settings.json"
+    real.write_text('{"autoCompactEnabled": true, "theme": "dark"}')
+    real.chmod(0o600)
+    machine.user_settings.parent.mkdir()
+    machine.user_settings.symlink_to(real)
+
+    assert install.main([]) == 0
+
+    assert machine.user_settings.is_symlink()
+    assert json.loads(real.read_text()) == {"theme": "dark"}
+    assert real.stat().st_mode & 0o777 == 0o600
+    assert sorted(path.name for path in tmp_path.iterdir() if path.name.startswith("dotfiles")) == ["dotfiles-settings.json"]
+
+
+@pytest.mark.parametrize(
+    "text",
+    ['{"theme":"dark","env":{"OTHER":"x"}}', '{"env": "not an object", "autoMode": []}', "{}"],
+    ids=["no-owned-key", "owned-containers-not-objects", "empty-object"],
+)
+def test_leaves_a_user_file_byte_for_byte_when_it_holds_no_shipped_setting(machine, text):
+    machine.write_user_settings(text)
+
+    assert install.main([]) == 0
+
+    assert machine.user_settings.read_text() == text
+
+
+@pytest.mark.parametrize("drop_in", ["missing", "links-elsewhere"])
+def test_leaves_the_owned_user_settings_untouched_until_the_drop_in_links_the_copy(machine, tmp_path, capsys, drop_in):
+    user_text = '{"env": {"PYTEST_XDIST_AUTO_NUM_WORKERS": "2"}, "autoCompactEnabled": false}'
+    machine.write_user_settings(user_text)
+    if drop_in == "links-elsewhere":
+        machine.drop_in.parent.mkdir()
+        machine.drop_in.symlink_to(tmp_path / "elsewhere.json")
+
+    assert install.main([]) == 0
+
+    assert machine.user_settings.read_text() == user_text
+    output = capsys.readouterr().out
+    assert "until the drop-in links the copy" in output
+    assert "env.PYTEST_XDIST_AUTO_NUM_WORKERS" in output
+
+
+def test_strips_the_owned_user_settings_on_the_install_after_the_link_exists(machine):
+    machine.write_user_settings('{"autoCompactEnabled": false, "theme": "dark"}')
+    assert install.main([]) == 0
+    machine.link_drop_in()
+
+    assert install.main([]) == 0
+
+    assert json.loads(machine.user_settings.read_text()) == {"theme": "dark"}
+
+
+def test_fails_loud_before_copying_or_printing_a_sudo_step_when_the_user_file_is_malformed(machine, capsys):
+    machine.write_user_settings("{broken")
+
+    assert install.main([]) == 1
+
+    captured = capsys.readouterr()
+    assert "settings.json cannot be read as JSON" in captured.err
+    assert "sudo" not in captured.out
+    assert machine.user_settings.read_text() == "{broken"
+    assert not machine.managed_copy.exists()
+    assert machine.commands() == []
+
+
+def test_creates_no_user_file_when_there_is_none(machine):
+    assert install.main([]) == 0
+
+    assert not machine.user_settings.exists()
+
+
+def test_prints_a_sudo_step_that_survives_a_home_with_spaces(machine, tmp_path, capsys):
+    spaced_home = tmp_path / "home with spaces"
+
+    install.install_managed_settings(spaced_home)
+
+    ln_line = next(line for line in capsys.readouterr().out.splitlines() if "sudo ln" in line)
+    operands = shlex.split(ln_line.split("&&", 1)[1])
+    assert operands[-2:] == [str(spaced_home / install.MANAGED_SETTINGS_COPY), str(machine.drop_in)]
+
+
+def test_leaves_a_file_beside_the_user_file_alone_whatever_its_name(machine, tmp_path):
+    machine.link_drop_in()
+    victim = tmp_path / "victim.txt"
+    victim.write_text("keep")
+    real = tmp_path / "dotfiles-settings.json"
+    real.write_text('{"autoCompactEnabled": true}')
+    machine.user_settings.parent.mkdir()
+    machine.user_settings.symlink_to(real)
+    (tmp_path / "dotfiles-settings.json.tmp").symlink_to(victim)
+
+    assert install.main([]) == 0
+
+    assert victim.read_text() == "keep"
+    assert json.loads(real.read_text()) == {}
+
+
+def test_leaves_no_temporary_file_and_keeps_the_target_when_the_replace_fails(tmp_path):
+    target = tmp_path / "settings.json"
+    target.mkdir()
+    (target / "kept.txt").write_text("before")
+
+    with pytest.raises(OSError):
+        install.write_atomically(target, "after")
+
+    assert (target / "kept.txt").read_text() == "before"
+    assert [path.name for path in tmp_path.iterdir()] == ["settings.json"]
+
+
+def test_shipped_settings_hold_no_machine_specific_path():
+    shipped = install.SHIPPED_SETTINGS.read_text(encoding="utf-8")
+
+    assert not re.search(r"/tmp/claude-\d+|/home/|/Users/", shipped)  # noqa: S108 - the pattern names the machine paths the shipped file must not hold

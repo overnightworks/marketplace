@@ -25,6 +25,10 @@ reason = "the operator's contract and code policy"
 entry = "plugins/"
 reason = "the plugin payload both catalogs point at"
 
+[[root.allow]]
+entry = "settings/"
+reason = "the Claude Code settings the install copies to each machine"
+
 [[layout.allow]]
 path = "scripts/install.py"
 rule = "script-name"

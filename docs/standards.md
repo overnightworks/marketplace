@@ -15,6 +15,7 @@ repository kind, and a link to the owner's standard document.
 - **Languages**, every app with a user-facing surface and the shared kit; owner overnightworks/design: [languages](https://github.com/overnightworks/design/blob/main/docs/languages.md); checked by overnightworks/quality: [`catalog-check`, `render-pass` and `literal-text`](https://github.com/overnightworks/quality/blob/main/docs/rules.md).
 - **Run-time installs in CI**, every repository that runs quality's gate, forks of third-party projects excluded; owner overnightworks/quality: [quality's `runtime-install` rule](https://github.com/overnightworks/quality/blob/main/docs/rules.md).
 - **Cross-pod coordination in Redis**, every fleet app that wakes pods, keeps deadlines or keeps leases in Redis; owner overnightworks/tandem: [cross-pod coordination in Redis](https://github.com/overnightworks/tandem/blob/main/README.md#fleet-standard-cross-pod-coordination-in-redis).
+- **Logging**, every fleet repository whose code runs as a deployed process (server, worker, app) and every library on such a process's hop; owner overnightworks/logline: [logging through logline](https://github.com/overnightworks/logline/blob/main/README.md#fleet-standard-logging-through-logline).
 
 ## How a standard works
 

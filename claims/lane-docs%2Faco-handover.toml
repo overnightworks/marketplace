@@ -1,0 +1,8 @@
+claim_id = "de2b98308c3242ceaea775893651e9dc"
+agent = "Claude 30ec126a-30e5-431d-a4c3-088d393726d4"
+role = "builder"
+base = "548442232e8f91ea6ab289a17e64c6ddb95ff1ed"
+branch = "docs/aco-handover"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/skills/aco/SKILL.md"]
+opened_commit = "374f39c7df46482544271110c7480cfc38526d4a"
+whole_reason = "One skill paragraph and the three version files the plugin rule raises together."

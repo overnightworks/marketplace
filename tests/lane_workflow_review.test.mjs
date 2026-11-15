@@ -5,7 +5,7 @@ import path from 'node:path'
 import { spawnSync } from 'node:child_process'
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { runLane, partReplaced, courierBriefOf, resumedLane, installFake, APPROVE, PASS, greenCi, finding, resumeArgs, resumeTip, resumeFixedTip, resumeFix, secondFix, tidy, delegatedLineOfContract } from './lane_workflow_harness.mjs'
+import { runLane, partReplaced, courierBriefOf, resumedLane, installFake, APPROVE, PASS, greenCi, finding, resumeArgs, resumeTip, olderTip, resumeFixedTip, resumeFix, secondFix, tidy, delegatedLineOfContract } from './lane_workflow_harness.mjs'
 
 const driveGate = (options) => runLane({ ...resumedLane, risk: 'material' }, { 'r0-review': APPROVE }, options)
 
@@ -195,7 +195,6 @@ test('courier-schema-retry: a second answer that failed reading the output schem
   failedAtReview(result)
 })
 
-const olderTip = 'b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2'
 const briefMismatch = { verdict: 'failed', blocking: [], followups: [], codexExit: -1, note: 'brief file differs from the brief the script wrote' }
 
 test('courier-brief-retry: an answer that started no Codex for a mismatching brief is retried once and the round is judged on the retry', async () => {

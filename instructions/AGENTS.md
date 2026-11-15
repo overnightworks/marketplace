@@ -224,7 +224,8 @@ Every review finding is marked **blocking** or **follow-up**.
   1.5 × cores, then runs `setpriv --pdeathsig TERM timeout -k K CAP <command>`
   (default K 30, CAP 1800). Building the page, installing dependencies and
   starting a throwaway database run before `probe-run`, which wraps only the
-  drive. A targeted test run's own throwaway database container is no probe
+  drive; such a prepare step runs under the same `setpriv`/`timeout` cap with
+  CAP + K ≤ 1830, tears down what it started, and waits for no load. A targeted test run's own throwaway database container is no probe
   stack: it keeps the load check, the `setpriv`/`timeout` cap and the trapped
   teardown, without `probe-run`. A repository script may choose its own `-k K
   CAP` with CAP + K ≤ 1830 and K at least its measured teardown, stated next

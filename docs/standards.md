@@ -16,6 +16,7 @@ repository kind, and a link to the owner's standard document.
 - **Run-time installs in CI**, every repository that runs quality's gate, forks of third-party projects excluded; owner overnightworks/quality: [quality's `runtime-install` rule](https://github.com/overnightworks/quality/blob/main/docs/rules.md).
 - **Cross-pod coordination in Redis**, every fleet app that wakes pods, keeps deadlines or keeps leases in Redis; owner overnightworks/tandem: [cross-pod coordination in Redis](https://github.com/overnightworks/tandem/blob/main/README.md#fleet-standard-cross-pod-coordination-in-redis).
 - **Logging**, every fleet repository whose code runs as a deployed process (server, worker, app) and every library on such a process's hop; owner overnightworks/logline: [logging through logline](https://github.com/overnightworks/logline/blob/main/README.md#fleet-standard-logging-through-logline).
+- **Fleet package dependencies**, every fleet repository that depends on a fleet package; owner overnightworks/quality: [depending on a fleet package](https://github.com/overnightworks/quality/blob/main/docs/release.md#depending-on-a-fleet-package).
 
 ## How a standard works
 

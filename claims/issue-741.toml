@@ -3,6 +3,6 @@ agent = "Claude 30ec126a-30e5-431d-a4c3-088d393726d4"
 role = "builder"
 base = "24a9213fe2a9c694fe522e31a37a226f34eb58d1"
 branch = "claude/issue-741-marketplace-ships-the-shared-claude-code"
-scope = [".github/workflows/ci.yml", "README.md", "docs/ARCHITECTURE.md", "scripts/install.py", "settings", "tests/test_install.py"]
+scope = [".github/workflows/ci.yml", "README.md", "docs/ARCHITECTURE.md", "pyproject.toml", "quality/config.toml", "scripts/install.py", "settings", "tests/test_install.py", "uv.lock"]
 opened_commit = "90fd4bf735a7818ce035c361d85999bafd0abf27"
 whole_reason = "The shipped settings, the installer that applies them, its test, the CI check of the file and the two documents that say where agent configuration lives."

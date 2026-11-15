@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import sys
 from collections.abc import Callable
 from pathlib import Path
@@ -560,3 +561,9 @@ def test_creates_no_user_file_when_there_is_none(machine):
     assert install.main([]) == 0
 
     assert not machine.user_settings.exists()
+
+
+def test_shipped_settings_hold_no_machine_specific_path():
+    shipped = install.SHIPPED_SETTINGS.read_text(encoding="utf-8")
+
+    assert not re.search(r"/tmp/claude-\d+|/home/|/Users/", shipped)

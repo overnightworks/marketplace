@@ -95,8 +95,8 @@ for (const [what, mishandling] of [['an edited line', { edit: (line) => line.rep
 test('ci-relay-line: with repo set the printer is told the repository, without it the worktree repository', async () => {
   const withRepo = await driveCi(ciAnswer([check(required, 'pass')]), { ...lane, repo: 'o/n' })
   const without = await driveCi(ciAnswer([check(required, 'pass')]))
-  assert.match(withRepo.agentCalls['ci-read-0'].prompt, / ci 1 'o\/n' '\[\]' 'ci-0-/)
-  assert.match(without.agentCalls['ci-read-0'].prompt, / ci 1 '' '\[\]' 'ci-0-/)
+  assert.match(withRepo.agentCalls['ci-read-0'].prompt, / ci 1 'o\/n' '' 'ci-0-/)
+  assert.match(without.agentCalls['ci-read-0'].prompt, / ci 1 '' '' 'ci-0-/)
 })
 
 const proven = [
@@ -219,7 +219,7 @@ test('ci-path-digest: a printer run that received the finding paths the lane sen
 })
 
 test('ci-path-digest: a printer run whose command lost a finding path is reread, and the reread keeps the own finding for the fixer', async () => {
-  const { launchedAgents, agentCalls } = await driveCi(sonarRed(['src/a.py']), lane, { typedCommand: (line) => line.replace(/'\["[^']*"\]'/, "'[]'") })
+  const { launchedAgents, agentCalls } = await driveCi(sonarRed(['src/a.py']), lane, { typedCommand: (line) => line.replace("'src/a.py'", "''") })
   assert.ok(launchedAgents.includes('ci-read-0-reread'))
   assert.match(agentCalls['fix-2'].prompt, /src\/a\.py:4/)
 })

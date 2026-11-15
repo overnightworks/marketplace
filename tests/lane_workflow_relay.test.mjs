@@ -5,7 +5,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { execFileSync, spawnSync } from 'node:child_process'
-import { runLane, partReplaced, runCommandLine, installFake, FAKE_ACO, resumedLane, resumeArgs, resumeTip, resumeFix, defectWithoutDraft, reachesTheEnd, greenCi, tidy, unchangedFix, satisfied } from './lane_workflow_harness.mjs'
+import { runLane, partReplaced, runCommandLine, installFake, FAKE_ACO, resumedLane, resumeArgs, resumeTip, resumeFix, defectWithoutDraft, finding, reachesTheEnd, greenCi, tidy, unchangedFix, satisfied } from './lane_workflow_harness.mjs'
 
 const BRANCH = 'lane'
 const LONGEST_PATH_COMPONENT = 255
@@ -488,4 +488,55 @@ test('lane-relay-judgement: a fixer line whose git commands failed returns the f
   const { result } = await runLane({ ...resumedLane, fixFirst: [defectWithoutDraft] }, { 'fix-1': { ...resumeFix, regression: [], head_code: 128, main_code: 128 } })
   assert.deepEqual([result.status, result.stage], ['failed', 'fix'])
   assert.match(result.reason, /reports a failed git command/)
+})
+
+// A red ci line of a real lane: many required contexts that pass, red checks of which some are red on main too, and findings in changed files.
+const requiredContexts = Array.from({ length: 12 }, (_, index) => `quality / required check number ${index}`)
+const sharedRed = ['quality / sonar', 'quality / codeql']
+const findingPlaces = Array.from({ length: 8 }, (_, index) => `plugins/atelier/lane/module_${index}.js:${index + 10}`)
+const redRun = (name, id) => ({ id, name, status: 'completed', conclusion: 'failure', completed_at: '2026-11-13T10:00:00Z' })
+const realisticRed = (places = findingPlaces) => ({
+  ...greenCi(resumeTip), green: false, failing: places.map(where => ({ ...finding(where, 'breaks a rule'), kind: 'defect' })),
+  checks: [...requiredContexts.map(name => ({ name, bucket: 'pass' })), ...sharedRed.map(name => ({ name, bucket: 'fail' })), { name: 'Python: tests', bucket: 'fail' }],
+  requiredChecks: requiredContexts, baseChecks: sharedRed.map(redRun), changedFiles: places.map(where => where.replace(/:\d+$/, '')),
+})
+const driveRealisticRed = (read, places, reread = {}) => runLane({ ...resumeArgs, foldIn: [tidy] }, { ...reachesTheEnd, 'fix-1': { ...unchangedFix, resolved: [satisfied(tidy)] }, 'ci-0': realisticRed(places), 'ci-read-0': read, ...(read.edit && { 'ci-read-0-reread': reread }) })
+const commandOf = (call) => call.prompt.split('\n').at(-1)
+const pathsArgumentOf = (call) => /^cd '[^']*' && python3 -c '[^']+' ci \S+ '[^']*' '([^']*)' '[^']*'$/.exec(commandOf(call))[1]
+
+test('AC-relay-line-length: a red line with twelve passing required contexts and eight findings names no passing context and stays short', async () => {
+  let printed
+  const { agentCalls } = await driveRealisticRed({ edit: (line) => (printed = line) })
+  assert.doesNotMatch(printed, /required check number/)
+  assert.ok(printed.length < 500, `${printed.length} characters: ${printed}`)
+  assert.ok(!('ci-read-0-reread' in agentCalls))
+})
+
+// What a copier hands back of the intact line: the entries after nonce gone with the CRC of the whole line kept, or the text cut off in the middle.
+const cutAfterNonce = copiedWith(({ paths: _paths, shared: _shared, ...kept }) => kept)
+const cutInTheMiddle = (line) => line.slice(0, line.indexOf('"nonce"') + 20)
+
+for (const [what, edit] of [['the entries after nonce gone', cutAfterNonce], ['the text cut off after the nonce key', cutInTheMiddle]]) {
+  test(`AC-relay-reread: a red line copied with ${what} is read again with the printer command intact, and the own findings reach the fixer`, async () => {
+    const { result, agentCalls, launchedAgents } = await driveRealisticRed({ edit })
+    assert.deepEqual(launchedAgents.filter(label => label.endsWith('-reread')), ['ci-read-0-reread'])
+    assert.equal(commandOf(agentCalls['ci-read-0-reread']), commandOf(agentCalls['ci-read-0']))
+    assert.notEqual(result.stage, 'ci', result.reason)
+    assert.match(agentCalls['fix-2'].prompt, /module_3\.js:13/)
+  })
+
+  test(`AC-relay-reread: a red line copied with ${what} by both reads fails its CRC check and the watcher's word is not used`, async () => {
+    const { result } = await driveRealisticRed({ edit }, undefined, { edit })
+    assert.deepEqual([result.status, result.stage], ['failed', 'ci'])
+    assert.match(result.reason, /relay line (fails its CRC check|is not a relay line)/)
+  })
+}
+
+const hostilePlaces = ['src/it\'s "q" $(touch pwned) `id` \\ \\u0027 ünï;rm.py:3', 'a b/c\td.py:4']
+
+test('AC-ci-printer-quotes: finding paths with quotes, shell syntax, backslashes and non-ASCII reach the printer intact through an argument of unreserved characters', async () => {
+  const { result, agentCalls, launchedAgents } = await driveRealisticRed({ edit: (line) => line }, hostilePlaces)
+  assert.match(pathsArgumentOf(agentCalls['ci-read-0']), /^[A-Za-z0-9%._~\/,-]+$/)
+  assert.ok(!launchedAgents.includes('ci-read-0-reread'), result.reason)
+  assert.match(agentCalls['fix-2'].prompt, /touch pwned/)
 })

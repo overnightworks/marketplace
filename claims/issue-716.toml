@@ -1,0 +1,8 @@
+claim_id = "be6fb98c39d34a9198d7bb61e11a245b"
+agent = "Claude 30ec126a-30e5-431d-a4c3-088d393726d4"
+role = "builder"
+base = "8ac1f95138c86586ca15bbbe2d096afcb90a97b1"
+branch = "claude/issue-716-codex-gate-silence-watchdog"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/lane", "plugins/atelier/workflows", "tests"]
+opened_commit = "c7464894d1f1a555388df7c68bb6bd7d1c1569a5"
+whole_reason = "The watchdog lives in the review courier's source and its generated bundle, which change together with their harness test and the version files."

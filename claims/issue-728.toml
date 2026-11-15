@@ -1,0 +1,8 @@
+claim_id = "658a689f240c4096ae97069df07ac13e"
+agent = "Claude 30ec126a-30e5-431d-a4c3-088d393726d4"
+role = "builder"
+base = "6b81c42e0a1c91e550c1df34ef9dbbf297b8ce22"
+branch = "claude/issue-728-deltafrom-equal-tip-refused"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/lane", "plugins/atelier/workflows", "tests"]
+opened_commit = "015db1d84c7f477ac17e57004b77fc80f1b378c9"
+whole_reason = "The input check lives in the main source and its generated bundle, which change with their harness test, lane.md and the version files."

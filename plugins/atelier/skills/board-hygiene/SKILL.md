@@ -76,8 +76,10 @@ rest and say so in the report.
   item is done, overtaken, or its long-term gain is not worth its lifetime cost
   now; when it is not done, add one sentence "reopen when <trigger>".
 - Point: does the problem the item names still exist? If not, `close`.
-- Landed but waiting for a live proof only the operator can give: `keep —
-  unclear`, with that question on the operator list. Mark nothing "unverified".
+- Landed but waiting for a live proof only the operator can give: `unclear`,
+  recommends close with "reopen when <the live fact fails>", defaults to close;
+  the operator list asks "is <the live fact the done_when rests on> true?".
+  Mark nothing "unverified".
 
 A nearly empty board (two open items or fewer, claimed or not) skips Pass 1 detail: run
 both aco commands, apply Pass 2 to each item, and report in under five

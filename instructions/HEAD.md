@@ -83,9 +83,8 @@ it from its branch and claims after adoption.
 - **Ideas** come only in the operator's words; agent-found gaps go to the
   owning item's gap list. An idea carries the wish in his words, why it matters
   and how he will notice it exists, the board's idea label and no aco block.
-  Only a pulled
-  item is refined, pictured and cut, afresh: elaborated but unpulled work is
-  inventory that rots while the vision moves on.
+  Only a pulled item is refined, pictured and cut, afresh: elaborated but
+  unpulled work is inventory that rots while the vision moves on.
 - **The pull** asks the pull question (`AGENTS.md`, How to decide) and checks
   the fleet standards covering the touched part; an item opened from a review
   finding is pulled when opened. One that fails is closed or re-cut, never

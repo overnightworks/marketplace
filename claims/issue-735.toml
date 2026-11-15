@@ -1,0 +1,8 @@
+claim_id = "57812f68353645fd8c0322666fc54205"
+agent = "Claude 30ec126a-30e5-431d-a4c3-088d393726d4"
+role = "builder"
+base = "45e458c075decdbf93cec7067e3d06f3aba1b470"
+branch = "claude/issue-735-deltafrom-equal-to-tip-is-accepted-when"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/lane", "plugins/atelier/workflows", "tests"]
+opened_commit = "25cff621a91105e0ccb8eb12ab74a852a89286cc"
+whole_reason = "The input check lives in the main source and its generated bundle, which change with their harness test, lane.md and the version files."

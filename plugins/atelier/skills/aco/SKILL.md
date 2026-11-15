@@ -116,7 +116,7 @@ contract and this skill.
   `specs/landing-grammar.spec.md`); set the parent's type with `gh api -X PATCH
   repos/<owner>/<repo>/issues/<parent> -f type=Container`.
 - `aco --repo OWNER/NAME item new ...` opens the item in another repository
-  this machine has a checkout of, under that repository's storage and rules; one
+  whose checkout sits under aco's configured root, under that repository's storage and rules; one
   it cannot find is refused by name and nothing is written. It prints only the
   item id, so name the repository with it when you report. Only `item new` takes
   a foreign `--repo` this way; every other command acts on the checkout it runs in.

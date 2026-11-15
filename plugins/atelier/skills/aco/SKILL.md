@@ -170,9 +170,16 @@ contract and this skill.
   (`specs/rulings.spec.md`).
 - Mark a step only the operator can take with the `step` tool of `aco mcp`, on the item
   it belongs to, or with a `title` when no open item holds it (`specs/mcp.spec.md`). The
-  tool never removes the label `needs-operator`: once he says the step is done, the head
-  removes the label and rewrites the block's `next` in the same edit, so `next` stops
-  naming his finished step.
+  tool writes the block's `wait.operator` beside the label `needs-operator` and never
+  removes either: once he says the step is done, the head removes the label and the
+  `wait` and rewrites the block's `next` in the same edit, so `next` stops naming his
+  finished step.
+- An item that waits carries one `wait` in its block: his step, a date or a trigger
+  fact, with `since` (`specs/body-block.spec.md`). `frozen_until` is a body defect.
+  An aco older than the `wait` field reads such a body as malformed, so the first `wait`
+  in a fleet is written only after aco is reinstalled on every machine, aco-board
+  restarted and every head ran `/reload-plugins` and `/mcp` → aco → Reconnect; then each
+  head adds `wait.operator` to its items labelled `needs-operator` before.
 - Take back your own open or returned line only with `aco withdraw <n> --line <k>`, never
   by editing the body (`specs/withdraw.spec.md`); it refuses a ruled line. Withdrawing a
   returned line drops the operator's note, so carry that note into the line that replaces

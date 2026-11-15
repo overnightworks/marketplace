@@ -9,8 +9,10 @@ import json
 import os
 import shlex
 import shutil
+import stat
 import subprocess
 import sys
+import tempfile
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -38,6 +40,7 @@ OWNED_SETTINGS: dict[str, tuple[str, ...] | None] = {
 }
 
 LOCAL_BIN = Path(".local") / "bin"
+NEW_FILE_MODE = 0o644
 ABSENT = object()  # distinguishes a missing key from one holding null or false
 
 LINKS = (
@@ -166,13 +169,19 @@ def read_json_object(path: Path) -> dict:
 
 
 def write_atomically(path: Path, text: str) -> None:
-    """Replace path in one step, keeping its mode and following a link, so a reader never sees half a file."""
+    """Replace path in one step, keeping its mode and following a link, so a reader never sees half a file; the text sits in a private, uniquely named file until it is complete."""
     target = path.resolve()
-    temporary = target.with_name(f"{target.name}.tmp")
-    temporary.write_text(text, encoding="utf-8")
-    if target.exists():
-        shutil.copymode(target, temporary)
-    temporary.replace(target)
+    mode = stat.S_IMODE(target.stat().st_mode) if target.exists() else NEW_FILE_MODE
+    descriptor, temporary_name = tempfile.mkstemp(dir=target.parent, prefix=f".{target.name}.", suffix=".tmp")
+    temporary = Path(temporary_name)
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+            handle.write(text)
+        temporary.chmod(mode)
+        temporary.replace(target)
+    except BaseException:
+        temporary.unlink(missing_ok=True)
+        raise
 
 
 def warn_when_probe_run_is_off_path(home: Path) -> None:

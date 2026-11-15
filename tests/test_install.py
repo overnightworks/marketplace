@@ -574,6 +574,37 @@ def test_prints_a_sudo_step_that_survives_a_home_with_spaces(machine, tmp_path, 
     assert operands[-2:] == [str(spaced_home / install.MANAGED_SETTINGS_COPY), str(machine.drop_in)]
 
 
+def test_leaves_a_file_beside_the_user_file_alone_whatever_its_name(machine, tmp_path):
+    victim = tmp_path / "victim.txt"
+    victim.write_text("keep")
+    real = tmp_path / "dotfiles-settings.json"
+    real.write_text('{"autoCompactEnabled": true}')
+    machine.user_settings.parent.mkdir()
+    machine.user_settings.symlink_to(real)
+    (tmp_path / "dotfiles-settings.json.tmp").symlink_to(victim)
+
+    assert install.main([]) == 0
+
+    assert victim.read_text() == "keep"
+    assert json.loads(real.read_text()) == {}
+
+
+def test_leaves_no_temporary_file_and_keeps_the_target_when_the_replace_fails(tmp_path, monkeypatch):
+    target = tmp_path / "settings.json"
+    target.write_text("before")
+
+    def refuse(self, destination):
+        raise OSError("refused")
+
+    monkeypatch.setattr(Path, "replace", refuse)
+
+    with pytest.raises(OSError, match="refused"):
+        install.write_atomically(target, "after")
+
+    assert target.read_text() == "before"
+    assert [path.name for path in tmp_path.iterdir()] == ["settings.json"]
+
+
 def test_shipped_settings_hold_no_machine_specific_path():
     shipped = install.SHIPPED_SETTINGS.read_text(encoding="utf-8")
 

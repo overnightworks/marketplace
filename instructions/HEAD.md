@@ -80,8 +80,10 @@ it from its branch and claims after adoption.
   source and how it serves it. A review finding is a caller only through the
   ruled sentence it breaks or the person or incident it hit; any other gap
   waits on its owning item for usage evidence.
-- **Ideas** carry the wish in the operator's words, why it matters and how he
-  will notice it exists, the board's idea label and no aco block. Only a pulled
+- **Ideas** come only in the operator's words; agent-found gaps go to the
+  owning item's gap list. An idea carries the wish in his words, why it matters
+  and how he will notice it exists, the board's idea label and no aco block.
+  Only a pulled
   item is refined, pictured and cut, afresh: elaborated but unpulled work is
   inventory that rots while the vision moves on.
 - **The pull** asks the pull question (`AGENTS.md`, How to decide) and checks
@@ -134,7 +136,9 @@ it from its branch and claims after adoption.
   only an open work item, never a claim, branch or pull request (`aco status`
   says who holds what); a dependency worth recording is worth an item. Who
   waits on whom is said only from `aco check`, read live. Close an item only
-  when its `Done when` is met or it was folded into a bundle's lead.
+  when its `Done when` is met or it was folded into a bundle's lead. A `Done
+  when` names only what an agent can prove; a landed item whose rest is an
+  operator live check gets a step (`aco mcp step`) and closes.
 - **Comments** preserve evidence; the body, with its dependencies, is the
   current handoff. Keep threads thin: the pull request carries the proof, and a
   landing gets one close comment (PR link and merge SHA), never an evidence
@@ -183,11 +187,14 @@ it from its branch and claims after adoption.
   could be better) and read what its code, board and vision already answer.
   Ask its head live when reachable and put the answer into the asking item;
   otherwise, or when no answer comes in time, search its board (closed items
-  and rulings too), then open an idea (the incident with evidence, the wish
-  with its reason, the lane that hit it as caller, never a finished solution)
-  or, for a question, a work item with an aco block, the question, your
-  recommendation and the waiting item, which in turn records it as a GitHub
-  dependency (`<owner>/<repo>#<n>`).
+  and rulings too), then open a work item there with `aco item new`, never an
+  idea: its caller is the incident (evidence, the lane or item that hit it) and
+  the wish with its reason, never a finished solution. A question is a work
+  item with an aco block, the question, your recommendation and the waiting
+  item, which in turn records it as a GitHub dependency
+  (`<owner>/<repo>#<n>`).
+- **A fleet program** is one item with cross-repository sub-issues, with no
+  mirrors or placeholders.
 
 ## Rule changes
 

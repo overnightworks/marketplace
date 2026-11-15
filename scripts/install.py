@@ -38,6 +38,7 @@ OWNED_SETTINGS: dict[str, tuple[str, ...] | None] = {
     "env": ("PYTEST_XDIST_AUTO_NUM_WORKERS",),
     "autoMode": ("allow",),
     "autoCompactEnabled": None,
+    "autoCompactWindow": None,
 }
 
 # The value type of each owned setting, by dotted path, with the check that holds it.
@@ -45,6 +46,7 @@ OWNED_SETTING_TYPES: dict[str, tuple[str, Callable[[object], bool]]] = {
     "env.PYTEST_XDIST_AUTO_NUM_WORKERS": ("a string", lambda value: isinstance(value, str)),
     "autoMode.allow": ("a list of strings", lambda value: isinstance(value, list) and all(isinstance(item, str) for item in value)),
     "autoCompactEnabled": ("a boolean", lambda value: isinstance(value, bool)),
+    "autoCompactWindow": ("an integer", lambda value: isinstance(value, int) and not isinstance(value, bool)),
 }
 
 LOCAL_BIN = Path(".local") / "bin"

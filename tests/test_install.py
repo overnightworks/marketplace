@@ -474,6 +474,7 @@ def test_prints_the_sudo_step_again_when_the_drop_in_links_elsewhere(machine, tm
         pytest.param('{"env": {"HOME": "/tmp"}}', "env.HOME", id="unshipped-nested-key"),
         pytest.param('{"autoMode": ["allow"]}', "autoMode", id="owned-container-not-an-object"),
         pytest.param('{"autoCompactEnabled": "yes"}', "autoCompactEnabled must be a boolean", id="flag-not-a-boolean"),
+        pytest.param('{"autoCompactWindow": true}', "autoCompactWindow must be an integer", id="window-not-an-integer"),
         pytest.param('{"env": {"PYTEST_XDIST_AUTO_NUM_WORKERS": 4}}', "PYTEST_XDIST_AUTO_NUM_WORKERS must be a string", id="env-value-not-a-string"),
         pytest.param('{"autoMode": {"allow": "$defaults"}}', "autoMode.allow must be a list of strings", id="allow-not-a-list"),
         pytest.param('{"autoMode": {"allow": ["fine", 1]}}', "autoMode.allow must be a list of strings", id="allow-item-not-a-string"),
@@ -506,6 +507,8 @@ def test_removes_only_the_shipped_settings_from_the_user_file(machine, capsys):
                 "env": {"PYTEST_XDIST_AUTO_NUM_WORKERS": "2", "OTHER": "kept"},
                 "autoMode": {"allow": ["mine"], "environment": ["private"]},
                 "autoCompactEnabled": False,
+                "autoCompactWindow": 200000,
+                "modelSettings": {"claude-opus-5-5": {"autoCompactWindow": 500000}},
                 "hooks": {},
             }
         )
@@ -517,6 +520,7 @@ def test_removes_only_the_shipped_settings_from_the_user_file(machine, capsys):
         "theme": "dark",
         "env": {"OTHER": "kept"},
         "autoMode": {"environment": ["private"]},
+        "modelSettings": {"claude-opus-5-5": {"autoCompactWindow": 500000}},
         "hooks": {},
     }
     assert "autoMode.allow" in capsys.readouterr().out

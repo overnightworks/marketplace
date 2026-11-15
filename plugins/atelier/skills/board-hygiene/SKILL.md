@@ -24,7 +24,7 @@ applies what is clear under the coordination contract.
    `container.open_children` that is not in `uncut` is a `close` candidate (fold
    into its document). Step 4 still gates every `close` candidate and wins.
 4. Before any `close`, test the item's `Done when` against evidence; an unmet
-   `Done when` is never `close`.
+   `Done when` is never a clear `close`.
 5. `aco check <number>` only when an `aco` block looks broken, or for a
    pull request whose classification is in doubt. `body malformed` is the
    only result worth a verdict; `body ok` is not proof of done.
@@ -77,7 +77,7 @@ rest and say so in the report.
   now; when it is not done, add one sentence "reopen when <trigger>".
 - Point: does the problem the item names still exist? If not, `close`.
 - Landed but waiting for a live proof only the operator can give: `unclear`,
-  recommends close with "reopen when <the live fact fails>", defaults to close;
+  recommends close with "reopen when <the live fact fails>", defaults to close, unless the operator touched it recently;
   the operator list asks "is <the live fact the done_when rests on> true?".
   Mark nothing "unverified".
 

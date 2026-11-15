@@ -1,0 +1,8 @@
+claim_id = "35b280b6089f470baf8c7e4ee0d3441e"
+agent = "Claude 30ec126a-30e5-431d-a4c3-088d393726d4"
+role = "builder"
+base = "c61bd21b9c08d185c3728b784a0f17bd238bd4b4"
+branch = "claude/issue-731-the-ci-relay-line-survives-its-copier-af"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/lane", "plugins/atelier/workflows", "tests"]
+opened_commit = "aaf49febc8c68383de250068036fa4e788bef5e3"
+whole_reason = "The relay printer and reader live in the main source and its generated bundle, which change with their harness test and the version files."

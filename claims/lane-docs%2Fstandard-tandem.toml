@@ -1,0 +1,7 @@
+claim_id = "a614bb47ea3b4ccbb8c7ef373a305845"
+agent = "Claude 30ec126a-30e5-431d-a4c3-088d393726d4"
+role = "builder"
+base = "ee7d8dc3e5d941da1624b0f10e33e0a792f8b2b8"
+branch = "docs/standard-tandem"
+scope = ["docs/standards.md"]
+opened_commit = "4b70b6e2e7bb933f561b88bedce34b7ad6faa9e4"

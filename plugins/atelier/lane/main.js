@@ -239,6 +239,7 @@ const openResult = async (status, stage, extra = {}) => {
   }
 }
 
+if (A.deltaFrom && !SHA.test(A.deltaFrom)) return await openResult('failed', 'input', { reason: 'deltaFrom is not a sha' })
 // An empty delta has no reviewer to satisfy, and the lane cannot verify an earlier approval; the head names the honest resume.
 if (sameCommit(A.deltaFrom, A.tip)) return await openResult('failed', 'input', { reason: 'deltaFrom is the tip, so the delta is empty and nothing is reviewed. Start the run again without deltaFrom for a full review, or name the commit before the commits no reviewer has seen as deltaFrom.' })
 
@@ -537,7 +538,6 @@ if (!carriesBatch && A.build) {
 }
 if (firstScopeCheck?.stop) return firstScopeCheck.stop
 // Re-entry after the head settled an awaiting-head result: review only the fix commits no reviewer has seen yet.
-if (A.deltaFrom && !SHA.test(A.deltaFrom)) return await openResult('failed', 'input', { reason: 'deltaFrom is not a sha' })
 const firstRange = A.deltaFrom
   ? `only this delta: git diff ${A.deltaFrom}..HEAD — fix commits made for earlier blocking findings that no reviewer has seen yet. They answer:\n${A.answers || '(see the commit messages in the range)'}`
   : 'the whole lane: git diff origin/main...HEAD'
@@ -565,9 +565,9 @@ if (carriesBatch) {
 // laneTest returns the tester's answer, null when both agents ended without a result, or a problem the lane stops on.
 const explore = (n) => runPart('lane-test', laneTest, { delegatedLine: DELEGATED_LINE, n, pr, tip, worktree: A.worktree, scratch: A.scratch, tag: TAG, e2e: A.e2e, contract: A.contract, laneFacts, blockingLine: BLOCKING_LINE, finding: FINDING, followup: FOLLOWUP, routing: claudeRole('test') })
 // The paths the watcher's findings name; the printer keeps those among the pull request's changed files.
-const findingPaths = (failing = []) => [...new Set(failing.map(finding => findingPath(finding.where)))]
-// The paths as one shell-safe JSON argument for the printer.
-const pathsArgument = (paths) => JSON.stringify(paths).replaceAll("'", String.raw`\u0027`)
+const findingPaths = (failing = []) => [...new Set(failing.map(finding => findingPath(finding.where).toWellFormed()).filter(Boolean))]
+// The paths as one argument of unreserved characters only, so no quoting a copier applies to the command can change it: each path percent-encoded, joined by commas, with the slash kept.
+const pathsArgument = (paths) => paths.map(path => encodeURIComponent(path).replace(/[!'()*]/g, char => '%' + char.codePointAt(0).toString(16).toUpperCase()).replaceAll('%2F', '/')).join(',')
 async function watchCi(n, rerun) {
   const watched = await runPart('lane-ci', laneCi, { delegatedLine: DELEGATED_LINE, pr, n, rerun, repo: A.repo, worktree: A.worktree, finding: FINDING, mechanical: MECHANICAL })
   if (!watched || watched.problem) return watched

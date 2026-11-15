@@ -527,15 +527,23 @@ for (const experiment of ['Haiku', 'a b', '', 'x'.repeat(41), 'a;b']) {
   })
 }
 
-test('deltaFrom equal to the tip (also as a short sha) ends failed at input before any agent runs, naming both resumes', async () => {
-  for (const deltaFrom of [resumeTip, resumeTip.slice(0, 12)]) {
+for (const [what, deltaFrom] of [['the full sha', resumeTip], ['a short sha', resumeTip.slice(0, 12)]]) {
+  test(`deltaFrom equal to the tip as ${what} ends failed at input before any agent runs, naming both resumes`, async () => {
     const { result, launchedAgents } = await runLane({ ...resumeArgs, deltaFrom })
     assert.deepEqual([result.status, result.stage], ['failed', 'input'])
     assert.match(result.reason, /without deltaFrom for a full review/)
     assert.match(result.reason, /commit before the commits no reviewer has seen/)
     assert.deepEqual(launchedAgents, [])
-  }
-})
+  })
+}
+
+for (const deltaFrom of ['not a sha', 'ABCDEF0', 'abcdef', `${resumeTip}0`]) {
+  test(`deltaFrom ${JSON.stringify(deltaFrom)} that is no lowercase 7 to 40 hex sha ends failed at input before any agent runs`, async () => {
+    const { result, launchedAgents } = await runLane({ ...resumeArgs, deltaFrom })
+    assert.deepEqual([result.status, result.stage, result.reason], ['failed', 'input', 'deltaFrom is not a sha'])
+    assert.deepEqual(launchedAgents, [])
+  })
+}
 
 test('routing-line-problem: a lane-routing that answers with a problem leaves the lane result and names the problem in the Routing line', async () => {
   const { result } = await runLane({ ...resumeArgs, deltaFrom: 'not a sha' }, {}, { transform: partReplaced('laneRouting', "return { problem: 'the printer broke' }") })

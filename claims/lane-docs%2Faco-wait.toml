@@ -1,0 +1,8 @@
+claim_id = "5ec5a674bbee48338662041697b2e54a"
+agent = "Claude 30ec126a-30e5-431d-a4c3-088d393726d4"
+role = "builder"
+base = "24a9213fe2a9c694fe522e31a37a226f34eb58d1"
+branch = "docs/aco-wait"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/skills/aco/SKILL.md"]
+opened_commit = "e5d989691b87d33a48f852da079bef893b51f902"
+whole_reason = "One skill note plus the three version files the plugin rule raises together"

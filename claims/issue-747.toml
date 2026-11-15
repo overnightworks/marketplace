@@ -1,0 +1,7 @@
+claim_id = "99dbc77f04ba49d59313ec05d2a87179"
+agent = "Claude 30ec126a-30e5-431d-a4c3-088d393726d4"
+role = "builder"
+base = "ea0ce1a910a38bd57be911b8b853105963df55dd"
+branch = "claude/issue-747-auto-compact-350k"
+scope = ["scripts/install.py", "settings/claude-managed.json", "tests/test_install.py"]
+opened_commit = "a2dcabb5f763423e48f2ae26784ecdce3f153d48"

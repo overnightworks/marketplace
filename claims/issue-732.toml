@@ -1,8 +1,0 @@
-claim_id = "c5ecc235b21443609a6c9ced9e8a85af"
-agent = "Claude 30ec126a-30e5-431d-a4c3-088d393726d4"
-role = "builder"
-base = "63b6fc1cb1671ebffe0e6ca05487968576fff36a"
-branch = "claude/issue-732-board-hygiene-defaults-a-landed-item-wai"
-scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/skills/board-hygiene/SKILL.md"]
-opened_commit = "d7642de6aed1fc5e4b1718bc5ff40ac2a53414a5"
-whole_reason = "One skill sentence changes with the three version files the plugin rule requires."

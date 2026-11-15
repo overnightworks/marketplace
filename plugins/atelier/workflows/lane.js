@@ -1556,7 +1556,7 @@ const explore = (n) => runPart('lane-test', laneTest, { delegatedLine: DELEGATED
 // The paths the watcher's findings name; the printer keeps those among the pull request's changed files.
 const findingPaths = (failing = []) => [...new Set(failing.map(finding => findingPath(finding.where).toWellFormed()).filter(Boolean))]
 // The paths as one argument of unreserved characters only, so no quoting a copier applies to the command can change it: each path percent-encoded, joined by commas, with the slash kept.
-const pathsArgument = (paths) => paths.map(path => encodeURIComponent(path).replace(/[!'()*]/g, char => '%' + char.charCodeAt(0).toString(16).toUpperCase()).replaceAll('%2F', '/')).join(',')
+const pathsArgument = (paths) => paths.map(path => encodeURIComponent(path).replace(/[!'()*]/g, char => '%' + char.codePointAt(0).toString(16).toUpperCase()).replaceAll('%2F', '/')).join(',')
 async function watchCi(n, rerun) {
   const watched = await runPart('lane-ci', laneCi, { delegatedLine: DELEGATED_LINE, pr, n, rerun, repo: A.repo, worktree: A.worktree, finding: FINDING, mechanical: MECHANICAL })
   if (!watched || watched.problem) return watched

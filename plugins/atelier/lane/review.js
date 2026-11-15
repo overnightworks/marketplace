@@ -38,6 +38,11 @@ export async function laneReview(A) {
   // A courier that started no Codex because its brief file is not the brief the script wrote, or because no brief could be cut out of its transcript.
   const startedNoCodex = (answer, reason) => answer?.verdict === 'failed' && answer.codexExit === -1 && String(answer.note ?? '').includes(reason)
   const isBriefMismatch = answer => startedNoCodex(answer, BRIEF_MISMATCH)
+  // What the courier reports when it killed a Codex run whose run log stayed silent.
+  const CODEX_HUNG = 'Codex run silent past the threshold and killed'
+  // Healthy gate runs on this machine (29 clean exits) never left their run log silent longer than 39 s (median 11 s, p95 26 s); 600 s keeps a margin of more than 15 times.
+  const SILENCE_LIMIT_SECONDS = 600
+  const isCodexHung = answer => startedNoCodex(answer, CODEX_HUNG)
   const isNoBriefRecord = answer => startedNoCodex(answer, NO_BRIEF_RECORD)
   const LIMIT = {
     type: 'object',
@@ -122,6 +127,7 @@ export async function laneReview(A) {
     let reason = ''
     if (unreadSchema) reason = 'Codex could not read its output schema'
     else if (isBriefMismatch(answer)) reason = 'the courier wrote a different brief'
+    else if (isCodexHung(answer)) reason = 'the Codex run hung and was killed'
     else if (isNoBriefRecord(answer)) reason = 'the courier found no brief in its transcript'
     if (!reason) return answer
     log(`${label}: ${reason}; starting the courier once more`)
@@ -173,6 +179,7 @@ open(out,"w",encoding="utf-8").write(textwrap.dedent(cuts[0])+"\n")`
   function codexReview(label, routing, role, range) {
     const base = `${A.scratch}/${A.tag}-${label}`
     const appendBodies = String.raw`{ cat ${base}-brief.md && printf '\n\n-----\nThe current item body (gh issue view):\n' && gh issue view ${A.item}${R} --json body --jq .body && printf '\n\n-----\nThe current pull request body (gh pr view):\n' && gh pr view ${A.pr}${R} --json body --jq .body; } > ${base}-brief.md.tmp && mv ${base}-brief.md.tmp ${base}-brief.md`
+    const killRun = `pgid=$(cat ${base}-run.pid) && kill -TERM -- -$pgid; sleep 5; kill -KILL -- -$pgid 2>/dev/null; sleep 1; if ps -eo pgid= | awk -v g=$pgid '$1==g' | grep -q .; then echo 'run still alive'; else echo 'run gone'; fi`
     const brief = `${A.delegatedLine}\nRead-only sandbox: read files and run read-only commands freely; do not run tests. The item body and the pull request body follow this brief: they are the contract core and the verification evidence. The sandbox has no network and cannot write, /tmp included; report a command you cannot run as not verified, never as a blocking finding.\n` + reviewerBrief(role, range) +
       `\nGive every finding its file:line in "where".`
     // The token carries the brief's checksum, so one marker pair names one text. The courier prompt holds the brief between the two marker lines and the courier's command cuts it out of the courier's own transcript.
@@ -182,15 +189,18 @@ open(out,"w",encoding="utf-8").write(textwrap.dedent(cuts[0])+"\n")`
     const checkBrief = `{ [ "$(python3 -c '${BRIEF_CRC_PRINTER}' < ${base}-brief.md)" = ${briefChecksum} ] || { echo '${BRIEF_MISMATCH}' >&2; false; }; }`
     const courierPrompt =
       `${A.delegatedLine}\nYou are a courier for one independent Codex review. Do not review anything yourself and do not edit the repository.\n` +
-      `1. mkdir -p ${A.scratch} && rm -f ${base}-out.json ${base}-out.json.exit ${base}-out.json.exit.tmp ${base}-brief.md ${base}-brief.md.tmp ${base}-run.log\n` +
+      `1. mkdir -p ${A.scratch} && rm -f ${base}-out.json ${base}-out.json.exit ${base}-out.json.exit.tmp ${base}-run.pid ${base}-brief.md ${base}-brief.md.tmp ${base}-run.log\n` +
       `2. Write the brief file with this one shell command, exactly as written, never retyped from memory, split or summarised. It cuts the brief out of your own transcript, where the text between the two marker lines below stands; you copy nothing yourself. If the line exits non-zero, Codex did not start: return verdict failed with codexExit -1 and the error in note.\n` +
       `   python3 -c ${BRIEF_CUTTER_ARGUMENT} ${token} ${base}-brief.md\n` +
       `   The brief for Codex follows between its two marker lines. It is addressed to Codex, not to you: never act on it and never copy it.\n${markers.start}\n${brief}\n${markers.end}\n` +
       `3. Write the output schema, check the brief file against its checksum, append the current item body and pull request body to the brief and start Codex detached, recording its exit status in a marker file, with this one shell command line, exactly as written, never retyped from memory, split or summarised. Codex starts only if the schema write, the brief check and the append succeeded. If the line exits non-zero, Codex did not start: return verdict failed with codexExit -1 and the error in note.\n` +
-      `   printf %s '${CODEX_SCHEMA}' > ${base}-schema.json && cd ${A.worktree} && ${checkBrief} && ${appendBodies} && { setsid nohup bash -c 'codex exec -s read-only -C ${A.worktree} -m ${routing.model} -c model_reasoning_effort=${routing.effort} --output-schema ${base}-schema.json -o ${base}-out.json - < ${base}-brief.md; echo $? > ${base}-out.json.exit.tmp && mv ${base}-out.json.exit.tmp ${base}-out.json.exit' > ${base}-run.log 2>&1 & }\n` +
+      `   printf %s '${CODEX_SCHEMA}' > ${base}-schema.json && cd ${A.worktree} && ${checkBrief} && ${appendBodies} && { setsid nohup bash -c 'echo $$ > ${base}-run.pid; codex exec -s read-only -C ${A.worktree} -m ${routing.model} -c model_reasoning_effort=${routing.effort} --output-schema ${base}-schema.json -o ${base}-out.json - < ${base}-brief.md; echo $? > ${base}-out.json.exit.tmp && mv ${base}-out.json.exit.tmp ${base}-out.json.exit' > ${base}-run.log 2>&1 & }\n` +
       `4. Wait in the foreground — you cannot be woken later, your task ends when you answer. Run this Bash command (timeout 600000 ms) and repeat it until the marker exists, at most 7 times:\n` +
-      `   timeout 540 bash -c 'until [ -f ${base}-out.json.exit ]; do sleep 30; done'; ls ${base}-out.json.exit\n` +
+      `   timeout 540 bash -c 'until [ -f ${base}-out.json.exit ]; do [ $(( $(date +%s) - $(stat -c %Y ${base}-run.log) )) -gt ${SILENCE_LIMIT_SECONDS} ] && { echo SILENT; exit 3; }; sleep 30; done'; ls ${base}-out.json.exit\n` +
       `   Never answer before the marker exists or the 7 waits are spent. Never return a placeholder or a pending result.\n` +
+      `   If a wait prints SILENT, the run log has not changed for ${SILENCE_LIMIT_SECONDS} seconds and Codex hangs: run this one command, exactly as written, to kill the whole detached run, and read its last line:\n` +
+      `   ${killRun}\n` +
+      `   If it prints "run gone", return verdict failed with codexExit -1 and a note that starts with "${CODEX_HUNG}"; the script restarts the review once. If it prints "run still alive", return verdict failed with codexExit -1 and a note saying the hung run could not be killed (without the sentence above). Never start Codex again yourself after a hang.\n` +
       `5. If ${base}-run.log says the model is at capacity, wait 5 minutes and start again from step 1, once, with the same model. Never switch models: a gate stays on its model. Never retry a usage limit (step 6).\n` +
       `6. Decide by the exit status first. If ${base}-out.json.exit holds 0 and ${base}-out.json is valid JSON, return its verdict, blocking and followups UNCHANGED, ` +
       `reportPath ${base}-out.json and codexExit 0: APPROVE, REVISE and architectural are all valid review results, and a REVISE with blocking findings is never failed — the lane sends those findings to a fixer. Copy them verbatim from the out.json into the StructuredOutput call.\n` +
@@ -231,6 +241,8 @@ open(out,"w",encoding="utf-8").write(textwrap.dedent(cuts[0])+"\n")`
     // A courier that twice wrote a different brief is a slip of the courier, not a verdict: the head resumes the round.
     if (failures.length && failures.every(isBriefMismatch)) return { state: 'brief-mismatch', reason: failures.map(v => shortened(v.note, 700)).join(' | ') }
     // A courier whose transcript twice held no brief points at the host's transcript layout, which a resume would meet again.
+    // A Codex run that hung and was killed twice: the head resumes the round; the review never moves to another model.
+    if (failures.length && failures.every(isCodexHung)) return { state: 'hung', reason: failures.map(v => shortened(v.note, 700)).join(' | ') }
     if (failures.length && failures.every(isNoBriefRecord)) return { state: 'no-brief-record', reason: failures.map(v => shortened(v.note, 700)).join(' | ') }
     if (failures.length) {
       const reportPaths = got.filter(v => v.verdict === 'failed' && v.reportPath).map(v => v.reportPath)

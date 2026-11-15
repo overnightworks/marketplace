@@ -255,6 +255,75 @@ test('courier-brief-record: a missing brief beside a mismatching brief fails the
   failedAtReview(result)
 })
 
+const codexHung = { verdict: 'failed', blocking: [], followups: [], codexExit: -1, note: 'Codex run silent past the threshold and killed' }
+
+test('courier-hang: an answer reporting a killed silent run is retried once with the same prompt and the round is judged on the retry', async () => {
+  const { result, launchedAgents, agentCalls } = await runLane(materialLane, gateAnswers(codexHung, { ...APPROVE, codexExit: 0 }))
+  assert.deepEqual(gateRuns(launchedAgents), ['r0-gate', 'r0-gate-retry'])
+  assert.equal(agentCalls['r0-gate-retry'].prompt, agentCalls['r0-gate'].prompt)
+  assert.deepEqual(agentCalls['r0-gate-retry'].options.model, agentCalls['r0-gate'].options.model)
+  assert.deepEqual(result.history.map(round => [round.by, round.verdict]), [['review', 'APPROVE'], ['gate', 'APPROVE']])
+})
+
+test('courier-hang: a healthy run starts one courier and no restart', async () => {
+  const { launchedAgents } = await runLane(materialLane, gateAnswers({ ...APPROVE, codexExit: 0 }))
+  assert.deepEqual(gateRuns(launchedAgents), ['r0-gate'])
+})
+
+for (const [name, lane] of [
+  ['a first round', resumedWith],
+  ['a delta round', { ...resumedWith, deltaFrom: olderTip, answers: 'earlier findings' }],
+]) {
+  test(`courier-hang: a second silent run on ${name} returns awaiting-head at review naming the hang and the resume arguments, with no third run and no other model`, async () => {
+    const { result, launchedAgents, agentCalls } = await runLane(lane, gateAnswers(codexHung, codexHung))
+    assert.deepEqual(gateRuns(launchedAgents), ['r0-gate', 'r0-gate-retry'])
+    assert.equal(agentCalls['r0-gate-retry'].options.model, agentCalls['r0-gate'].options.model)
+    assert.deepEqual([result.status, result.stage, result.pr, result.tip], ['awaiting-head', 'review', lane.pr, lane.tip])
+    assert.match(result.reason, /hung twice/)
+    assert.match(result.reason, /start a new run with pr and tip/)
+    assert.equal(result.deltaFrom, lane.deltaFrom)
+    assert.equal(result.answers === undefined ? undefined : /earlier findings/.test(result.answers), lane.answers && true)
+  })
+}
+
+test('courier-hang: a hang beside another failure of the round fails the round', async () => {
+  const { result } = await runLane({ ...resumedWith, reviewer: 'codex' }, { 'r0-review': () => codexHung, 'r0-review-retry': () => codexHung, 'r0-gate': { verdict: 'failed', blocking: [], followups: [], codexExit: 2, note: 'boom' } })
+  failedAtReview(result)
+})
+
+// The courier's two shell commands run for real against a stand-in for the detached Codex run.
+const commandAfter = (prompt, marker) => prompt.slice(prompt.indexOf(marker)).split('\n').find((line, i) => i > 0 && line.startsWith('   ')).trim()
+
+test('courier-hang: the wait command reports SILENT once the run log is older than the limit and the kill command ends the whole process group', async () => {
+  const { agentCalls } = await runLane(materialLane, gateAnswers({ ...APPROVE, codexExit: 0 }))
+  const prompt = agentCalls['r0-gate'].prompt
+  const base = prompt.match(/(\/\S+)-run\.pid/)[1]
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'lane-review-hang-'))
+  const local = command => command.replaceAll(base, path.join(root, 'gate'))
+  const startLine = prompt.split('\n').find(line => line.includes('setsid nohup bash -c'))
+  const startInner = startLine.match(/setsid nohup bash -c '(echo \$\$ > \S+-run\.pid); /)[1]
+  const waitLine = commandAfter(prompt, 'Run this Bash command')
+  const killLine = commandAfter(prompt, 'to kill the whole detached run')
+  try {
+    // A stand-in for Codex: a detached session whose child outlives its leader's shell and never writes the marker.
+    spawnSync('sh', ['-c', `setsid nohup bash -c '${local(startInner)}; sleep 300 & sleep 300' > ${root}/gate-run.log 2>&1 &`])
+    for (let i = 0; i < 50 && !fs.existsSync(path.join(root, 'gate-run.pid')); i++) spawnSync('sleep', ['0.1'])
+    const pgid = fs.readFileSync(path.join(root, 'gate-run.pid'), 'utf8').trim()
+    const alive = () => spawnSync('sh', ['-c', `ps -eo pgid= | awk '$1==${pgid}' | grep -q .`]).status === 0
+    assert.ok(alive())
+    const oldTime = new Date(Date.now() - 3600_000)
+    fs.utimesSync(path.join(root, 'gate-run.log'), oldTime, oldTime)
+    const waited = spawnSync('bash', ['-c', local(waitLine)], { encoding: 'utf8' })
+    assert.match(waited.stdout, /SILENT/)
+    const killed = spawnSync('bash', ['-c', local(killLine)], { encoding: 'utf8' })
+    assert.match(killed.stdout, /run gone/)
+    assert.ok(!alive())
+  } finally {
+    spawnSync('sh', ['-c', `pkill -KILL -s $(cat ${root}/gate-run.pid) 2>/dev/null; true`])
+    fs.rmSync(root, { recursive: true, force: true })
+  }
+})
+
 for (const [name, answer] of [
   ['another failure note', { ...schemaMissing, note: 'Error: stream disconnected' }],
   ['a clean Codex exit', { ...schemaMissing, codexExit: 0 }],

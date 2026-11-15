@@ -197,7 +197,7 @@ const listFindings = (list) => list.map((f, i) =>
 // The ordinary review may come from the builder's own provider (the contract asks only for a fresh, independent agent); a fresh Claude reviewer is the
 // default, Sonnet at high effort and Opus at medium on material risk. The final gate on a material lane runs on Codex through a courier, because the
 // Claude builder needs another provider; routing.gate may name the Opus stand-in, which runs as a fresh Claude reviewer. laneReview runs one round and classifies it.
-const ROUND_STATES = new Set(['approve', 'revise', 'failed', 'architectural', 'limited', 'brief-mismatch', 'no-brief-record'])
+const ROUND_STATES = new Set(['approve', 'revise', 'failed', 'architectural', 'limited', 'brief-mismatch', 'no-brief-record', 'hung'])
 
 // ------------------------------------------------------------ state
 const history = []
@@ -484,6 +484,8 @@ const reportNoBriefRecord = rr => openResult('awaiting-head', 'review', {
 })
 const awaitBrief = rr => awaitHead(rr, `a Codex courier wrote a different brief than the script composed, twice, and started no Codex: ${rr.verdict.reason}. Then`)
 
+const awaitHung = rr => awaitHead(rr, `a Codex gate hung twice, its run log silent past the threshold and the run killed each time; the gate never falls back to another model: ${rr.verdict.reason}. Then`)
+
 // A fresh Claude reviewer stands in for a gate at its usage limit only on a delta that touched no productionPaths prefix,
 // and only when every other result of the round is clean; anything else waits for the gate.
 function standInAllowed(rr) {
@@ -507,6 +509,7 @@ async function settleReview(rr) {
   if (rr.verdict.state === 'limited') return settleLimit(rr)
   if (rr.verdict.state === 'brief-mismatch') return awaitBrief(rr)
   if (rr.verdict.state === 'no-brief-record') return reportNoBriefRecord(rr)
+  if (rr.verdict.state === 'hung') return awaitHung(rr)
   if (rr.verdict.state === 'revise') {
     const blocking = rr.results.filter(Boolean).flatMap(v => v.blocking || [])
     const raised = rr.which.filter((r, i) => rr.results[i] && (rr.results[i].blocking || []).length > 0)

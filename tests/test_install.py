@@ -58,6 +58,8 @@ class Machine:
         self.bin = root / "bin"
         self.bin.mkdir()
         self.log = root / "log"
+        self.drop_in = root / "etc" / "50-marketplace.json"
+        monkeypatch.setattr(install, "MANAGED_DROP_IN", self.drop_in)
         self.state_file = root / "state.json"
         self.state: dict[str, object] = {}
         monkeypatch.setenv("HOME", str(self.home))
@@ -77,6 +79,19 @@ class Machine:
 
     def contract_link(self, relative: str) -> Path:
         return self.home / relative
+
+    @property
+    def managed_copy(self) -> Path:
+        return self.home / ".local" / "share" / "marketplace" / "claude-managed.json"
+
+    @property
+    def user_settings(self) -> Path:
+        return self.home / ".claude" / "settings.json"
+
+    def write_user_settings(self, text: str) -> Path:
+        self.user_settings.parent.mkdir(parents=True, exist_ok=True)
+        self.user_settings.write_text(text)
+        return self.user_settings
 
 
 class CodexJobs:
@@ -403,3 +418,145 @@ def test_pause_sleeps_for_the_given_seconds(monkeypatch):
     install.pause(30)
 
     assert slept == [30]
+
+
+@pytest.fixture
+def shipped(machine, tmp_path, monkeypatch) -> Path:
+    """A stand-in for the shipped settings file, which a test fills with the case under test."""
+    file = tmp_path / "claude-managed.json"
+    monkeypatch.setattr(install, "SHIPPED_SETTINGS", file)
+    return file
+
+
+def test_copies_the_shipped_settings_and_prints_the_one_time_sudo_step(machine, capsys):
+    assert install.main([]) == 0
+
+    assert machine.managed_copy.read_bytes() == install.SHIPPED_SETTINGS.read_bytes()
+    output = capsys.readouterr().out
+    assert f"sudo ln -sfn {machine.managed_copy} {machine.drop_in}" in output
+    assert f"sudo rm {machine.drop_in}" in output
+
+
+def test_refreshes_the_copy_and_stays_quiet_when_the_drop_in_links_the_copy(machine, capsys):
+    machine.managed_copy.parent.mkdir(parents=True)
+    machine.managed_copy.write_text("{}")
+    machine.drop_in.parent.mkdir()
+    machine.drop_in.symlink_to(machine.managed_copy)
+
+    assert install.main([]) == 0
+
+    assert machine.managed_copy.read_bytes() == install.SHIPPED_SETTINGS.read_bytes()
+    assert "sudo" not in capsys.readouterr().out
+
+
+def test_prints_the_sudo_step_again_when_the_drop_in_links_elsewhere(machine, tmp_path, capsys):
+    machine.drop_in.parent.mkdir()
+    machine.drop_in.symlink_to(tmp_path / "elsewhere.json")
+
+    assert install.main([]) == 0
+
+    assert f"sudo ln -sfn {machine.managed_copy} {machine.drop_in}" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize(
+    ("content", "problem"),
+    [
+        pytest.param("{not json", "cannot be read as JSON", id="malformed-json"),
+        pytest.param(None, "cannot be read as JSON", id="file-missing"),
+        pytest.param("[]", "is not a JSON object", id="not-an-object"),
+        pytest.param('{"enabledPlugins": {}}', "enabledPlugins", id="unshipped-top-level-key"),
+        pytest.param('{"env": {"HOME": "/tmp"}}', "env.HOME", id="unshipped-nested-key"),
+        pytest.param('{"autoMode": ["allow"]}', "autoMode", id="owned-container-not-an-object"),
+    ],
+)
+def test_fails_loud_and_keeps_the_previous_copy_when_the_shipped_settings_are_invalid(
+    machine, shipped, capsys, content, problem
+):
+    machine.managed_copy.parent.mkdir(parents=True)
+    machine.managed_copy.write_text("previous")
+    user_text = '{"autoMode": {"allow": ["mine"]}}'
+    machine.write_user_settings(user_text)
+    if content is not None:
+        shipped.write_text(content)
+
+    assert install.main([]) == 1
+
+    assert problem in capsys.readouterr().err
+    assert machine.managed_copy.read_text() == "previous"
+    assert machine.user_settings.read_text() == user_text
+    assert machine.commands() == []
+
+
+def test_removes_only_the_shipped_settings_from_the_user_file(machine, capsys):
+    machine.write_user_settings(
+        json.dumps(
+            {
+                "theme": "dark",
+                "env": {"PYTEST_XDIST_AUTO_NUM_WORKERS": "2", "OTHER": "kept"},
+                "autoMode": {"allow": ["mine"], "environment": ["private"]},
+                "autoCompactEnabled": False,
+                "hooks": {},
+            }
+        )
+    )
+
+    assert install.main([]) == 0
+
+    assert json.loads(machine.user_settings.read_text()) == {
+        "theme": "dark",
+        "env": {"OTHER": "kept"},
+        "autoMode": {"environment": ["private"]},
+        "hooks": {},
+    }
+    assert "autoMode.allow" in capsys.readouterr().out
+
+
+def test_writes_the_user_file_with_two_space_indentation_and_drops_a_container_it_emptied(machine):
+    machine.write_user_settings('{"env": {"PYTEST_XDIST_AUTO_NUM_WORKERS": "2"}, "theme": "ünï"}')
+
+    assert install.main([]) == 0
+
+    assert machine.user_settings.read_text() == '{\n  "theme": "ünï"\n}\n'
+
+
+def test_follows_a_user_file_link_and_keeps_its_mode(machine, tmp_path):
+    real = tmp_path / "dotfiles-settings.json"
+    real.write_text('{"autoCompactEnabled": true, "theme": "dark"}')
+    real.chmod(0o600)
+    machine.user_settings.parent.mkdir()
+    machine.user_settings.symlink_to(real)
+
+    assert install.main([]) == 0
+
+    assert machine.user_settings.is_symlink()
+    assert json.loads(real.read_text()) == {"theme": "dark"}
+    assert real.stat().st_mode & 0o777 == 0o600
+    assert sorted(path.name for path in tmp_path.iterdir() if path.name.startswith("dotfiles")) == ["dotfiles-settings.json"]
+
+
+@pytest.mark.parametrize(
+    "text",
+    ['{"theme":"dark","env":{"OTHER":"x"}}', '{"env": "not an object", "autoMode": []}', "{}"],
+    ids=["no-owned-key", "owned-containers-not-objects", "empty-object"],
+)
+def test_leaves_a_user_file_byte_for_byte_when_it_holds_no_shipped_setting(machine, text):
+    machine.write_user_settings(text)
+
+    assert install.main([]) == 0
+
+    assert machine.user_settings.read_text() == text
+
+
+def test_fails_loud_and_leaves_a_malformed_user_file_untouched(machine, capsys):
+    machine.write_user_settings("{broken")
+
+    assert install.main([]) == 1
+
+    assert "settings.json cannot be read as JSON" in capsys.readouterr().err
+    assert machine.user_settings.read_text() == "{broken"
+
+
+def test_creates_no_user_file_when_there_is_none(machine):
+    assert install.main([]) == 0
+
+    assert not machine.user_settings.exists()

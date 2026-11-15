@@ -27,6 +27,10 @@ Licensed under the [MIT License](LICENSE).
   the Codex and Claude Code marketplace catalogs.
 - `instructions/AGENTS.md` is the operator's contract and code policy for every
   agent; `instructions/HEAD.md` beside it is the part only the head reads.
+- `settings/claude-managed.json` holds the Claude Code settings every session
+  shares: the contract's test-worker count, the auto-mode allow rules and
+  auto-compact. It never holds private repository names or machine values; those
+  stay in `~/.claude/settings.json`.
 - A head starts the lane by its name, `atelier:lane`, with the Workflow tool.
   The name resolves to the plugin version the session loaded at its start: after
   an install, a running session runs the new version only once the operator types
@@ -49,6 +53,15 @@ It also links the contract into each provider's user-level instructions (see
 [Architecture](docs/ARCHITECTURE.md)) and `scripts/probe_run.sh` as `probe-run`, which starts a
 probe stack once the machine's load allows, into `~/.local/bin`, which must be on your `PATH`
 (the script warns when it is not).
+
+The install also validates `settings/claude-managed.json` and copies it to
+`~/.local/share/marketplace/claude-managed.json`; a file that is not valid
+leaves the previous copy in place and fails the install. Claude Code reads that
+copy as a managed-settings drop-in, which only you can link, once: while
+`/etc/claude-code/managed-settings.d/50-marketplace.json` is not a link to the
+copy, the install prints the `sudo` line for it and the `sudo rm` line that
+undoes it. Managed values beat `~/.claude/settings.json`, so the install removes
+the keys the file ships from the user file and leaves every other key.
 
 `codex plugin add` removes the previously installed version directory, so the
 script waits until no Codex job runs before it updates Codex. Afterwards start

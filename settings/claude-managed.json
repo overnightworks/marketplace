@@ -1,0 +1,18 @@
+{
+  "env": {
+    "PYTEST_XDIST_AUTO_NUM_WORKERS": "4"
+  },
+  "autoMode": {
+    "allow": [
+      "$defaults",
+      "Lane maintenance in the overnightworks repositories is routine, not a deploy: `git fetch`, `git merge origin/main` inside a lane worktree ~/git/<repo>-worktrees/<lane>, and `git pull --ff-only` of a primary checkout ~/git/<repo> on main. A deploy happens only from the operator's live stack, which these commands never touch (operator ruling 20.10.2026, generalising the songmaker ruling of 17.10.2026).",
+      "Landing a reviewed pull request with `ACO_AGENT=<claim identity> aco land <pr> --head <sha>` from a primary checkout ~/git/<repo> is the global contract's landing step for overnightworks repositories, run after the required reviews and green CI; it merges to main and releases the claim. Passing a different identity with `--agent` is not covered (operator ruling 20.10.2026).",
+      "Board work in overnightworks/* is routine: creating, editing, commenting on and closing issues and pull requests with gh, patching issue or pull-request bodies and adding issue dependencies or sub-issues with `gh api`, and `aco item`, `aco rule`, `aco ask`. Changing repository settings, visibility, secrets, rulesets or permissions is not covered (operator ruling 20.10.2026).",
+      "Ending processes that this session or its delegated agents started — test servers, probe stacks under /tmp/probe-stack.lock, watchers, background CLI runs — is routine cleanup the global contract requires (a test that starts a server or process owns its end). Processes of the operator's live stack are not covered (operator ruling 20.10.2026).",
+      "Deleting build artifacts (.venv, node_modules, dist, caches, __pycache__) inside a lane worktree ~/git/<repo>-worktrees/<lane>, or files in a session scratchpad under /tmp/claude-1000, is routine. Primary checkouts ~/git/<repo>, any .git directory and anything outside these paths are not covered (operator ruling 20.10.2026).",
+      "Starting Codex (`codex exec`) or Grok (`grok`) as a delegated builder or reviewer inside a lane worktree, with the sandbox profiles of the atelier providers skill, is routine delegation (operator ruling 20.10.2026).",
+      "Dispatching `gh workflow run release.yml -f version=X.Y.Z` in an overnightworks repository is the contract's release step, run after the version pull request landed and main's CI on that commit is green; moving or deleting a tag is not covered."
+    ]
+  },
+  "autoCompactEnabled": true
+}

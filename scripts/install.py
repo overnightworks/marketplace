@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Install or update the atelier plugin for every provider CLI found, and link the contract and probe-run."""
+"""Install or update the atelier plugin for every provider CLI found, link the contract and probe-run, and deliver the shared Claude Code settings."""
 # ruff: noqa: T201 - the install command reports what it ran and found
 
 from __future__ import annotations
@@ -23,7 +23,21 @@ PLUGIN = "atelier@atelier"
 
 PROBE_RUN = REPO_ROOT / "scripts" / "probe_run.sh"
 
+SHIPPED_SETTINGS = REPO_ROOT / "settings" / "claude-managed.json"
+MANAGED_SETTINGS_COPY = Path(".local") / "share" / "marketplace" / "claude-managed.json"
+USER_SETTINGS = Path(".claude") / "settings.json"
+MANAGED_DROP_IN = Path("/etc/claude-code/managed-settings.d/50-marketplace.json")
+# The settings marketplace owns: a top-level key maps to the nested keys it owns,
+# or to None when the whole key is owned. The shipped file may hold nothing else,
+# and the install removes exactly these from the user file.
+OWNED_SETTINGS: dict[str, tuple[str, ...] | None] = {
+    "env": ("PYTEST_XDIST_AUTO_NUM_WORKERS",),
+    "autoMode": ("allow",),
+    "autoCompactEnabled": None,
+}
+
 LOCAL_BIN = Path(".local") / "bin"
+ABSENT = object()  # distinguishes a missing key from one holding null or false
 
 LINKS = (
     (Path(".claude") / "CLAUDE.md", CONTRACT),
@@ -43,6 +57,8 @@ def main(argv: list[str] | None = None) -> int:
     try:
         link_shared_files(Path.home())
         warn_when_probe_run_is_off_path(Path.home())
+        install_managed_settings(Path.home())
+        strip_owned_settings_from_user_file(Path.home() / USER_SETTINGS)
         for provider in (install_claude, install_codex):
             provider(from_checkout=args.from_checkout)
     except InstallError as error:
@@ -82,6 +98,79 @@ def link_shared_files(home: Path) -> None:
     for link, target in links.items():
         if link not in missing:
             print(f"{link} already links {target.name}")
+
+
+def install_managed_settings(home: Path) -> None:
+    """Copy the validated shipped settings under home and say how to link them; a file that fails validation leaves the previous copy intact."""
+    shipped = read_json_object(SHIPPED_SETTINGS)
+    unowned = find_unowned_settings(shipped)
+    if unowned:
+        raise InstallError(f"{SHIPPED_SETTINGS} holds settings marketplace does not own: {', '.join(unowned)}")
+    copy = home / MANAGED_SETTINGS_COPY
+    copy.parent.mkdir(parents=True, exist_ok=True)
+    write_atomically(copy, SHIPPED_SETTINGS.read_text(encoding="utf-8"))
+    print(f"copied {SHIPPED_SETTINGS.name} to {copy}")
+    if not is_link_to(MANAGED_DROP_IN, copy):
+        print("One-time step, run it yourself (install.py never runs sudo):")
+        print(f"  sudo mkdir -p {MANAGED_DROP_IN.parent} && sudo ln -sfn {copy} {MANAGED_DROP_IN}")
+        print("Recovery if Claude Code stops starting:")
+        print(f"  sudo rm {MANAGED_DROP_IN}")
+
+
+def find_unowned_settings(settings: dict) -> list[str]:
+    """Name every shipped path outside OWNED_SETTINGS; a nested key that is not an object counts as unowned."""
+    unowned = []
+    for key, value in settings.items():
+        owned_keys = OWNED_SETTINGS.get(key, ())
+        if key not in OWNED_SETTINGS or (owned_keys is not None and not isinstance(value, dict)):
+            unowned.append(key)
+        elif owned_keys is not None:
+            unowned.extend(f"{key}.{nested}" for nested in value if nested not in owned_keys)
+    return unowned
+
+
+def strip_owned_settings_from_user_file(user_file: Path) -> None:
+    """Remove the owned settings from the user file, writing only when one was there; a file that does not parse stays as it is."""
+    if not user_file.exists():
+        return
+    settings = read_json_object(user_file)
+    removed = [path for key, owned_keys in OWNED_SETTINGS.items() for path in remove_owned(settings, key, owned_keys)]
+    if removed:
+        write_atomically(user_file, json.dumps(settings, indent=2, ensure_ascii=False) + "\n")
+        print(f"removed from {user_file}, now shipped: {', '.join(removed)}")
+
+
+def remove_owned(settings: dict, key: str, owned_keys: tuple[str, ...] | None) -> list[str]:
+    """Delete one owned entry from settings and return its dotted paths; a container this empties goes too."""
+    if owned_keys is None:
+        return [key] if settings.pop(key, ABSENT) is not ABSENT else []
+    container = settings.get(key)
+    if not isinstance(container, dict):
+        return []
+    removed = [f"{key}.{nested}" for nested in owned_keys if container.pop(nested, ABSENT) is not ABSENT]
+    if removed and not container:
+        del settings[key]
+    return removed
+
+
+def read_json_object(path: Path) -> dict:
+    try:
+        settings = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as error:
+        raise InstallError(f"{path} cannot be read as JSON: {error}") from error
+    if not isinstance(settings, dict):
+        raise InstallError(f"{path} is not a JSON object")
+    return settings
+
+
+def write_atomically(path: Path, text: str) -> None:
+    """Replace path in one step, keeping its mode and following a link, so a reader never sees half a file."""
+    target = path.resolve()
+    temporary = target.with_name(f"{target.name}.tmp")
+    temporary.write_text(text, encoding="utf-8")
+    if target.exists():
+        shutil.copymode(target, temporary)
+    temporary.replace(target)
 
 
 def warn_when_probe_run_is_off_path(home: Path) -> None:

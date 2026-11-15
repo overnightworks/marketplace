@@ -1,0 +1,7 @@
+claim_id = "ee25ae977c794e5680194187123050ca"
+agent = "Claude 30ec126a-30e5-431d-a4c3-088d393726d4"
+role = "builder"
+base = "f2ac43aa919fe7fbeea41c3f200001986758f8a3"
+branch = "docs/logging-standard"
+scope = ["docs/standards.md"]
+opened_commit = "28c453f66b6ff4ae4d38d4830a2394210140932d"

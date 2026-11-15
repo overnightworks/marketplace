@@ -102,10 +102,8 @@ A read-only audit returns FINDING, KEPT, UNKNOWN and VERIFICATION lines only,
 then `CLEAN` when no findings remain; FIXED lines appear only when editing was
 requested.
 
-Severity: `blocking` is a defect against the skill's contract or a repository
-rule, or anything touching data safety, security, secrets, a public contract or
-a failing check; `follow-up` is polish with no behavioural effect, or work
-outside the audited skill's scope.
+Severity: `blocking` and `follow-up` mean what the global contract's section
+"Reviews" says; work outside the audited skill's scope is follow-up.
 A pointer to another owner (for example the coordination contract named at the
 top of `AGENTS.md`) is in scope only for whether its target exists; its content
 belongs to that owner.

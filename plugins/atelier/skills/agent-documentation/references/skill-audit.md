@@ -103,12 +103,11 @@ Do not propose a check from imagination.
 One distributor issue per audit run, holding the numbered findings, each with
 skill, rule, evidence type and evidence. Write each finding as a `FINDING`
 line in the format of agent-documentation's own `SKILL.md` Output, with
-severity from the global contract's classification (`~/.claude/CLAUDE.md`):
+severity from the global contract's section "Reviews" (`~/.claude/CLAUDE.md`).
+Default when no contract is installed, the one copy kept for that case:
 `blocking` is a defect against the skill's contract or a repository rule, or
 anything touching data safety, security, secrets, a public contract or a
-failing check; `follow-up` is polish with no behavioural effect, or work
-outside the audited skill's scope. Default when no contract is installed: the same
-two classes with that definition. A finding becomes its own item only when it
+failing check; `follow-up` is anything else. A finding becomes its own item only when it
 is dispatched. Write the body per the `aco` skill. Defaults when aco is not
 installed: the repository's issue template; in a dry run, the FINDING lines
 under a one-line header.

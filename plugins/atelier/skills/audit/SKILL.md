@@ -116,10 +116,9 @@ names the call and its reason.
   under normal operation; `MEDIUM` is drift or a gap needing a precondition;
   `LOW` is localized or arguable. Each lens adds examples; `ownership` and
   `deadweight` grade by the scale as worded. For a change audit, against the
-  global contract: `HIGH` is blocking; `MEDIUM` is blocking when it breaks a
-  ruled sentence, a contract or a repository rule, or touches data safety,
-  security, secrets or a public contract, otherwise follow-up; `LOW` is
-  follow-up. On code the audit did not change everything is follow-up, and
+  global contract: `HIGH` is blocking; `MEDIUM` is blocking when it meets the
+  contract's section "Reviews" definition of blocking, otherwise follow-up;
+  `LOW` is follow-up. On code the audit did not change everything is follow-up, and
   the head classifies it.
 - **Finding record.** Every lens emits this record under a heading per check
   that has findings; a lens reference adds only its named extra fields.

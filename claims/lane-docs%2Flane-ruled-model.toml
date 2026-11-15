@@ -1,0 +1,8 @@
+claim_id = "d64d8a966e064f88a3019320c03dd472"
+agent = "Claude 30ec126a-30e5-431d-a4c3-088d393726d4"
+role = "builder"
+base = "d3743b06f53ba2034f3629f1fb4686d51713e041"
+branch = "docs/lane-ruled-model"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/workflows/lane.md"]
+opened_commit = "8405d30a46db572d833558ab280e96217cfa51b3"
+whole_reason = "One lane.md sentence and the three version files the plugin rule raises together."

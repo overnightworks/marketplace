@@ -346,7 +346,7 @@ const wholeLaneRounds = [
 ]
 
 for (const [what, args, answers] of wholeLaneRounds) {
-  for (const [risk, deltaFrom] of [['normal'], ['material'], ['normal', olderTip], ['material', olderTip]]) {
+  for (const [risk, deltaFrom] of [['normal'], ['material'], ['normal', olderTip], ['material', olderTip], ['normal', resumeTip], ['material', resumeTip]]) {
     const gated = risk === 'material'
     const diffCommand = deltaFrom ? `git diff ${deltaFrom}..HEAD` : 'git diff origin/main...HEAD'
     test(`resume round (${risk}, ${what}${deltaFrom ? ', deltaFrom' : ''}) reviews ${gated ? 'and gates ' : ''}on ${diffCommand}`, async () => {

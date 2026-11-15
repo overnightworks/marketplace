@@ -228,12 +228,12 @@ Every review finding is marked **blocking** or **follow-up**.
   targeted test run's own throwaway database container is no probe stack: it
   keeps the load check too, without `probe-run`. A repository script may
   choose its own `-k K CAP` with CAP + K ≤ 1830 and K at least its measured
-  teardown, stated next to the numbers. `<command>` is an executable (a script or `bash -c '…'`); a
-  script that starts containers tears them and the images it built down in
-  `trap '<teardown>' EXIT TERM` and stops a child that detaches itself by pid.
-  The cap ends the stack even if you stop, and a stack that needs longer is
-  cut, not raised. Never skip the proof, never point at the operator's live
-  stack. Drive only the slice's flow, at the widths the brief names. A test
+  teardown, stated next to the numbers. `<command>` is an executable (a script
+  or `bash -c '…'`); a script that starts containers tears them and the images
+  it built down in `trap '<teardown>' EXIT TERM` and stops a child that detaches
+  itself by pid. The cap ends the stack even if you stop, and a stack that needs
+  longer is cut, not raised. Never skip the proof, never point at the operator's
+  live stack. Drive only the slice's flow, at the widths the brief names. A test
   that starts a process ends it before its worktree is removed.
 - The operator's live store is read only once he allowed it in this session,
   by a delegated agent: read-only queries (a read-only transaction or role),

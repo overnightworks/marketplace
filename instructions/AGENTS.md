@@ -222,18 +222,18 @@ Every review finding is marked **blocking** or **follow-up**.
   Docker probe stack or targeted E2E run drives only as `probe-run [-k K CAP]
   <command>`, which waits up to an hour for the 1-minute load to fall below
   1.5 × cores, then runs `setpriv --pdeathsig TERM timeout -k K CAP <command>`
-  (default K 30, CAP 1800). Building the page, installing dependencies and
-  starting a throwaway database run before `probe-run`, which wraps only the
-  drive. A targeted test run's own throwaway database container is no probe
-  stack: it keeps the load check, the `setpriv`/`timeout` cap and the trapped
-  teardown, without `probe-run`. A repository script may choose its own `-k K
-  CAP` with CAP + K ≤ 1830 and K at least its measured teardown, stated next
-  to the numbers. `<command>` is an executable (a script or `bash -c '…'`); a
-  script that starts containers tears them and the images it built down in
-  `trap '<teardown>' EXIT TERM` and stops a child that detaches itself by pid.
-  The cap ends the stack even if you stop, and a stack that needs longer is
-  cut, not raised. Never skip the proof, never point at the operator's live
-  stack. Drive only the slice's flow, at the widths the brief names. A test
+  (default K 30, CAP 1800). Building, installing and starting a throwaway
+  database run before `probe-run`, which wraps only the drive, under the
+  `setpriv`/`timeout` cap and the trapped teardown but without a load wait. A
+  targeted test run's own throwaway database container is no probe stack: it
+  keeps the load check too, without `probe-run`. A repository script may
+  choose its own `-k K CAP` with CAP + K ≤ 1830 and K at least its measured
+  teardown, stated next to the numbers. `<command>` is an executable (a script
+  or `bash -c '…'`); a script that starts containers tears them and the images
+  it built down in `trap '<teardown>' EXIT TERM` and stops a child that detaches
+  itself by pid. The cap ends the stack even if you stop, and a stack that needs
+  longer is cut, not raised. Never skip the proof, never point at the operator's
+  live stack. Drive only the slice's flow, at the widths the brief names. A test
   that starts a process ends it before its worktree is removed.
 - The operator's live store is read only once he allowed it in this session,
   by a delegated agent: read-only queries (a read-only transaction or role),

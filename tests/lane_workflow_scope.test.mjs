@@ -1,7 +1,7 @@
 // Drives the atelier lane workflow script through the sync, push, claim scope and rescope rules with a stub agent runner.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { runLane, resumedLane, APPROVE, PASS, greenCi, finding, agentProvidersReplay, tidy, satisfied, unchangedFix, webauthReplay, answersWith, resumeTip, resumeFixedTip, defectWithoutDraft, resumeFix, resumeArgs, built, mergedOnlyTip, conflictsWithMain, mergeOnlyFix, reachesTheEnd } from './lane_workflow_harness.mjs'
+import { runLane, resumedLane, APPROVE, PASS, greenCi, finding, agentProvidersReplay, tidy, satisfied, unchangedFix, webauthReplay, answersWith, resumeTip, olderTip, resumeFixedTip, defectWithoutDraft, resumeFix, resumeArgs, built, mergedOnlyTip, conflictsWithMain, mergeOnlyFix, reachesTheEnd } from './lane_workflow_harness.mjs'
 
 const builtLane = { ...resumedLane, pr: undefined, tip: undefined, build: 'b' }
 
@@ -22,13 +22,13 @@ const scopeStops = [
   ['AC-scope-stop-not-bounce: a resume whose inherited commits are outside the claim ends at scope and names no deltaFrom',
     resumeArgs, { 'scope-resume': outsideClaim(unjudgeableOutside) }, ['sync', 'scope-resume'], resumeTip, [/earlier run/]],
   ['AC-scope-stop-not-bounce: a resume with deltaFrom alone whose inherited commits are outside the claim names no deltaFrom',
-    { ...resumeArgs, deltaFrom: resumeTip }, { 'scope-resume': outsideClaim(unjudgeableOutside) }, ['sync', 'scope-resume'], resumeTip, [/earlier run/]],
+    { ...resumeArgs, deltaFrom: olderTip }, { 'scope-resume': outsideClaim(unjudgeableOutside) }, ['sync', 'scope-resume'], resumeTip, [/earlier run/]],
   ['AC-scope-stop-not-bounce: a builder that left the claim scope ends at scope and names no deltaFrom, so the new run reviews the whole lane',
     builtLane, { build: built, 'scope-0': outsideClaim(unjudgeableOutside) }, ['build', 'scope-0'], resumeTip, [/No reviewer has seen the build/, /whole lane/]],
   ['AC-scope-stop-not-bounce: a carried batch that ends outside the claim says the paths may come from earlier commits and names no deltaFrom',
     { ...resumeArgs, fixFirst: [defectWithoutDraft] }, { 'fix-1': aFixFor, 'scope-1': outsideClaim(unjudgeableOutside) }, ['sync', 'fix-1', 'scope-1'], resumeFixedTip, [/earlier commits/]],
   ['AC-scope-stop-not-bounce: a carried batch with deltaFrom that ends outside the claim names the deltaFrom the run was given',
-    { ...resumeArgs, fixFirst: [defectWithoutDraft], deltaFrom: resumeTip }, { 'fix-1': aFixFor, 'scope-1': outsideClaim(unjudgeableOutside) }, ['sync', 'fix-1', 'scope-1'], resumeFixedTip, [`deltaFrom ${resumeTip}`, /earlier commits/]],
+    { ...resumeArgs, fixFirst: [defectWithoutDraft], deltaFrom: olderTip }, { 'fix-1': aFixFor, 'scope-1': outsideClaim(unjudgeableOutside) }, ['sync', 'fix-1', 'scope-1'], resumeFixedTip, [`deltaFrom ${olderTip}`, /earlier commits/]],
 ]
 
 for (const [behaviour, args, answers, expectedAgents, expectedTip, reasonParts] of scopeStops) {

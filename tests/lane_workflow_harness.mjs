@@ -307,6 +307,8 @@ export function answersWith(replay, { kind, mutation, testDraft = false, passesA
 
 export const resumeTip = 'c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0'
 
+export const olderTip = 'b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2'
+
 export const resumeFixedTip = 'd1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1'
 
 export const tidy = followup('x.py:1', 'tidy the import order', 'follow-up (fix in place)')

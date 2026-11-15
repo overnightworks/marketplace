@@ -2,7 +2,7 @@
 import fs from 'node:fs'
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { runLane, APPROVE, PASS, greenCi, finding, followup, webauthTips, webauthReplay, agentProvidersReplay, replays, answersWith, outOfRange, mainMovedTip, mergedOnlyTip, resumeTip, resumeFixedTip, tidy, defectWithoutDraft, resumeFix, mergeOnlyFix, resumeArgs, unchangedFix, satisfied, reachesTheEnd, testGap, built, secondFix } from './lane_workflow_harness.mjs'
+import { runLane, APPROVE, PASS, greenCi, finding, followup, webauthTips, webauthReplay, agentProvidersReplay, replays, answersWith, outOfRange, mainMovedTip, mergedOnlyTip, resumeTip, olderTip, resumeFixedTip, tidy, defectWithoutDraft, resumeFix, mergeOnlyFix, resumeArgs, unchangedFix, satisfied, reachesTheEnd, testGap, built, secondFix } from './lane_workflow_harness.mjs'
 
 const proofsByKind = [
   ['a resumed run whose findings carry no kind stops at the fix as before', { kind: undefined, testDraft: true, mutation: true }, false],
@@ -106,7 +106,7 @@ for (const [batch, handedOver, model, effort] of fixBatchRouting) {
 
 const resumesByHandedOver = [
   ['foldIn alone', { foldIn: [tidy] }, ['sync', 'fix-1', 'scope-1', 'r1-review']],
-  ['foldIn alone with deltaFrom', { foldIn: [tidy], deltaFrom: resumeTip }, ['sync', 'fix-1', 'scope-1', 'r1-review']],
+  ['foldIn alone with deltaFrom', { foldIn: [tidy], deltaFrom: olderTip }, ['sync', 'fix-1', 'scope-1', 'r1-review']],
   ['neither foldIn nor fixFirst', {}, ['sync', 'scope-resume', 'r0-review']],
 ]
 
@@ -332,7 +332,7 @@ test('the delta re-check names each not-run test, its reason and the half that w
 
 test('a carried batch whose fixer gave a supporting proof without evidence hands it to the delta re-check', async () => {
   const regression = [proofOf(1, { mutation: 'drop the guard' }), proofOf(1, { test: 'supporting_test.py [image]' })]
-  const { agentCalls } = await runLane({ ...resumeArgs, fixFirst: [testGap], deltaFrom: resumeTip, answers: 'fixed' }, { 'fix-1': { ...resumeFix, regression } })
+  const { agentCalls } = await runLane({ ...resumeArgs, fixFirst: [testGap], deltaFrom: olderTip, answers: 'fixed' }, { 'fix-1': { ...resumeFix, regression } })
   assert.match(agentCalls['r1-review'].prompt, /supporting_test\.py \[image\].*named no mutation/s)
 })
 
@@ -340,7 +340,7 @@ const diffLessRemovalBesideValidProof = [proofOf(1, { mutation: 'drop the guard'
 
 const diffLessRemovalRanges = [
   ['first fix', { fixFirst: [testGap] }],
-  ['carried batch', { fixFirst: [testGap], deltaFrom: resumeTip, answers: 'fixed' }],
+  ['carried batch', { fixFirst: [testGap], deltaFrom: olderTip, answers: 'fixed' }],
 ]
 
 for (const [range, rangeArgs] of diffLessRemovalRanges) {

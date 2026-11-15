@@ -1226,6 +1226,9 @@ const openResult = async (status, stage, extra = {}) => {
   }
 }
 
+// An empty delta has no reviewer to satisfy, and the lane cannot verify an earlier approval; the head names the honest resume.
+if (sameCommit(A.deltaFrom, A.tip)) return await openResult('failed', 'input', { reason: 'deltaFrom is the tip, so the delta is empty and nothing is reviewed. Start the run again without deltaFrom for a full review, or name the commit before the commits no reviewer has seen as deltaFrom.' })
+
 // ---------------------------------------------------------------- build
 if (A.build) {
   phase('Build')

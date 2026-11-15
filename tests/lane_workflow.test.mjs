@@ -1,7 +1,7 @@
 // Drives the atelier lane workflow script through its inputs with a stub agent runner, so no subagent ever starts.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { runLane, partReplaced, courierBriefOf, resumedLane, APPROVE, PASS, resumeFixedTip, greenCi, finding, webauthTips, webauthReplay, agentProvidersReplay, answersWith, resumeTip, tidy, defectWithoutDraft, resumeFix, resumeArgs, unchangedFix, satisfied, reachesTheEnd, secondFix, mergedOnlyTip, conflictsWithMain, mergeOnlyFix, delegatedLineOfContract } from './lane_workflow_harness.mjs'
+import { runLane, partReplaced, courierBriefOf, resumedLane, APPROVE, PASS, resumeFixedTip, greenCi, finding, webauthTips, webauthReplay, agentProvidersReplay, answersWith, resumeTip, olderTip, tidy, defectWithoutDraft, resumeFix, resumeArgs, unchangedFix, satisfied, reachesTheEnd, secondFix, mergedOnlyTip, conflictsWithMain, mergeOnlyFix, delegatedLineOfContract } from './lane_workflow_harness.mjs'
 
 const misspelledChoices = [
   ['risk', 'Material'], ['risk', 'MATERIAL'], ['risk', 'high'],
@@ -346,7 +346,7 @@ const wholeLaneRounds = [
 ]
 
 for (const [what, args, answers] of wholeLaneRounds) {
-  for (const [risk, deltaFrom] of [['normal'], ['material'], ['normal', resumeTip], ['material', resumeTip]]) {
+  for (const [risk, deltaFrom] of [['normal'], ['material'], ['normal', olderTip], ['material', olderTip]]) {
     const gated = risk === 'material'
     const diffCommand = deltaFrom ? `git diff ${deltaFrom}..HEAD` : 'git diff origin/main...HEAD'
     test(`resume round (${risk}, ${what}${deltaFrom ? ', deltaFrom' : ''}) reviews ${gated ? 'and gates ' : ''}on ${diffCommand}`, async () => {
@@ -526,6 +526,16 @@ for (const experiment of ['Haiku', 'a b', '', 'x'.repeat(41), 'a;b']) {
     assert.deepEqual(launchedAgents, [])
   })
 }
+
+test('deltaFrom equal to the tip (also as a short sha) ends failed at input before any agent runs, naming both resumes', async () => {
+  for (const deltaFrom of [resumeTip, resumeTip.slice(0, 12)]) {
+    const { result, launchedAgents } = await runLane({ ...resumeArgs, deltaFrom })
+    assert.deepEqual([result.status, result.stage], ['failed', 'input'])
+    assert.match(result.reason, /without deltaFrom for a full review/)
+    assert.match(result.reason, /commit before the commits no reviewer has seen/)
+    assert.deepEqual(launchedAgents, [])
+  }
+})
 
 test('routing-line-problem: a lane-routing that answers with a problem leaves the lane result and names the problem in the Routing line', async () => {
   const { result } = await runLane({ ...resumeArgs, deltaFrom: 'not a sha' }, {}, { transform: partReplaced('laneRouting', "return { problem: 'the printer broke' }") })

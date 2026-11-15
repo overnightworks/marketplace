@@ -65,6 +65,8 @@ The lane needs a repository that coordinates with aco, after the head ran
 - `deltaFrom`: none. A sha; review only the commits since it, after the head
   settled an awaiting-head result. Without it, a new run with `pr` and `tip` and
   `fixFirst` or `foldIn` reviews the whole lane, with the gate on a material lane.
+  A `deltaFrom` equal to `tip` fails at stage `input` before any agent runs: drop it for
+  a full review, or name the commit before the commits no reviewer has seen.
 - `answers`: none. What those commits answer.
 - `fixFirst`: none. `Finding[]`, blocking findings a fresh fixer answers before
   anything else.

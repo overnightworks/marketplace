@@ -3,6 +3,6 @@ agent = "Claude 30ec126a-30e5-431d-a4c3-088d393726d4"
 role = "builder"
 base = "949b92e8ed561ae9527ff26ffd0f22f60d3b981b"
 branch = "claude/issue-756-lane-blocking-line-one-owner"
-scope = ["plugins/atelier/lane", "plugins/atelier/workflows/lane.js", "tests"]
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/lane", "plugins/atelier/workflows/lane.js", "tests"]
 opened_commit = "07db4f7e33b0e513977bfca6e879db36d42dff1d"
 whole_reason = "The brief's source, its generated bundle and the harness tests change together with the version files."

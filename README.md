@@ -60,8 +60,11 @@ leaves the previous copy in place and fails the install. Claude Code reads that
 copy as a managed-settings drop-in, which only you can link, once: while
 `/etc/claude-code/managed-settings.d/50-marketplace.json` is not a link to the
 copy, the install prints the `sudo` line for it and the `sudo rm` line that
-undoes it. Managed values beat `~/.claude/settings.json`, so the install removes
-the keys the file ships from the user file and leaves every other key.
+undoes it. Managed values beat `~/.claude/settings.json`, so once the drop-in
+links the copy the install removes the keys the file ships from the user file
+and leaves every other key; until then it leaves the user file alone and says
+so. An unreadable user file or a shipped value of the wrong type fails the
+install before the copy or a `sudo` line.
 
 `codex plugin add` removes the previously installed version directory, so the
 script waits until no Codex job runs before it updates Codex. Afterwards start

@@ -90,6 +90,10 @@ class Machine:
     def user_settings(self) -> Path:
         return self.home / ".claude" / "settings.json"
 
+    def link_drop_in(self) -> None:
+        self.drop_in.parent.mkdir(parents=True, exist_ok=True)
+        self.drop_in.symlink_to(self.managed_copy)
+
     def write_user_settings(self, text: str) -> Path:
         self.user_settings.parent.mkdir(parents=True, exist_ok=True)
         self.user_settings.write_text(text)
@@ -469,6 +473,10 @@ def test_prints_the_sudo_step_again_when_the_drop_in_links_elsewhere(machine, tm
         pytest.param('{"enabledPlugins": {}}', "enabledPlugins", id="unshipped-top-level-key"),
         pytest.param('{"env": {"HOME": "/tmp"}}', "env.HOME", id="unshipped-nested-key"),
         pytest.param('{"autoMode": ["allow"]}', "autoMode", id="owned-container-not-an-object"),
+        pytest.param('{"autoCompactEnabled": "yes"}', "autoCompactEnabled must be a boolean", id="flag-not-a-boolean"),
+        pytest.param('{"env": {"PYTEST_XDIST_AUTO_NUM_WORKERS": 4}}', "PYTEST_XDIST_AUTO_NUM_WORKERS must be a string", id="env-value-not-a-string"),
+        pytest.param('{"autoMode": {"allow": "$defaults"}}', "autoMode.allow must be a list of strings", id="allow-not-a-list"),
+        pytest.param('{"autoMode": {"allow": ["fine", 1]}}', "autoMode.allow must be a list of strings", id="allow-item-not-a-string"),
     ],
 )
 def test_fails_loud_and_keeps_the_previous_copy_when_the_shipped_settings_are_invalid(
@@ -490,6 +498,7 @@ def test_fails_loud_and_keeps_the_previous_copy_when_the_shipped_settings_are_in
 
 
 def test_removes_only_the_shipped_settings_from_the_user_file(machine, capsys):
+    machine.link_drop_in()
     machine.write_user_settings(
         json.dumps(
             {
@@ -514,6 +523,7 @@ def test_removes_only_the_shipped_settings_from_the_user_file(machine, capsys):
 
 
 def test_writes_the_user_file_with_two_space_indentation_and_drops_a_container_it_emptied(machine):
+    machine.link_drop_in()
     machine.write_user_settings('{"env": {"PYTEST_XDIST_AUTO_NUM_WORKERS": "2"}, "theme": "ünï"}')
 
     assert install.main([]) == 0
@@ -522,6 +532,7 @@ def test_writes_the_user_file_with_two_space_indentation_and_drops_a_container_i
 
 
 def test_follows_a_user_file_link_and_keeps_its_mode(machine, tmp_path):
+    machine.link_drop_in()
     real = tmp_path / "dotfiles-settings.json"
     real.write_text('{"autoCompactEnabled": true, "theme": "dark"}')
     real.chmod(0o600)
@@ -549,13 +560,43 @@ def test_leaves_a_user_file_byte_for_byte_when_it_holds_no_shipped_setting(machi
     assert machine.user_settings.read_text() == text
 
 
-def test_fails_loud_and_leaves_a_malformed_user_file_untouched(machine, capsys):
+@pytest.mark.parametrize("drop_in", ["missing", "links-elsewhere"])
+def test_leaves_the_owned_user_settings_untouched_until_the_drop_in_links_the_copy(machine, tmp_path, capsys, drop_in):
+    user_text = '{"env": {"PYTEST_XDIST_AUTO_NUM_WORKERS": "2"}, "autoCompactEnabled": false}'
+    machine.write_user_settings(user_text)
+    if drop_in == "links-elsewhere":
+        machine.drop_in.parent.mkdir()
+        machine.drop_in.symlink_to(tmp_path / "elsewhere.json")
+
+    assert install.main([]) == 0
+
+    assert machine.user_settings.read_text() == user_text
+    output = capsys.readouterr().out
+    assert "until the drop-in links the copy" in output
+    assert "env.PYTEST_XDIST_AUTO_NUM_WORKERS" in output
+
+
+def test_strips_the_owned_user_settings_on_the_install_after_the_link_exists(machine):
+    machine.write_user_settings('{"autoCompactEnabled": false, "theme": "dark"}')
+    assert install.main([]) == 0
+    machine.link_drop_in()
+
+    assert install.main([]) == 0
+
+    assert json.loads(machine.user_settings.read_text()) == {"theme": "dark"}
+
+
+def test_fails_loud_before_copying_or_printing_a_sudo_step_when_the_user_file_is_malformed(machine, capsys):
     machine.write_user_settings("{broken")
 
     assert install.main([]) == 1
 
-    assert "settings.json cannot be read as JSON" in capsys.readouterr().err
+    captured = capsys.readouterr()
+    assert "settings.json cannot be read as JSON" in captured.err
+    assert "sudo" not in captured.out
     assert machine.user_settings.read_text() == "{broken"
+    assert not machine.managed_copy.exists()
+    assert machine.commands() == []
 
 
 def test_creates_no_user_file_when_there_is_none(machine):
@@ -575,6 +616,7 @@ def test_prints_a_sudo_step_that_survives_a_home_with_spaces(machine, tmp_path, 
 
 
 def test_leaves_a_file_beside_the_user_file_alone_whatever_its_name(machine, tmp_path):
+    machine.link_drop_in()
     victim = tmp_path / "victim.txt"
     victim.write_text("keep")
     real = tmp_path / "dotfiles-settings.json"

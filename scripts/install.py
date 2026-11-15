@@ -14,6 +14,7 @@ import subprocess
 import sys
 import tempfile
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -39,6 +40,13 @@ OWNED_SETTINGS: dict[str, tuple[str, ...] | None] = {
     "autoCompactEnabled": None,
 }
 
+# The value type of each owned setting, by dotted path, with the check that holds it.
+OWNED_SETTING_TYPES: dict[str, tuple[str, Callable[[object], bool]]] = {
+    "env.PYTEST_XDIST_AUTO_NUM_WORKERS": ("a string", lambda value: isinstance(value, str)),
+    "autoMode.allow": ("a list of strings", lambda value: isinstance(value, list) and all(isinstance(item, str) for item in value)),
+    "autoCompactEnabled": ("a boolean", lambda value: isinstance(value, bool)),
+}
+
 LOCAL_BIN = Path(".local") / "bin"
 NEW_FILE_MODE = 0o644
 ABSENT = object()  # distinguishes a missing key from one holding null or false
@@ -59,10 +67,14 @@ CODEX_WAIT_NOTE = "Codex removes the installed version directory on update, so t
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     try:
-        link_shared_files(Path.home())
-        warn_when_probe_run_is_off_path(Path.home())
-        install_managed_settings(Path.home())
-        strip_owned_settings_from_user_file(Path.home() / USER_SETTINGS)
+        home = Path.home()
+        user_file = home / USER_SETTINGS
+        user_settings = read_json_object(user_file) if user_file.exists() else None
+        link_shared_files(home)
+        warn_when_probe_run_is_off_path(home)
+        install_managed_settings(home)
+        if user_settings is not None:
+            strip_owned_settings_from_user_file(user_file, user_settings, linked=is_link_to(MANAGED_DROP_IN, home / MANAGED_SETTINGS_COPY))
         for provider in (install_claude, install_codex):
             provider(from_checkout=args.from_checkout)
     except InstallError as error:
@@ -110,6 +122,9 @@ def install_managed_settings(home: Path) -> None:
     unowned = find_unowned_settings(shipped)
     if unowned:
         raise InstallError(f"{SHIPPED_SETTINGS} holds settings marketplace does not own: {', '.join(unowned)}")
+    mistyped = find_mistyped_settings(shipped)
+    if mistyped:
+        raise InstallError(f"{SHIPPED_SETTINGS} holds settings of the wrong type: {', '.join(mistyped)}")
     copy = home / MANAGED_SETTINGS_COPY
     copy.parent.mkdir(parents=True, exist_ok=True)
     write_atomically(copy, SHIPPED_SETTINGS.read_text(encoding="utf-8"))
@@ -134,15 +149,28 @@ def find_unowned_settings(settings: dict) -> list[str]:
     return unowned
 
 
-def strip_owned_settings_from_user_file(user_file: Path) -> None:
-    """Remove the owned settings from the user file, writing only when one was there; a file that does not parse stays as it is."""
-    if not user_file.exists():
-        return
-    settings = read_json_object(user_file)
+def find_mistyped_settings(settings: dict) -> list[str]:
+    """Name every owned shipped value whose type is wrong; only paths that hold a value count."""
+    mistyped = []
+    for path, (description, holds) in OWNED_SETTING_TYPES.items():
+        value = settings
+        for part in path.split("."):
+            value = value.get(part, ABSENT) if isinstance(value, dict) else ABSENT
+        if value is not ABSENT and not holds(value):
+            mistyped.append(f"{path} must be {description}")
+    return mistyped
+
+
+def strip_owned_settings_from_user_file(user_file: Path, settings: dict, *, linked: bool) -> None:
+    """Remove the owned settings from the user file once the drop-in links the installed copy, so a value is never in neither layer; writes only when one was there."""
     removed = [path for key, owned_keys in OWNED_SETTINGS.items() for path in remove_owned(settings, key, owned_keys)]
-    if removed:
-        write_atomically(user_file, json.dumps(settings, indent=2, ensure_ascii=False) + "\n")
-        print(f"removed from {user_file}, now shipped: {', '.join(removed)}")
+    if not removed:
+        return
+    if not linked:
+        print(f"{user_file} keeps its shipped settings ({', '.join(removed)}) until the drop-in links the copy; the next install removes them")
+        return
+    write_atomically(user_file, json.dumps(settings, indent=2, ensure_ascii=False) + "\n")
+    print(f"removed from {user_file}, now shipped: {', '.join(removed)}")
 
 
 def remove_owned(settings: dict, key: str, owned_keys: tuple[str, ...] | None) -> list[str]:

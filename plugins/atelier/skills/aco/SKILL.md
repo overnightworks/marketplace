@@ -224,10 +224,12 @@ named task, but the precondition is aco's. The landing task runs under the claim
 identity. A subagent of the claiming head's own provider inherits it and passes neither
 `ACO_AGENT` nor `--agent`; an agent started through another provider's CLI (`grok`,
 `codex`) can carry its own session variable, so the head does not hand the landing to
-one. Any other identity, including a later session resuming the lane, is refused with
-`only the original claimant may release` and lands as the holder with
-`ACO_AGENT='<holder>' aco land <pr> --head <sha>`, never with `--agent`, which Claude
-Code's auto mode denies.
+one. Any other identity is refused. A later session resuming an issue lane whose claim
+an earlier session holds (`aco status` prints the holder before its `(role)`) first runs
+`aco handover <n> --from '<holder>' --reason '<why, e.g. the operator restarted the head>'`
+once, then lands, releases and rescopes as the holder (`specs/handover.spec.md`); never
+`--agent` or `ACO_AGENT='<holder>'`. An issue-less lane claim has no handover: its landing or release is the operator's
+step.
 
 1. Stand in a clean checkout of the default branch — the primary checkout, never the
    lane worktree.

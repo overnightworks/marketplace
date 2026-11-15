@@ -106,6 +106,12 @@ gpt-6-astra/high.
   started once more. A second mismatch returns awaiting-head at stage `review`
   with the resume arguments of the usage limit (`pr`, `tip`, and on a delta round
   `deltaFrom` and `answers`) instead of failed.
+- A Codex courier kills the detached run when its run log stays unchanged for
+  600 seconds (healthy gates stayed silent at most 39 seconds), and the review
+  starts the courier once more with the same model. A second silent run returns
+  awaiting-head at stage `review` with the resume arguments of the usage limit
+  (`pr`, `tip`, and on a delta round `deltaFrom` and `answers`); the gate never
+  falls back to another model.
 - A courier that cuts its brief out of its own workflow transcript and finds
   none, twice, returns awaiting-head at stage `review` with `requiredHeadActions`
   (report the defect to marketplace, run the gate through `routing.gate`) and no

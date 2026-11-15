@@ -225,10 +225,11 @@ identity. A subagent of the claiming head's own provider inherits it and passes 
 `ACO_AGENT` nor `--agent`; an agent started through another provider's CLI (`grok`,
 `codex`) can carry its own session variable, so the head does not hand the landing to
 one. Any other identity is refused. A later session resuming an issue lane whose claim
-an earlier session holds (`aco status` prints the holder) first runs
+an earlier session holds (`aco status` prints the holder before its `(role)`) first runs
 `aco handover <n> --from '<holder>' --reason '<why, e.g. the operator restarted the head>'`
 once, then lands, releases and rescopes as the holder (`specs/handover.spec.md`); never
-`--agent` or `ACO_AGENT='<holder>'`. An issue-less lane claim has no handover.
+`--agent` or `ACO_AGENT='<holder>'`. An issue-less lane claim has no handover: its landing or release is the operator's
+step.
 
 1. Stand in a clean checkout of the default branch — the primary checkout, never the
    lane worktree.

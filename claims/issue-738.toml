@@ -1,8 +1,0 @@
-claim_id = "0cf0563a18304089a145610b2d029cc0"
-agent = "Claude 30ec126a-30e5-431d-a4c3-088d393726d4"
-role = "builder"
-base = "6461b5471c2c1ed7a8e62bdcd238730ec1f01d83"
-branch = "claude/issue-738-live-checks-become-steps-ideas-come-only"
-scope = [".claude-plugin/marketplace.json", "instructions/HEAD.md", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/skills/board-hygiene/SKILL.md", "plugins/atelier/skills/docs-cleanup/SKILL.md"]
-opened_commit = "a938b10b44dc2f62682713bb95e023dbeded4b66"
-whole_reason = "Three ruled contract sentences, the board-hygiene bullet that applies the first, and the version bump the plugin change requires."

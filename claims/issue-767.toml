@@ -1,8 +1,0 @@
-claim_id = "62e5866608bc4f67b949c688589ad165"
-agent = "Claude 30ec126a-30e5-431d-a4c3-088d393726d4"
-role = "builder"
-base = "c4b2cb4ab82b2bc63eb6f6a33b3d9758148f6302"
-branch = "claude/issue-767-misplaced-mutation-proof"
-scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/lane", "plugins/atelier/workflows/lane.js", "plugins/atelier/workflows/lane.md", "tests"]
-opened_commit = "8c187e039e0bd64af42f4fc40a467863e3514f51"
-whole_reason = "The lane source, its generated bundle, its reference and harness tests change together with the version files."

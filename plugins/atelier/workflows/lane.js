@@ -1613,25 +1613,26 @@ async function standIn(rr) {
 const settleLimit = rr => standInAllowed(rr) ? standIn(rr) : awaitLimit(rr)
 
 // Each round judges the previous fix, so rounds run one after another; the fix budgets bound the recursion.
-async function settleReview(rr) {
-  const settleSlip = { limited: settleLimit, 'brief-mismatch': awaitBrief, 'no-brief-record': reportNoBriefRecord, hung: awaitHung }[rr.verdict.state]
-  if (settleSlip) return settleSlip(rr)
-  if (rr.verdict.state === 'revise') {
-    const blocking = blockingOf(rr)
-    const raised = rr.which.filter((r, i) => rr.results[i] && (rr.results[i].blocking || []).length > 0)
-    const gateStreak = gateRounds.slice(-3)
-    if (gateStreak.filter(round => round.verdict === 'REVISE').length === 3) {
-      return openResult('awaiting-head', 'review', { gateRevisions: gateStreak, lastBlocking: blocking, reason:
-        'The final gate returned REVISE three times in a row; no fixer was started. Re-ask the pull question against gateRevisions first, ' +
-        'then start a new run with pr and tip and fixFirst, or re-cut the item.' })
-    }
-    const f = await fixRound(blocking, 'the review', 'review')
-    if (f.stop) return f.stop
-    if (!f.range) return openResult('failed', 'review', { reason: 'a review finding was answered by a merge alone', lastBlocking: blocking })
-    const next = f.gateAgain && !raised.includes(GATE) ? raised.concat([GATE]) : raised
-    phase('Review')
-    return settleReview(await reviewRound(next, f.range, f.deltaFrom))
+async function reviseAfter(rr) {
+  const blocking = blockingOf(rr)
+  const raised = rr.which.filter((r, i) => rr.results[i] && (rr.results[i].blocking || []).length > 0)
+  const gateStreak = gateRounds.slice(-3)
+  if (gateStreak.filter(round => round.verdict === 'REVISE').length === 3) {
+    return openResult('awaiting-head', 'review', { gateRevisions: gateStreak, lastBlocking: blocking, reason:
+      'The final gate returned REVISE three times in a row; no fixer was started. Re-ask the pull question against gateRevisions first, ' +
+      'then start a new run with pr and tip and fixFirst, or re-cut the item.' })
   }
+  const f = await fixRound(blocking, 'the review', 'review')
+  if (f.stop) return f.stop
+  if (!f.range) return openResult('failed', 'review', { reason: 'a review finding was answered by a merge alone', lastBlocking: blocking })
+  const next = f.gateAgain && !raised.includes(GATE) ? raised.concat([GATE]) : raised
+  phase('Review')
+  return settleReview(await reviewRound(next, f.range, f.deltaFrom))
+}
+
+async function settleReview(rr) {
+  const settleSlip = { limited: settleLimit, 'brief-mismatch': awaitBrief, 'no-brief-record': reportNoBriefRecord, hung: awaitHung, revise: reviseAfter }[rr.verdict.state]
+  if (settleSlip) return settleSlip(rr)
   if (rr.verdict.state === 'failed') return claudeLimit ? awaitHead(rr, claudeLimitReason('review'), { claudeLimit, resume: { ...claudeLimitResume('review', { lastBlocking: blockingOf(rr) }), ...(rr.from && { deltaFrom: rr.from, answers: rr.range }) } }) : openResult('failed', 'review', { reason: rr.verdict.reason })
   if (rr.verdict.state === 'architectural') return openResult('escalated', 'review', { reason: 'architectural verdict' })
   return null

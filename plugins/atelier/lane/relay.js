@@ -119,7 +119,30 @@ export async function laneRelay(A) {
     },
   }
   const SYNC_ANSWER = { properties: { note: { type: 'string', description: 'what stopped the merge: the conflicting paths, or the failed command and its output' } } }
+  const CHECKPOINT_ANSWER = {
+    required: ['work'],
+    properties: {
+      work: { type: 'boolean', description: 'true when the worktree held commits past the start ref or uncommitted work, so there is something to checkpoint' },
+      pr: { type: 'integer', minimum: 1, description: 'the number of the open pull request of the branch, when it has one' },
+      note: { type: 'string', description: 'what stopped the checkpoint: the failed command and its output' },
+    },
+  }
   const git = `git -C '${A.worktree}'`
+
+  // The step runs where a builder or fixer ended without a result: it saves what they left, and the printer then reports the tip.
+  function checkpointBrief({ facts, stage, startRef, branch, item, repo }) {
+    const who = stage === 'build' ? 'builder' : 'fixer'
+    const draft = stage === 'build'
+      ? `Then run \`gh pr list --head '${branch}' --state open --json number${repo}\`; when it lists no pull request, open a draft with \`gh pr create --draft --head '${branch}' --title 'Unfinished checkpoint of #${item}' --body "$(printf 'Work-Item: #${item}\\nCloses #${item}')"${repo}\`. Return the number of the pull request in pr. `
+      : ''
+    return (
+      `${facts}\nThe ${who} of this lane ended without a result and may have left work in the worktree. Save it and change no file: run each command exactly as written, with its -C option. ` +
+      `Run \`${git} status --porcelain\` and \`${git} log --oneline ${startRef}..HEAD\`. When both print nothing, there is nothing to save: set work to false and run no command more. ` +
+      `Otherwise set work to true, run \`${git} add -A\` (never a path outside the worktree, never \`-f\`), and when \`${git} diff --cached --quiet\` exits 1 run ` +
+      `\`${git} commit -m 'Unfinished checkpoint of the ${who} of #${item}'\`. Run \`${git} push origin '${branch}'\`. ${draft}` +
+      `A command that fails: stop, and put the command and its output in note. Last, whatever happened,`
+    )
+  }
 
   function syncBrief({ facts, hasLedgers, hasGenerated }) {
     const either = hasLedgers || hasGenerated
@@ -279,6 +302,7 @@ export async function laneRelay(A) {
   // The sync step and the fix step have an agent that works before the printer runs: each brings its own brief and the schema of the report that brief asks for.
   const ANSWER_KINDS = {
     sync: { schema: SYNC_ANSWER, need: ['facts', 'hasLedgers', 'hasGenerated'], brief: syncBrief },
+    checkpoint: { schema: CHECKPOINT_ANSWER, need: ['facts', 'stage', 'startRef', 'branch', 'item', 'repo'], brief: checkpointBrief },
     fix: { schema: FIX, need: ['facts', 'pr', 'tip', 'source', 'blocking', 'findings', 'foldIns', 'foldInEntries', 'productionPaths', 'flakeRerunUsed'], brief: fixerBrief },
   }
   const answerKind = ANSWER_KINDS[A.answerKind]

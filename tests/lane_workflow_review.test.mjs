@@ -558,7 +558,7 @@ test('gate-stand-in: a production fix after the stand-in runs the gate, and read
 
 const thirdFix = { ...secondFix, head: 'f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4', parents: [secondFix.head] }
 const testGapFinding = { ...gateFinding, kind: 'test-gap' }
-const removalProof = { finding: 1, test: 'removed_test.py [case]', failedBefore: false, passesAfter: true, resolution: 'removed-vacuous', diff: '-    def test_asserts_nothing(): pass' }
+const removalProof = { finding: 1, test: 'removed_test.py [case]', failedBefore: false, passesAfter: true, resolution: 'removed', diff: '-    def test_asserts_nothing(): pass' }
 
 test('gate-stand-in: the stand-in is given the removal diff and the fold-ins the limited gate re-check would have judged', async () => {
   const { result, agentCalls } = await standInRun({}, {
@@ -567,7 +567,7 @@ test('gate-stand-in: the stand-in is given the removal diff and the fold-ins the
   assert.equal(result.status, 'ready-to-land', result.reason)
   const prompt = agentCalls['r1-standin'].prompt
   assert.ok(prompt.includes(removalProof.diff))
-  assert.match(prompt, /judge whether the removed test pinned no behaviour/)
+  assert.match(prompt, /judge whether what was removed was dead or pinned no behaviour/)
   assert.ok(prompt.includes(tidy.text))
 })
 

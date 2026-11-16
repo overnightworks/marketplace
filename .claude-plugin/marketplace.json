@@ -11,7 +11,7 @@
       "displayName": "Atelier",
       "source": "./plugins/atelier",
       "description": "Portable repository skills, agents, reviews, and workflows.",
-      "version": "0.7.222",
+      "version": "0.7.223",
       "author": {
         "name": "Felix Hummert"
       },

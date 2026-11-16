@@ -258,15 +258,17 @@ async function checkpointOrFail(stage, startRef, failure, fixer) {
   tip = checkpointTip
   pr = checkpointPr
   history.push({ after: spent.total, by: 'checkpoint', stage, tip })
-  const unreviewed = { note: 'The tip is an unfinished checkpoint no reviewer has seen.', deltaFrom: fixer?.deltaFrom }
+  const origin = fixer ? scopeOrigin(fixer.carried, fixer.tipBeforeFix) : { note: '' }
+  const unreviewed = { ...origin, note: `The tip is an unfinished checkpoint no reviewer has seen. ${origin.note}`.trim() }
   const pushStop = await pushAndCheckScope(`scope-checkpoint-${stage}-${spent.total}`, unreviewed)
-  if (pushStop) return pushStop.stop
   const resumeFix = fixer
     ? { fixFirst: fixer.blocking }
     : { fixFirst: [{ where: 'the build brief', kind: 'defect', text: 'The builder ended without a result, so the checkpoint is unfinished: complete the build brief against it. The brief follows.', rule: 'the build brief', evidence: `the builder's work is committed on ${A.branch} at ${tip} and the brief is not yet met:\n${A.build}` }] }
+  const resume = { pr, tip, ...resumeFix }
+  if (pushStop) return { ...pushStop.stop, resume }
   return await openResult('awaiting-head', stage, {
     reason: `the ${fixer ? 'fixer' : 'builder'} returned no result; the lane committed its work as an unfinished checkpoint at ${tip}, pushed ${A.branch}${fixer ? '' : ` and opened draft pull request #${pr}`}. Start a new run with pr ${pr}, tip ${tip} and the fixFirst in resume.`,
-    ...(fixer && { lastBlocking: fixer.blocking }), resume: { pr, tip, ...resumeFix },
+    ...(fixer && { lastBlocking: fixer.blocking }), resume,
   })
 }
 
@@ -410,7 +412,7 @@ async function fixRound(blocking, source, budgetKey, carried) {
   const nonce = `fix-${spent.total}-${tipBeforeFix}`
   const answered = await relay({ label: `fix-${spent.total}`, phase: 'Fix', step: 'sync', relayArgs: [`'${nonce}'`], nonce, requiredKeys: ['head', 'parents', 'main'], answerKind: 'fix', agentOptions: { agentType: 'atelier:code-fixer', ...claudeRole(role) },
     facts: `${laneFacts} ${driveFacts} ${rescopeFacts} ${localCheckFacts} ${turnFacts('fix')}`, pr, tip, source, blocking: listFindings(blocking), findings: blocking.map(f => ({ ...f, kind: kindOf(f) })), foldIns: listFoldIns(foldIn), foldInEntries: foldIn, productionPaths: PRODUCTION, flakeRerunUsed })
-  if (!answered) return { stop: await checkpointOrFail('fix', tipBeforeFix, { reason: `the fixer returned no result; inspect ${A.worktree} for commits past ${tip} and uncommitted work, then start a new run with pr and tip (and fixFirst for what is left)`, lastBlocking: blocking }, { blocking, deltaFrom: tipBeforeFix }) }
+  if (!answered) return { stop: await checkpointOrFail('fix', tipBeforeFix, { reason: `the fixer returned no result; inspect ${A.worktree} for commits past ${tip} and uncommitted work, then start a new run with pr and tip (and fixFirst for what is left)`, lastBlocking: blocking }, { blocking, carried, tipBeforeFix }) }
   // What the fixer says it found already done is only reported to the head: an unaccepted fix folds nothing in.
   const unaccepted = (result) => ({ stop: (answered.resolved || []).length ? { ...result, resolved: answered.resolved } : result })
   // A blocked fixer may have run out of turns before the relay line, and the blocked answer reads no tip.
@@ -432,7 +434,7 @@ async function fixRound(blocking, source, budgetKey, carried) {
   return { ...accepted, foldIn, deltaFrom }
 }
 
-const newRunOf = origin => ['a new run with pr and tip', origin.deltaFrom && ` and deltaFrom ${origin.deltaFrom}`].filter(Boolean).join('')
+function newRunOf(origin) { return ['a new run with pr and tip', origin.deltaFrom && ` and deltaFrom ${origin.deltaFrom}`].filter(Boolean).join('') }
 // The script, not the builder or fixer, makes sure the remote branch carries the lane tip, before the claim-scope check
 // and every review. Never a force push: a rejected push stops the lane.
 // aco decides what the claim covers; the lane only asks.

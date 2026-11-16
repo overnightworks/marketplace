@@ -1,0 +1,8 @@
+claim_id = "011bd01b3e8547f5b9bdc615098344ee"
+agent = "Claude 30ec126a-30e5-431d-a4c3-088d393726d4"
+role = "builder"
+base = "a34d199c71a8d5fb3bedb7443edc56f3a9c74a1b"
+branch = "claude/issue-764-usage-limit-awaits-head"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/lane", "plugins/atelier/workflows/lane.js", "plugins/atelier/workflows/lane.md", "tests"]
+opened_commit = "7debc2080a8deeb4c7daa7590b269de0180a4739"
+whole_reason = "The lane source, its generated bundle, its reference and harness tests change together with the version files."

@@ -861,21 +861,22 @@ open(out,"w",encoding="utf-8").write(textwrap.dedent(cuts[0])+"\n")`
     }
   }
 
-  // parallel() turns a throwing reviewer into null, so a usage limit is kept and rethrown for the lane once every reviewer ended.
+  // parallel() turns a throwing reviewer into null, so a usage limit is kept and rethrown for the lane once every reviewer ended,
+  // carrying what the reviewers that finished returned.
   let usageLimitError = null
   const results = await parallel(A.reviewers.map(reviewer => () => reviewBy(reviewer, A.range).catch(error => {
     if (claudeUsageLimitOf(error)) usageLimitError ??= error
     throw error
   })))
-  if (usageLimitError) throw usageLimitError
   const records = A.reviewers.flatMap((reviewer, i) => results[i] ? [recordOf(reviewer, results[i])] : [])
-  return {
+  const outcome = {
     results,
-    verdict: classify(results, A.reviewers.length),
     history: records.map(record => record.history),
     gateRounds: records.flatMap(record => record.gateRounds),
     followups: records.flatMap(record => record.followups),
   }
+  if (usageLimitError) throw Object.assign(usageLimitError, { finished: outcome })
+  return { ...outcome, verdict: classify(results, A.reviewers.length) }
 }
 
 function utf8BytesOf(text) {
@@ -1195,7 +1196,7 @@ async function runPart(name, part, partArgs) {
     return await part(partArgs)
   } catch (error) {
     claudeLimit ||= claudeUsageLimitOf(error)
-    return { problem: `ended in ${name} with ${String(error).slice(0, 300)}` }
+    return { problem: `ended in ${name} with ${String(error).slice(0, 300)}`, ...(error?.finished && { finished: error.finished }) }
   }
 }
 // The path of a finding is its `where` without the line and column suffix: the one rule the printer's match, the lane's own-finding match and the printer's input digest share.
@@ -1382,7 +1383,12 @@ async function reviewRound(which, range, from) {
   const reviewers = which.map(r => ({ key: r.key, provider: r.provider, role: r.role, isGate: r === GATE, routing: claudeRole(r === GATE ? 'gate' : 'review') }))
   const answer = await runPart('lane-review', laneReview, { item: A.item, pr, repo: A.repo, after: spent.total, tip, delegatedLine: DELEGATED_LINE, worktree: A.worktree, branch: A.branch, scratch: A.scratch, tag: TAG, label: `r${spent.total}`, range, contract: A.contract, blockingLine: BLOCKING_LINE, reviewers, findingKinds: FINDING_KINDS, finding: FINDING, followup: FOLLOWUP, mechanical: MECHANICAL })
   const unfit = unfitRoundAnswer(answer, which.length)
-  if (unfit) return { which, results: [], verdict: { state: 'failed', reason: unfit }, range, from }
+  if (unfit) {
+    // The reviewers that finished before a usage limit keep their records, so the resume carries their findings.
+    const finished = answer?.finished
+    if (finished) { history.push(...finished.history); followups.push(...finished.followups); gateRounds.push(...finished.gateRounds) }
+    return { which, results: finished?.results ?? [], verdict: { state: 'failed', reason: unfit }, range, from }
+  }
   const { results, verdict } = answer
   history.push(...answer.history)
   followups.push(...answer.followups)
@@ -1566,8 +1572,9 @@ async function reviewUntilClean(which, range, from) {
 }
 
 // A round the head resumes (a Codex reviewer out of usage, a courier whose brief never matched) repeats its range, so the review never moves to another provider.
+const blockingOf = rr => rr.results.filter(Boolean).flatMap(v => v.blocking || [])
 async function awaitHead(rr, reason, extra = {}) {
-  const lastBlocking = rr.results.filter(Boolean).flatMap(v => v.blocking || [])
+  const lastBlocking = blockingOf(rr)
   const resume = `start a new run with pr and tip${rr.from ? ', deltaFrom and answers as returned' : ''}${lastBlocking.length ? ' and fixFirst carrying lastBlocking' : ''}.`
   return openResult('awaiting-head', 'review', { ...extra, lastBlocking, ...(rr.from && { deltaFrom: rr.from, answers: rr.range }), reason: `${reason} ${resume}` })
 }
@@ -1580,7 +1587,7 @@ async function awaitLimit(rr) {
 
 // A courier twice found no brief in its transcript: a defect of the plugin on this host that a resume would meet again, so none is offered.
 const reportNoBriefRecord = rr => openResult('awaiting-head', 'review', {
-  lastBlocking: rr.results.filter(Boolean).flatMap(v => v.blocking || []), reason: `a Codex courier found no brief in its own transcript, twice, and started no Codex: ${rr.verdict.reason}.`,
+  lastBlocking: blockingOf(rr), reason: `a Codex courier found no brief in its own transcript, twice, and started no Codex: ${rr.verdict.reason}.`,
   requiredHeadActions: ['report the defect to the marketplace repository: the courier of lane-review cannot read its brief from the workflow agent transcript', 'until it is repaired, run the gate through routing.gate (the Opus stand-in)'],
 })
 const awaitBrief = rr => awaitHead(rr, `a Codex courier wrote a different brief than the script composed, twice, and started no Codex: ${rr.verdict.reason}. Then`)
@@ -1606,26 +1613,27 @@ async function standIn(rr) {
 const settleLimit = rr => standInAllowed(rr) ? standIn(rr) : awaitLimit(rr)
 
 // Each round judges the previous fix, so rounds run one after another; the fix budgets bound the recursion.
-async function settleReview(rr) {
-  const settleSlip = { limited: settleLimit, 'brief-mismatch': awaitBrief, 'no-brief-record': reportNoBriefRecord, hung: awaitHung }[rr.verdict.state]
-  if (settleSlip) return settleSlip(rr)
-  if (rr.verdict.state === 'revise') {
-    const blocking = rr.results.filter(Boolean).flatMap(v => v.blocking || [])
-    const raised = rr.which.filter((r, i) => rr.results[i] && (rr.results[i].blocking || []).length > 0)
-    const gateStreak = gateRounds.slice(-3)
-    if (gateStreak.filter(round => round.verdict === 'REVISE').length === 3) {
-      return openResult('awaiting-head', 'review', { gateRevisions: gateStreak, lastBlocking: blocking, reason:
-        'The final gate returned REVISE three times in a row; no fixer was started. Re-ask the pull question against gateRevisions first, ' +
-        'then start a new run with pr and tip and fixFirst, or re-cut the item.' })
-    }
-    const f = await fixRound(blocking, 'the review', 'review')
-    if (f.stop) return f.stop
-    if (!f.range) return openResult('failed', 'review', { reason: 'a review finding was answered by a merge alone', lastBlocking: blocking })
-    const next = f.gateAgain && !raised.includes(GATE) ? raised.concat([GATE]) : raised
-    phase('Review')
-    return settleReview(await reviewRound(next, f.range, f.deltaFrom))
+async function reviseAfter(rr) {
+  const blocking = blockingOf(rr)
+  const raised = rr.which.filter((r, i) => rr.results[i] && (rr.results[i].blocking || []).length > 0)
+  const gateStreak = gateRounds.slice(-3)
+  if (gateStreak.filter(round => round.verdict === 'REVISE').length === 3) {
+    return openResult('awaiting-head', 'review', { gateRevisions: gateStreak, lastBlocking: blocking, reason:
+      'The final gate returned REVISE three times in a row; no fixer was started. Re-ask the pull question against gateRevisions first, ' +
+      'then start a new run with pr and tip and fixFirst, or re-cut the item.' })
   }
-  if (rr.verdict.state === 'failed') return claudeLimit ? awaitHead(rr, claudeLimitReason('review'), { claudeLimit }) : openResult('failed', 'review', { reason: rr.verdict.reason })
+  const f = await fixRound(blocking, 'the review', 'review')
+  if (f.stop) return f.stop
+  if (!f.range) return openResult('failed', 'review', { reason: 'a review finding was answered by a merge alone', lastBlocking: blocking })
+  const next = f.gateAgain && !raised.includes(GATE) ? raised.concat([GATE]) : raised
+  phase('Review')
+  return settleReview(await reviewRound(next, f.range, f.deltaFrom))
+}
+
+async function settleReview(rr) {
+  const settleSlip = { limited: settleLimit, 'brief-mismatch': awaitBrief, 'no-brief-record': reportNoBriefRecord, hung: awaitHung, revise: reviseAfter }[rr.verdict.state]
+  if (settleSlip) return settleSlip(rr)
+  if (rr.verdict.state === 'failed') return claudeLimit ? awaitHead(rr, claudeLimitReason('review'), { claudeLimit, resume: { ...claudeLimitResume('review', { lastBlocking: blockingOf(rr) }), ...(rr.from && { deltaFrom: rr.from, answers: rr.range }) } }) : openResult('failed', 'review', { reason: rr.verdict.reason })
   if (rr.verdict.state === 'architectural') return openResult('escalated', 'review', { reason: 'architectural verdict' })
   return null
 }

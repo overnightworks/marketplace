@@ -1,8 +1,0 @@
-claim_id = "bd157460df8343a1b5362096c73ea03b"
-agent = "Claude 30ec126a-30e5-431d-a4c3-088d393726d4"
-role = "builder"
-base = "3213520b0dbaf44c503872fe62e5a802b224e11e"
-branch = "claude/issue-766-deletion-fix-passes-gate"
-scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/lane", "plugins/atelier/workflows/lane.js", "plugins/atelier/workflows/lane.md", "tests"]
-opened_commit = "e1e6c8f7eb3f3f525ea4f97c5eb2365b2a06d453"
-whole_reason = "The lane source, its generated bundle, its reference and harness tests change together with the version files."

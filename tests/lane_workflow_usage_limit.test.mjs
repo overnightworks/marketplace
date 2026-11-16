@@ -4,6 +4,11 @@ import assert from 'node:assert/strict'
 import { runLane, resumedLane, APPROVE, PASS, greenCi, finding } from './lane_workflow_harness.mjs'
 
 const weeklyLimit = "You've hit your weekly limit · resets Nov 20"
+const limitWordings = [
+  "You've hit your limit · resets 5pm (Europe/Berlin)",
+  'You have hit your usage limit.',
+  'Opus limit reached',
+]
 const failing = (message) => () => { throw new Error(message) }
 const blocking = finding('a.py:1', 'defect')
 const REVISE = { verdict: 'REVISE', blocking: [blocking], followups: [] }
@@ -27,6 +32,12 @@ for (const [stage, answers, resumeExtra] of stages) {
   })
 }
 
+test('a builder without a result whose checkpoint agent hits the limit keeps the inspect-the-worktree warning', async () => {
+  const { result } = await runLane({ ...resumedLane, pr: undefined, tip: undefined, build: 'the brief' }, { build: null, 'checkpoint-build': failing(weeklyLimit) })
+  assert.deepEqual([result.status, result.stage], ['awaiting-head', 'build'])
+  assert.match(result.reason, /resets Nov 20.*uncommitted work/)
+})
+
 test('a usage limit without a reset time says so', async () => {
   const { result } = await runLane(resumedLane, { 'r0-review': failing('You have hit your usage limit.') })
   assert.equal(result.status, 'awaiting-head')
@@ -39,8 +50,17 @@ test('a usage limit of a builder with nothing to save resumes with the build bri
   assert.match(result.reason, /resets Nov 20/)
 })
 
+for (const wording of limitWordings) {
+  test(`the wording "${wording}" is a usage limit`, async () => {
+    const { result } = await runLane(resumedLane, { 'r0-review': failing(wording) })
+    assert.equal(result.status, 'awaiting-head')
+  })
+}
+
 const ordinaryFailures = [
   ['review', { 'r0-review': failing('socket hang up') }],
+  ['review (rate limit)', { 'r0-review': failing('HTTP 429: rate limit exceeded') }],
+  ['review (context limit)', { 'r0-review': failing('context limit reached') }],
   ['test', { 'r0-review': APPROVE, 'e2e-0': failing('socket hang up'), 'e2e-0-retry': failing('socket hang up'), 'ci-0': greenCi(resumedLane.tip) }],
 ]
 

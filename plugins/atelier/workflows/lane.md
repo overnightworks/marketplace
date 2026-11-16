@@ -130,7 +130,9 @@ gpt-6-astra/high.
   pull request opened); the lane returns awaiting-head at stage `build` or
   `fix` with `resume` (`pr`, `tip` and `fixFirst`: the remaining blocking
   findings, or after a build a finding that tells a fresh finisher to complete
-  the build brief). A worktree with nothing new stays failed.
+  the build brief). When the checkpoint push hits the claim scope or fails, the
+  result is the ordinary `scope` (or `failed`) result, now carrying `resume`. A
+  worktree with nothing new stays failed.
 
 ## Result
 

@@ -266,8 +266,9 @@ async function checkpointOrFail(stage, startRef, failure, fixer) {
     : { fixFirst: [{ where: 'the build brief', kind: 'defect', text: 'The builder ended without a result, so the checkpoint is unfinished: complete the build brief against it. The brief follows.', rule: 'the build brief', evidence: `the builder's work is committed on ${A.branch} at ${tip} and the brief is not yet met:\n${A.build}` }] }
   const resume = { pr, tip, ...resumeFix }
   if (pushStop) return { ...pushStop.stop, resume }
+  const openedDraft = fixer ? '' : ' and opened draft pull request #' + pr
   return await openResult('awaiting-head', stage, {
-    reason: `the ${fixer ? 'fixer' : 'builder'} returned no result; the lane committed its work as an unfinished checkpoint at ${tip}, pushed ${A.branch}${fixer ? '' : ` and opened draft pull request #${pr}`}. Start a new run with pr ${pr}, tip ${tip} and the fixFirst in resume.`,
+    reason: `the ${fixer ? 'fixer' : 'builder'} returned no result; the lane committed its work as an unfinished checkpoint at ${tip}, pushed ${A.branch}${openedDraft}. Start a new run with pr ${pr}, tip ${tip} and the fixFirst in resume.`,
     ...(fixer && { lastBlocking: fixer.blocking }), resume,
   })
 }

@@ -37,7 +37,7 @@ const GENERATED = Object.entries(A.generated || {})
 const MODEL_PROVIDER = { haiku: 'claude', sonnet: 'claude', opus: 'claude', 'gpt-6-astra': 'codex' }
 const EFFORTS = ['low', 'medium', 'high']
 const EFFORT_CAP = { opus: 'medium' }
-// The one Claude gate: opus at high stands in while Codex is at its usage limit (instructions/AGENTS.md, Reviews); it is the one effort above medium opus may have.
+// The one Claude gate: opus at high stands in while Codex is at its usage limit (instructions/HEAD.md, Reviews and gates); it is the one effort above medium opus may have.
 const isGateStandIn = (role, model, effort) => role === 'gate' && model === 'opus' && effort === 'high'
 const REVIEWER_PROVIDER = A.reviewer || 'claude'
 const HARD_ROW = { model: 'sonnet', effort: 'high' }

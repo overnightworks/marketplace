@@ -1,8 +1,0 @@
-claim_id = "3f50367dccfe49e296c81472ed714f21"
-agent = "Claude 30ec126a-30e5-431d-a4c3-088d393726d4"
-role = "builder"
-base = "3b7988b5e0f781fc89b1d561b171c6b62351e078"
-branch = "claude/issue-769-limit-keeps-finished-reviews"
-scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/lane", "plugins/atelier/workflows/lane.js", "plugins/atelier/workflows/lane.md", "tests"]
-opened_commit = "9a7bf87116b648a9220d72d4e4441a58ee4fe949"
-whole_reason = "The lane source, its generated bundle, its reference and harness tests change together with the version files."

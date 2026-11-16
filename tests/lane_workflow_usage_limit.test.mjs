@@ -12,6 +12,7 @@ const stages = [
   ['review', { 'r0-review': failing(weeklyLimit) }, {}],
   ['fix', { 'r0-review': REVISE, 'fix-1': failing(weeklyLimit) }, { fixFirst: [blocking] }],
   ['test', { 'r0-review': APPROVE, 'e2e-0': failing(weeklyLimit), 'ci-0': greenCi(resumedLane.tip) }, {}],
+  ['ci', { 'r0-review': APPROVE, 'e2e-0': PASS, 'ci-0': failing(weeklyLimit) }, {}],
 ]
 
 for (const [stage, answers, resumeExtra] of stages) {

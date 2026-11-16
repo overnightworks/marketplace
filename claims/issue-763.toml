@@ -1,8 +1,0 @@
-claim_id = "646d4dedd0ea411bb05349e3845a9bc6"
-agent = "Claude 30ec126a-30e5-431d-a4c3-088d393726d4"
-role = "builder"
-base = "737afe3e9bb6f0925750ddfd14cb54ede1ee225d"
-branch = "claude/issue-763-lane-checkpoint-on-empty-result"
-scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/lane", "plugins/atelier/workflows/lane.js", "plugins/atelier/workflows/lane.md", "tests"]
-opened_commit = "be31d7bbfe6c2bcb07d0e79476fea1859d9406b9"
-whole_reason = "The lane source, its generated bundle, its reference and harness tests change together with the version files."

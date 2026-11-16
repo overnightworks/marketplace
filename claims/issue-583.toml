@@ -1,8 +1,0 @@
-claim_id = "676f5644c641476a9c07bad6ae78295c"
-agent = "Claude 30ec126a-30e5-431d-a4c3-088d393726d4"
-role = "builder"
-base = "0c7a16e0930aad0c7d394e437424938c6f148eb7"
-branch = "claude/issue-583-contract-shrinks-head-only-rules"
-scope = [".claude-plugin/marketplace.json", "instructions/AGENTS.md", "instructions/HEAD.md", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/lane/main.js", "plugins/atelier/skills/explorative-testing/SKILL.md", "plugins/atelier/workflows/lane.js"]
-opened_commit = "ba2861a83f2a1ac51e23745264d46231c72a1450"
-whole_reason = "The moved rules leave the shared contract and arrive in the head contract in one change, with the skill pointer and the version files."

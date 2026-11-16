@@ -1572,8 +1572,9 @@ async function reviewUntilClean(which, range, from) {
 }
 
 // A round the head resumes (a Codex reviewer out of usage, a courier whose brief never matched) repeats its range, so the review never moves to another provider.
+const blockingOf = rr => rr.results.filter(Boolean).flatMap(v => v.blocking || [])
 async function awaitHead(rr, reason, extra = {}) {
-  const lastBlocking = rr.results.filter(Boolean).flatMap(v => v.blocking || [])
+  const lastBlocking = blockingOf(rr)
   const resume = `start a new run with pr and tip${rr.from ? ', deltaFrom and answers as returned' : ''}${lastBlocking.length ? ' and fixFirst carrying lastBlocking' : ''}.`
   return openResult('awaiting-head', 'review', { ...extra, lastBlocking, ...(rr.from && { deltaFrom: rr.from, answers: rr.range }), reason: `${reason} ${resume}` })
 }
@@ -1586,7 +1587,7 @@ async function awaitLimit(rr) {
 
 // A courier twice found no brief in its transcript: a defect of the plugin on this host that a resume would meet again, so none is offered.
 const reportNoBriefRecord = rr => openResult('awaiting-head', 'review', {
-  lastBlocking: rr.results.filter(Boolean).flatMap(v => v.blocking || []), reason: `a Codex courier found no brief in its own transcript, twice, and started no Codex: ${rr.verdict.reason}.`,
+  lastBlocking: blockingOf(rr), reason: `a Codex courier found no brief in its own transcript, twice, and started no Codex: ${rr.verdict.reason}.`,
   requiredHeadActions: ['report the defect to the marketplace repository: the courier of lane-review cannot read its brief from the workflow agent transcript', 'until it is repaired, run the gate through routing.gate (the Opus stand-in)'],
 })
 const awaitBrief = rr => awaitHead(rr, `a Codex courier wrote a different brief than the script composed, twice, and started no Codex: ${rr.verdict.reason}. Then`)
@@ -1616,7 +1617,7 @@ async function settleReview(rr) {
   const settleSlip = { limited: settleLimit, 'brief-mismatch': awaitBrief, 'no-brief-record': reportNoBriefRecord, hung: awaitHung }[rr.verdict.state]
   if (settleSlip) return settleSlip(rr)
   if (rr.verdict.state === 'revise') {
-    const blocking = rr.results.filter(Boolean).flatMap(v => v.blocking || [])
+    const blocking = blockingOf(rr)
     const raised = rr.which.filter((r, i) => rr.results[i] && (rr.results[i].blocking || []).length > 0)
     const gateStreak = gateRounds.slice(-3)
     if (gateStreak.filter(round => round.verdict === 'REVISE').length === 3) {
@@ -1631,7 +1632,7 @@ async function settleReview(rr) {
     phase('Review')
     return settleReview(await reviewRound(next, f.range, f.deltaFrom))
   }
-  if (rr.verdict.state === 'failed') return claudeLimit ? awaitHead(rr, claudeLimitReason('review'), { claudeLimit, resume: { ...claudeLimitResume('review', { lastBlocking: rr.results.filter(Boolean).flatMap(v => v.blocking || []) }), ...(rr.from && { deltaFrom: rr.from, answers: rr.range }) } }) : openResult('failed', 'review', { reason: rr.verdict.reason })
+  if (rr.verdict.state === 'failed') return claudeLimit ? awaitHead(rr, claudeLimitReason('review'), { claudeLimit, resume: { ...claudeLimitResume('review', { lastBlocking: blockingOf(rr) }), ...(rr.from && { deltaFrom: rr.from, answers: rr.range }) } }) : openResult('failed', 'review', { reason: rr.verdict.reason })
   if (rr.verdict.state === 'architectural') return openResult('escalated', 'review', { reason: 'architectural verdict' })
   return null
 }

@@ -236,8 +236,9 @@ async function routingLine() {
 const claudeLimitResume = (stage, extra) => stage === 'build' && !pr
   ? { build: A.build }
   : { pr, tip, ...(extra.lastBlocking?.length && { fixFirst: extra.lastBlocking }) }
+const claudeLimitResetText = () => claudeLimit.resetsAt ? 'The account resets ' + claudeLimit.resetsAt + '.' : 'The error names no reset time.'
 const claudeLimitReason = (stage) =>
-  `a Claude agent hit its usage limit at stage ${stage}; the lane never moves a role to another model or provider. ${claudeLimit.resetsAt ? `The account resets ${claudeLimit.resetsAt}.` : 'The error names no reset time.'} After the reset`
+  `a Claude agent hit its usage limit at stage ${stage}; the lane never moves a role to another model or provider. ${claudeLimitResetText()} After the reset`
 const openResult = async (status, stage, extra = {}) => {
   if (status === 'failed' && claudeLimit) return openResult('awaiting-head', stage, { ...extra, claudeLimit, resume: claudeLimitResume(stage, extra), reason: `${claudeLimitReason(stage)} start a new run with the arguments in resume.` })
   const line = await routingLine()

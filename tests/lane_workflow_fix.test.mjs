@@ -249,8 +249,11 @@ const proofsByNumber = [
   ['a test-gap test with a mutation that does not pass after is rejected as not passing', [testGap], [proofOf(1, { mutation: 'drop the guard', passesAfter: false })], /t\.py:1.*did not pass/],
   ['a defect without a test draft needs no failing-before test', [defectWithoutDraft], [proofOf(1)], null],
   ['a defect with a test draft still needs its test to fail before', [defectWithDraft], [proofOf(1)], /did not fail before/],
-  ['a removed vacuous test with its diff answers a test-gap', [testGap], [proofOf(1, { resolution: 'removed-vacuous', diff: removalDiff })], null],
-  ['a removed vacuous test without a diff is rejected', [testGap], [proofOf(1, { resolution: 'removed-vacuous' })], /t\.py:1.*no diff/],
+  ['a removal with its diff answers a test-gap', [testGap], [proofOf(1, { resolution: 'removed', diff: removalDiff })], null],
+  ['a removal with its diff answers a defect with a test draft without a failing-first test', [defectWithDraft], [proofOf(1, { resolution: 'removed', diff: removalDiff, passesAfter: false })], null],
+  ['a removal without a diff is rejected', [testGap], [proofOf(1, { resolution: 'removed' })], /t\.py:1.*no diff/],
+  ['a removal without a diff does not answer a defect with a test draft', [defectWithDraft], [proofOf(1, { resolution: 'removed' })], /t\.py:1.*no diff/],
+  ['a behaviour-changing defect fix without its test is still rejected', [defectWithDraft], [], rejectedForNoProof],
   ['a number pointing at a docs finding adds no pass for the test-gap behind it', [docsFinding, testGap], [proofOf(1)], rejectedForNoProof],
   ['two proofs for one number, one of them bad, are still rejected', [testGap], [proofOf(1, { mutation: 'drop the guard' }), proofOf(1, { mutation: 'drop the guard', passesAfter: false })], /did not pass/],
   ['a not-run proof is no gap for a defect without a test draft', [defectWithoutDraft], [proofOf(1, { passesAfter: false, notRun: 'the probe stack was held by another lane' })], null],
@@ -336,7 +339,7 @@ test('a carried batch whose fixer gave a supporting proof without evidence hands
   assert.match(agentCalls['r1-review'].prompt, /supporting_test\.py \[image\].*named no mutation/s)
 })
 
-const diffLessRemovalBesideValidProof = [proofOf(1, { mutation: 'drop the guard' }), proofOf(1, { test: 'removed_test.py [image]', resolution: 'removed-vacuous' })]
+const diffLessRemovalBesideValidProof = [proofOf(1, { mutation: 'drop the guard' }), proofOf(1, { test: 'removed_test.py [image]', resolution: 'removed' })]
 
 const diffLessRemovalRanges = [
   ['first fix', { fixFirst: [testGap] }],
@@ -349,21 +352,22 @@ for (const [range, rangeArgs] of diffLessRemovalRanges) {
     const prompt = agentCalls['r1-review'].prompt
     assert.equal(prompt.split('removed_test.py [image]').length - 1, 1)
     assert.match(prompt, /removed_test\.py \[image\].*t\.py:1.*no diff/s)
-    assert.doesNotMatch(prompt, /by removing a vacuous test/)
+    assert.doesNotMatch(prompt, /by removing code or a test/)
   })
 }
 
 const removalsByFindingKind = [
-  ['AC-removed-vacuous: the review after a removal answering a test-gap asks the reviewer to judge the removed test', testGap, true],
-  ['AC-removal-answers-test-gap: a defect proof marked removed-vacuous is judged by the defect bar and shows no removal', defectWithoutDraft, false],
+  ['AC-removed: the review after a removal answering a test-gap asks the reviewer to judge what was removed', testGap, true],
+  ['AC-removal-answers-defect: the review after a removal answering a defect with a test draft gets the removal diff to judge', defectWithDraft, true],
+  ['AC-removal-answers-defect-without-draft: the review after a removal answering a defect without a draft gets the removal diff to judge', defectWithoutDraft, true],
 ]
 
 for (const [behaviour, answered, shownAsRemoval] of removalsByFindingKind) {
   test(behaviour, async () => {
-    const regression = [proofOf(1, { resolution: 'removed-vacuous', diff: removalDiff, failedBefore: true })]
+    const regression = [proofOf(1, { resolution: 'removed', diff: removalDiff, failedBefore: true })]
     const { agentCalls } = await runLane({ ...resumeArgs, fixFirst: [answered] }, { 'fix-1': { ...resumeFix, regression } })
     const prompt = agentCalls['r1-review'].prompt
-    assert.equal(/removing a vacuous test.*judge whether the removed test pinned no behaviour/.test(prompt), shownAsRemoval)
+    assert.equal(/removing code or a test.*judge whether what was removed was dead or pinned no behaviour/.test(prompt), shownAsRemoval)
     assert.equal(prompt.includes(removalDiff), shownAsRemoval)
     assert.equal(prompt.includes(`answered ${answered.where} by removing`), shownAsRemoval)
   })

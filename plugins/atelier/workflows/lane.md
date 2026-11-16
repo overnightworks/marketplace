@@ -122,6 +122,13 @@ gpt-6-astra/high.
   with a new run with `pr` and `tip`, and `deltaFrom` where the stop names it) or
   at `ci` (resume with `pr` and `tip`; a resume from `ci` runs scope and the
   review again) with "GitHub is unreachable" instead of failed.
+- A Claude agent of any stage (builder, reviewer, fixer, tester, CI reader or
+  mechanical step) that fails with its account usage limit returns awaiting-head
+  at its stage with `claudeLimit` (`resetsAt` when the error names a reset), the
+  `history` so far and the resume arguments of that stage (`pr`, `tip`, and
+  `fixFirst` or, on a review round, `deltaFrom` and `answers`; `build` before a
+  pull request exists), never failed. A Claude reviewer is not retried on a
+  limit, and no role moves to another model or provider.
 - A fixer that answers its whole batch in the pull request body or an item
   comment and commits nothing is no failure.
 - A builder or fixer that returns no result while its worktree holds commits

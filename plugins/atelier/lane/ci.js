@@ -95,6 +95,7 @@ async function agentOrNull(prompt, opts) {
   try {
     return await agent(prompt, opts)
   } catch (error) {
+    rethrowClaudeUsageLimit(error)
     log(`${opts.label} ended without a result: ${String(error).slice(0, 160)}`)
     return null
   }

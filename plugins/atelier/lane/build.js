@@ -13,6 +13,7 @@ export async function laneBuild(A) {
       `Open the pull request as the build RULES say, run \`aco check <pr>\`, and return pr, tip and summary.`,
       { label: 'build', phase: 'Build', schema: BUILD, agentType: 'atelier:code-worker', ...A.routing })
   } catch (error) {
+    rethrowClaudeUsageLimit(error)
     log(`build ended without a result: ${String(error).slice(0, 160)}`)
     return null
   }

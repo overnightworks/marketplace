@@ -7,6 +7,7 @@ export async function laneTest(A) {
     try {
       return await agent(`${A.delegatedLine}\n${prompt}`, opts)
     } catch (error) {
+      rethrowClaudeUsageLimit(error)
       log(`${opts.label} ended without a result: ${String(error).slice(0, 160)}`)
       return null
     }

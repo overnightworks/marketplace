@@ -10,6 +10,7 @@ export async function laneReview(A) {
     try {
       return (await agent(prompt, opts)) ?? failedVerdict(`${opts?.label || 'agent'} ended without a usable answer`)
     } catch (error) {
+      rethrowClaudeUsageLimit(error)
       log(`${opts?.label || 'agent'} ended without a result: ${String(error).slice(0, 160)}`)
       return failedVerdict(`${opts?.label || 'agent'} threw: ${String(error).slice(0, 300)}`)
     }
@@ -273,7 +274,13 @@ open(out,"w",encoding="utf-8").write(textwrap.dedent(cuts[0])+"\n")`
     }
   }
 
-  const results = await parallel(A.reviewers.map(reviewer => () => reviewBy(reviewer, A.range)))
+  // parallel() turns a throwing reviewer into null, so a usage limit is kept and rethrown for the lane once every reviewer ended.
+  let usageLimitError = null
+  const results = await parallel(A.reviewers.map(reviewer => () => reviewBy(reviewer, A.range).catch(error => {
+    if (claudeUsageLimitOf(error)) usageLimitError ??= error
+    throw error
+  })))
+  if (usageLimitError) throw usageLimitError
   const records = A.reviewers.flatMap((reviewer, i) => results[i] ? [recordOf(reviewer, results[i])] : [])
   return {
     results,

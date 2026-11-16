@@ -7,6 +7,7 @@ export async function laneRelay(A) {
     try {
       return await agent(prompt, opts)
     } catch (error) {
+      rethrowClaudeUsageLimit(error)
       log(`${opts?.label || 'agent'} ended without a result: ${String(error).slice(0, 160)}`)
       return null
     }

@@ -274,21 +274,22 @@ open(out,"w",encoding="utf-8").write(textwrap.dedent(cuts[0])+"\n")`
     }
   }
 
-  // parallel() turns a throwing reviewer into null, so a usage limit is kept and rethrown for the lane once every reviewer ended.
+  // parallel() turns a throwing reviewer into null, so a usage limit is kept and rethrown for the lane once every reviewer ended,
+  // carrying what the reviewers that finished returned.
   let usageLimitError = null
   const results = await parallel(A.reviewers.map(reviewer => () => reviewBy(reviewer, A.range).catch(error => {
     if (claudeUsageLimitOf(error)) usageLimitError ??= error
     throw error
   })))
-  if (usageLimitError) throw usageLimitError
   const records = A.reviewers.flatMap((reviewer, i) => results[i] ? [recordOf(reviewer, results[i])] : [])
-  return {
+  const outcome = {
     results,
-    verdict: classify(results, A.reviewers.length),
     history: records.map(record => record.history),
     gateRounds: records.flatMap(record => record.gateRounds),
     followups: records.flatMap(record => record.followups),
   }
+  if (usageLimitError) throw Object.assign(usageLimitError, { finished: outcome })
+  return { ...outcome, verdict: classify(results, A.reviewers.length) }
 }
 
 function utf8BytesOf(text) {

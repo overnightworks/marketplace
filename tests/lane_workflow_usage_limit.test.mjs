@@ -70,3 +70,16 @@ for (const [stage, answers] of ordinaryFailures) {
     assert.equal(result.claudeLimit, undefined)
   })
 }
+
+test('a limit in one reviewer keeps the other reviewer\'s verdict and finding in the result and the resume', async () => {
+  const material = { ...resumedLane, risk: 'material' }
+  const { result } = await runLane(material, { 'r0-review': failing(weeklyLimit), 'r0-gate': { ...REVISE, codexExit: 0 } })
+  assert.deepEqual([result.status, result.stage], ['awaiting-head', 'review'])
+  assert.ok(result.history.some(entry => entry.by === 'gate' && entry.verdict === 'REVISE'))
+  assert.deepEqual(result.lastBlocking, [blocking])
+  assert.deepEqual(result.resume.fixFirst, [blocking])
+
+  const { launchedAgents } = await runLane({ ...material, ...result.resume }, { 'fix-1': failing(weeklyLimit) })
+  assert.equal(launchedAgents.find(label => label.startsWith('fix-')), 'fix-1')
+  assert.ok(!launchedAgents.includes('r0-review'))
+})

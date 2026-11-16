@@ -861,21 +861,22 @@ open(out,"w",encoding="utf-8").write(textwrap.dedent(cuts[0])+"\n")`
     }
   }
 
-  // parallel() turns a throwing reviewer into null, so a usage limit is kept and rethrown for the lane once every reviewer ended.
+  // parallel() turns a throwing reviewer into null, so a usage limit is kept and rethrown for the lane once every reviewer ended,
+  // carrying what the reviewers that finished returned.
   let usageLimitError = null
   const results = await parallel(A.reviewers.map(reviewer => () => reviewBy(reviewer, A.range).catch(error => {
     if (claudeUsageLimitOf(error)) usageLimitError ??= error
     throw error
   })))
-  if (usageLimitError) throw usageLimitError
   const records = A.reviewers.flatMap((reviewer, i) => results[i] ? [recordOf(reviewer, results[i])] : [])
-  return {
+  const outcome = {
     results,
-    verdict: classify(results, A.reviewers.length),
     history: records.map(record => record.history),
     gateRounds: records.flatMap(record => record.gateRounds),
     followups: records.flatMap(record => record.followups),
   }
+  if (usageLimitError) throw Object.assign(usageLimitError, { finished: outcome })
+  return { ...outcome, verdict: classify(results, A.reviewers.length) }
 }
 
 function utf8BytesOf(text) {
@@ -1195,7 +1196,7 @@ async function runPart(name, part, partArgs) {
     return await part(partArgs)
   } catch (error) {
     claudeLimit ||= claudeUsageLimitOf(error)
-    return { problem: `ended in ${name} with ${String(error).slice(0, 300)}` }
+    return { problem: `ended in ${name} with ${String(error).slice(0, 300)}`, ...(error?.finished && { finished: error.finished }) }
   }
 }
 // The path of a finding is its `where` without the line and column suffix: the one rule the printer's match, the lane's own-finding match and the printer's input digest share.
@@ -1382,7 +1383,12 @@ async function reviewRound(which, range, from) {
   const reviewers = which.map(r => ({ key: r.key, provider: r.provider, role: r.role, isGate: r === GATE, routing: claudeRole(r === GATE ? 'gate' : 'review') }))
   const answer = await runPart('lane-review', laneReview, { item: A.item, pr, repo: A.repo, after: spent.total, tip, delegatedLine: DELEGATED_LINE, worktree: A.worktree, branch: A.branch, scratch: A.scratch, tag: TAG, label: `r${spent.total}`, range, contract: A.contract, blockingLine: BLOCKING_LINE, reviewers, findingKinds: FINDING_KINDS, finding: FINDING, followup: FOLLOWUP, mechanical: MECHANICAL })
   const unfit = unfitRoundAnswer(answer, which.length)
-  if (unfit) return { which, results: [], verdict: { state: 'failed', reason: unfit }, range, from }
+  if (unfit) {
+    // The reviewers that finished before a usage limit keep their records, so the resume carries their findings.
+    const finished = answer?.finished
+    if (finished) { history.push(...finished.history); followups.push(...finished.followups); gateRounds.push(...finished.gateRounds) }
+    return { which, results: finished?.results ?? [], verdict: { state: 'failed', reason: unfit }, range, from }
+  }
   const { results, verdict } = answer
   history.push(...answer.history)
   followups.push(...answer.followups)
@@ -1625,7 +1631,7 @@ async function settleReview(rr) {
     phase('Review')
     return settleReview(await reviewRound(next, f.range, f.deltaFrom))
   }
-  if (rr.verdict.state === 'failed') return claudeLimit ? awaitHead(rr, claudeLimitReason('review'), { claudeLimit }) : openResult('failed', 'review', { reason: rr.verdict.reason })
+  if (rr.verdict.state === 'failed') return claudeLimit ? awaitHead(rr, claudeLimitReason('review'), { claudeLimit, resume: { ...claudeLimitResume('review', { lastBlocking: rr.results.filter(Boolean).flatMap(v => v.blocking || []) }), ...(rr.from && { deltaFrom: rr.from, answers: rr.range }) } }) : openResult('failed', 'review', { reason: rr.verdict.reason })
   if (rr.verdict.state === 'architectural') return openResult('escalated', 'review', { reason: 'architectural verdict' })
   return null
 }

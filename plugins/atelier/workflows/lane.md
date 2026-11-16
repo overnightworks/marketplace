@@ -124,6 +124,13 @@ gpt-6-astra/high.
   review again) with "GitHub is unreachable" instead of failed.
 - A fixer that answers its whole batch in the pull request body or an item
   comment and commits nothing is no failure.
+- A builder or fixer that returns no result while its worktree holds commits
+  past the start tip or uncommitted work has that work committed as an
+  unfinished checkpoint and pushed by a lane step (and, after a build, a draft
+  pull request opened); the lane returns awaiting-head at stage `build` or
+  `fix` with `resume` (`pr`, `tip` and `fixFirst`: the remaining blocking
+  findings, or after a build a finding that tells a fresh finisher to complete
+  the build brief). A worktree with nothing new stays failed.
 
 ## Result
 

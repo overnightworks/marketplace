@@ -244,12 +244,38 @@ if (A.deltaFrom && !SHA.test(A.deltaFrom)) return await openResult('failed', 'in
 // Without fixFirst or foldIn an empty delta has no reviewer to satisfy, and the lane cannot verify an earlier approval; the head names the honest resume. With either, the fixer's commits are the delta.
 if (sameCommit(A.deltaFrom, A.tip) && !carriesBatch) return await openResult('failed', 'input', { reason: 'deltaFrom is the tip, so the delta is empty and nothing is reviewed. Start the run again without deltaFrom for a full review, or name the commit before the commits no reviewer has seen as deltaFrom.' })
 
+// A builder or fixer that ends without a result may leave commits or uncommitted work in the worktree. The lane saves
+// it (commit, push, and for the build a draft pull request) and hands the head a resumable awaiting-head result; a worktree with nothing new keeps the failed result.
+async function checkpointOrFail(stage, startRef, failure, fixer) {
+  const failed = () => openResult('failed', stage, failure)
+  phase('Checkpoint')
+  const nonce = `checkpoint-${stage}-${spent.total}`
+  const saved = await relay({ label: `checkpoint-${stage}`, phase: 'Checkpoint', step: 'sync', relayArgs: [`'${nonce}'`], nonce, requiredKeys: ['head', 'parents', 'main'], answerKind: 'checkpoint', agentOptions: COPY, facts: laneFacts, stage, startRef, branch: A.branch, item: A.item, repo: R })
+  if (!saved || saved.problem || saved.commandFailed || !saved.work) return await failed()
+  const checkpointTip = saved.values.head.out
+  const checkpointPr = stage === 'build' ? saved.pr : pr
+  if (!SHA.test(checkpointTip) || !Number.isInteger(checkpointPr) || checkpointPr < 1 || (stage === 'fix' && sameCommit(checkpointTip, tip))) return await failed()
+  tip = checkpointTip
+  pr = checkpointPr
+  history.push({ after: spent.total, by: 'checkpoint', stage, tip })
+  const unreviewed = { note: 'The tip is an unfinished checkpoint no reviewer has seen.', deltaFrom: fixer?.deltaFrom }
+  const pushStop = await pushAndCheckScope(`scope-checkpoint-${stage}-${spent.total}`, unreviewed)
+  if (pushStop) return pushStop.stop
+  const resumeFix = fixer
+    ? { fixFirst: fixer.blocking }
+    : { fixFirst: [{ where: 'the build brief', kind: 'defect', text: 'The builder ended without a result, so the checkpoint is unfinished: complete the build brief against it. The brief follows.', rule: 'the build brief', evidence: `the builder's work is committed on ${A.branch} at ${tip} and the brief is not yet met:\n${A.build}` }] }
+  return await openResult('awaiting-head', stage, {
+    reason: `the ${fixer ? 'fixer' : 'builder'} returned no result; the lane committed its work as an unfinished checkpoint at ${tip}, pushed ${A.branch}${fixer ? '' : ` and opened draft pull request #${pr}`}. Start a new run with pr ${pr}, tip ${tip} and the fixFirst in resume.`,
+    ...(fixer && { lastBlocking: fixer.blocking }), resume: { pr, tip, ...resumeFix },
+  })
+}
+
 // ---------------------------------------------------------------- build
 if (A.build) {
   phase('Build')
   const built = await runPart('lane-build', laneBuild, { delegatedLine: DELEGATED_LINE, laneFacts, driveFacts, rescopeFacts, localCheckFacts: `${localCheckFacts} ${turnFacts('build')}`, build: A.build, routing: claudeRole('build') })
   if (built?.problem) return await openResult('failed', 'build', { reason: `the builder step ${built.problem}` })
-  if (!built) return await openResult('failed', 'build', { reason: `the builder returned no result; inspect ${A.worktree} for uncommitted work, checkpoint it, and hand it to a fresh finisher` })
+  if (!built) return await checkpointOrFail('build', 'origin/main', { reason: `the builder returned no result; inspect ${A.worktree} for uncommitted work, checkpoint it, and hand it to a fresh finisher` })
   if (built.blocked) return await openResult('escalated', 'build', { reason: built.blockedReason })
   if (!SHA.test(built.tip || '')) return await openResult('failed', 'build', { reason: `the builder returned a tip that is not a sha: ${String(built.tip).slice(0, 80)}` })
   pr = built.pr
@@ -384,7 +410,7 @@ async function fixRound(blocking, source, budgetKey, carried) {
   const nonce = `fix-${spent.total}-${tipBeforeFix}`
   const answered = await relay({ label: `fix-${spent.total}`, phase: 'Fix', step: 'sync', relayArgs: [`'${nonce}'`], nonce, requiredKeys: ['head', 'parents', 'main'], answerKind: 'fix', agentOptions: { agentType: 'atelier:code-fixer', ...claudeRole(role) },
     facts: `${laneFacts} ${driveFacts} ${rescopeFacts} ${localCheckFacts} ${turnFacts('fix')}`, pr, tip, source, blocking: listFindings(blocking), findings: blocking.map(f => ({ ...f, kind: kindOf(f) })), foldIns: listFoldIns(foldIn), foldInEntries: foldIn, productionPaths: PRODUCTION, flakeRerunUsed })
-  if (!answered) return { stop: await openResult('failed', 'fix', { reason: `the fixer returned no result; inspect ${A.worktree} for commits past ${tip} and uncommitted work, then start a new run with pr and tip (and fixFirst for what is left)`, lastBlocking: blocking }) }
+  if (!answered) return { stop: await checkpointOrFail('fix', tipBeforeFix, { reason: `the fixer returned no result; inspect ${A.worktree} for commits past ${tip} and uncommitted work, then start a new run with pr and tip (and fixFirst for what is left)`, lastBlocking: blocking }, { blocking, deltaFrom: tipBeforeFix }) }
   // What the fixer says it found already done is only reported to the head: an unaccepted fix folds nothing in.
   const unaccepted = (result) => ({ stop: (answered.resolved || []).length ? { ...result, resolved: answered.resolved } : result })
   // A blocked fixer may have run out of turns before the relay line, and the blocked answer reads no tip.

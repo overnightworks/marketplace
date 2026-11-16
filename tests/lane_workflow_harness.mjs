@@ -73,7 +73,7 @@ export async function runLane(args, answers = {}, options = {}) {
   const isFixer = (label) => label.startsWith('fix-')
   const REREAD = '-reread'
   const baseLabel = (label) => label.endsWith(REREAD) ? label.slice(0, -REREAD.length) : label
-  const isRelayed = (label) => /^(sync|scope-|ci-read-|fix-)/.test(baseLabel(label))
+  const isRelayed = (label) => /^(sync|scope-|ci-read-|fix-|checkpoint-)/.test(baseLabel(label))
   const defaultAnswerFor = (label) => isRelayed(label) && !isFixer(label) ? {} : null
   // The branch carries the newest tip a builder, fixer or sync returned. A scope, sync or fixer answer says what the fake
   // git and aco print (scope: push_error, remote_tip, brief_error, outside_claim; sync and fixer: head, parents, head_code,

@@ -288,7 +288,7 @@ export const replays = [webauthReplay, agentProvidersReplay]
 // One past every blocking list a replay hands a fixer.
 export const outOfRange = 9
 
-export function answersWith(replay, { kind, mutation, testDraft = false, passesAfter = true, proof = 'exact', proofNumber, strayProof = false, failedBefore }) {
+export function answersWith(replay, { kind, mutation, testDraft = false, passesAfter = true, proof = 'exact', proofNumber, strayProof = false, failedBefore, emptyTest = false }) {
   const answers = structuredClone(replay.answers)
   const { raisedBy, fixedBy, number, where } = replay.testGap
   const testGap = answers[raisedBy].blocking.find(f => f.where === where)
@@ -298,6 +298,7 @@ export function answersWith(replay, { kind, mutation, testDraft = false, passesA
   const testGapProof = regression.find(recorded => recorded.finding === number)
   if (mutation) testGapProof.mutation = replay.testGap.mutation
   testGapProof.passesAfter = passesAfter
+  if (emptyTest) testGapProof.test = ''
   if (failedBefore !== undefined) testGapProof.failedBefore = failedBefore
   if (proofNumber !== undefined) testGapProof.finding = proofNumber
   if (proof === 'omitted') regression.splice(regression.indexOf(testGapProof), 1)

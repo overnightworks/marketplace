@@ -27,6 +27,7 @@ async function laneBuild(A) {
       `Open the pull request as the build RULES say, run \`aco check <pr>\`, and return pr, tip and summary.`,
       { label: 'build', phase: 'Build', schema: BUILD, agentType: 'atelier:code-worker', ...A.routing })
   } catch (error) {
+    rethrowClaudeUsageLimit(error)
     log(`build ended without a result: ${String(error).slice(0, 160)}`)
     return null
   }
@@ -129,6 +130,7 @@ async function agentOrNull(prompt, opts) {
   try {
     return await agent(prompt, opts)
   } catch (error) {
+    rethrowClaudeUsageLimit(error)
     log(`${opts.label} ended without a result: ${String(error).slice(0, 160)}`)
     return null
   }
@@ -141,6 +143,23 @@ function afterRerun(red, rerun) {
   return rerun.findings.length ? rerun.findings : red.findings
 }
 
+// The one decision whether a failed Claude agent hit its account usage limit. Every agent call of the lane passes its error through
+// rethrowClaudeUsageLimit, so a limit reaches the lane's runPart instead of being retried or counted as an ordinary failure.
+const CLAUDE_USAGE_LIMIT = /\b(?:(?:usage|weekly|session|5-hour|opus|sonnet)\s+limit|hit\s+your\s+limit)\b/i
+const CLAUDE_LIMIT_RESET = /\bresets?\s+(?:at\s+)?([^\n·.]+)/i
+
+// The limit an agent error names, with the reset text when it has one, or null for any other error.
+function claudeUsageLimitOf(error) {
+  const text = String(error?.message ?? error)
+  if (!CLAUDE_USAGE_LIMIT.test(text)) return null
+  const resetsAt = CLAUDE_LIMIT_RESET.exec(text)?.[1].trim() ?? null
+  return { resetsAt, error: text.slice(0, 300) }
+}
+
+function rethrowClaudeUsageLimit(error) {
+  if (claudeUsageLimitOf(error)) throw error
+}
+
 // Builds the briefs of the sync and fix steps and owns the schemas of their reports, runs one printer command through an agent and returns the answer of the agent together with the CRC-checked values of the line it relays; for the fix step it judges the fixer's answer against the findings and fold-ins it answered, and for the ci step it reads those values and splits the failing checks into own and shared.
 async function laneRelay(A) {
   const { label, phase: phaseName, step, relayArgs, nonce, requiredKeys, agentOptions, reread } = A
@@ -150,6 +169,7 @@ async function laneRelay(A) {
     try {
       return await agent(prompt, opts)
     } catch (error) {
+      rethrowClaudeUsageLimit(error)
       log(`${opts?.label || 'agent'} ended without a result: ${String(error).slice(0, 160)}`)
       return null
     }
@@ -571,6 +591,7 @@ async function laneReview(A) {
     try {
       return (await agent(prompt, opts)) ?? failedVerdict(`${opts?.label || 'agent'} ended without a usable answer`)
     } catch (error) {
+      rethrowClaudeUsageLimit(error)
       log(`${opts?.label || 'agent'} ended without a result: ${String(error).slice(0, 160)}`)
       return failedVerdict(`${opts?.label || 'agent'} threw: ${String(error).slice(0, 300)}`)
     }
@@ -834,7 +855,13 @@ open(out,"w",encoding="utf-8").write(textwrap.dedent(cuts[0])+"\n")`
     }
   }
 
-  const results = await parallel(A.reviewers.map(reviewer => () => reviewBy(reviewer, A.range)))
+  // parallel() turns a throwing reviewer into null, so a usage limit is kept and rethrown for the lane once every reviewer ended.
+  let usageLimitError = null
+  const results = await parallel(A.reviewers.map(reviewer => () => reviewBy(reviewer, A.range).catch(error => {
+    if (claudeUsageLimitOf(error)) usageLimitError ??= error
+    throw error
+  })))
+  if (usageLimitError) throw usageLimitError
   const records = A.reviewers.flatMap((reviewer, i) => results[i] ? [recordOf(reviewer, results[i])] : [])
   return {
     results,
@@ -965,6 +992,7 @@ async function laneTest(A) {
     try {
       return await agent(`${A.delegatedLine}\n${prompt}`, opts)
     } catch (error) {
+      rethrowClaudeUsageLimit(error)
       log(`${opts.label} ended without a result: ${String(error).slice(0, 160)}`)
       return null
     }
@@ -1154,10 +1182,13 @@ const badEntry = (name, entries, schema) => {
 const entryProblem = badEntry('fixFirst', A.fixFirst, FINDING) || badEntry('foldIn', A.foldIn, FOLLOWUP)
 if (entryProblem) return { status: 'failed', stage: 'input', reason: entryProblem }
 // A part that throws is a problem naming it, which its caller stops on at the stage of its own step.
+// A Claude agent at its usage limit also sets claudeLimit, which turns every failure the lane reports afterwards into awaiting-head (openResult).
+let claudeLimit = null
 async function runPart(name, part, partArgs) {
   try {
     return await part(partArgs)
   } catch (error) {
+    claudeLimit ||= claudeUsageLimitOf(error)
     return { problem: `ended in ${name} with ${String(error).slice(0, 300)}` }
   }
 }
@@ -1256,7 +1287,16 @@ async function routingLine() {
   // The lane's own result stays; the placeholder names why the line is missing.
   return typeof line === 'string' ? line : `Routing: not printed (${String(line?.problem ?? JSON.stringify(line)).replace(/\s+/g, ' ').slice(0, 200)})`
 }
+// The head resumes after the reset with the arguments the stage's other awaiting-head stops use; the role never moves to another model or provider.
+const claudeLimitResume = (stage, extra) => stage === 'build' && !pr
+  ? { build: A.build }
+  : { pr, tip, ...(extra.lastBlocking?.length && { fixFirst: extra.lastBlocking }) }
+const claudeLimitResetText = () => claudeLimit.resetsAt ? 'The account resets ' + claudeLimit.resetsAt + '.' : 'The error names no reset time.'
+const claudeLimitReason = (stage) =>
+  `a Claude agent hit its usage limit at stage ${stage}; the lane never moves a role to another model or provider. ${claudeLimitResetText()} After the reset`
+const claudeLimitOwnReason = (extra) => extra.reason ? ' The stage\'s own reason: ' + extra.reason : ''
 const openResult = async (status, stage, extra = {}) => {
+  if (status === 'failed' && claudeLimit) return openResult('awaiting-head', stage, { ...extra, claudeLimit, resume: claudeLimitResume(stage, extra), reason: `${claudeLimitReason(stage)} start a new run with the arguments in resume.${claudeLimitOwnReason(extra)}` })
   const line = await routingLine()
   const open = openFollowups()
   return {
@@ -1304,8 +1344,8 @@ async function checkpointOrFail(stage, startRef, failure, fixer) {
 if (A.build) {
   phase('Build')
   const built = await runPart('lane-build', laneBuild, { delegatedLine: DELEGATED_LINE, laneFacts, driveFacts, rescopeFacts, localCheckFacts: `${localCheckFacts} ${turnFacts('build')}`, build: A.build, routing: claudeRole('build') })
-  if (built?.problem) return await openResult('failed', 'build', { reason: `the builder step ${built.problem}` })
-  if (!built) return await checkpointOrFail('build', 'origin/main', { reason: `the builder returned no result; inspect ${A.worktree} for uncommitted work, checkpoint it, and hand it to a fresh finisher` })
+  if (built?.problem && !claudeLimit) return await openResult('failed', 'build', { reason: `the builder step ${built.problem}` })
+  if (!built || built.problem) return await checkpointOrFail('build', 'origin/main', { reason: `the builder returned no result; inspect ${A.worktree} for uncommitted work, checkpoint it, and hand it to a fresh finisher` })
   if (built.blocked) return await openResult('escalated', 'build', { reason: built.blockedReason })
   if (!SHA.test(built.tip || '')) return await openResult('failed', 'build', { reason: `the builder returned a tip that is not a sha: ${String(built.tip).slice(0, 80)}` })
   pr = built.pr
@@ -1440,7 +1480,7 @@ async function fixRound(blocking, source, budgetKey, carried) {
   const nonce = `fix-${spent.total}-${tipBeforeFix}`
   const answered = await relay({ label: `fix-${spent.total}`, phase: 'Fix', step: 'sync', relayArgs: [`'${nonce}'`], nonce, requiredKeys: ['head', 'parents', 'main'], answerKind: 'fix', agentOptions: { agentType: 'atelier:code-fixer', ...claudeRole(role) },
     facts: `${laneFacts} ${driveFacts} ${rescopeFacts} ${localCheckFacts} ${turnFacts('fix')}`, pr, tip, source, blocking: listFindings(blocking), findings: blocking.map(f => ({ ...f, kind: kindOf(f) })), foldIns: listFoldIns(foldIn), foldInEntries: foldIn, productionPaths: PRODUCTION, flakeRerunUsed })
-  if (!answered) return { stop: await checkpointOrFail('fix', tipBeforeFix, { reason: `the fixer returned no result; inspect ${A.worktree} for commits past ${tip} and uncommitted work, then start a new run with pr and tip (and fixFirst for what is left)`, lastBlocking: blocking }, { blocking, carried, tipBeforeFix }) }
+  if (!answered || (claudeLimit && answered.problem)) return { stop: await checkpointOrFail('fix', tipBeforeFix, { reason: `the fixer returned no result; inspect ${A.worktree} for commits past ${tip} and uncommitted work, then start a new run with pr and tip (and fixFirst for what is left)`, lastBlocking: blocking }, { blocking, carried, tipBeforeFix }) }
   // What the fixer says it found already done is only reported to the head: an unaccepted fix folds nothing in.
   const unaccepted = (result) => ({ stop: (answered.resolved || []).length ? { ...result, resolved: answered.resolved } : result })
   // A blocked fixer may have run out of turns before the relay line, and the blocked answer reads no tip.
@@ -1579,7 +1619,7 @@ async function settleReview(rr) {
     phase('Review')
     return settleReview(await reviewRound(next, f.range, f.deltaFrom))
   }
-  if (rr.verdict.state === 'failed') return openResult('failed', 'review', { reason: rr.verdict.reason })
+  if (rr.verdict.state === 'failed') return claudeLimit ? awaitHead(rr, claudeLimitReason('review'), { claudeLimit }) : openResult('failed', 'review', { reason: rr.verdict.reason })
   if (rr.verdict.state === 'architectural') return openResult('escalated', 'review', { reason: 'architectural verdict' })
   return null
 }

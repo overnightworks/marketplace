@@ -1294,8 +1294,9 @@ const claudeLimitResume = (stage, extra) => stage === 'build' && !pr
 const claudeLimitResetText = () => claudeLimit.resetsAt ? 'The account resets ' + claudeLimit.resetsAt + '.' : 'The error names no reset time.'
 const claudeLimitReason = (stage) =>
   `a Claude agent hit its usage limit at stage ${stage}; the lane never moves a role to another model or provider. ${claudeLimitResetText()} After the reset`
+const claudeLimitOwnReason = (extra) => extra.reason ? ' The stage\'s own reason: ' + extra.reason : ''
 const openResult = async (status, stage, extra = {}) => {
-  if (status === 'failed' && claudeLimit) return openResult('awaiting-head', stage, { ...extra, claudeLimit, resume: claudeLimitResume(stage, extra), reason: `${claudeLimitReason(stage)} start a new run with the arguments in resume.${extra.reason ? ` The stage's own reason: ${extra.reason}` : ''}` })
+  if (status === 'failed' && claudeLimit) return openResult('awaiting-head', stage, { ...extra, claudeLimit, resume: claudeLimitResume(stage, extra), reason: `${claudeLimitReason(stage)} start a new run with the arguments in resume.${claudeLimitOwnReason(extra)}` })
   const line = await routingLine()
   const open = openFollowups()
   return {

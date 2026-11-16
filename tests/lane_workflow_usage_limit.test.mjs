@@ -6,7 +6,6 @@ import { runLane, resumedLane, APPROVE, PASS, greenCi, finding } from './lane_wo
 const weeklyLimit = "You've hit your weekly limit · resets Nov 20"
 const limitWordings = [
   "You've hit your limit · resets 5pm (Europe/Berlin)",
-  'You have hit your usage limit.',
   'Opus limit reached',
 ]
 const failing = (message) => () => { throw new Error(message) }

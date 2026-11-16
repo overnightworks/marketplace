@@ -9,7 +9,8 @@ const proofsByKind = [
   ['AC-proof-matches-its-finding: a defect with a test draft whose test did not fail before stops at the fix', { kind: 'defect', testDraft: true, mutation: true }, false],
   ['a test-gap whose only proof is numbered for a neighbouring finding stops at the fix', { kind: 'test-gap', mutation: true, proofNumber: 2 }, false],
   ['AC-pre-fix-mutation: a test-gap whose test failed on the pre-fix code needs no named mutation and moves past the fix', { kind: 'test-gap', mutation: false, failedBefore: true }, true],
-  ['a test-gap without a named mutation stops at the fix', { kind: 'test-gap', mutation: false }, false],
+  ['a test-gap with no mutation field and no test text stops at the fix', { kind: 'test-gap', mutation: false, emptyTest: true }, false],
+  ['a test-gap with no mutation field but test text moves past the fix to the raiser', { kind: 'test-gap', mutation: false }, true],
   ['a test-gap whose test does not pass after the fix stops at the fix', { kind: 'test-gap', mutation: true, passesAfter: false }, false],
   ['a test-gap without any proof stops at the fix', { kind: 'test-gap', proof: 'omitted' }, false],
   ['a test-gap whose proof is numbered one past the list stops at the fix', { kind: 'test-gap', mutation: true, proofNumber: outOfRange }, false],
@@ -245,7 +246,8 @@ const proofsByNumber = [
   ['a defect and a test-gap at one where, each with its own number, are each accepted', [defectWithDraft, testGap], [proofOf(1, { failedBefore: true }), proofOf(2, { mutation: 'drop the guard' })], null],
   ['a proof numbered for the neighbouring finding does not prove this one', [defectWithDraft, testGap], [proofOf(1, { failedBefore: true })], rejectedForNoProof],
   ['a test-gap test that failed before the fix needs no mutation', [testGap], [proofOf(1, { failedBefore: true })], null],
-  ['a test-gap test without a mutation that did not fail before is rejected naming its where and the mutation', [testGap], [proofOf(1)], /t\.py:1.*no mutation/],
+  ['a test-gap test without any text and without a mutation is rejected naming its where and the mutation', [testGap], [proofOf(1, { test: ' ' })], /t\.py:1.*no mutation/],
+  ['a test-gap test whose text carries the mutation and whose mutation field is empty is not rejected', [testGap], [proofOf(1, { test: 't.py [case]; mutation made and reverted: drop the guard' })], null],
   ['a test-gap test with a mutation that does not pass after is rejected as not passing', [testGap], [proofOf(1, { mutation: 'drop the guard', passesAfter: false })], /t\.py:1.*did not pass/],
   ['a defect without a test draft needs no failing-before test', [defectWithoutDraft], [proofOf(1)], null],
   ['a defect with a test draft still needs its test to fail before', [defectWithDraft], [proofOf(1)], /did not fail before/],
@@ -324,6 +326,20 @@ for (const [behaviour, answered, regression, gap] of supportingProofNotes) {
     assert.match(prompt, gap)
   })
 }
+
+test('a test-gap proof with its mutation inside test reaches the delta re-check with a note quoting the test', async () => {
+  const test = 't.py [case]; mutation made and reverted: drop the guard, the test fails'
+  const { result, agentCalls } = await runLane({ ...resumeArgs, fixFirst: [testGap] }, { 'fix-1': { ...resumeFix, regression: [proofOf(1, { test })] } })
+  assert.notEqual(result.stage, 'fix', result.reason)
+  assert.match(agentCalls['r1-review'].prompt, /mutation made and reverted: drop the guard.*named no mutation in the mutation field/s)
+})
+
+test('the fixer is told to name the mutation in its own field', async () => {
+  const { agentCalls } = await runLane({ ...resumeArgs, fixFirst: [testGap] }, { 'fix-1': { ...resumeFix, regression: [proofOf(1, { mutation: 'm' })] } })
+  const { prompt, options } = agentCalls['fix-1']
+  assert.match(prompt, /in the mutation field \(not inside test\)/)
+  assert.match(options.schema.properties.regression.items.properties.mutation.description, /not inside test/)
+})
 
 test('the delta re-check names each not-run test, its reason and the half that was not run', async () => {
   const notRun = (finding, overrides) => proofOf(finding, { passesAfter: false, notRun: `lock held for ${finding}`, test: `test_${finding}.py`, ...overrides })

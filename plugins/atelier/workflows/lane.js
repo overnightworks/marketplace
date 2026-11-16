@@ -276,7 +276,7 @@ async function laneRelay(A) {
       regression: {
         type: 'array',
         description: "empty only when no blocking finding needs a proof; otherwise every test you add, strengthen or keep for a blocking finding, and every probe cell you run for it, under that finding's number in the blocking list you were given",
-        items: { type: 'object', required: ['finding', 'test', 'failedBefore', 'passesAfter'], properties: { finding: { type: 'integer', minimum: 1, description: 'the number of the blocking finding in the list you were given' }, resolution: { type: 'string', enum: ['removed'], description: 'for a finding of any kind whose fix only deletes dead code or a test that pins no behaviour, instead of changing behaviour or adding a test' }, diff: { type: 'string', description: 'for removed: the removal diff' }, test: { type: 'string' }, failedBefore: { type: 'boolean' }, passesAfter: { type: 'boolean' }, notRun: { type: 'string', description: 'why this machine could not run the test (a refused command, a machine another lane holds); CI on the pushed tip is its proof. Not for a test you ran and saw fail: that is passesAfter false' }, mutation: { type: 'string', description: 'for a test-gap finding: the production change, made and reverted, under which the test fails' } } },
+        items: { type: 'object', required: ['finding', 'test', 'failedBefore', 'passesAfter'], properties: { finding: { type: 'integer', minimum: 1, description: 'the number of the blocking finding in the list you were given' }, resolution: { type: 'string', enum: ['removed'], description: 'for a finding of any kind whose fix only deletes dead code or a test that pins no behaviour, instead of changing behaviour or adding a test' }, diff: { type: 'string', description: 'for removed: the removal diff' }, test: { type: 'string' }, failedBefore: { type: 'boolean' }, passesAfter: { type: 'boolean' }, notRun: { type: 'string', description: 'why this machine could not run the test (a refused command, a machine another lane holds); CI on the pushed tip is its proof. Not for a test you ran and saw fail: that is passesAfter false' }, mutation: { type: 'string', description: 'for a test-gap finding: the production change, made and reverted, under which the test fails; it goes here and not inside test' } } },
       },
       summary: { type: 'string' }, blocked: { type: 'boolean' }, blockedReason: { type: 'string' },
     },
@@ -335,7 +335,7 @@ async function laneRelay(A) {
       `Each finding names the rule it breaks and its evidence. A scanner finding whose message covers the whole file (for example "in this file") is fixed at every occurrence in that file, not only at the reported line. Check the evidence yourself first. If it does not hold — the rule is not broken, or the evidence is wrong — ` +
       `do not change code for it: list it in disputed with your counter-evidence. Report every test you add, strengthen or keep for a blocking finding, and every probe cell you run for it, in regression under that finding's number in the list above; the number counts only for the blocking list, a follow-up needs no regression entry. Run the mutation you name, do not reason about it. ` +
       `A defect's test fails before your fix and passes after it; a defect with a test draft needs one. A defect in test code (hygiene) needs no regression test: the diff is its proof. A test you could not run on this machine is reported with notRun, the reason, and passesAfter false is kept for a test you ran and saw fail; the delta re-check judges a not-run test from its text and CI on the pushed tip runs it. A test-gap finding means a behaviour has no test, the code is already right, and it always needs a test: it passes before and after, ` +
-      `so name in mutation the production change, made and reverted, under which the test fails; a test that fails on the pre-fix code counts as such a mutation (failedBefore true). When a finding is answered by deleting dead code or a test that pins no behaviour (a test-gap's vacuous cell, an unreachable guard), no test is needed: report resolution removed with the removal diff in diff, and no failing-first or passing-after bar applies. A fix that changes behaviour is no removal and keeps its test. A docs finding needs no test. When the only finding is that the pull request conflicts with main, the merge is the whole fix. ` +
+      `so name in the mutation field (not inside test) the production change, made and reverted, under which the test fails; a test that fails on the pre-fix code counts as such a mutation (failedBefore true). When a finding is answered by deleting dead code or a test that pins no behaviour (a test-gap's vacuous cell, an unreachable guard), no test is needed: report resolution removed with the removal diff in diff, and no failing-first or passing-after bar applies. A fix that changes behaviour is no removal and keeps its test. A docs finding needs no test. When the only finding is that the pull request conflicts with main, the merge is the whole fix. ` +
       `Otherwise one commit per finding. Push, patch the PR body where it became false or where a finding is about it (REST PATCH with --input, never gh pr edit --body-file); a finding the body or an item comment answers goes in outside under its number in finding, and commit nothing for it; run \`aco check ${pr}\` from the worktree. ` +
       `Return files: the output of \`${git} log --name-only --format= --first-parent --remerge-diff ${tip}..HEAD\` (of \`${git} diff --name-only ${tip}..HEAD\` when mergeResolvedLaneConflict is true). Last, whatever happened,`
     )
@@ -381,7 +381,9 @@ async function laneRelay(A) {
     const unrunHalf = finding.kind === 'test-gap' ? `fails under the mutation ${namedMutation}` : 'fails on the pre-fix code'
     return `\nThe fixer did not run the test ${proof.test} for ${finding.where} (${proof.notRun.trim()}); read its text and judge the half that was not run: it ${unrunHalf}.`
   }
+  const misplacedMutationNote = ({ proof, finding }) => `\nThe fixer offered the test ${proof.test} for ${finding.where} and named no mutation in the mutation field; read its text and judge whether it names a mutation, made and reverted, under which the test fails.`
   const proofNotes = (fixed, blocking) => judgedProofs(fixed, blocking).map(entry => {
+    if (!entry.gap && !isNotRun(entry.proof) && entry.proof.resolution !== 'removed' && namesNoMutationField(entry.proof, entry.finding)) return misplacedMutationNote(entry)
     if (isNotRun(entry.proof) && needsProof(entry.finding)) return notRunNote(entry)
     if (entry.proof.resolution === 'removed' && !entry.gap) return removalNote(entry)
     return entry.gap && entry.proven ? supportingNote(entry) : ''
@@ -560,8 +562,12 @@ async function laneRelay(A) {
 
 function testGapProofGap(proof, finding) {
   if (!proof.passesAfter) return `a test-gap test for ${finding.where} did not pass after the fix`
-  return (proof.mutation || '').trim() || proof.failedBefore ? null : `a test-gap test for ${finding.where} named no mutation under which it fails and did not fail before the fix`
+  if (!(proof.test || '').trim()) return `a test-gap test for ${finding.where} has no text and named no mutation`
+  return null
 }
+
+// A passing test-gap proof with neither a mutation nor a failing-before run: the raiser judges from the test text whether it names the mutation.
+const namesNoMutationField = (proof, finding) => finding.kind === 'test-gap' && proof.passesAfter && !proof.failedBefore && !(proof.mutation || '').trim()
 
 // The printed values, not the watcher's word, decide whether CI counts as green; null means they prove it.
 function unprovenGreen({ checks, rules }) {

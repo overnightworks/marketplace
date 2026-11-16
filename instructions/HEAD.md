@@ -31,6 +31,11 @@ the tool or to revise a returned line. After asking, run `aco wait` on the
 card's line in the background; it ends when the card is settled. The
 session-start list and expectation lists follow their own rules below.
 
+A step the operator must run is ready to run. A terminal step is one block he
+pastes as is: it starts with its `cd`, chains several commands with `&&` or
+runs one shipped script. A web step is its exact link plus, in a line, where
+to click and what to set. Both are short and precise.
+
 ## Session start
 
 In a repository with a board, delegate at once, without waiting for it, one
@@ -269,7 +274,11 @@ needs no counter-check. Lane work keeps its own reviews.
   sharpen scope and acceptance, then delegate an independent plan review, the
   build with proportionate tests, and an independent code and risk review
   whose first round drives a scenario matrix you write from the item's ruled
-  sentences crossed with the axes that matter (`AGENTS.md`, Reviews). Loop
+  sentences crossed with the axes that matter (template: `explorative-testing`
+  skill) and reports every cell held, failed or not driven, so later gates stay
+  true deltas. A matrix one reviewer cannot drive in one session (past roughly
+  forty cells driven by hand; a cell a CI test proves does not count, its test
+  judged against its row) means the item is cut, not the matrix sampled. Loop
   fixes and delta re-checks until no blocking finding remains, then delegate
   the required CI and judge the evidence.
 
@@ -280,14 +289,21 @@ needs no counter-check. Lane work keeps its own reviews.
   a blocking finding. With it, the lane also gets the final gate, started once
   on the lane tip in parallel with the first review, not after CI, so its
   findings join the first fix batch; CI still runs on the merged result.
-- **Independence** (`AGENTS.md`, Reviews). Saving budget never weakens
-  required verification: every implementation lane keeps its independent
-  review. With no eligible gate provider, the gate waits; one at its usage
-  limit is replaced as `AGENTS.md` says. Each required review brief carries
-  the contract core, with rulings and neighbours folded into the body, never
-  passed beside it. No override changes reviewer independence or
-  the effort caps, nor gate provider separation beyond that stand-in.
-- **Re-checks.** A `REVISE` gets a delta re-check after a coherent fix batch:
+- **Independence.** A builder never reviews its own work. A required final
+  gate runs in fresh context on a provider column other than the builder's or,
+  while that provider is at its usage limit, on Opus 5.5 at high, named in the
+  pull request; with no eligible gate provider, it waits. Saving budget never
+  weakens required verification: every implementation lane keeps its
+  independent review. Each required review brief carries the contract core (the
+  current item body, the candidate diff and the verification evidence), with
+  rulings and neighbours folded into the body, never passed beside it. No
+  override changes reviewer independence or the effort caps, nor gate provider
+  separation beyond that stand-in.
+- **Re-checks.** A delta re-check carries the contract core and the raised
+  findings and asks whether the repair opened something new; it covers only the
+  raised delta when the fix is strictly isolated and the integrated tree
+  outside it is unchanged, and never repeats a full review to buy what CI
+  proves. A `REVISE` gets one after a coherent fix batch:
   by the same reviewer while its reported lifetime context is under 200k
   tokens (unknown counts as over), else by a fresh reviewer of the same row and
   provider column given the original findings verbatim. When the gate's
@@ -300,6 +316,8 @@ needs no counter-check. Lane work keeps its own reviews.
   resolution in the lane's files; never for intermediate patches, test cleanup
   or mechanical corrections. Never land a material-risk tip the gate has not
   seen, apart from mechanical or test-only deltas.
+- **UI.** A changed UI is proven by a delegated agent driving it like a user,
+  at the relevant mobile and desktop widths.
 - **Follow-ups** go to their owning item, or to the review's distributor issue
   when it has none, before the lane lands, without another review round or a
   fresh item; a fix-in-place follow-up goes there unchanged when the lane has
@@ -324,7 +342,7 @@ run at medium (mechanical work at low or medium), in the last two rows at high.
 | Fact finding, test | Sonnet 5.5, medium; a material lane's test at high | gpt-6-astra | 4.6 |
 | Ordinary code, test or diff review | Sonnet 5.5, high | gpt-6-astra | — |
 | Material review; architecture, security or product decision; the hardest proof | Opus 5.5, medium | gpt-6-astra | 4.6 (no reviews) |
-| Required final gate (provider: `AGENTS.md`, Independence) | Opus 5.5, high | gpt-6-astra | — |
+| Required final gate (provider: Reviews and gates, Independence) | Opus 5.5, high | gpt-6-astra | — |
 
 - A fix batch is behaviour-neutral when none of its findings can change
   behaviour: wording, a local rename, formatting, a one-line scanner fix. One

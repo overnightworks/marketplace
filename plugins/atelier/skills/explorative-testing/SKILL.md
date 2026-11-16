@@ -72,7 +72,7 @@ A run that starts a server, a container, a browser or an E2E stack drives only u
 
 ## Scenario matrix (first gate of a material-risk lane)
 
-This section is the template the global contract refers to.
+This section is the template the head contract refers to.
 
 When the parent hands you a scenario matrix instead of leaving step 1 to you,
 drive it in full rather than sampling — this is the first independent review of
@@ -87,7 +87,7 @@ public function. Report every cell as **held**, **failed**, or **not driven**;
 an unmarked cell is not a completed gate. A cell that a named test in CI proves you
 judge by reading that test against its row, not by driving it, naming the test
 and marking the cell held or failed on that reading; only the cells you drive by hand count toward
-the global contract's matrix limit.
+the matrix limit.
 
 ## Hard Limits
 

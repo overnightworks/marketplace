@@ -7,7 +7,7 @@ agent, `HEAD.md` beside it binds the head too. A repository's `AGENTS.md` adds
 only what holds there alone (its commands, the rules its own code or tooling
 needs, its owners and the kinds of decision the operator granted its head, and
 pointers to its documents), never overrides these or defines another coordination
-workflow; its `CLAUDE.md` is absent or exactly `@AGENTS.md`. Every rule in both
+workflow. Every rule in both
 files, each such grant, and every rule in an owner's section that says it holds
 contract rules, is the operator's ruling: a change to what one requires (not a
 wording fix or a stale fact) lands only with his yes, and its commit names the
@@ -52,10 +52,6 @@ questions, doubts and friction go to its parent.
   operator fetches from outside (load runs, checks, applies, generating a secret
   it never sees, a merge once its required review and CI are green), and the
   head reports the result to him; no repository reserves such a step for him.
-- A step the operator must run is ready to run. A terminal step is one block he
-  pastes as is: it starts with its `cd`, chains several commands with `&&` or
-  runs one shipped script. A web step is its exact link plus, in a line, where
-  to click and what to set. Both are short and precise.
 - **Material risk** is a public contract, persistent data or a migration,
   secrets or rights, money, security, deletion or anything irreversible, or a
   new source of truth. It is judged by what the diff can break, not by the
@@ -181,25 +177,6 @@ Every review finding is marked **blocking** or **follow-up**.
   public name the item changes is blocking when the diff neither changes it nor
   the body names it as deliberately untouched; where such pins span more than a
   handful of test modules, CI on the pushed branch is their proof.
-- **Independence.** A builder never reviews its own work; a required final
-  gate runs in fresh context on a provider column other than the builder's or,
-  while that provider is at its usage limit, on Opus 5.5 at high, named in the
-  pull request. Every required review gets the build's contract core: the
-  current item body, the candidate diff and the verification evidence.
-- **A delta re-check** carries the contract core and the raised findings and
-  asks whether the repair opened something new. It covers only the raised delta
-  when the fix is strictly isolated and the integrated tree outside it is
-  unchanged; it never repeats a full review to buy what CI proves.
-- **Scenario matrix.** The first review of a lane with material risk,
-  architecture or several owners drives the matrix the head wrote from the
-  item's ruled sentences (template: `explorative-testing` skill) and reports
-  every cell held, failed or not driven, so later gates stay true deltas. A
-  matrix one reviewer cannot drive in one session (past roughly forty cells
-  driven by hand) means the item is cut, not the matrix sampled. A cell a CI
-  test proves does not count toward that number; the reviewer judges that test
-  against its row.
-- **UI.** A changed UI is proven by a delegated agent driving it like a user,
-  at the relevant mobile and desktop widths.
 
 ## Machine load and local runs
 
@@ -267,9 +244,8 @@ before the work is called done.
 - A rule a machine can check belongs in the repository's checks, one only
   judgement can see in a scheduled agent audit at a fixed cadence (one
   distributor item per run), never in a sentence every agent must remember.
-- The root holds only what a tool must find there and the entry documents
-  (`README.md`, `AGENTS.md`, `CLAUDE.md`, `HEART.md`); quality's `root-layout`
-  check keeps the root to that allowlist. Everything else lives in its owner's
+- The root holds only what a tool must find there and the entry documents,
+  as quality's `root-layout` rule lists them. Everything else lives in its owner's
   directory (a baseline beside its check, a fixture beside its test, a helper
   under `scripts/`), with no catch-all directory and no deeper hierarchy than
   the owner needs; below the root, placement is judgement.
@@ -330,11 +306,11 @@ before the work is called done.
   quality's `python-print` rule accepts; that names the owner and is no
   file-wide ignore.
 - Size, complexity and duplication are held by ratchets over a baseline, not by
-  repository-wide allowlists. Files from 800 lines, functions from 60 and
-  cyclomatic complexity above 15 are debt, not a quality seal: per path and
-  qualified symbol, a new or grown violation between base and head is red, and
-  so is an unresolvable base. A new near-identical function pair or an orphaned
-  baseline entry is red; the baseline shrinks in owned slices.
+  repository-wide allowlists: files from 800 lines, functions from 60,
+  cyclomatic complexity above 15 and near-identical function pairs are debt,
+  not a quality seal. A new or grown one, or an orphaned baseline entry, is red
+  (cases: quality's `size` and `clone` rules); the baseline shrinks in owned
+  slices.
 
 ## Configuration and value ownership
 

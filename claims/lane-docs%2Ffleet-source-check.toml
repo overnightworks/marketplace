@@ -1,0 +1,7 @@
+claim_id = "9d0831c44a24488084a762ef3ff31647"
+agent = "Claude 30ec126a-30e5-431d-a4c3-088d393726d4"
+role = "builder"
+base = "de5accad9a1ffc7b845c954e82a4de7fdd839520"
+branch = "docs/fleet-source-check"
+scope = ["docs/standards.md"]
+opened_commit = "c1418a8e645e6ae4920c0628fe9b2090ed24e9f7"

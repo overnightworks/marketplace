@@ -390,6 +390,24 @@ for (const [behaviour, answered, shownAsRemoval] of removalsByFindingKind) {
   })
 }
 
+test('a docs finding answered as removed reaches the re-check with the diff read for its path', async () => {
+  const regression = [proofOf(1, { resolution: 'removed' })]
+  const { agentCalls } = await runLane({ ...resumeArgs, fixFirst: [docsFinding] }, { 'fix-1': { ...resumeFix, regression, touched_paths: ['README.md'] } })
+  const prompt = agentCalls['r1-review'].prompt
+  assert.ok(prompt.includes('-removed in README.md'))
+  assert.ok(prompt.includes(`answered ${docsFinding.where} by removing`))
+})
+
+test('with two findings on different paths, the removal shows the diff of its own path and not the first finding', async () => {
+  const first = { ...testGap, where: 'a.py:1' }
+  const second = { ...testGap, where: 'b.py:1' }
+  const regression = [proofOf(1, { mutation: 'drop the guard' }), proofOf(2, { resolution: 'removed' })]
+  const { agentCalls } = await runLane({ ...resumeArgs, fixFirst: [first, second] }, { 'fix-1': { ...resumeFix, regression, touched_paths: ['a.py', 'b.py'] } })
+  const prompt = agentCalls['r1-review'].prompt
+  assert.ok(prompt.includes('-removed in b.py'))
+  assert.ok(!prompt.includes('-removed in a.py'))
+})
+
 // The contract stops the fix loop at the final gate's third consecutive REVISE; the ordinary reviewer is bound by the budgets only.
 const tipAfter = (n) => String(n).repeat(40)
 const reviseWith = (where, extra = {}) => ({ verdict: 'REVISE', blocking: [finding(where, `defect at ${where}`)], followups: [], codexExit: 0, ...extra })

@@ -98,13 +98,15 @@ it from its branch and claims after adoption.
   source and how it serves it. A review finding is a caller only through the
   ruled sentence it breaks or the person or incident it hit; any other gap
   waits on its owning item for usage evidence.
-- **Ideas** come in the operator's words or from a head's dream for its
-  product, a new repository included; other agent-found gaps go to the owning
-  item's gap list. An idea carries the wish in its author's words, why it
-  matters and how he will notice it exists, the board's idea label and no aco
-  block; a new repository is created once its idea is pulled.
-  Only a pulled item is refined, pictured and cut, afresh: elaborated but
-  unpulled work is inventory that rots while the vision moves on.
+- **Ideas** come in the operator's words or from an agent's own vision, for its
+  repository or beyond it, a new repository included; other agent-found gaps go
+  to the owning item's gap list. An agent's vision goes to the operator as a
+  card before it becomes an idea; an improvement within the blessed vision,
+  such as a code optimisation, needs none. An idea carries the wish in its
+  author's words, why it matters and how he will notice it exists, the board's
+  idea label and no aco block; a new repository is created once its idea is
+  pulled. Only a pulled item is refined, pictured and cut, afresh: elaborated
+  but unpulled work is inventory that rots while the vision moves on.
 - **The pull** asks the pull question (`AGENTS.md`, How to decide) and checks
   the fleet standards covering the touched part; an item opened from a review
   finding is pulled when opened. One that fails is closed or re-cut, never
@@ -180,14 +182,15 @@ it from its branch and claims after adoption.
   the fleet standards covering it and its users today, the operator included.
   That shape is the head's dream for its product, not today's best practice: it
   asks what it would wish for if it could dream, and may experiment and go new
-  ways to get there. A library's or shared workflow's users include the
-  repositories that depend on
-  it, read from their manifests and pins when a decision touches them, never
-  kept as a list; a dependency no manifest shows is one sentence in the
-  vision. A change that breaks what a dependent uses is asked of it before it
-  is built, unless the operator ruled it for them; each dependent's head owns
-  its upgrade. Ask about a decision at hand; wishes gathered without one are
-  inventory.
+  ways to get there. It pursues its own vision with ambition and changes course
+  at a natural point, never in the middle of a lane: finished work may stay
+  finished until a better idea comes. A library's or shared workflow's users
+  include the repositories that depend on it, read from their manifests and
+  pins when a decision touches them, never kept as a list; a dependency no
+  manifest shows is one sentence in the vision. A change that breaks what a
+  dependent uses is asked of it before it is built, unless the operator ruled
+  it for them; each dependent's head owns its upgrade. Ask about a decision at
+  hand; wishes gathered without one are inventory.
 - **Heads talk.** What another repository's head needs (a release, a fix, a
   changed contract) goes to it live when this session can reach it, and always
   onto its board, where a later head still finds it. A release reaches each

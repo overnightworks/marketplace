@@ -2,12 +2,24 @@
 
 ## What it does
 
-- Marketplace gives all of the operator's agents one shared way of working:
-  one contract and one code policy, kept in one place.
-- It helps plan, build, review, land, audit and document work the same way in
+- Marketplace is the agents' home across all of the operator's repositories,
+  and the entry point every other repository starts from. An agent that
+  arrives anywhere finds here how to work, so that no follow-up task begins
+  from nothing.
+- It gives all agents one shared way of working, one contract and one code
+  policy kept in one place, so they work without errors and master each task
+  that follows.
+- It is the place where agents across repositories talk to each other, so
+  what one learns reaches the others.
+- Agents keep learning from their own runs and question their own work. They
+  propose and sharpen the rules they work by; the operator rules on each
+  change, and a rule nothing has shown to be needed stays a proposal.
+- It plans, builds, reviews, lands, audits and documents work the same way in
   every repository it serves.
 - It keeps the fleet standards, such as the document set, and holds each
   repository to the ones that cover it.
+- It fits the fleet's work to the operator's usage allowance and brings him
+  only what needs him.
 
 ## Who uses it today
 

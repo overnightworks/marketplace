@@ -1,0 +1,7 @@
+claim_id = "91cfd8a04534425aa4bada11f9cdbb97"
+agent = "Claude 30ec126a-30e5-431d-a4c3-088d393726d4"
+role = "builder"
+base = "f4bf0175169ab6e6a8470ceef7843872f28f73e3"
+branch = "claude/issue-784-head-dreams"
+scope = ["instructions/HEAD.md"]
+opened_commit = "7929e82a479876c6d07f3a2fb7b6d6814b0d7992"

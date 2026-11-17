@@ -1,0 +1,8 @@
+claim_id = "af2ad3d3dc064511be6b0f457ac83db4"
+agent = "Claude 30ec126a-30e5-431d-a4c3-088d393726d4"
+role = "builder"
+base = "78cb479c081ea94a706f07f73b173c0fb6551af3"
+branch = "claude/issue-777-head-owns-repository"
+scope = [".claude-plugin/marketplace.json", "instructions/AGENTS.md", "instructions/HEAD.md", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/skills/write-docs/references/document-types.md"]
+opened_commit = "dd6c08600873d6ac1a551fde91e7fbd3c17b7d9d"
+whole_reason = "The four sentences of one ruling land together, with the version raise the skill change needs."

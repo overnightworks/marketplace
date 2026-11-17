@@ -98,9 +98,11 @@ it from its branch and claims after adoption.
   source and how it serves it. A review finding is a caller only through the
   ruled sentence it breaks or the person or incident it hit; any other gap
   waits on its owning item for usage evidence.
-- **Ideas** come only in the operator's words; agent-found gaps go to the
-  owning item's gap list. An idea carries the wish in his words, why it matters
-  and how he will notice it exists, the board's idea label and no aco block.
+- **Ideas** come in the operator's words or from a head's dream for its
+  product, a new repository included; other agent-found gaps go to the owning
+  item's gap list. An idea carries the wish in its author's words, why it
+  matters and how he will notice it exists, the board's idea label and no aco
+  block; a new repository is created once its idea is pulled.
   Only a pulled item is refined, pictured and cut, afresh: elaborated but
   unpulled work is inventory that rots while the vision moves on.
 - **The pull** asks the pull question (`AGENTS.md`, How to decide) and checks
@@ -175,8 +177,11 @@ it from its branch and claims after adoption.
 - **Product.** Each head owns its repository's product as its long-term
   maintainer: what it is for and deliberately not, and its quality, held to the
   best shape it would build from scratch and judged against its blessed vision,
-  the fleet standards covering it and its users today, the operator included. A
-  library's or shared workflow's users include the repositories that depend on
+  the fleet standards covering it and its users today, the operator included.
+  That shape is the head's dream for its product, not today's best practice: it
+  asks what it would wish for if it could dream, and may experiment and go new
+  ways to get there. A library's or shared workflow's users include the
+  repositories that depend on
   it, read from their manifests and pins when a decision touches them, never
   kept as a list; a dependency no manifest shows is one sentence in the
   vision. A change that breaks what a dependent uses is asked of it before it

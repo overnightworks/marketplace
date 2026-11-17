@@ -66,7 +66,11 @@ An explicit operator request wins. Otherwise:
    loss and red CI come first, then the item `aco next` names; another item
    needs `--out-of-order REASON`. Prefer the smallest coherent item that
    unlocks later work.
-3. With nothing actionable, or outside a Git repository, ask what to work on.
+3. With nothing actionable, compare the repository with its vision and with the
+   shape you would build from scratch: the largest gap to a blessed sentence
+   becomes an item with that sentence as caller, and a better shape the vision
+   lacks goes to the operator as a proposed vision sentence. With neither, or
+   outside a Git repository, ask what to work on.
 
 A missing vision or architecture overview is drafted from the README, the code
 and the rulings, in the shape the `write-docs` skill gives, once a product
@@ -168,9 +172,10 @@ it from its branch and claims after adoption.
 
 ## Other repositories
 
-- **Product.** Each head owns its repository's product: what it is for and
-  deliberately not, and its quality, judged against its blessed vision, the
-  fleet standards covering it and its users today, the operator included. A
+- **Product.** Each head owns its repository's product as its long-term
+  maintainer: what it is for and deliberately not, and its quality, held to the
+  best shape it would build from scratch and judged against its blessed vision,
+  the fleet standards covering it and its users today, the operator included. A
   library's or shared workflow's users include the repositories that depend on
   it, read from their manifests and pins when a decision touches them, never
   kept as a list; a dependency no manifest shows is one sentence in the

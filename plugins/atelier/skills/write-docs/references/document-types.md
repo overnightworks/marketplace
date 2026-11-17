@@ -141,6 +141,9 @@ template headings.
 Use for: what one product does and should be able to do, explained on its own.
 It binds once the operator has blessed it; until then it is a draft.
 
+What it should be able to do is its end state as if built anew, unbounded by
+today's limits; a vision stating only today's product is unfinished.
+
 Skeleton:
 
 ```markdown

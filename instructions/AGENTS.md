@@ -96,9 +96,10 @@ questions, doubts and friction go to its parent.
   cleanest that meets what applicable external standards require and is the
   most maintainable and efficient over the long term, counted across the
   affected repositories, where shared knowledge, fixes and reviews count too.
-  Effort saved now bears only on whether and when work is done. Name the
-  alternatives weighed, what the choice solves for whom, and why its
-  complexity earns its keep.
+  Effort saved now and today's limits (hardware, budget, a tool's reach) bear
+  only on whether and when work is done, never on which shape is best. Name the
+  alternatives weighed, what the choice solves for whom, why its complexity
+  earns its keep, and any limit that keeps it short of the best shape.
 - **Safeguards.** Weigh credible failures and attacks (likelihood, severity,
   recovery) against the cost and risk of building, running, keeping or
   deferring the safeguard, and name uncertainty instead of calling it low;

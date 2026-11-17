@@ -19,6 +19,7 @@ const FAKE_GIT = `#!/bin/sh
 case "$1 $2" in
   "push origin") [ -z "$FAKE_PUSH_ERROR" ] || { printf '%s\\n' "$FAKE_PUSH_ERROR" >&2; exit 1; } ;;
   "rev-parse HEAD") [ "$FAKE_HEAD_CODE" = 0 ] || { printf 'fatal: bad revision\\n' >&2; exit "$FAKE_HEAD_CODE"; }; printf '%s\\n' "$FAKE_HEAD" ;;
+  "rev-parse --abbrev-ref") printf '%s\\n' "$FAKE_BRANCH" ;;
   "rev-parse HEAD^@") printf '%s\\n' "$FAKE_PARENTS" ;;
   "merge-base --is-ancestor") exit "$FAKE_MAIN_CODE" ;;
   "rev-parse origin/"*) printf '%s\\n' "$FAKE_REMOTE" ;;
@@ -73,7 +74,7 @@ export async function runLane(args, answers = {}, options = {}) {
   const isFixer = (label) => label.startsWith('fix-')
   const REREAD = '-reread'
   const baseLabel = (label) => label.endsWith(REREAD) ? label.slice(0, -REREAD.length) : label
-  const isRelayed = (label) => /^(sync|scope-|ci-read-|fix-|checkpoint-)/.test(baseLabel(label))
+  const isRelayed = (label) => /^(branch|sync|scope-|ci-read-|fix-|checkpoint-)/.test(baseLabel(label))
   const defaultAnswerFor = (label) => isRelayed(label) && !isFixer(label) ? {} : null
   // The branch carries the newest tip a builder, fixer or sync returned. A scope, sync or fixer answer says what the fake
   // git and aco print (scope: push_error, remote_tip, brief_error, outside_claim; sync and fixer: head, parents, head_code,
@@ -111,7 +112,7 @@ export async function runLane(args, answers = {}, options = {}) {
     if ('printed' in scenario) return scenario.printed
     const line = prompt.split('\n').at(-1).replace(/^cd '[^']*' && /, '')
     const env = {
-      ...process.env, PATH: `${fakeCommands()}:${process.env.PATH}`, FAKE_HEAD: scenario.head ?? newestTip, FAKE_REMOTE: scenario.remote_tip ?? newestTip,
+      ...process.env, PATH: `${fakeCommands()}:${process.env.PATH}`, FAKE_HEAD: scenario.head ?? newestTip, FAKE_BRANCH: scenario.branch ?? args.branch, FAKE_REMOTE: scenario.remote_tip ?? newestTip,
       FAKE_HEAD_CODE: scenario.head_code ?? 0, FAKE_PARENTS: (scenario.parents ?? []).join('\n'), FAKE_MAIN_CODE: scenario.main_code ?? 0,
       FAKE_PUSH_ERROR: scenario.push_error ?? '', FAKE_NETWORK_ERROR: scenario.network_error ?? '', FAKE_NETWORK_STDOUT: scenario.network_stdout ?? '', FAKE_NETWORK_FAILS: scenario.network_fails ?? 1, FAKE_BRIEF_ERROR: scenario.brief_error ?? '',
       FAKE_BRIEF_OUTPUT: JSON.stringify({ outside_claim: 'outside_claim' in scenario ? scenario.outside_claim : [] }), ...ghEnv(scenario),
@@ -135,7 +136,8 @@ export async function runLane(args, answers = {}, options = {}) {
     const { pr_head: _prHead, checks: _checks, required: _required, base_runs: _baseRuns, changed_files: _changedFiles, changed_code: _changedCode, changed_error: _changedError, runlist_code: _runlistCode, runlist_error: _runlistError, head: _head, parents: _parents, head_code: _headCode, main_code: _mainCode, nonce: _nonce, edit: _edit, typedCommand: _typedCommand, printerMode: _printerMode, push_error: _pushError, network_error: _networkError, network_fails: _networkFails, remote_tip: _remoteTip, brief_error: _briefError, outside_claim: _outsideClaim, printed: _printed, ...report } = answer
     return reread ? { printed } : { ...report, printed }
   }
-  const agent = async (prompt, agentOptions = {}) => { launchedAgents.push(agentOptions.label); launchedPrompts.push(prompt); agentCalls[agentOptions.label] = { prompt, options: structuredClone(agentOptions) }; return answerFor(agentOptions.label, prompt) }
+  // The worktree check runs before every lane, so the launch lists hold only the agents after it; agentCalls keeps it.
+  const agent = async (prompt, agentOptions = {}) => { if (agentOptions.label !== WORKTREE_CHECK) { launchedAgents.push(agentOptions.label); launchedPrompts.push(prompt) } agentCalls[agentOptions.label] = { prompt, options: structuredClone(agentOptions) }; return answerFor(agentOptions.label, prompt) }
   // A thunk that throws resolves to null, as in the Workflow runtime.
   const parallel = async thunks => Promise.all(thunks.map(thunk => thunk().catch(() => null)))
   const ignore = () => {}
@@ -149,6 +151,8 @@ export async function runLane(args, answers = {}, options = {}) {
     if (fakeBin) fs.rmSync(fakeBin, { recursive: true })
   }
 }
+
+export const WORKTREE_CHECK = 'branch'
 
 export const resumedLane = { item: 1, worktree: '/w', branch: 'b', contract: 'c', e2e: 'e', scratch: '/s', pr: 1, tip: 'abcdef0' }
 

@@ -29,7 +29,9 @@ The lane needs a repository that coordinates with aco, after the head ran
 - `item`: the GitHub issue number of the work item. The lane carries only issue
   items; an issue-less claim runs by hand.
 - `worktree`: the lane's isolated worktree path.
-- `branch`: the lane branch.
+- `branch`: the lane branch. Before any agent works, the lane reads through
+  its relay that `worktree` exists with `branch` checked out, and otherwise
+  fails at stage `input` naming both values and what it found.
 - `contract`: the item's ruled sentences every reviewer and the tester judge
   against.
 - `e2e`: what the explorative tester drives through the real entry point.

@@ -325,7 +325,7 @@ const builtLane = { ...resumedLane, pr: undefined, tip: undefined, build: 'b' }
 const builtAnswer = { pr: 2, tip: 'abcdef1', blocked: false }
 
 test('a relay part that throws fails a resumed lane at sync and a built lane at scope, naming the error', async () => {
-  const throwing = { transform: partReplaced('laneRelay', "throw new Error('the child exploded')") }
+  const throwing = { transform: partReplaced('laneRelay', "if (A.step !== 'branch') throw new Error('the child exploded')") }
   const resumed = await runLane(resumedLane, {}, throwing)
   assert.deepEqual([resumed.result.status, resumed.result.stage], ['failed', 'sync'])
   assert.match(resumed.result.reason, /the child exploded/)

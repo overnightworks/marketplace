@@ -126,7 +126,7 @@ bracketed field.
 - One pass, one report. No loops, no fixes, no persistent marker, tracking
   issue, or state-ref write.
 - In doubt between keep and close, the line is `unclear`, recommends close with
-  a reopen trigger, and defaults to close. An idea in the operator's words, or
+  a reopen trigger, and defaults to close. An idea (`HEAD.md`, Ideas: his words or an agent's vision he saw), or
   an item he touched recently, defaults to keep.
 - The run proposes no freeze.
 - Retiring a document with a banner, and contradictions between documents,

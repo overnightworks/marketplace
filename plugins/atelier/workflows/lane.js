@@ -177,7 +177,7 @@ async function laneRelay(A) {
 
   // A value a command prints reaches a decision only through one line the PRINTER wrote: the agent runs it and relays the
   // line unchanged, and a retyped or edited line fails its CRC32. The printer holds no single quote, so the shell passes
-  // it as one argument. Its first argument names the step whose commands it runs; the scope step never forces a push,
+  // it as one argument. Its first argument names the step whose commands it runs; the branch step reports the branch the worktree has checked out, the scope step never forces a push,
   // relays HEAD's parents and whether its second parent is in origin/main, at most 50 paths and no text of aco brief but its exit code and error output, the sync step reports the lane tip, its parents and whether it contains origin/main, and the ci step reports the pull request head, the count of listed checks, the checks that are neither pass nor skipping, each required context of the base whose bucket is not pass, with its bucket or missing, the exit code of each gh call, left out when it is 0 and the call has nothing else to carry, and its error output where it is not empty, the positions, among the finding paths the lane sent, of those that the pull request changes (the lane passes the finding paths as the last argument but one, each percent-encoded and joined by commas, so the argument holds no quote or backslash a copier could break; the file listing is paginated and never relayed), the exit code and error output of the head's workflow run listing, and the checks red on head that failed on the base tip too; a failed gh pr view ends its reads. A call that fails with a network marker is retried (see NETWORK_WAIT_SECONDS) and, still failing, puts its name into unreachable. Only when the verdict check (the check named quality / verdict) is red, the ci step also reads that job log with gh run view and relays two values of it, never its text: whether a line says that only declared loosenings made it red and only the operator merges it, and the quality merge command of its next line; the lines come in any order and carry a job name, a step and a timestamp before their text.
   // A git or gh call that fails with one of these untranslated network markers, or an aco brief call whose stdout JSON has the reason unreachable, is run again after this many seconds; the tests rewrite the constant to 0.
   const NETWORK_WAIT_SECONDS = 30
@@ -195,7 +195,7 @@ async function laneRelay(A) {
     'target=lambda repo:("-R",repo) if repo else ()',
     'api=lambda repo:"repos/"+(repo or "{owner}/{repo}")',
     'base=lambda r:json.loads(r["view"].stdout)["baseRefName"]',
-    'steps=dict(scope=lambda item,branch:(("push",("git","push","origin",branch)),("remote",("git","rev-parse","origin/"+branch)),("head",("git","rev-parse","HEAD")),("parents",("git","rev-parse","HEAD^@")),("second_parent_in_main",("git","merge-base","--is-ancestor","HEAD^2","origin/main")),("brief",("aco","brief",item,"--json"))),sync=lambda:(("head",("git","rev-parse","HEAD")),("parents",("git","rev-parse","HEAD^@")),("main",("git","merge-base","--is-ancestor","origin/main","HEAD"))),ci=lambda pr,repo,paths:(("view",("gh","pr","view",pr,"--json","headRefOid,baseRefName",*target(repo))),("changed",("gh","api",api(repo)+"/pulls/"+pr+"/files","--paginate","--slurp")),("headruns",lambda r:("gh","run","list","--commit",json.loads(r["view"].stdout)["headRefOid"],"--json","status,name","--limit","100",*target(repo))),("checks",("gh","pr","checks",pr,"--json","name,bucket,link",*target(repo))),("rules",lambda r:("gh","api",api(repo)+"/rules/branches/"+base(r))),("runs",lambda r:("gh","api",api(repo)+"/commits/"+base(r)+"/check-runs","--paginate","--slurp"))))',
+    'steps=dict(branch=lambda:(("branch",("git","branch","--show-current")),),scope=lambda item,branch:(("push",("git","push","origin",branch)),("remote",("git","rev-parse","origin/"+branch)),("head",("git","rev-parse","HEAD")),("parents",("git","rev-parse","HEAD^@")),("second_parent_in_main",("git","merge-base","--is-ancestor","HEAD^2","origin/main")),("brief",("aco","brief",item,"--json"))),sync=lambda:(("head",("git","rev-parse","HEAD")),("parents",("git","rev-parse","HEAD^@")),("main",("git","merge-base","--is-ancestor","origin/main","HEAD"))),ci=lambda pr,repo,paths:(("view",("gh","pr","view",pr,"--json","headRefOid,baseRefName",*target(repo))),("changed",("gh","api",api(repo)+"/pulls/"+pr+"/files","--paginate","--slurp")),("headruns",lambda r:("gh","run","list","--commit",json.loads(r["view"].stdout)["headRefOid"],"--json","status,name","--limit","100",*target(repo))),("checks",("gh","pr","checks",pr,"--json","name,bucket,link",*target(repo))),("rules",lambda r:("gh","api",api(repo)+"/rules/branches/"+base(r))),("runs",lambda r:("gh","api",api(repo)+"/commits/"+base(r)+"/check-runs","--paginate","--slurp"))))',
     'ran={}',
     '[ran.__setitem__(n,run(*(c(ran) if callable(c) else c))) for n,c in steps[step](*rest) if "view" not in ran or ran["view"].returncode==0]',
     'verdict_jobs=[m[1] for c in (json.loads(ran["checks"].stdout) if step=="ci" and "checks" in ran and ran["checks"].returncode==0 else []) if c["name"]=="quality / verdict" and c["bucket"]=="fail" and (m:=re.search("/job/([0-9]+)",c.get("link") or ""))]',
@@ -1346,6 +1346,17 @@ async function checkpointOrFail(stage, startRef, failure, fixer) {
     ...(fixer && { lastBlocking: fixer.blocking }), resume,
   })
 }
+
+// ------------------------------------------------------- worktree and branch
+// A worktree that is missing or holds another branch costs a whole builder run before the scope step notices, so the relay reads it first.
+phase('Worktree')
+const checkedBranch = await relay({ label: 'branch', phase: 'Worktree', step: 'branch', relayArgs: ["'branch'"], nonce: 'branch', requiredKeys: ['branch'], brief: `${laneFacts}\nChange nothing in the files;` })
+const branchRead = checkedBranch?.values?.branch
+let foundBranch = branchRead?.out
+if (!checkedBranch) foundBranch = 'no answer from the check'
+else if (checkedBranch.problem) foundBranch = `no readable line (the check ${checkedBranch.problem}${printedLine(checkedBranch)})`
+else if (branchRead.code !== 0) foundBranch = `git exited ${branchRead.code}: ${branchRead.err}`
+if (foundBranch !== A.branch) return await openResult('failed', 'input', { reason: `worktree ${A.worktree} must exist with branch ${A.branch} checked out; found ${foundBranch}` })
 
 // ---------------------------------------------------------------- build
 if (A.build) {

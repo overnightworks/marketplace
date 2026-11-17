@@ -285,6 +285,17 @@ async function checkpointOrFail(stage, startRef, failure, fixer) {
   })
 }
 
+// ------------------------------------------------------- worktree and branch
+// A worktree that is missing or holds another branch costs a whole builder run before the scope step notices, so the relay reads it first.
+phase('Worktree')
+const checkedBranch = await relay({ label: 'branch', phase: 'Worktree', step: 'branch', relayArgs: ["'branch'"], nonce: 'branch', requiredKeys: ['branch'], brief: `${laneFacts}\nChange nothing in the files;` })
+const branchRead = checkedBranch?.values?.branch
+let foundBranch = branchRead?.out
+if (!checkedBranch) foundBranch = 'no answer from the check'
+else if (checkedBranch.problem) foundBranch = `no readable line (the check ${checkedBranch.problem}${printedLine(checkedBranch)})`
+else if (branchRead.code !== 0) foundBranch = `git exited ${branchRead.code}: ${branchRead.err}`
+if (foundBranch !== A.branch) return await openResult('failed', 'input', { reason: `worktree ${A.worktree} must exist with branch ${A.branch} checked out; found ${foundBranch}` })
+
 // ---------------------------------------------------------------- build
 if (A.build) {
   phase('Build')

@@ -1,0 +1,8 @@
+claim_id = "8befdd0de2b34eac9c0f6e22a99a6b47"
+agent = "Claude 30ec126a-30e5-431d-a4c3-088d393726d4"
+role = "builder"
+base = "a908856aa52191c385fa4584101b5ad9ff4892c6"
+branch = "claude/issue-792-vision-blessing-pointer"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/skills/write-docs/references/document-types.md"]
+opened_commit = "caa623028ed2b256af566759cfa98436e36c61c9"
+whole_reason = "One sentence in the vision type, changed together with the three version files."

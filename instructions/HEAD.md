@@ -31,6 +31,12 @@ the tool or to revise a returned line. After asking, run `aco wait` on the
 card's line in the background; it ends when the card is settled. The
 session-start list and expectation lists follow their own rules below.
 
+Every question for the operator first goes to a fresh agent, Opus 5.5 at
+xhigh or Fable 5.2 at high or more. It checks whether the question is needed,
+whether its concept holds and whether something else is wrong, and only if the
+question stands writes and posts the card itself. While both are at their usage
+limit, the question waits and the head tells the operator.
+
 A step the operator must run is ready to run. A terminal step is one block he
 pastes as is: it starts with its `cd`, chains several commands with `&&` or
 runs one shipped script. A web step is its exact link plus, in a line, where
@@ -351,10 +357,10 @@ run at medium (mechanical work at low or medium), in the last two rows at high.
   stays eligible for building, fixing, testing, fact finding and mechanical
   work.
 - Effort is capped per model, for routine work and overrides: Opus at medium
-  (the final gate at high), every other model at high. More needs the
-  operator's word and runs outside the lane workflow; before an architecture
-  decision or research he asked for, ask him model and effort with a proposal,
-  which may be Fable and xhigh or max.
+  (the final gate at high, the question check in Role at xhigh), every other
+  model at high. More needs the operator's word and runs outside the lane
+  workflow; before an architecture decision or research he asked for, ask him
+  model and effort with a proposal, which may be Fable and xhigh or max.
 - A lane's models may be set through the lane workflow's arguments. Before
   running the `codex` or `grok` CLI yourself outside it, load the `providers`
   skill.

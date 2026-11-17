@@ -238,7 +238,8 @@ const defectWithDraft = { ...finding('t.py:1', 'the code breaks the rule'), kind
 
 const proofOf = (finding, overrides) => ({ finding, test: 't.py [case]', failedBefore: false, passesAfter: true, ...overrides })
 
-const removalDiff = '-    def test_case_that_asserts_nothing(): pass'
+// What the fake git prints for a path the fixer's commits touch.
+const readRemovalDiff = '-removed in t.py'
 
 const rejectedForNoProof = /test-gap finding or a defect with a test draft got no regression test/
 
@@ -251,10 +252,10 @@ const proofsByNumber = [
   ['a test-gap test with a mutation that does not pass after is rejected as not passing', [testGap], [proofOf(1, { mutation: 'drop the guard', passesAfter: false })], /t\.py:1.*did not pass/],
   ['a defect without a test draft needs no failing-before test', [defectWithoutDraft], [proofOf(1)], null],
   ['a defect with a test draft still needs its test to fail before', [defectWithDraft], [proofOf(1)], /did not fail before/],
-  ['a removal with its diff answers a test-gap', [testGap], [proofOf(1, { resolution: 'removed', diff: removalDiff })], null],
-  ['a removal with its diff answers a defect with a test draft without a failing-first test', [defectWithDraft], [proofOf(1, { resolution: 'removed', diff: removalDiff, passesAfter: false })], null],
-  ['a removal without a diff is rejected', [testGap], [proofOf(1, { resolution: 'removed' })], /t\.py:1.*no diff/],
-  ['a removal without a diff does not answer a defect with a test draft', [defectWithDraft], [proofOf(1, { resolution: 'removed' })], /t\.py:1.*no diff/],
+  ['a removal without a copied diff whose commits touch its path answers a test-gap', [testGap], [proofOf(1, { resolution: 'removed' })], null],
+  ['a removal whose commits touch its path answers a defect with a test draft without a failing-first test', [defectWithDraft], [proofOf(1, { resolution: 'removed', passesAfter: false })], null],
+  ['a removal whose commits leave its path untouched is rejected, with a copied diff too', [testGap], [proofOf(1, { resolution: 'removed', diff: '-copied' })], /t\.py:1.*no diff/, []],
+  ['a removal whose commits leave its path untouched does not answer a defect with a test draft', [defectWithDraft], [proofOf(1, { resolution: 'removed' })], /t\.py:1.*no diff/, []],
   ['a behaviour-changing defect fix without its test is still rejected', [defectWithDraft], [], rejectedForNoProof],
   ['a number pointing at a docs finding adds no pass for the test-gap behind it', [docsFinding, testGap], [proofOf(1)], rejectedForNoProof],
   ['two proofs for one number, one of them bad, are still rejected', [testGap], [proofOf(1, { mutation: 'drop the guard' }), proofOf(1, { mutation: 'drop the guard', passesAfter: false })], /did not pass/],
@@ -266,9 +267,9 @@ const proofsByNumber = [
   ...[0, 1.5, '1', 2].map(number => [`a proof numbered ${JSON.stringify(number)} is ignored and the test-gap stays unproven`, [testGap], [proofOf(number, { mutation: 'drop the guard' })], rejectedForNoProof]),
 ]
 
-for (const [behaviour, fixFirst, regression, rejectedFor] of proofsByNumber) {
+for (const [behaviour, fixFirst, regression, rejectedFor, touched = ['t.py']] of proofsByNumber) {
   test(`proof guard: ${behaviour}`, async () => {
-    const { result, launchedAgents } = await runLane({ ...resumeArgs, fixFirst }, { 'fix-1': { ...resumeFix, regression } })
+    const { result, launchedAgents } = await runLane({ ...resumeArgs, fixFirst }, { 'fix-1': { ...resumeFix, regression, touched_paths: touched } })
     if (rejectedFor) {
       assert.deepEqual([result.status, result.stage], ['failed', 'fix'])
       assert.match(result.reason, rejectedFor)
@@ -364,7 +365,7 @@ const diffLessRemovalRanges = [
 
 for (const [range, rangeArgs] of diffLessRemovalRanges) {
   test(`${range}: a removal without a diff beside a valid proof reaches the re-check once as a gap note, not as an evidenced removal`, async () => {
-    const { agentCalls } = await runLane({ ...resumeArgs, ...rangeArgs }, { 'fix-1': { ...resumeFix, regression: diffLessRemovalBesideValidProof } })
+    const { agentCalls } = await runLane({ ...resumeArgs, ...rangeArgs }, { 'fix-1': { ...resumeFix, regression: diffLessRemovalBesideValidProof, touched_paths: [] } })
     const prompt = agentCalls['r1-review'].prompt
     assert.equal(prompt.split('removed_test.py [image]').length - 1, 1)
     assert.match(prompt, /removed_test\.py \[image\].*t\.py:1.*no diff/s)
@@ -380,11 +381,11 @@ const removalsByFindingKind = [
 
 for (const [behaviour, answered, shownAsRemoval] of removalsByFindingKind) {
   test(behaviour, async () => {
-    const regression = [proofOf(1, { resolution: 'removed', diff: removalDiff, failedBefore: true })]
-    const { agentCalls } = await runLane({ ...resumeArgs, fixFirst: [answered] }, { 'fix-1': { ...resumeFix, regression } })
+    const regression = [proofOf(1, { resolution: 'removed', failedBefore: true })]
+    const { agentCalls } = await runLane({ ...resumeArgs, fixFirst: [answered] }, { 'fix-1': { ...resumeFix, regression, touched_paths: ['t.py'] } })
     const prompt = agentCalls['r1-review'].prompt
     assert.equal(/removing code or a test.*judge whether what was removed was dead or pinned no behaviour/.test(prompt), shownAsRemoval)
-    assert.equal(prompt.includes(removalDiff), shownAsRemoval)
+    assert.equal(prompt.includes(readRemovalDiff), shownAsRemoval)
     assert.equal(prompt.includes(`answered ${answered.where} by removing`), shownAsRemoval)
   })
 }
@@ -517,10 +518,10 @@ test('a CI finding that stays red after a clean merge of main stops the lane', a
   assert.equal(result.stage, 'ci')
 })
 
-test('the fixer is handed the sync relay line to run last and returns its report with it', async () => {
+test('the fixer is handed the relay line to run last and returns its report with it', async () => {
   const { agentCalls } = await runLane({ ...resumeArgs, fixFirst: [defectWithoutDraft] }, { 'fix-1': resumeFix })
   const { prompt, options } = agentCalls['fix-1']
-  assert.match(prompt, /Last, whatever happened, run this one command line exactly as written[^]*' sync 'fix-1-c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0'$/)
+  assert.match(prompt, /Last, whatever happened, run this one command line exactly as written[^]*' fix 'c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0' '[^']*' 'fix-1-c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0'$/)
   assert.deepEqual(options.schema.required.slice(0, 1), ['printed'])
   assert.equal(options.agentType, 'atelier:code-fixer')
   for (const gone of ['oldTip', 'mergedBase', 'tip']) assert.ok(!(gone in options.schema.properties), gone)

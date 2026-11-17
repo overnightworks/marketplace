@@ -1,7 +1,0 @@
-claim_id = "129d64f73270401e894cc9dc6970fb3c"
-agent = "Claude 30ec126a-30e5-431d-a4c3-088d393726d4"
-role = "builder"
-base = "7d4364232320e5970b08fb547199b57dece6edf0"
-branch = "claude/issue-775-operator-step"
-scope = ["instructions/HEAD.md"]
-opened_commit = "0d25ceb82f7e37197fa3e29c079b54cb22d00806"

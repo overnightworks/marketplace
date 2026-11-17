@@ -1,8 +1,0 @@
-claim_id = "ca15c65a63bb4b6285bfb4783ce91e76"
-agent = "Claude 30ec126a-30e5-431d-a4c3-088d393726d4"
-role = "builder"
-base = "a5e6a762f961d15c0900a5b037a3c1fa5ef10f84"
-branch = "claude/issue-786-skills-dream-ideas"
-scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/skills/board-hygiene/SKILL.md", "plugins/atelier/skills/docs-cleanup/SKILL.md"]
-opened_commit = "00dba04278f54512e7880aabc623656ccec305f0"
-whole_reason = "Two skills carry the same idea rule and change together with the version files."

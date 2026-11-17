@@ -203,7 +203,7 @@ async function laneRelay(A) {
     'ran.update({"log":run("gh","run","view","--job",verdict_jobs[0],*target(rest[1]),"--log")} if verdict_jobs else {})',
     'brief=json.loads(ran["brief"].stdout) if "brief" in ran and ran["brief"].returncode==0 else None',
     'claim=brief and brief["outside_claim"]',
-    'values={n:{"code":p.returncode,**({"err":e} if ((e:=" ".join(l for l in p.stderr.splitlines() if l[:5]!="hint:")[-300:]) or step!="ci") and (n!="log" or p.returncode) else {}),**({} if n in("brief","view","checks","rules","runs","log","changed","headruns") else {"out":p.stdout.strip()[:100]} if n[:4]!="diff" else {"out":p.stdout.strip()[:6000]+("\\n[cut: the diff is longer than 6000 characters]" if len(p.stdout.strip())>6000 else "")})} for n,p in ran.items()}',
+    String.raw`values={n:{"code":p.returncode,**({"err":e} if ((e:=" ".join(l for l in p.stderr.splitlines() if l[:5]!="hint:")[-300:]) or step!="ci") and (n!="log" or p.returncode) else {}),**({} if n in("brief","view","checks","rules","runs","log","changed","headruns") else {"out":p.stdout.strip()[:100]} if n[:4]!="diff" else {"out":p.stdout.strip()[:6000]+("\n[cut: the diff is longer than 6000 characters]" if len(p.stdout.strip())>6000 else "")})} for n,p in ran.items()}`,
     'parsed=lambda n:json.loads(ran[n].stdout) if n in ran and ran[n].returncode==0 else None',
     'view,listing,rules,pages=parsed("view"),parsed("checks"),parsed("rules"),parsed("runs")',
     'listing=listing and sorted(listing,key=lambda c:(c["name"],c["bucket"]))',
@@ -1210,7 +1210,7 @@ async function runPart(name, part, partArgs) {
   }
 }
 // The path of a finding is its `where` without the line and column suffix: the one rule the printer's match, the lane's own-finding match and the printer's input digest share.
-const findingPath = (where) => String(where).replace(/:\d+(:\d+)?$/, '')
+const findingPath = (where) => String(where).replace(/:\d+(:\d+)?$/, '').toWellFormed()
 // The paths as one argument of unreserved characters only, so no quoting a copier applies to the command can change it: each path percent-encoded, joined by commas, with the slash kept.
 const pathsArgument = (paths) => paths.map(path => encodeURIComponent(path).replace(/[!'()*]/g, char => '%' + char.codePointAt(0).toString(16).toUpperCase()).replaceAll('%2F', '/')).join(',')
 // A value a command prints reaches a decision only through the line laneRelay reads back and checks.
@@ -1513,7 +1513,7 @@ async function fixRound(blocking, source, budgetKey, carried) {
   const role = fixerRole(blocking, foldIn)
   fixRolesRun.push(role)
   const nonce = `fix-${spent.total}-${tipBeforeFix}`
-  const answeredPaths = [...new Set(blocking.map(f => findingPath(f.where).toWellFormed()).filter(Boolean))]
+  const answeredPaths = [...new Set(blocking.map(f => findingPath(f.where)).filter(Boolean))]
   const answered = await relay({ label: `fix-${spent.total}`, phase: 'Fix', step: 'fix', relayArgs: [`'${tipBeforeFix}'`, `'${pathsArgument(answeredPaths)}'`, `'${nonce}'`], sentPaths: answeredPaths, nonce, requiredKeys: ['head', 'parents', 'main'], answerKind: 'fix', agentOptions: { agentType: 'atelier:code-fixer', ...claudeRole(role) },
     facts: `${laneFacts} ${driveFacts} ${rescopeFacts} ${localCheckFacts} ${turnFacts('fix')}`, pr, tip, source, blocking: listFindings(blocking), findings: blocking.map(f => ({ ...f, kind: kindOf(f) })), foldIns: listFoldIns(foldIn), foldInEntries: foldIn, productionPaths: PRODUCTION, flakeRerunUsed })
   if (!answered || (claudeLimit && answered.problem)) return { stop: await checkpointOrFail('fix', tipBeforeFix, { reason: `the fixer returned no result; inspect ${A.worktree} for commits past ${tip} and uncommitted work, then start a new run with pr and tip (and fixFirst for what is left)`, lastBlocking: blocking }, { blocking, carried, tipBeforeFix }) }
@@ -1699,7 +1699,7 @@ if (carriesBatch) {
 // laneTest returns the tester's answer, null when both agents ended without a result, or a problem the lane stops on.
 const explore = (n) => runPart('lane-test', laneTest, { delegatedLine: DELEGATED_LINE, n, pr, tip, worktree: A.worktree, scratch: A.scratch, tag: TAG, e2e: A.e2e, contract: A.contract, laneFacts, blockingLine: BLOCKING_LINE, finding: FINDING, followup: FOLLOWUP, routing: claudeRole('test') })
 // The paths the watcher's findings name; the printer keeps those among the pull request's changed files.
-const findingPaths = (failing = []) => [...new Set(failing.map(finding => findingPath(finding.where).toWellFormed()).filter(Boolean))]
+const findingPaths = (failing = []) => [...new Set(failing.map(finding => findingPath(finding.where)).filter(Boolean))]
 async function watchCi(n, rerun) {
   const watched = await runPart('lane-ci', laneCi, { delegatedLine: DELEGATED_LINE, pr, n, rerun, repo: A.repo, worktree: A.worktree, finding: FINDING, mechanical: MECHANICAL })
   if (!watched || watched.problem) return watched

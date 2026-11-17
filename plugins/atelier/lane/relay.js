@@ -41,7 +41,7 @@ export async function laneRelay(A) {
     'ran.update({"log":run("gh","run","view","--job",verdict_jobs[0],*target(rest[1]),"--log")} if verdict_jobs else {})',
     'brief=json.loads(ran["brief"].stdout) if "brief" in ran and ran["brief"].returncode==0 else None',
     'claim=brief and brief["outside_claim"]',
-    'values={n:{"code":p.returncode,**({"err":e} if ((e:=" ".join(l for l in p.stderr.splitlines() if l[:5]!="hint:")[-300:]) or step!="ci") and (n!="log" or p.returncode) else {}),**({} if n in("brief","view","checks","rules","runs","log","changed","headruns") else {"out":p.stdout.strip()[:100]} if n[:4]!="diff" else {"out":p.stdout.strip()[:6000]+("\\n[cut: the diff is longer than 6000 characters]" if len(p.stdout.strip())>6000 else "")})} for n,p in ran.items()}',
+    String.raw`values={n:{"code":p.returncode,**({"err":e} if ((e:=" ".join(l for l in p.stderr.splitlines() if l[:5]!="hint:")[-300:]) or step!="ci") and (n!="log" or p.returncode) else {}),**({} if n in("brief","view","checks","rules","runs","log","changed","headruns") else {"out":p.stdout.strip()[:100]} if n[:4]!="diff" else {"out":p.stdout.strip()[:6000]+("\n[cut: the diff is longer than 6000 characters]" if len(p.stdout.strip())>6000 else "")})} for n,p in ran.items()}`,
     'parsed=lambda n:json.loads(ran[n].stdout) if n in ran and ran[n].returncode==0 else None',
     'view,listing,rules,pages=parsed("view"),parsed("checks"),parsed("rules"),parsed("runs")',
     'listing=listing and sorted(listing,key=lambda c:(c["name"],c["bucket"]))',

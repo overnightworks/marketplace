@@ -135,7 +135,9 @@ gpt-6-astra/high.
   comment and commits nothing is no failure.
 - A fixer answers a finding as removed (dead code or a test that pins nothing)
   without copying a diff: the lane reads the diff of the finding's path from the
-  fixer's commits (start tip to its tip) and hands it to the raiser. A removal
+  fixer's commits (start tip to its tip, first-parent only, so a merge of main
+  shows just its conflict resolution; a diff over 6000 characters ends in a cut
+  marker) and hands it to the raiser. A removal
   whose path those commits leave untouched fails the run at fix.
 - A builder or fixer that returns no result while its worktree holds commits
   past the start tip or uncommitted work has that work committed as an

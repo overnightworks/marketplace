@@ -13,7 +13,7 @@
   what one learns reaches the others.
 - Agents keep learning from their own runs and question their own work. They
   propose and sharpen the rules they work by; the operator rules on each
-  change, and a rule nothing has shown to be needed stays a proposal.
+  change.
 - Agents back each rule change with evidence they can show and share: one
   report is a hint, several agreeing reports are a signal, and a lone
   reporter who is right shows why and acts on it.

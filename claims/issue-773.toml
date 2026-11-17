@@ -1,0 +1,7 @@
+claim_id = "7e4be4acb5dd4645a728729a41c35299"
+agent = "Claude 30ec126a-30e5-431d-a4c3-088d393726d4"
+role = "builder"
+base = "73430487d5445b7f2bba4ff8ae85f95c048b0cc5"
+branch = "claude/issue-773-question-check"
+scope = ["instructions/HEAD.md"]
+opened_commit = "fff2ca01c4218455143ff5a385e1c23c17b845f5"

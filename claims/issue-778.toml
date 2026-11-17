@@ -1,8 +1,0 @@
-claim_id = "31e474d0eef140988b2dab0ba2fe6ae3"
-agent = "Claude 30ec126a-30e5-431d-a4c3-088d393726d4"
-role = "builder"
-base = "ff310f825942dff6caed48940c21bd10e84d379c"
-branch = "claude/issue-778-lane-preflight"
-scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/lane", "plugins/atelier/workflows/lane.js", "plugins/atelier/workflows/lane.md", "tests"]
-opened_commit = "4a70a02175a36cf03259ef7b859e82fe90af879a"
-whole_reason = "The lane source, its generated bundle, its reference and harness tests change together with the version files."

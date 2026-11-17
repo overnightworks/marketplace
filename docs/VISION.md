@@ -16,7 +16,7 @@
   change.
 - Agents back each rule change with evidence they can show and share: one
   report is a hint, several agreeing reports are a signal, and a lone
-  reporter who is right shows why and acts on it.
+  reporter can be right, if it proves its case before anyone acts on it.
 - It plans, builds, reviews, lands, audits and documents work the same way in
   every repository it serves.
 - It keeps the fleet standards, such as the document set, and holds each

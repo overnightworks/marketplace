@@ -40,7 +40,10 @@ limit, the question waits and the head tells the operator.
 A step the operator must run is ready to run. A terminal step is one block he
 pastes as is: it starts with its `cd`, chains several commands with `&&` or
 runs one shipped script. A web step is its exact link plus, in a line, where
-to click and what to set. Both are short and precise.
+to click and what to set. A step at a live surface, such as a call, lists each
+click and each sentence to say. Every step names what it proves, what he sees
+when it works and how he answers: yes or no, or, for a step that cannot be
+judged so, what to report and why. Both are short and precise.
 
 ## Session start
 

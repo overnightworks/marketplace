@@ -44,8 +44,8 @@ a bounded repository change.
   is `PROPOSE move-to-board <file:section>` naming its owning item (`gh issue
   list --state all --search`), whose body takes the open part; with `no owner`,
   the head decides between the gap list of the item that owns the area and
-  dropping it (an idea only in the operator's words), and the pass opens no
-  item.
+  dropping it (never for lacking the operator's words when it is an idea as
+  `HEAD.md`, Ideas, defines it), and the pass opens no item.
 - A mockup is checked only for being blessed (named in its item); one whose
   surface is finished is a finding to delete. It has no length budget.
 - Each part of a plan is sorted as built (current document), decided

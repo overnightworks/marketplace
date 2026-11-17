@@ -22,6 +22,14 @@ for (const [name, lane] of [['a build', builderLane], ['a run on a pull request'
     assert.match(run.result.reason, /worktree \/w .*branch b .*found .*can't cd to \/w/)
     assert.ok(noAgentRan(run))
   })
+
+  test(`${name} in a directory that is no git repository fails at input naming the git exit`, async () => {
+    const run = await runLane(lane, { branch: { branch_code: 128 } })
+    assert.equal(run.result.status, 'failed')
+    assert.equal(run.result.stage, 'input')
+    assert.match(run.result.reason, /worktree \/w .*branch b .*found git exited 128: .*not a git repository/)
+    assert.ok(noAgentRan(run))
+  })
 }
 
 test('a worktree with the lane branch checked out goes on to the builder', async () => {

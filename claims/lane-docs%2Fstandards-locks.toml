@@ -1,0 +1,7 @@
+claim_id = "0b38505372884f43bd3411e0e632c82a"
+agent = "Claude 30ec126a-30e5-431d-a4c3-088d393726d4"
+role = "builder"
+base = "3bdb214436d60c87028bca8e77e71b8661c06208"
+branch = "docs/standards-locks"
+scope = ["docs/standards.md"]
+opened_commit = "5bdf8c948b92d417a11fe6a6e8e51e27f5e7e2e2"

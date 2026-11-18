@@ -84,7 +84,7 @@ test('ci-relay-line: a nonzero gh pr checks exit with a red watcher still reache
   assert.match(agentCalls['fix-2'].prompt, /Python: tests/)
 })
 
-for (const [what, mishandling] of [['an edited line', { edit: (line) => line.replace('"shared":[]', '"shared":["x"]') }], ['a wrong nonce', { nonce: 'ci-0-other' }]]) {
+for (const [what, mishandling] of [['an edited line', { edit: (line) => line.replace('"count":', '"count":9') }], ['a wrong nonce', { nonce: 'ci-0-other' }]]) {
   test(`ci-relay-line: ${what} fails the lane at ci and the watcher's word is not used instead`, async () => {
     const { result } = await driveCi(ciAnswer([check(required, 'pass')]), lane, mishandling)
     assert.deepEqual([result.status, result.stage], ['failed', 'ci'])

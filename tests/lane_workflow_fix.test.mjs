@@ -60,7 +60,7 @@ for (const replay of replays) {
   })
 }
 
-test('a fix that only merged main folds nothing in, so the head still routes the fold-in it was handed', async () => {
+test('a fix that only merged main with a fold-in ends awaiting-head, folds nothing in and leaves the fold-in open', async () => {
   const built = 'b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0'
   const merged = 'a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1'
   const foldIn = followup('x.py:1', 'tidy', 'follow-up (fix in place)')
@@ -524,7 +524,7 @@ test('a CI finding answered by a clean merge of main runs CI again and ends awai
   assert.deepEqual([result.status, result.stage, result.tip], ['awaiting-head', 'record', mergedOnlyTip])
   assert.ok(result.reason.includes(`the last verdict judged ${resumeTip}`), result.reason)
   assert.ok(!launchedAgents.includes('r1-review'))
-  assert.equal(result.requiredHeadActions, undefined)
+  assert.ok(!result.requiredHeadActions.some(action => action.includes('aco land')))
 })
 
 test('a CI finding that stays red after a clean merge of main stops the lane', async () => {
@@ -641,3 +641,9 @@ for (const [what, batch, outside] of unansweredBatches) {
   })
 }
 
+
+test('a failed lane result names the abandon release command with the record path', async () => {
+  const { result } = await runLane(resumeArgs, { 'scope-resume': { brief_error: 'aco: no such item' } })
+  assert.equal(result.status, 'failed')
+  assert.ok(result.requiredHeadActions.some(action => /aco release 1 --abandoned REASON --record \/s\/lane-record\.json/.test(action)))
+})

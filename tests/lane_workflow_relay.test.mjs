@@ -611,6 +611,7 @@ test('AC-removal-long-diff-real-git: a removal whose diff is long reaches the ra
 const removalWheres = [
   ['AC-removal-path-before-text-real-git: a where that puts the path before free text after a comma', 't.py, test \'the guard\'', 't.py', /-- t\.py \(/],
   ['AC-removal-path-before-spec-id-real-git: a where that puts the path before a spec id after a space', 't.py ABRD-176', 't.py', /-- t\.py \(/],
+  ['AC-removal-single-word-check-name-real-git: a where that is one word without a slash or extension, such as CodeQL, is judged by the fixer\'s whole range', 'CodeQL', 'other.py', /\d+ characters, the whole range, because the finding names no path/],
   ['AC-removal-check-name-real-git: a where that is a CI check name is judged by the fixer\'s whole range', 'quality / verdict', 'other.py', /\d+ characters, the whole range, because the finding names no path/],
 ]
 
@@ -627,5 +628,5 @@ test('AC-removal-check-name-empty-range-real-git: a removal for a check name fai
   const lane = laneRepository(t, { onMain: true })
   const { result } = await runRemovalStep(lane, () => {}, [{ ...defectWithoutDraft, where: 'SonarCloud Code Analysis' }], [removalOfT])
   assert.deepEqual([result.status, result.stage], ['failed', 'fix'])
-  assert.match(result.reason, /SonarCloud Code Analysis.*no diff|changed nothing/)
+  assert.match(result.reason, /SonarCloud Code Analysis.*no diff/)
 })

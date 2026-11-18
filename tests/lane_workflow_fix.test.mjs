@@ -238,8 +238,6 @@ const defectWithDraft = { ...finding('t.py:1', 'the code breaks the rule'), kind
 
 const proofOf = (finding, overrides) => ({ finding, test: 't.py [case]', failedBefore: false, passesAfter: true, ...overrides })
 
-// What the fake git prints for a path the fixer's commits touch.
-
 const rejectedForNoProof = /test-gap finding or a defect with a test draft got no regression test/
 
 const proofsByNumber = [

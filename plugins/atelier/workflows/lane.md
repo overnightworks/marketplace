@@ -139,11 +139,13 @@ gpt-6-astra/high.
 - A fixer that answers its whole batch in the pull request body or an item
   comment and commits nothing is no failure.
 - A fixer answers a finding as removed (dead code or a test that pins nothing)
-  without copying a diff: the lane reads the diff of the finding's path from the
-  fixer's commits (start tip to its tip, first-parent only, so a merge of main
-  shows just its conflict resolution; a diff over 6000 characters ends in a cut
-  marker) and hands it to the raiser. A removal
-  whose path those commits leave untouched fails the run at fix.
+  without copying a diff: the lane measures the diff of the finding's path in
+  the fixer's commits (start tip to its tip, first-parent only, so a merge of
+  main shows just its conflict resolution) and hands the raiser the size and
+  the git command that prints it, which the raiser runs itself. A `where` that
+  names no path (a CI check name) is judged by the whole range of the fixer's
+  commits. A removal whose path those commits leave untouched, or whose range
+  is empty, fails the run at fix.
 - A builder or fixer that returns no result while its worktree holds commits
   past the start tip or uncommitted work has that work committed as an
   unfinished checkpoint and pushed by a lane step (and, after a build, a draft

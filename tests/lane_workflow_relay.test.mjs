@@ -584,7 +584,7 @@ test('AC-removal-empty-path-real-git: a finding with an empty path ahead of a re
   const emptyPath = { ...defectWithoutDraft, where: ':3' }
   const { agentCalls, launchedAgents } = await runRemovalStep(lane, () => lane.commitIn(lane.worktree, 't.py'), [emptyPath, defectWithoutDraft], [{ ...removalOfT, finding: 2 }])
   assert.ok(launchedAgents.includes('r1-review'), launchedAgents.join())
-  assert.match(agentCalls['r1-review'].prompt, /diff --git a\/t\.py/)
+  assert.match(agentCalls['r1-review'].prompt, / -- t\.py \(/)
 })
 
 test('AC-removal-labelled-where-real-git: a removal finding whose where carries a parenthetical label leaves the raiser the fixer\'s diff', async (t) => {
@@ -592,15 +592,40 @@ test('AC-removal-labelled-where-real-git: a removal finding whose where carries 
   const labelled = { ...defectWithoutDraft, where: 't.py:430 (second defaults test)' }
   const { agentCalls, launchedAgents } = await runRemovalStep(lane, () => lane.commitIn(lane.worktree, 't.py'), [labelled], [removalOfT])
   assert.ok(launchedAgents.includes('r1-review'), launchedAgents.join())
-  assert.match(agentCalls['r1-review'].prompt, /diff --git a\/t\.py/)
+  assert.match(agentCalls['r1-review'].prompt, / -- t\.py \(/)
 })
 
-test('AC-removal-long-diff-real-git: a removal diff longer than the printer keeps reaches the raiser with a cut marker', async (t) => {
+test('AC-removal-long-diff-real-git: a removal whose diff is long reaches the raiser as a command and a size, never as diff text', async (t) => {
   const lane = laneRepository(t, { onMain: true })
-  const { agentCalls } = await runRemovalStep(lane, () => {
+  const { agentCalls, launchedAgents } = await runRemovalStep(lane, () => {
     fs.writeFileSync(path.join(lane.worktree, 't.py'), 'x = 1\n'.repeat(2000))
     lane.git(lane.worktree, 'add', 't.py')
     lane.git(lane.worktree, 'commit', '-m', 'long')
   }, [defectWithoutDraft], [removalOfT])
-  assert.match(agentCalls['r1-review'].prompt, /\[cut: the diff is longer than 6000 characters\]/)
+  assert.ok(launchedAgents.includes('r1-review'), launchedAgents.join())
+  const prompt = agentCalls['r1-review'].prompt
+  assert.match(prompt, /git log -p --first-parent --remerge-diff [0-9a-f]+\.\.[0-9a-f]+ -- t\.py \(\d{5,} characters\)/)
+  assert.ok(!prompt.includes('x = 1'))
+})
+
+const removalWheres = [
+  ['AC-removal-path-before-text-real-git: a where that puts the path before free text after a comma', 't.py, test \'the guard\'', 't.py', /-- t\.py \(/],
+  ['AC-removal-path-before-spec-id-real-git: a where that puts the path before a spec id after a space', 't.py ABRD-176', 't.py', /-- t\.py \(/],
+  ['AC-removal-check-name-real-git: a where that is a CI check name is judged by the fixer\'s whole range', 'quality / verdict', 'other.py', /\d+ characters, the whole range, because the finding names no path/],
+]
+
+for (const [behaviour, where, committed, expected] of removalWheres) {
+  test(`${behaviour} reaches the raiser with its removal`, async (t) => {
+    const lane = laneRepository(t, { onMain: true })
+    const { agentCalls, launchedAgents } = await runRemovalStep(lane, () => lane.commitIn(lane.worktree, committed), [{ ...defectWithoutDraft, where }], [removalOfT])
+    assert.ok(launchedAgents.includes('r1-review'), launchedAgents.join())
+    assert.match(agentCalls['r1-review'].prompt, expected)
+  })
+}
+
+test('AC-removal-check-name-empty-range-real-git: a removal for a check name fails when the fixer committed nothing', async (t) => {
+  const lane = laneRepository(t, { onMain: true })
+  const { result } = await runRemovalStep(lane, () => {}, [{ ...defectWithoutDraft, where: 'SonarCloud Code Analysis' }], [removalOfT])
+  assert.deepEqual([result.status, result.stage], ['failed', 'fix'])
+  assert.match(result.reason, /SonarCloud Code Analysis.*no diff|changed nothing/)
 })

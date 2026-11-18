@@ -75,7 +75,12 @@ The lane needs a repository that coordinates with aco, after the head ran
   before the commits no reviewer has seen.
 - `answers`: none. What those commits answer.
 - `fixFirst`: none. `Finding[]`, blocking findings a fresh fixer answers before
-  anything else.
+  anything else. A `Finding` is `{ where, kind, text, rule, evidence }`, all
+  strings: `where` starts with the path of the file (then `:LINE`, a comma, a
+  space and text, or a parenthesis may follow; a `where` without a leading path,
+  such as a CI check name, is judged by the fixer's whole commit range), `kind`
+  is `defect`, `test-gap` or `docs`, `rule` the rule it breaks, `text` and
+  `evidence` what is wrong and how it shows; `testDraft` (a path) is optional.
 - `foldIn`: none. `Followup[]`, follow-ups for that fixer, each handed over
   whatever its owner or wording; given alone it still starts the fixer.
 - `experiment`: none. A tag of 1 to 40 lowercase letters, digits or hyphens,

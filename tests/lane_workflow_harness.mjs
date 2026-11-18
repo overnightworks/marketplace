@@ -21,7 +21,7 @@ case "$1 $2" in
   "rev-parse HEAD") [ "$FAKE_HEAD_CODE" = 0 ] || { printf 'fatal: bad revision\\n' >&2; exit "$FAKE_HEAD_CODE"; }; printf '%s\\n' "$FAKE_HEAD" ;;
   "branch --show-current") [ "$FAKE_BRANCH_CODE" = 0 ] || { printf 'fatal: not a git repository\\n' >&2; exit "$FAKE_BRANCH_CODE"; }; printf '%s\\n' "$FAKE_BRANCH" ;;
   "rev-parse HEAD^@") printf '%s\\n' "$FAKE_PARENTS" ;;
-  "log -p") for last; do :; done; printf '%s\\n' "$FAKE_TOUCHED" | grep -qxF -- "$last" && printf -- '-removed in %s\\n' "$last" ;;
+  "log -p") for last; do :; done; case "$last" in *..HEAD) [ -z "$FAKE_TOUCHED" ] || printf -- '-removed in the range\\n' ;; *) printf '%s\\n' "$FAKE_TOUCHED" | grep -qxF -- "$last" && printf -- '-removed in %s\\n' "$last" ;; esac ;;
   "merge-base --is-ancestor") exit "$FAKE_MAIN_CODE" ;;
   "rev-parse origin/"*) printf '%s\\n' "$FAKE_REMOTE" ;;
 esac

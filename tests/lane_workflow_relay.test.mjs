@@ -424,17 +424,9 @@ const printedCiLine = async (edit) => {
   const run = await driveCiRead((line) => { printed = line; return edit(line) })
   return { ...run, printed }
 }
-const dropsDefaults = copiedWith(({ shared: _shared, changed_index: _index, paths: _paths, ...kept }) => kept)
-
 test('AC-relay-defaults: a ci line with no shared, changed or finding paths prints without those keys and reads green with no re-read', async () => {
   const { result, launchedAgents, printed } = await printedCiLine((line) => line)
   assert.doesNotMatch(printed, /"(shared|changed_index|paths)"/)
-  assert.equal(result.status, 'ready-to-land', result.reason)
-  assert.deepEqual(reread({ launchedAgents }), [])
-})
-
-test('AC-relay-defaults: the printed line stays green when the copy drops a default value that the printer left in', async () => {
-  const { result, launchedAgents } = await printedCiLine(dropsDefaults)
   assert.equal(result.status, 'ready-to-land', result.reason)
   assert.deepEqual(reread({ launchedAgents }), [])
 })

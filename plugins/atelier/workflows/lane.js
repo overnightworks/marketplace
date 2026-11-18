@@ -1345,7 +1345,7 @@ const findingPath = (where) => {
   const text = String(where).trim()
   const word = /^[^\s,(]*/.exec(text)[0]
   const isPath = word.includes('/') || /\.\w+(?=:|$)/.test(word)
-  return isPath ? word.replace(/:.*$/s, '').toWellFormed() : ''
+  return isPath ? word.split(':', 1)[0].toWellFormed() : ''
 }
 // The paths as one argument of unreserved characters only, so no quoting a copier applies to the command can change it: each path percent-encoded, joined by commas, with the slash kept.
 const pathsArgument = (paths) => paths.map(path => encodeURIComponent(path).replace(/[!'()*]/g, char => '%' + char.codePointAt(0).toString(16).toUpperCase()).replaceAll('%2F', '/')).join(',')

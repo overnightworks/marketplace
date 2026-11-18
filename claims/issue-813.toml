@@ -1,0 +1,8 @@
+claim_id = "bdeef1c8a7df456795e0d72853f5f7b3"
+agent = "Claude 30ec126a-30e5-431d-a4c3-088d393726d4"
+role = "builder"
+base = "fe6b63865f166e2b043ce92e95a010c56358afc7"
+branch = "claude/issue-813-record-misses"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/lane", "plugins/atelier/workflows/lane.js", "plugins/atelier/workflows/lane.md", "tests"]
+opened_commit = "4d233481f085a5d15d1b2ca986a786fb4f0b2f52"
+whole_reason = "Misses and stage attribution span the review, CI and fix parts of the lane, its record, docs, bundle and tests."

@@ -626,12 +626,12 @@ test('lane-record: a CI finding after an approving review is a miss and the revi
   assert.deepEqual([record.blocking.ci, record.misses.ci, record.misses.review], [1, 1, 0])
 })
 
-test('lane-record: a deterministic CI finding whose fixer fixProof reports no behaviour change is no miss', async () => {
+test('lane-record: a deterministic CI finding whose fixer reports no behaviour change is no miss', async () => {
   const record = await recordOfCiRound([lintFinding], { noBehaviourChange: [1] })
   assert.deepEqual([record.blocking.ci, record.misses.ci], [1, 0])
 })
 
-test('lane-record: a deterministic CI finding without the fixer fixProof of no behaviour change stays a miss', async () => {
+test('lane-record: a deterministic CI finding without a fixer report of no behaviour change stays a miss', async () => {
   const record = await recordOfCiRound([lintFinding], {})
   assert.deepEqual([record.blocking.ci, record.misses.ci], [1, 1])
 })

@@ -125,7 +125,7 @@ const badEntry = (name, entries, schema) => {
   if (entries === undefined) return null
   if (!Array.isArray(entries)) return `${name} must be a list`
   const index = entries.findIndex(entry => missingFields(entry, schema) !== 'lacks ')
-  return index < 0 ? unstagedProblem(name, entries) : `${name}[${index}] ${missingFields(entries[index], schema)}: each entry needs ${requiredFields(schema).join(', ')} as non-empty strings`
+  return index < 0 ? (name === 'foldIn' ? unstagedProblem(name, entries) : null) : `${name}[${index}] ${missingFields(entries[index], schema)}: each entry needs ${requiredFields(schema).join(', ')} as non-empty strings`
 }
 const entryProblem = badEntry('fixFirst', A.fixFirst, FINDING) || badEntry('foldIn', A.foldIn, FOLLOWUP)
 if (entryProblem) return { status: 'failed', stage: 'input', reason: entryProblem }

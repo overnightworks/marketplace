@@ -721,8 +721,10 @@ test('lane-record: a file whose CRC32 differs from the record stops at the compa
   assert.doesNotMatch(result.recordProblem, /invalid/)
 })
 
-test('lane-record: the relayed line of the record step carries the exit code and no stdout of aco lane-record check', async () => {
-  const printedLine = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'lane-record-line-')), 'line')
+test('lane-record: the relayed line of the record step carries the exit code and no stdout of aco lane-record check', async (t) => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'lane-record-line-'))
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }))
+  const printedLine = path.join(directory, 'line')
   const teeing = { record_command: (command) => `${command} | tee ${printedLine}` }
   const { result } = await runLane(resumeArgs, { ...reachesTheEnd, 'r0-review': APPROVE, 'record-1': teeing })
   assert.equal(result.record, recordFile)

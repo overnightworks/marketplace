@@ -211,7 +211,7 @@ test('AC-reviewer-stopgap: a reviewer brief carries the stopgap refusals and nar
   assert.match(brief, /a new test whose name does not state the behaviour it pins/)
   assert.match(brief, /a behaviour has no test/)
   assert.match(brief, /Hygiene in test code .* is a \*\*defect\*\* whose proof is the diff, not a mutation; it carries no test draft/)
-  assert.match(brief, /a test beside its real entry point \(a private reader or helper instead of the surface the contract names\) included/)
+  assert.match(brief, /a test beside its real entry point \(a private reader or helper instead of the surface the contract names\) included, because that behaviour has no test at its boundary; its proof is a mutation, as for any test-gap/)
   assert.match(brief, /as the contract's section "Reviews" defines them/)
   assert.match(brief, /Reproduce a behaviour on origin\/main before calling it pre-existing/)
   assert.doesNotMatch(brief, /tripwire by operator ruling|when the change introduces a defect against/)

@@ -1396,7 +1396,7 @@ const BLOCKING_LINE =
   `Every blocking finding names its kind: **defect** when the code breaks a rule or ` +
   `does not do what the contract, its docs or its own text promise — a mismatch between promise and code is defect unless the contract says the code is right, ` +
   `and then it is **docs**, as is any finding where only documentation or a comment is wrong; **test-gap** when the code already does what the contract says ` +
-  `and a behaviour has no test that pins it, a test beside its real entry point (a private reader or helper instead of the surface the contract names) included. Hygiene in test code (a needless monkeypatch, a new test whose name does not state the behaviour it pins) is a **defect** whose proof is the diff, not a mutation; it carries no test draft.`
+  `and a behaviour has no test that pins it, a test beside its real entry point (a private reader or helper instead of the surface the contract names) included, because that behaviour has no test at its boundary; its proof is a mutation, as for any test-gap. Hygiene in test code (a needless monkeypatch, a new test whose name does not state the behaviour it pins) is a **defect** whose proof is the diff, not a mutation; it carries no test draft.`
 
 const findingKey = (f) => `${f.where}::${f.text}`
 // A finding from a run that predates kinds (a resumed run) keeps the rule it was raised under.

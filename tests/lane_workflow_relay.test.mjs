@@ -409,13 +409,40 @@ const copiedWith = (change) => (line) => {
   const [, crc, payload] = /^\{"crc":"(\w+)","v":(.*)\}$/.exec(line)
   return `{"crc":"${crc}","v":${JSON.stringify(change(JSON.parse(payload)))}}`
 }
-const dropsKeysAfterNonce = copiedWith(({ rules: _rules, runs: _runs, shared: _shared, view: _view, ...kept }) => kept)
+const dropsKeysAfterNonce = copiedWith(({ head: _head, rules: _rules, runs: _runs, shared: _shared, view: _view, ...kept }) => kept)
 const renamesView = copiedWith(({ view: _view, ...kept }) => ({ ...kept, video: null }))
 
 test('AC-relay-reread: a ci line whose first copy lost the keys after nonce is read again and a red CI reaches the fixer', async () => {
   const run = await runLane({ ...resumeArgs, foldIn: [tidy] }, { ...reachesTheEnd, 'fix-1': { ...unchangedFix, resolved: [satisfied(tidy)] }, 'ci-0': { ...greenCi(resumeTip), checks: redListing }, 'ci-read-0': { edit: dropsKeysAfterNonce }, 'ci-read-0-reread': {} })
   assert.deepEqual(reread(run), ['ci-read-0-reread'])
   assert.ok(run.launchedAgents.some(label => label.startsWith('fix-')), run.launchedAgents.join())
+})
+
+// The printer leaves out the values equal to their default, so a copy that drops an empty list or a zero path count is the printed line.
+const printedCiLine = async (edit) => {
+  let printed
+  const run = await driveCiRead((line) => { printed = line; return edit(line) })
+  return { ...run, printed }
+}
+const dropsDefaults = copiedWith(({ shared: _shared, changed_index: _index, paths: _paths, ...kept }) => kept)
+
+test('AC-relay-defaults: a ci line with no shared, changed or finding paths prints without those keys and reads green with no re-read', async () => {
+  const { result, launchedAgents, printed } = await printedCiLine((line) => line)
+  assert.doesNotMatch(printed, /"(shared|changed_index|paths)"/)
+  assert.equal(result.status, 'ready-to-land', result.reason)
+  assert.deepEqual(reread({ launchedAgents }), [])
+})
+
+test('AC-relay-defaults: the printed line stays green when the copy drops a default value that the printer left in', async () => {
+  const { result, launchedAgents } = await printedCiLine(dropsDefaults)
+  assert.equal(result.status, 'ready-to-land', result.reason)
+  assert.deepEqual(reread({ launchedAgents }), [])
+})
+
+test('AC-relay-defaults: a printed line altered in a non-default value still fails its CRC check', async () => {
+  const { result } = await driveCiRead(copiedWith(values => ({ ...values, shared: ['quality / sonar'] })), listing)
+  assert.deepEqual([result.status, result.stage], ['failed', 'ci'])
+  assert.match(result.reason, /fails its CRC check/)
 })
 
 test('AC-relay-reread: a ci line copied with a renamed key by both agents fails its CRC and stops the lane at ci', async () => {

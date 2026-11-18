@@ -87,3 +87,11 @@ function recordCourier({ record, file, scratch, label }) {
     ` && { [ "$(python3 -c '${BRIEF_CRC_PRINTER}' < ${quoted(file)})" = ${checksum} ] || { echo '${BRIEF_MISMATCH}' >&2; false; }; }`
   return { brief, before, fileArgument: quoted(file) }
 }
+
+const recordView = (written) => {
+  if (!written) return {}
+  return written.problem ? { recordProblem: written.problem } : { record: written.file }
+}
+
+// An open result leaves the head either a resume or an abandon, and aco release reads the same record file.
+const abandonActions = (item, written) => written?.file ? [`to abandon the lane instead, run \`aco release ${item} --abandoned REASON --record ${written.file}\``] : []

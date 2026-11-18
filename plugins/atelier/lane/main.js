@@ -262,12 +262,6 @@ async function writeRecord() {
   const { code, err } = relayed.values.check
   return code === 0 ? { file } : { problem: `aco lane-record check exited ${code}: ${err}` }
 }
-const recordView = (written) => {
-  if (!written) return {}
-  return written.problem ? { recordProblem: written.problem } : { record: written.file }
-}
-// An open result leaves the head either a resume or an abandon, and aco release reads the same record file.
-const abandonActions = (written) => written?.file ? [`to abandon the lane instead, run \`aco release ${A.item} --abandoned REASON --record ${written.file}\``] : []
 const openResult = async (status, stage, extra = {}) => {
   if (status === 'failed' && claudeLimit) return openResult('awaiting-head', stage, { ...extra, claudeLimit, resume: claudeLimitResume(stage, extra), reason: `${claudeLimitReason(stage)} start a new run with the arguments in resume.${claudeLimitOwnReason(extra)}` })
   const line = await routingLine()
@@ -276,7 +270,7 @@ const openResult = async (status, stage, extra = {}) => {
   return {
     status, stage, pr, tip, spent, routing: ROUTING, routingLine: line, ...recordView(written), history,
     followups: open, raisedBeforeTip: raisedBeforeTip(open), folded: [...folded.values()], disputed, ...gateUnseenView(), ...extra,
-    ...(abandonActions(written).length ? { requiredHeadActions: [...(extra.requiredHeadActions ?? []), ...abandonActions(written)] } : {}),
+    ...(abandonActions(A.item, written).length ? { requiredHeadActions: [...(extra.requiredHeadActions ?? []), ...abandonActions(A.item, written)] } : {}),
   }
 }
 

@@ -1,0 +1,8 @@
+claim_id = "052620fd94dc4af79ff0d7a4d19df157"
+agent = "Claude 30ec126a-30e5-431d-a4c3-088d393726d4"
+role = "builder"
+base = "e34c850c870a60c03a9d534d4c44f18ce1ecfdb5"
+branch = "claude/issue-827-test-placement"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/lane/main.js", "plugins/atelier/workflows/lane.js", "tests/lane_workflow.test.mjs"]
+opened_commit = "e2661bd1edfad3169da2628f595c361fd9b5acdf"
+whole_reason = "One brief sentence pair, its pinned test, the regenerated bundle and the three version files move together."

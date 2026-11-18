@@ -16,7 +16,7 @@ export async function laneRelay(A) {
   // A value a command prints reaches a decision only through one line the PRINTER wrote: the agent runs it and relays the
   // line unchanged, and a retyped or edited line fails its CRC32. The printer holds no single quote, so the shell passes
   // it as one argument. Its first argument names the step whose commands it runs; the branch step reports the branch the worktree has checked out, the scope step never forces a push,
-  // relays HEAD's parents and whether its second parent is in origin/main, at most 50 paths and no text of aco brief but its exit code and error output, the sync step reports the lane tip, its parents and whether it contains origin/main, and the ci step reports the pull request head, the count of listed checks, the checks that are neither pass nor skipping, each required context of the base whose bucket is not pass, with its bucket or missing, the exit code of each gh call, left out when it is 0 and the call has nothing else to carry, and its error output where it is not empty, the positions, among the finding paths the lane sent, of those that the pull request changes (the lane passes the finding paths as the last argument but one, each percent-encoded and joined by commas, so the argument holds no quote or backslash a copier could break; the file listing is paginated and never relayed), the exit code and error output of the head's workflow run listing, and the checks red on head that failed on the base tip too; a failed gh pr view ends its reads. A call that fails with a network marker is retried (see NETWORK_WAIT_SECONDS) and, still failing, puts its name into unreachable. Only when the verdict check (the check named quality / verdict) is red, the ci step also reads that job log with gh run view and relays two values of it, never its text: whether a line says that only declared loosenings made it red and only the operator merges it, and the quality merge command of its next line; the lines come in any order and carry a job name, a step and a timestamp before their text.
+  // relays HEAD's parents and whether its second parent is in origin/main, at most 50 paths and no text of aco brief but its exit code and error output, the sync step reports the lane tip, its parents and whether it contains origin/main, the fix step reports those sync values and, per finding path the lane sent, the diff of that path in the first-parent commits between the held tip and HEAD, a merge showing only its conflict resolution (at most 6000 characters each, a longer one ends in a cut marker), and the count and CRC32 of those paths like the ci step, and the ci step reports the pull request head, the count of listed checks, the checks that are neither pass nor skipping, each required context of the base whose bucket is not pass, with its bucket or missing, the exit code of each gh call, left out when it is 0 and the call has nothing else to carry, and its error output where it is not empty, the positions, among the finding paths the lane sent, of those that the pull request changes (the lane passes the finding paths as the last argument but one, each percent-encoded and joined by commas, so the argument holds no quote or backslash a copier could break; the file listing is paginated and never relayed), the exit code and error output of the head's workflow run listing, and the checks red on head that failed on the base tip too; a failed gh pr view ends its reads. A call that fails with a network marker is retried (see NETWORK_WAIT_SECONDS) and, still failing, puts its name into unreachable. Only when the verdict check (the check named quality / verdict) is red, the ci step also reads that job log with gh run view and relays two values of it, never its text: whether a line says that only declared loosenings made it red and only the operator merges it, and the quality merge command of its next line; the lines come in any order and carry a job name, a step and a timestamp before their text.
   // A git or gh call that fails with one of these untranslated network markers, or an aco brief call whose stdout JSON has the reason unreachable, is run again after this many seconds; the tests rewrite the constant to 0.
   const NETWORK_WAIT_SECONDS = 30
   // The printer waits at most twice, gives each call 60 s and stops retrying once its run nears 240 s, inside the 300 s Bash timeout RELAY_ASK asks for.
@@ -24,6 +24,7 @@ export async function laneRelay(A) {
     'import json,re,shutil,subprocess,sys,time,urllib.parse,zlib',
     'step,*rest,nonce=sys.argv[1:]',
     'received=[urllib.parse.unquote(p) for p in rest[2].split(",") if p] if step=="ci" else []',
+    'diffed=[urllib.parse.unquote(p) for p in rest[1].split(",") if p] if step=="fix" else []',
     `wait=${NETWORK_WAIT_SECONDS}`,
     'start=time.monotonic();waits=[];unreachable=set()',
     'network=re.compile("Could not resolve host|Failed to connect to|check your internet connection or https://githubstatus.com")',
@@ -33,14 +34,14 @@ export async function laneRelay(A) {
     'target=lambda repo:("-R",repo) if repo else ()',
     'api=lambda repo:"repos/"+(repo or "{owner}/{repo}")',
     'base=lambda r:json.loads(r["view"].stdout)["baseRefName"]',
-    'steps=dict(branch=lambda:(("branch",("git","branch","--show-current")),),scope=lambda item,branch:(("push",("git","push","origin",branch)),("remote",("git","rev-parse","origin/"+branch)),("head",("git","rev-parse","HEAD")),("parents",("git","rev-parse","HEAD^@")),("second_parent_in_main",("git","merge-base","--is-ancestor","HEAD^2","origin/main")),("brief",("aco","brief",item,"--json"))),sync=lambda:(("head",("git","rev-parse","HEAD")),("parents",("git","rev-parse","HEAD^@")),("main",("git","merge-base","--is-ancestor","origin/main","HEAD"))),ci=lambda pr,repo,paths:(("view",("gh","pr","view",pr,"--json","headRefOid,baseRefName",*target(repo))),("changed",("gh","api",api(repo)+"/pulls/"+pr+"/files","--paginate","--slurp")),("headruns",lambda r:("gh","run","list","--commit",json.loads(r["view"].stdout)["headRefOid"],"--json","status,name","--limit","100",*target(repo))),("checks",("gh","pr","checks",pr,"--json","name,bucket,link",*target(repo))),("rules",lambda r:("gh","api",api(repo)+"/rules/branches/"+base(r))),("runs",lambda r:("gh","api",api(repo)+"/commits/"+base(r)+"/check-runs","--paginate","--slurp"))))',
+    'steps=dict(branch=lambda:(("branch",("git","branch","--show-current")),),scope=lambda item,branch:(("push",("git","push","origin",branch)),("remote",("git","rev-parse","origin/"+branch)),("head",("git","rev-parse","HEAD")),("parents",("git","rev-parse","HEAD^@")),("second_parent_in_main",("git","merge-base","--is-ancestor","HEAD^2","origin/main")),("brief",("aco","brief",item,"--json"))),sync=lambda:(("head",("git","rev-parse","HEAD")),("parents",("git","rev-parse","HEAD^@")),("main",("git","merge-base","--is-ancestor","origin/main","HEAD"))),fix=lambda start,paths:(*steps["sync"](),*((f"diff{i}",("git","log","-p","--first-parent","--remerge-diff","--format=","%s..HEAD"%start,"--",p)) for i,p in enumerate(diffed))),ci=lambda pr,repo,paths:(("view",("gh","pr","view",pr,"--json","headRefOid,baseRefName",*target(repo))),("changed",("gh","api",api(repo)+"/pulls/"+pr+"/files","--paginate","--slurp")),("headruns",lambda r:("gh","run","list","--commit",json.loads(r["view"].stdout)["headRefOid"],"--json","status,name","--limit","100",*target(repo))),("checks",("gh","pr","checks",pr,"--json","name,bucket,link",*target(repo))),("rules",lambda r:("gh","api",api(repo)+"/rules/branches/"+base(r))),("runs",lambda r:("gh","api",api(repo)+"/commits/"+base(r)+"/check-runs","--paginate","--slurp"))))',
     'ran={}',
     '[ran.__setitem__(n,run(*(c(ran) if callable(c) else c))) for n,c in steps[step](*rest) if "view" not in ran or ran["view"].returncode==0]',
     'verdict_jobs=[m[1] for c in (json.loads(ran["checks"].stdout) if step=="ci" and "checks" in ran and ran["checks"].returncode==0 else []) if c["name"]=="quality / verdict" and c["bucket"]=="fail" and (m:=re.search("/job/([0-9]+)",c.get("link") or ""))]',
     'ran.update({"log":run("gh","run","view","--job",verdict_jobs[0],*target(rest[1]),"--log")} if verdict_jobs else {})',
     'brief=json.loads(ran["brief"].stdout) if "brief" in ran and ran["brief"].returncode==0 else None',
     'claim=brief and brief["outside_claim"]',
-    'values={n:{"code":p.returncode,**({"err":e} if ((e:=" ".join(l for l in p.stderr.splitlines() if l[:5]!="hint:")[-300:]) or step!="ci") and (n!="log" or p.returncode) else {}),**({} if n in("brief","view","checks","rules","runs","log","changed","headruns") else {"out":p.stdout.strip()[:100]})} for n,p in ran.items()}',
+    String.raw`values={n:{"code":p.returncode,**({"err":e} if ((e:=" ".join(l for l in p.stderr.splitlines() if l[:5]!="hint:")[-300:]) or step!="ci") and (n!="log" or p.returncode) else {}),**({} if n in("brief","view","checks","rules","runs","log","changed","headruns") else {"out":p.stdout.strip()[:100]} if n[:4]!="diff" else {"out":p.stdout.strip()[:6000]+("\n[cut: the diff is longer than 6000 characters]" if len(p.stdout.strip())>6000 else "")})} for n,p in ran.items()}`,
     'parsed=lambda n:json.loads(ran[n].stdout) if n in ran and ran[n].returncode==0 else None',
     'view,listing,rules,pages=parsed("view"),parsed("checks"),parsed("rules"),parsed("runs")',
     'listing=listing and sorted(listing,key=lambda c:(c["name"],c["bucket"]))',
@@ -54,7 +55,7 @@ export async function laneRelay(A) {
     String.raw`values.update(**({"log":{**values["log"],"loosenings":any("only declared loosenings \u00b7 only the operator merges it" in l for l in ran["log"].stdout.splitlines()),"merge":next((m[1] for l in ran["log"].stderr.splitlines()+ran["log"].stdout.splitlines() if "next:" in l and (m:=re.search("(quality merge [A-Za-z0-9._-]+/[A-Za-z0-9._-]+#[0-9]+)",l))),"")}} if "log" in ran else {}))`,
     'values.update(nonce=nonce,**({"unreachable":sorted(n for n,p in ran.items() if getattr(p,"down",0))} if any(getattr(p,"down",0) for p in ran.values()) else {}),**(dict(outside_claim=claim[:50] if isinstance(claim,list) else claim,count=len(claim) if isinstance(claim,list) else None) if "brief" in ran else {}))',
     'values={n:v for n,v in values.items() if v!={"code":0}}',
-    'values.update(**(dict(paths=dict(count=len(received),hash="%08x"%zlib.crc32(json.dumps(received,ensure_ascii=True,separators=(",",":")).encode()))) if step=="ci" else {}))',
+    'values.update(**(dict(paths=dict(count=len(received or diffed),hash="%08x"%zlib.crc32(json.dumps(received or diffed,ensure_ascii=True,separators=(",",":")).encode()))) if step in("ci","fix") else {}))',
     'payload=json.dumps(values,ensure_ascii=True,separators=(",",":"),sort_keys=True)',
     'print("""{"crc":"%08x","v":%s}"""%(zlib.crc32(payload.encode()),payload))',
   ].join(';')
@@ -114,7 +115,7 @@ export async function laneRelay(A) {
       regression: {
         type: 'array',
         description: "empty only when no blocking finding needs a proof; otherwise every test you add, strengthen or keep for a blocking finding, and every probe cell you run for it, under that finding's number in the blocking list you were given",
-        items: { type: 'object', required: ['finding', 'test', 'failedBefore', 'passesAfter'], properties: { finding: { type: 'integer', minimum: 1, description: 'the number of the blocking finding in the list you were given' }, resolution: { type: 'string', enum: ['removed'], description: 'for a finding of any kind whose fix only deletes dead code or a test that pins no behaviour, instead of changing behaviour or adding a test' }, diff: { type: 'string', description: 'for removed: the removal diff' }, test: { type: 'string' }, failedBefore: { type: 'boolean' }, passesAfter: { type: 'boolean' }, notRun: { type: 'string', description: 'why this machine could not run the test (a refused command, a machine another lane holds); CI on the pushed tip is its proof. Not for a test you ran and saw fail: that is passesAfter false' }, mutation: { type: 'string', description: 'for a test-gap finding: the production change, made and reverted, under which the test fails; it goes here and not inside test' } } },
+        items: { type: 'object', required: ['finding', 'test', 'failedBefore', 'passesAfter'], properties: { finding: { type: 'integer', minimum: 1, description: 'the number of the blocking finding in the list you were given' }, resolution: { type: 'string', enum: ['removed'], description: 'for a finding of any kind whose fix only deletes dead code or a test that pins no behaviour, instead of changing behaviour or adding a test' }, test: { type: 'string' }, failedBefore: { type: 'boolean' }, passesAfter: { type: 'boolean' }, notRun: { type: 'string', description: 'why this machine could not run the test (a refused command, a machine another lane holds); CI on the pushed tip is its proof. Not for a test you ran and saw fail: that is passesAfter false' }, mutation: { type: 'string', description: 'for a test-gap finding: the production change, made and reverted, under which the test fails; it goes here and not inside test' } } },
       },
       summary: { type: 'string' }, blocked: { type: 'boolean' }, blockedReason: { type: 'string' },
     },
@@ -173,7 +174,7 @@ export async function laneRelay(A) {
       `Each finding names the rule it breaks and its evidence. A scanner finding whose message covers the whole file (for example "in this file") is fixed at every occurrence in that file, not only at the reported line. Check the evidence yourself first. If it does not hold — the rule is not broken, or the evidence is wrong — ` +
       `do not change code for it: list it in disputed with your counter-evidence. Report every test you add, strengthen or keep for a blocking finding, and every probe cell you run for it, in regression under that finding's number in the list above; the number counts only for the blocking list, a follow-up needs no regression entry. Run the mutation you name, do not reason about it. ` +
       `A defect's test fails before your fix and passes after it; a defect with a test draft needs one. A defect in test code (hygiene) needs no regression test: the diff is its proof. A test you could not run on this machine is reported with notRun, the reason, and passesAfter false is kept for a test you ran and saw fail; the delta re-check judges a not-run test from its text and CI on the pushed tip runs it. A test-gap finding means a behaviour has no test, the code is already right, and it always needs a test: it passes before and after, ` +
-      `so name in the mutation field (not inside test) the production change, made and reverted, under which the test fails; a test that fails on the pre-fix code counts as such a mutation (failedBefore true). When a finding is answered by deleting dead code or a test that pins no behaviour (a test-gap's vacuous cell, an unreachable guard), no test is needed: report resolution removed with the removal diff in diff, and no failing-first or passing-after bar applies. A fix that changes behaviour is no removal and keeps its test. A docs finding needs no test. When the only finding is that the pull request conflicts with main, the merge is the whole fix. ` +
+      `so name in the mutation field (not inside test) the production change, made and reverted, under which the test fails; a test that fails on the pre-fix code counts as such a mutation (failedBefore true). When a finding is answered by deleting dead code or a test that pins no behaviour (a test-gap's vacuous cell, an unreachable guard), no test is needed: report resolution removed and commit the removal: the lane reads its diff from your commits, so do not copy it. No failing-first or passing-after bar applies. A fix that changes behaviour is no removal and keeps its test. A docs finding needs no test. When the only finding is that the pull request conflicts with main, the merge is the whole fix. ` +
       `Otherwise one commit per finding. Push, patch the PR body where it became false or where a finding is about it (REST PATCH with --input, never gh pr edit --body-file); a finding the body or an item comment answers goes in outside under its number in finding, and commit nothing for it; run \`aco check ${pr}\` from the worktree. ` +
       `Return files: the output of \`${git} log --name-only --format= --first-parent --remerge-diff ${tip}..HEAD\` (of \`${git} diff --name-only ${tip}..HEAD\` when mergeResolvedLaneConflict is true). Last, whatever happened,`
     )
@@ -181,7 +182,7 @@ export async function laneRelay(A) {
 
   // What a proof still has to show for the finding it names, or null when it shows it. A test-gap's code was already
   // right, so its test passes after the fix and pins the behaviour when a mutation, or the pre-fix code, makes it fail.
-  // Dead code or a test that pins nothing may be removed instead, for a finding of any kind, with its diff as the proof.
+  // Dead code or a test that pins nothing may be removed instead, for a finding of any kind, with the diff of its path in the fixer's commits as the proof.
   function proofGap(proof, finding) {
     const kind = finding.kind
     if (proof.resolution === 'removed') return (proof.diff || '').trim() ? null : `the removal for ${finding.where} carried no diff`
@@ -272,13 +273,22 @@ export async function laneRelay(A) {
   // A fixer may report absolute paths; an absolute path once hid a production change and skipped the gate.
   const worktreeRelative = (files) => files.map(f => f.startsWith(`${A.worktree}/`) ? f.slice(A.worktree.length + 1) : f.replace(/^\.\//, ''))
 
+  // A removal's diff is the one the printer read from the fixer's commits, for the path of the finding its proof names; the fixer copies none.
+  function withReadDiffs(regression, blocking, values) {
+    const diffOf = (proof) => {
+      const finding = blocking[proof.finding - 1]
+      return finding ? values[`diff${A.sentPaths.indexOf(A.findingPath(finding.where))}`]?.out : undefined
+    }
+    return regression.map(proof => proof.resolution === 'removed' ? { ...proof, diff: diffOf(proof) } : proof)
+  }
+
   // The facts of a fixer's answer against the tip it started from and the outcome they decide: flake, disputed, rejected or accepted.
   // The lane acts on the outcome and keeps its own state; the relay line is read and no git command failed before this runs.
   function judgeFix(answer, values) {
     const blocking = A.findings
     const foldIn = A.foldInEntries
     const heldTip = A.tip
-    const facts = { ...answer, tip: values.head.out, heldTip, unchanged: sameCommit(values.head.out, heldTip), mergeOnly: mergedOnto(values, heldTip), containsMain: values.main.code === 0 }
+    const facts = { ...answer, regression: withReadDiffs(answer.regression || [], blocking, values), tip: values.head.out, heldTip, unchanged: sameCommit(values.head.out, heldTip), mergeOnly: mergedOnto(values, heldTip), containsMain: values.main.code === 0 }
     const { proofRejection, proofNotes } = judgeProofs(facts, blocking)
     const fixed = { ...facts, proofRejection, proofNotes }
     const relative = worktreeRelative(fixed.files || [])
@@ -367,7 +377,7 @@ export async function laneRelay(A) {
     try { values = JSON.parse(printedPayload ?? match[2]) } catch { return printedPayload === undefined ? { problem: 'fails its CRC check' } : { problem: 'does not hold JSON' } }
     if (printedPayload === undefined && crc32(printerText(sortedListing(values))) !== match[1]) return { problem: 'fails its CRC check' }
     if (values?.nonce !== nonce) return { problem: `carries the nonce ${values?.nonce}, not ${nonce}` }
-    if (step === 'ci' && A.sentPaths && !sameDigest(values.paths, pathsDigest(A.sentPaths))) return { problem: 'echoes other finding paths than the lane sent' }
+    if (['ci', 'fix'].includes(step) && A.sentPaths && !sameDigest(values.paths, pathsDigest(A.sentPaths))) return { problem: 'echoes other finding paths than the lane sent' }
     // The printer leaves out an entry of the ci step that carries only exit code 0, so its absence reads as that code.
     const complete = step === 'ci' ? { view: { code: 0 }, runs: { code: 0 }, rules: { code: 0 }, changed: { code: 0 }, headruns: { code: 0 }, files: (values.changed_index || []).map(position => A.sentPaths?.[position]).filter(Boolean), ...values } : values
     const missing = requiredKeys.find(key => !complete[key])

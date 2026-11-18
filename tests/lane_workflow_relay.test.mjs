@@ -540,3 +540,40 @@ test('AC-ci-printer-quotes: finding paths with quotes, shell syntax, backslashes
   assert.ok(!launchedAgents.includes('ci-read-0-reread'), result.reason)
   assert.match(agentCalls['fix-2'].prompt, /touch pwned/)
 })
+
+const removalOfT = { finding: 1, test: 'removed_test.py', failedBefore: false, passesAfter: true, resolution: 'removed' }
+const runRemovalStep = (lane, work, fixFirst, regression) => runLane({ ...laneArgs(lane), fixFirst }, {
+  sync: syncAgentRunning(lane),
+  'fix-1': (prompt) => ({ ...fixerAgentRunning(lane, work)(prompt), regression }),
+  'scope-1': agentRunning(lane, []),
+})
+
+test('AC-removal-merge-real-git: a merge of main that changes the finding path is no removal the fixer made', async (t) => {
+  const lane = laneRepository(t, { onMain: true })
+  const { result, launchedAgents } = await runRemovalStep(lane, () => {
+    lane.commitIn(lane.worktree, 'fix-file')
+    lane.advanceMain('t.py')
+    mergeMain(lane)
+  }, [defectWithoutDraft], [removalOfT])
+  assert.deepEqual([result.status, result.stage], ['failed', 'fix'])
+  assert.match(result.reason, /t\.py:1.*no diff/)
+  assert.ok(!launchedAgents.includes('r1-review'))
+})
+
+test('AC-removal-empty-path-real-git: a finding with an empty path ahead of a real one leaves the real one its own diff', async (t) => {
+  const lane = laneRepository(t, { onMain: true })
+  const emptyPath = { ...defectWithoutDraft, where: ':3' }
+  const { agentCalls, launchedAgents } = await runRemovalStep(lane, () => lane.commitIn(lane.worktree, 't.py'), [emptyPath, defectWithoutDraft], [{ ...removalOfT, finding: 2 }])
+  assert.ok(launchedAgents.includes('r1-review'), launchedAgents.join())
+  assert.match(agentCalls['r1-review'].prompt, /diff --git a\/t\.py/)
+})
+
+test('AC-removal-long-diff-real-git: a removal diff longer than the printer keeps reaches the raiser with a cut marker', async (t) => {
+  const lane = laneRepository(t, { onMain: true })
+  const { agentCalls } = await runRemovalStep(lane, () => {
+    fs.writeFileSync(path.join(lane.worktree, 't.py'), 'x = 1\n'.repeat(2000))
+    lane.git(lane.worktree, 'add', 't.py')
+    lane.git(lane.worktree, 'commit', '-m', 'long')
+  }, [defectWithoutDraft], [removalOfT])
+  assert.match(agentCalls['r1-review'].prompt, /\[cut: the diff is longer than 6000 characters\]/)
+})

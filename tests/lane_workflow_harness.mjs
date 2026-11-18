@@ -21,6 +21,7 @@ case "$1 $2" in
   "rev-parse HEAD") [ "$FAKE_HEAD_CODE" = 0 ] || { printf 'fatal: bad revision\\n' >&2; exit "$FAKE_HEAD_CODE"; }; printf '%s\\n' "$FAKE_HEAD" ;;
   "branch --show-current") [ "$FAKE_BRANCH_CODE" = 0 ] || { printf 'fatal: not a git repository\\n' >&2; exit "$FAKE_BRANCH_CODE"; }; printf '%s\\n' "$FAKE_BRANCH" ;;
   "rev-parse HEAD^@") printf '%s\\n' "$FAKE_PARENTS" ;;
+  "log -p") for last; do :; done; printf '%s\\n' "$FAKE_TOUCHED" | grep -qxF -- "$last" && printf -- '-removed in %s\\n' "$last" ;;
   "merge-base --is-ancestor") exit "$FAKE_MAIN_CODE" ;;
   "rev-parse origin/"*) printf '%s\\n' "$FAKE_REMOTE" ;;
 esac
@@ -113,7 +114,7 @@ export async function runLane(args, answers = {}, options = {}) {
     const line = prompt.split('\n').at(-1).replace(/^cd '[^']*' && /, '')
     const env = {
       ...process.env, PATH: `${fakeCommands()}:${process.env.PATH}`, FAKE_HEAD: scenario.head ?? newestTip, FAKE_BRANCH: scenario.branch ?? args.branch, FAKE_BRANCH_CODE: scenario.branch_code ?? 0, FAKE_REMOTE: scenario.remote_tip ?? newestTip,
-      FAKE_HEAD_CODE: scenario.head_code ?? 0, FAKE_PARENTS: (scenario.parents ?? []).join('\n'), FAKE_MAIN_CODE: scenario.main_code ?? 0,
+      FAKE_HEAD_CODE: scenario.head_code ?? 0, FAKE_PARENTS: (scenario.parents ?? []).join('\n'), FAKE_MAIN_CODE: scenario.main_code ?? 0, FAKE_TOUCHED: (scenario.touched_paths ?? []).join('\n'),
       FAKE_PUSH_ERROR: scenario.push_error ?? '', FAKE_NETWORK_ERROR: scenario.network_error ?? '', FAKE_NETWORK_STDOUT: scenario.network_stdout ?? '', FAKE_NETWORK_FAILS: scenario.network_fails ?? 1, FAKE_BRIEF_ERROR: scenario.brief_error ?? '',
       FAKE_BRIEF_OUTPUT: JSON.stringify({ outside_claim: 'outside_claim' in scenario ? scenario.outside_claim : [] }), ...ghEnv(scenario),
     }
@@ -133,7 +134,7 @@ export async function runLane(args, answers = {}, options = {}) {
     if (!isRelayed(label) || !answer) return answer
     const printed = printedBy(prompt, answer, reread)
     if (answer.head && !base.startsWith('scope-')) newestTip = answer.head
-    const { pr_head: _prHead, checks: _checks, required: _required, base_runs: _baseRuns, changed_files: _changedFiles, changed_code: _changedCode, changed_error: _changedError, runlist_code: _runlistCode, runlist_error: _runlistError, head: _head, parents: _parents, head_code: _headCode, branch_code: _branchCode, main_code: _mainCode, nonce: _nonce, edit: _edit, typedCommand: _typedCommand, printerMode: _printerMode, push_error: _pushError, network_error: _networkError, network_fails: _networkFails, remote_tip: _remoteTip, brief_error: _briefError, outside_claim: _outsideClaim, printed: _printed, ...report } = answer
+    const { pr_head: _prHead, checks: _checks, required: _required, base_runs: _baseRuns, changed_files: _changedFiles, changed_code: _changedCode, changed_error: _changedError, runlist_code: _runlistCode, runlist_error: _runlistError, head: _head, parents: _parents, head_code: _headCode, branch_code: _branchCode, main_code: _mainCode, touched_paths: _touchedPaths, nonce: _nonce, edit: _edit, typedCommand: _typedCommand, printerMode: _printerMode, push_error: _pushError, network_error: _networkError, network_fails: _networkFails, remote_tip: _remoteTip, brief_error: _briefError, outside_claim: _outsideClaim, printed: _printed, ...report } = answer
     return reread ? { printed } : { ...report, printed }
   }
   // The worktree check runs before every lane, so the launch lists hold only the agents after it; agentCalls keeps it.

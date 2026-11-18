@@ -139,7 +139,9 @@ template headings.
 ## Vision
 
 Use for: what one product does and should be able to do, explained on its own.
-It binds once the operator has blessed it; until then it is a draft.
+It binds once the operator has ruled its text; the commit landing it names where
+(`AGENTS.md`, Rulings bind). One that no commit traces to his words is a draft,
+brought to him as a card with the decision that needs it.
 
 What it should be able to do is its end state as if built anew, unbounded by
 today's limits; a vision stating only today's product is unfinished.

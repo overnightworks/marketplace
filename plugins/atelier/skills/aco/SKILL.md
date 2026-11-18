@@ -179,9 +179,11 @@ contract and this skill.
   `actions` and `expected` (`answer` optional) and refuses a call without them
   (`specs/mcp.spec.md`). The
   tool writes the block's `wait.operator`, which alone makes the item wait on him,
-  and the label `needs-operator` as its view; it removes neither. Once he says the
-  step is done, the head removes the `wait` and the label and rewrites the block's
-  `next` in the same edit, so `next` stops naming his finished step.
+  and the label `needs-operator` as its view; it removes neither. An answer he gives
+  on the board (`aco serve`) removes the `wait` and the label and writes `now` itself
+  (`specs/serve.spec.md`); the head then rewrites only `next`, to the work that
+  follows his answer. An answer he gives in chat the head still carries out by hand: it
+  removes the `wait` and the label and rewrites `next` in the same edit.
 - An item that waits carries one `wait` in its block: his step, a date or a trigger
   fact, with `since` (`specs/body-block.spec.md`). `frozen_until` is a body defect.
 - Take back your own open or returned line only with `aco withdraw <n> --line <k>`, never

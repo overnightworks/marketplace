@@ -3,6 +3,6 @@ agent = "Claude 30ec126a-30e5-431d-a4c3-088d393726d4"
 role = "builder"
 base = "c299d598674d911d7df8614528ae86356d79b552"
 branch = "claude/issue-803-relay-without-retyping"
-scope = ["plugins/atelier/lane", "plugins/atelier/workflows/lane.js", "tests"]
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/lane", "plugins/atelier/workflows/lane.js", "tests"]
 opened_commit = "8e6b3fda4fb620072684fca6995e0d475f423ffe"
 whole_reason = "The relay is shared by every printer step of the lane, its generated bundle and its tests."

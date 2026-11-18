@@ -1,7 +1,6 @@
 // Prints the one Routing line of a lane from its routing table, its history and its fix rounds, and starts no agent.
 export async function laneRouting(A) {
   // The Routing line aco reads (aco's specs/lane-record.spec.md owns the grammar), built from what the lane used; the head pastes it as is.
-  const FINDING_STAGES = [[/^e2e-/, 'test'], [/^ci-/, 'ci'], [/^(review|gate)$/, null], [/^standin$/, 'gate']]
   const ROUTING_LINE_LIMIT = 512  // the length the aco skill's abandon step asks of the line
   const LOCATION_LIMIT = 60
   const COUNT_LIMIT = 999  // aco reads a count of one to three digits
@@ -20,32 +19,10 @@ export async function laneRouting(A) {
   const READ_BY_ACO_AS_A_FIGURE = /^(?:\d+×|none(?=[.\s]|$))/
   const neutralised = (location) => READ_BY_ACO_AS_A_FIGURE.test(location) ? `~${location}` : location
 
-  const stageOf = (reviewer) => FINDING_STAGES.map(([pattern, name]) => pattern.test(reviewer) ? name ?? reviewer : null).find(Boolean)
   const locationOf = (text) => neutralised(text.split(' ').map(pathAndLine).find(Boolean) ?? text)
 
-  // The findings of one history entry by location and stage, each with the number of findings that share them.
-  function findingsOfEntry(entry, stage) {
-    const found = new Map()
-    for (const where of entry.blocking) {
-      const text = String(where).replace(/[\s;→]+/g, ' ').trim()
-      const key = JSON.stringify([text, stage])
-      found.set(key, { where: locationOf(text), stage, count: (found.get(key)?.count ?? 0) + 1 })
-    }
-    return found
-  }
-
-  // Distinct findings of one round that share a text each count; a finding that comes back in a later round counts once, as often as the most it was raised in one round.
-  function blockingStages(history) {
-    const found = new Map()
-    for (const entry of history) {
-      const stage = Array.isArray(entry.blocking) ? stageOf(entry.by) : null
-      if (!stage) continue
-      findingsOfEntry(entry, stage).forEach((finding, key) => {
-        if (finding.count > (found.get(key)?.count ?? 0)) found.set(key, finding)
-      })
-    }
-    return [...found.values()]
-  }
+  // The findings of the lane's history by location and stage, each with the number that share them (laneRecord's counting, with the location a Routing line prints).
+  const blockingLocations = (history) => blockingStages(history).map(({ text, stage, count }) => ({ where: locationOf(text), stage, count }))
 
   const countParts = (count) => Array.from({ length: Math.ceil(count / COUNT_LIMIT) }, (_, part) => Math.min(COUNT_LIMIT, count - part * COUNT_LIMIT))
   const printedEntry = (count, location, stage) => {
@@ -76,23 +53,11 @@ export async function laneRouting(A) {
     return groupedEntries(findings, 0).join('; ')
   }
 
-  const choiceOf = (role) => `${A.routing[role].model}/${A.routing[role].effort}`
-  const ran = (key) => A.history.some(entry => entry.by === key || entry.by?.startsWith(`${key}-`))
-  const gateRoleRun = () => [['standin', 'review'], ['gate', 'gate']].find(([key]) => ran(key))?.[1] ?? null
-  const choiceOrNone = (role) => role ? choiceOf(role) : 'none'
-
   function stagesText() {
-    const stages = [
-      `build ${choiceOf('build')}`,
-      `fix ${choiceOrNone(A.fixRole)}`,
-      `review ${choiceOf('review')}`,
-      `test ${choiceOrNone(ran('e2e') ? 'test' : null)}`,
-      `gate ${choiceOrNone(gateRoleRun())}`,
-      `land ${choiceOf('mechanical')}`,
-    ]
-    return stages.join('; ')
+    const choices = stageChoices(A)
+    return RECORD_STAGES.map(stage => `${stage} ${choices[stage]}`).join('; ')
   }
 
   const rest = [`Routing: ${stagesText()}. Fix rounds: ${A.rounds}.`, A.experiment && ` Experiment: ${A.experiment}.`, ' Blocking: '].filter(Boolean).join('')
-  return rest + blockingText(blockingStages(A.history), rest)
+  return rest + blockingText(blockingLocations(A.history), rest)
 }

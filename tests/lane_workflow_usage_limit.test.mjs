@@ -83,3 +83,10 @@ test('a limit in one reviewer keeps the other reviewer\'s verdict and finding in
   assert.equal(launchedAgents.find(label => label.startsWith('fix-')), 'fix-1')
   assert.ok(!launchedAgents.includes('r0-review'))
 })
+
+test('a lane stopped by the usage limit writes no record', async () => {
+  const { result, agentCalls } = await runLane(resumedLane, { 'r0-review': failing(weeklyLimit) })
+  assert.equal(result.status, 'awaiting-head')
+  assert.equal(result.record, undefined)
+  assert.deepEqual(Object.keys(agentCalls).filter(label => label.startsWith('record-')), [])
+})

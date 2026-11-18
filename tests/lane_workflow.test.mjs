@@ -558,3 +558,99 @@ test('routing-line-problem: a lane-routing that answers with a problem leaves th
   assert.deepEqual([result.status, result.stage, result.reason], ['failed', 'input', 'deltaFrom is not a sha'])
   assert.match(result.routingLine, /not printed.*the printer broke/)
 })
+
+// The lane record is the file aco reads at the landing and at an abandoned release; aco's specs/lane-record.spec.md owns its schema.
+const recordFile = `${resumeArgs.scratch}/lane-record.json`
+const writtenRecord = (run) => {
+  assert.equal(run.writtenRecords.length, 1)
+  return JSON.parse(run.writtenRecords[0])
+}
+const modelAndEffort = (routing, role) => `${routing[role].model}/${routing[role].effort}`
+const refusedRecord = { record_error: `lane record ${recordFile} is invalid: version 2 is unknown; this aco reads version 1` }
+const noWait = { transform: (source) => source.replace(/const NETWORK_WAIT_SECONDS = \d+$/m, 'const NETWORK_WAIT_SECONDS = 0') }
+
+test('lane-record: a lane that is ready to land writes the stages it ran, no findings and its approving verdict, and the landing command passes the file', async () => {
+  const run = await runLane(resumeArgs, { ...reachesTheEnd, 'r0-review': APPROVE })
+  const { result } = run
+  assert.equal(result.status, 'ready-to-land')
+  assert.equal(result.record, recordFile)
+  assert.deepEqual(writtenRecord(run), {
+    version: 1,
+    stages: { build: modelAndEffort(result.routing, 'build'), fix: 'none', review: modelAndEffort(result.routing, 'review'), test: modelAndEffort(result.routing, 'test'), gate: 'none', land: modelAndEffort(result.routing, 'mechanical') },
+    fix_rounds: { review: 0, gate: 0, ci: 0, test: 0 },
+    blocking: { review: 0, gate: 0, ci: 0, test: 0 },
+    verdicts: [{ stage: 'review', verdict: 'approve', sha: resumeTip }],
+    risk: 'normal',
+  })
+  assert.ok(result.requiredHeadActions.some(action => action.includes(`aco land 1 --head ${resumeTip} --record ${recordFile}`)))
+  assert.match(result.routingLine, /^Routing: /)
+})
+
+test('lane-record: the experiment tag of the run is written to the record', async () => {
+  const run = await runLane({ ...resumeArgs, experiment: 'trial-1' }, { ...reachesTheEnd, 'r0-review': APPROVE })
+  assert.equal(writtenRecord(run).experiment, 'trial-1')
+})
+
+test('lane-record: a material lane with fix rounds counts them and the findings by the stage that raised them, ends on an approving verdict and holds no whitespace', async () => {
+  const replay = webauthReplay
+  const answers = answersWith(replay, { kind: 'test-gap', mutation: true })
+  answers['e2e-0'] = { verdict: 'FAIL', blocking: [finding('probe: login redirect', 'the redirect loses the state')], followups: [] }
+  const run = await runLane(replay.args, answers)
+  const record = writtenRecord(run)
+  assert.equal(Object.values(record.fix_rounds).reduce((sum, count) => sum + count, 0), run.result.spent.total)
+  assert.ok(record.blocking.gate > 0)
+  assert.equal(record.blocking.test, 1)
+  assert.equal(record.risk, 'material')
+  assert.equal(record.verdicts.at(-1).verdict, 'approve')
+  assert.ok(record.verdicts.some(verdict => verdict.verdict === 'revise'))
+  assert.ok(record.verdicts.every(verdict => /^[0-9a-f]{40}$/.test(verdict.sha)))
+  assert.doesNotMatch(run.writtenRecords[0].trim(), /\s/)
+})
+
+test('lane-record: a stand-in review counts as the gate in the record', async () => {
+  const run = await runLane({ ...resumeArgs, risk: 'material', productionPaths: ['src/'], routing: { gate: { model: 'opus', effort: 'high' } } }, { ...reachesTheEnd, 'r0-review': APPROVE, 'r0-gate': APPROVE })
+  const record = writtenRecord(run)
+  assert.deepEqual(record.verdicts.map(verdict => verdict.stage), ['review', 'gate'])
+  assert.notEqual(record.stages.gate, 'none')
+})
+
+for (const [name, args, answers, options, expected] of [
+  ['failed', resumeArgs, { 'scope-resume': { brief_error: 'aco: no such item' } }, {}, ['failed', 'scope']],
+  ['escalated', resumeArgs, { 'r0-review': { verdict: 'architectural', blocking: [], followups: [] } }, {}, ['escalated', 'review']],
+  ['awaiting-head', resumeArgs, { 'scope-resume': { network_stdout: JSON.stringify({ reason: 'unreachable' }), network_error: 'aco: forge unreachable', network_fails: 'always' } }, noWait, ['awaiting-head', 'scope']],
+]) {
+  test(`lane-record: a lane that ends ${name} writes a record and names it in the result`, async () => {
+    const run = await runLane(args, answers, options)
+    assert.deepEqual([run.result.status, run.result.stage], expected)
+    assert.equal(run.result.record, recordFile)
+    assert.equal(writtenRecord(run).version, 1)
+  })
+}
+
+test('lane-record: a run refused at input has no lane state and writes no record', async () => {
+  const run = await runLane({ ...resumeArgs, deltaFrom: 'not a sha' })
+  assert.equal(run.result.stage, 'input')
+  assert.equal(run.result.record, undefined)
+  assert.deepEqual(run.writtenRecords, [])
+})
+
+test('lane-record: a record that aco lane-record check refuses leaves the lane awaiting-head at record with the refusal quoted and no record to pass', async () => {
+  const { result } = await runLane(resumeArgs, { ...reachesTheEnd, 'r0-review': APPROVE, 'record-1': refusedRecord, 'record-2': refusedRecord })
+  assert.deepEqual([result.status, result.stage], ['awaiting-head', 'record'])
+  assert.match(result.reason, /exited 2: lane record .* is invalid: version 2 is unknown/)
+  assert.equal(result.record, undefined)
+  assert.match(result.recordProblem, /version 2 is unknown/)
+})
+
+test('lane-record: a file whose CRC32 differs from the record stops at the comparison, before aco lane-record check runs', async () => {
+  const differing = { ...refusedRecord, record_command: (command) => command.replace(/= [0-9a-f]{8} \]/, '= 00000000 ]') }
+  const { result } = await runLane(resumeArgs, { ...reachesTheEnd, 'r0-review': APPROVE, 'record-1': differing, 'record-2': differing })
+  assert.deepEqual([result.status, result.stage], ['awaiting-head', 'record'])
+  assert.match(result.recordProblem, /brief file differs from the brief the script wrote/)
+  assert.doesNotMatch(result.recordProblem, /invalid/)
+})
+
+test('lane-record: a record is written once for a lane that ends once', async () => {
+  const { agentCalls } = await runLane(resumeArgs, { ...reachesTheEnd, 'r0-review': APPROVE })
+  assert.deepEqual(Object.keys(agentCalls).filter(label => label.startsWith('record-')), ['record-1'])
+})

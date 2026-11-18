@@ -159,4 +159,17 @@ gpt-6-astra/high.
 ## Result
 
 The result carries `routingLine`, the one Routing line the head pastes as is,
-and `requiredHeadActions`.
+`record` and `requiredHeadActions`.
+
+`record` is the path of the lane record, `<scratch>/lane-record.json`, which aco reads
+(its `specs/lane-record.spec.md` owns the schema). The script builds the record from its own
+state: per stage the model and effort, the fix rounds and blocking findings by stage
+(`review`, `gate`, `ci`, `test`; a stand-in counts as gate), the risk class, the experiment tag
+and each review and gate verdict with the full sha it judged, the approving one last. No model retypes it: a
+courier cuts it out of its own transcript into the file, compares its CRC32 with the script's, and only
+then runs `aco lane-record check`, whose exit comes back on a CRC-signed printer line. Every status
+a release can follow carries `record`. A record that fails the check turns `ready-to-land` into
+`awaiting-head` at `record`, with `recordProblem` quoting aco; a run refused at input and a lane
+stopped by the Claude usage limit write none. The landing is `aco land <pr> --head <tip> --record <path>` and an
+abandoned lane is released with `aco release <n> --abandoned REASON --record <path>`. The Routing line is still
+printed, and pasted beside the record until aco stops reading it.

@@ -1322,8 +1322,7 @@ const missingFields = (entry, schema) => entry === null || typeof entry !== 'obj
   ? 'is not an object'
   : `lacks ${requiredFields(schema).filter(field => typeof entry[field] !== 'string' || !entry[field].trim()).join(', ')}`
 const badEntry = (name, entries, schema) => {
-  if (entries === undefined) return null
-  if (!Array.isArray(entries)) return `${name} must be a list`
+  if (!Array.isArray(entries)) return entries === undefined ? null : `${name} must be a list`
   const index = entries.findIndex(entry => missingFields(entry, schema) !== 'lacks ')
   if (index >= 0) return `${name}[${index}] ${missingFields(entries[index], schema)}: each entry needs ${requiredFields(schema).join(', ')} as non-empty strings`
   return name === 'foldIn' ? unstagedProblem(name, entries) : null

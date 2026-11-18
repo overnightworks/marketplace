@@ -1,8 +1,0 @@
-claim_id = "25d5d677bd9e4de6ad8e31267f4f282b"
-agent = "Claude 30ec126a-30e5-431d-a4c3-088d393726d4"
-role = "builder"
-base = "c9a3fd0aec1946a1d7f561a753ab9f2d52320a5c"
-branch = "claude/issue-783-removal-diff-from-commits"
-scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/lane", "plugins/atelier/workflows/lane.js", "plugins/atelier/workflows/lane.md", "tests"]
-opened_commit = "de96060fda292340a009da474c25fd0d512d4a6d"
-whole_reason = "The lane source, its generated bundle, its reference and harness tests change together with the version files."

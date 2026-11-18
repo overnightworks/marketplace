@@ -74,10 +74,9 @@ test('a fix that only merged main folds nothing in, so the head still routes the
     'fix-1': { head: merged, parents: [built, 'e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4'], mergeResolvedLaneConflict: false, files: [], disputed: [], blocked: false },
     'ci-1': greenCi(merged),
   })
-  assert.equal(result.status, 'ready-to-land')
+  assert.deepEqual([result.status, result.stage], ['awaiting-head', 'record'])
   assert.deepEqual(result.folded, [])
   assert.deepEqual(result.followups, [{ ...foldIn, tip: built }])
-  assert.ok(result.requiredHeadActions.includes('route 1 follow-up(s) to their owning items before landing'))
 })
 
 test('a stopped fix reports the fold-ins its fixer found already done, and leaves them open', async () => {
@@ -520,11 +519,12 @@ test('a fixer that only merged main fixes nothing when a review finding, not the
   assert.ok(!launchedAgents.includes('r1-review'))
 })
 
-test('a CI finding answered by a clean merge of main runs CI again and reaches ready-to-land when CI is green', async () => {
+test('a CI finding answered by a clean merge of main runs CI again and ends awaiting-head, since no verdict judged the merged tip', async () => {
   const { result, launchedAgents } = await runLane(resumeArgs, { 'r0-review': APPROVE, 'e2e-0': PASS, 'ci-0': { head: resumeTip, green: false, failing: [defectWithoutDraft] }, 'fix-1': mergeOnlyFix, 'ci-1': greenCi(mergedOnlyTip) })
-  assert.equal(result.status, 'ready-to-land', result.reason)
-  assert.equal(result.tip, mergedOnlyTip)
+  assert.deepEqual([result.status, result.stage, result.tip], ['awaiting-head', 'record', mergedOnlyTip])
+  assert.ok(result.reason.includes(`the last verdict judged ${resumeTip}`), result.reason)
   assert.ok(!launchedAgents.includes('r1-review'))
+  assert.equal(result.requiredHeadActions, undefined)
 })
 
 test('a CI finding that stays red after a clean merge of main stops the lane', async () => {

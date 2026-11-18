@@ -215,6 +215,9 @@ function recordedVerdicts(history) {
     .map(entry => ({ stage: VERDICT_STAGES[entry.by], verdict: entry.verdict.toLowerCase(), sha: entry.tip }))
 }
 
+// The commit the newest review or gate verdict judged, or none; aco lands only the head that verdict judged.
+const lastVerdictSha = (history) => recordedVerdicts(history).at(-1)?.sha ?? null
+
 function laneRecord({ routing, history, fixRole, fixRounds, risk, experiment }) {
   const stages = stageChoices({ routing, history, fixRole })
   const blocking = Object.fromEntries(FINDING_STAGE_NAMES.map(stage => [stage, 0]))
@@ -1917,6 +1920,9 @@ const shellQuoted = path => "'" + path.replaceAll("'", escapedQuote) + "'"
 const rescopeAdds = passedOutsidePaths.map(path => '--add ' + shellQuoted(path)).join(' ')
 const rescopeCommand = 'aco rescope ' + A.item + ' ' + rescopeAdds
 const stillOpen = openFollowups()
+// A clean merge of main moves the tip without a verdict, and aco refuses a landing whose head the record's last verdict did not judge.
+const lastJudged = lastVerdictSha(history)
+if (lastJudged !== tip) return await openResult('awaiting-head', 'record', { reason: `the tip ${tip} carries commits no review or gate verdict judged (the last verdict judged ${lastJudged ?? 'nothing'}), so aco would refuse to land it. Start a new run with pr ${pr} and tip ${tip} for a review of the whole lane.` })
 const finalRoutingLine = await routingLine()
 const finalRecord = await writeRecord()
 // The landing needs the file aco accepts, so a record that fails its check leaves the lane for the head.

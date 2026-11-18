@@ -570,6 +570,9 @@ test('ci-flake-rerun: a disputed non-CI finding goes to the head without a re-ru
 const roundTip = (round) => String(round).repeat(40)
 const roundRed = (round, extra = () => {}) => () => { extra(); return { head: roundTip(round), green: false, failing: [{ ...defectWithoutDraft, where: `t.py:${round}` }] } }
 const roundFix = (round) => ({ ...mergeOnlyFix, head: roundTip(round), parents: [round === 1 ? resumeArgs.tip : roundTip(round - 1), mainMovedTip] })
+// A fix that changes a lane file outside production moves the tip to a commit a review judges, so the record's last verdict names it.
+const reviewedRoundFix = (round) => ({ ...resumeFix, head: roundTip(round), parents: [round === 1 ? resumeArgs.tip : roundTip(round - 1)], files: ['x.py'], regression: [] })
+const roundReviews = Object.fromEntries([1, 2, 3, 4].map(round => [`r${round}-review`, APPROVE]))
 const heldTester = () => { let resolve; const promise = new Promise(done => { resolve = done }); return { promise, resolve, answer: () => promise } }
 const testerLabels = (launchedAgents) => launchedAgents.filter(label => /^e2e-\d+$/.test(label))
 const ciWatches = (launchedAgents) => launchedAgents.filter(label => /^ci-\d+$/.test(label))
@@ -578,9 +581,10 @@ const tolerates = { timeout: 5000 }
 test('ci-fixer-at-once: CI red for several rounds starts a fixer each round and issues exactly one tester call', tolerates, async () => {
   const tester = heldTester()
   const answers = {
+    ...roundReviews,
     'r0-review': APPROVE, 'e2e-0': tester.answer,
     'ci-0': roundRed(0), 'ci-1': roundRed(1), 'ci-2': roundRed(2), 'ci-3': roundRed(3, () => tester.resolve(PASS)), 'ci-4': greenCi(roundTip(4)),
-    'fix-1': roundFix(1), 'fix-2': roundFix(2), 'fix-3': roundFix(3), 'fix-4': roundFix(4),
+    'fix-1': reviewedRoundFix(1), 'fix-2': reviewedRoundFix(2), 'fix-3': reviewedRoundFix(3), 'fix-4': reviewedRoundFix(4),
   }
   const { result, launchedAgents } = await runLane({ ...resumeArgs, budgets: { ci: 5 } }, answers)
   assert.equal(result.status, 'ready-to-land', result.reason)
@@ -635,8 +639,9 @@ test('ci-budget-key: a fix round with green CI that carries only a tester findin
 
 test('ci-budget-key: a fix round with red CI but no failing entry and no tester finding charges the ci budget', tolerates, async () => {
   const answers = {
+    ...roundReviews,
     'r0-review': APPROVE, 'e2e-0': PASS,
-    'ci-0': { head: resumeArgs.tip, green: false, failing: [] }, 'fix-1': roundFix(1), 'r1-review': APPROVE, 'ci-1': greenCi(roundTip(1)),
+    'ci-0': { head: resumeArgs.tip, green: false, failing: [] }, 'fix-1': reviewedRoundFix(1), 'r1-review': APPROVE, 'ci-1': greenCi(roundTip(1)),
   }
   const { result } = await runLane(resumeArgs, answers)
   assert.equal(result.status, 'ready-to-land', result.reason)
@@ -660,9 +665,10 @@ test('ci-fixer-at-once: a lock-busy tester is retried inline without another CI 
 test('ci-fixer-at-once: a tester PASS on a tip a later fix changed in production starts a new tester before ready-to-land', tolerates, async () => {
   const tester = heldTester()
   const answers = {
+    ...roundReviews,
     'r0-review': APPROVE, 'e2e-0': tester.answer, 'e2e-1': PASS,
     'ci-0': roundRed(0), 'ci-1': roundRed(1, () => tester.resolve(PASS)), 'ci-2': greenCi(roundTip(2)),
-    'fix-1': { ...resumeFix, head: roundTip(1), files: ['src/x.py'], regression: [] }, 'r1-review': APPROVE, 'fix-2': roundFix(2),
+    'fix-1': { ...resumeFix, head: roundTip(1), files: ['src/x.py'], regression: [] }, 'r1-review': APPROVE, 'fix-2': reviewedRoundFix(2),
   }
   const { result, launchedAgents } = await runLane(resumeArgs, answers)
   assert.equal(result.status, 'ready-to-land', result.reason)
@@ -673,8 +679,9 @@ test('ci-fixer-at-once: a tester PASS on a tip a later fix changed in production
 test('ci-fixer-at-once: a lock-busy tester does not hold a red CI back from the fixer', tolerates, async () => {
   const retry = heldTester()
   const answers = {
+    ...roundReviews,
     'r0-review': APPROVE, 'e2e-0': lockBusy, 'e2e-1': retry.answer,
-    'ci-0': roundRed(0), 'ci-1': () => { retry.resolve(PASS); return greenCi(roundTip(1)) }, 'ci-read-1': { pr_head: roundTip(1), checks: greenCi(roundTip(1)).checks, required: ['quality / verdict'] }, 'fix-1': roundFix(1),
+    'ci-0': roundRed(0), 'ci-1': () => { retry.resolve(PASS); return greenCi(roundTip(1)) }, 'ci-read-1': { pr_head: roundTip(1), checks: greenCi(roundTip(1)).checks, required: ['quality / verdict'] }, 'fix-1': reviewedRoundFix(1),
   }
   const { result, launchedAgents } = await runLane(resumeArgs, answers)
   assert.equal(result.status, 'ready-to-land', result.reason)
@@ -695,9 +702,10 @@ test('ci-fixer-at-once: a follow-up of a tester that settles after a fix moved t
   const tester = heldTester()
   const followup = { where: 'late.py:1', text: 'tidy it', kind: 'follow-up' }
   const answers = {
+    ...roundReviews,
     'r0-review': APPROVE, 'e2e-0': tester.answer,
     'ci-0': roundRed(0), 'ci-1': () => { tester.resolve({ ...PASS, followups: [followup] }); return greenCi(roundTip(1)) },
-    'ci-read-1': { pr_head: roundTip(1), checks: greenCi(roundTip(1)).checks, required: ['quality / verdict'] }, 'fix-1': roundFix(1),
+    'ci-read-1': { pr_head: roundTip(1), checks: greenCi(roundTip(1)).checks, required: ['quality / verdict'] }, 'fix-1': reviewedRoundFix(1),
   }
   const { result } = await runLane(resumeArgs, answers)
   assert.equal(result.status, 'ready-to-land', result.reason)

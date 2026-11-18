@@ -22,6 +22,21 @@ function findingsOfEntry(entry, stage, isMiss) {
   return found
 }
 
+// A round that fixes only fold-ins counts under the first stage, in review, gate, ci, test order, that raised one of them; a fold-in without a stage names none.
+const foldInStage = (foldIn) => FINDING_STAGE_NAMES.find(name => foldIn.some(f => f.stage === name))
+
+// The problem with the first entry whose stage is none of the finding stages, or none.
+function unstagedProblem(name, entries) {
+  const index = entries.findIndex(entry => entry.stage !== undefined && !FINDING_STAGE_NAMES.includes(entry.stage))
+  return index < 0 ? null : `${name}[${index}] has the stage ${JSON.stringify(entries[index].stage)}: a stage is one of ${FINDING_STAGE_NAMES.join(', ')}`
+}
+
+// The fixer's proof that a fix changes no behaviour is what lets a deterministic CI finding stay out of the record's misses.
+function fixProofEntries(answered, blocking, after) {
+  const unchanged = (answered.noBehaviourChange || []).map(number => blocking[number - 1]?.where).filter(Boolean)
+  return unchanged.length ? [{ after, by: 'fix-proof', unchanged }] : []
+}
+
 const approvesRange = (entry) => entry.by === 'review' && entry.verdict === 'APPROVE' && entry.blocking?.length === 0
 
 // A finding of the gate, CI or the tester is a miss when a review approved the range before it (HEAD.md's Misses rule). A gate finding in the round of the approving review is no miss;

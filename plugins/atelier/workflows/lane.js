@@ -186,6 +186,21 @@ function findingsOfEntry(entry, stage, isMiss) {
   return found
 }
 
+// A round that fixes only fold-ins counts under the first stage, in review, gate, ci, test order, that raised one of them; a fold-in without a stage names none.
+const foldInStage = (foldIn) => FINDING_STAGE_NAMES.find(name => foldIn.some(f => f.stage === name))
+
+// The problem with the first entry whose stage is none of the finding stages, or none.
+function unstagedProblem(name, entries) {
+  const index = entries.findIndex(entry => entry.stage !== undefined && !FINDING_STAGE_NAMES.includes(entry.stage))
+  return index < 0 ? null : `${name}[${index}] has the stage ${JSON.stringify(entries[index].stage)}: a stage is one of ${FINDING_STAGE_NAMES.join(', ')}`
+}
+
+// The fixer's proof that a fix changes no behaviour is what lets a deterministic CI finding stay out of the record's misses.
+function fixProofEntries(answered, blocking, after) {
+  const unchanged = (answered.noBehaviourChange || []).map(number => blocking[number - 1]?.where).filter(Boolean)
+  return unchanged.length ? [{ after, by: 'fix-proof', unchanged }] : []
+}
+
 const approvesRange = (entry) => entry.by === 'review' && entry.verdict === 'APPROVE' && entry.blocking?.length === 0
 
 // A finding of the gate, CI or the tester is a miss when a review approved the range before it (HEAD.md's Misses rule). A gate finding in the round of the approving review is no miss;
@@ -1307,9 +1322,7 @@ const badEntry = (name, entries, schema) => {
   if (entries === undefined) return null
   if (!Array.isArray(entries)) return `${name} must be a list`
   const index = entries.findIndex(entry => missingFields(entry, schema) !== 'lacks ')
-  if (index >= 0) return `${name}[${index}] ${missingFields(entries[index], schema)}: each entry needs ${requiredFields(schema).join(', ')} as non-empty strings`
-  const unstaged = entries.findIndex(entry => entry.stage !== undefined && !FINDING_STAGE_NAMES.includes(entry.stage))
-  return unstaged < 0 ? null : `${name}[${unstaged}] has the stage ${JSON.stringify(entries[unstaged].stage)}: a stage is one of ${FINDING_STAGE_NAMES.join(', ')}`
+  return index < 0 ? unstagedProblem(name, entries) : `${name}[${index}] ${missingFields(entries[index], schema)}: each entry needs ${requiredFields(schema).join(', ')} as non-empty strings`
 }
 const entryProblem = badEntry('fixFirst', A.fixFirst, FINDING) || badEntry('foldIn', A.foldIn, FOLLOWUP)
 if (entryProblem) return { status: 'failed', stage: 'input', reason: entryProblem }
@@ -1584,8 +1597,6 @@ async function fixRoundStop(blocking, budgetKey) {
 // The head named the items it passes as foldIn, so the wording filter does not second-guess them.
 const namedByHead = new Set((A.foldIn || []).map(findingKey))
 const inPlaceFollowups = () => openFollowups().filter(f => namedByHead.has(findingKey(f)) || /fix in place/i.test(`${f.owner} ${f.text}`))
-// A round that fixes only fold-ins counts under the first stage, in review, gate, ci, test order, that raised one of them; a fold-in without a stage names none.
-const foldInStage = (foldIn) => FINDING_STAGE_NAMES.find(name => foldIn.some(f => f.stage === name))
 const listFoldIns = (foldIn) => foldIn.map(f => `- ${f.where} — ${f.text}`).join('\n')
 // The reviewer sees which follow-ups the fixer was given, so it can tell a skipped one from a done one.
 const foldInsInRange = (foldIn) => foldIn.length ? `\nThe fixer was also given these follow-ups to fold in; check each is done:\n${listFoldIns(foldIn)}` : ''
@@ -1667,9 +1678,7 @@ async function fixRound(blocking, source, budgetKey, carried, stage = budgetKey)
   if (answered.outcome === 'rejected') return unaccepted(await openResult('failed', 'fix', answered.rejection))
   const accepted = await acceptFix(answered, blocking, foldIn)
   if (accepted.stop) return unaccepted(accepted.stop)
-  // The fixer's proof that a fix changes no behaviour is what lets a deterministic CI finding stay out of the record's misses.
-  const unchanged = (answered.noBehaviourChange || []).map(number => blocking[number - 1]?.where).filter(Boolean)
-  if (unchanged.length) history.push({ after: spent.total, by: 'fix-proof', unchanged })
+  history.push(...fixProofEntries(answered, blocking, spent.total))
   const { deltaFrom, note } = scopeOrigin(carried, tipBeforeFix)
   const scopeStop = await pushAndCheckScope(`scope-${spent.total}`, { note, deltaFrom })
   if (scopeStop) return unaccepted(scopeStop.stop)

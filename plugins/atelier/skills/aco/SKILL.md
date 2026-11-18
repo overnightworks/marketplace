@@ -18,8 +18,8 @@ claimed, reviewed and landed; this says *how*.
 ## Session start
 
 1. `aco status` — who holds what; resume a lane you own (its worktree is listed).
-2. `aco next` (`--json`) — the item to pull. `needs-operator` items and
-   ideas are never named (ideas are listed apart under `ideas:`);
+2. `aco next` (`--json`) — the item to pull. An item whose `wait.operator` holds
+   a step and ideas are never named (ideas are listed apart under `ideas:`);
    an item with unruled expectations is refined first, not dispatched
    (`specs/next.spec.md`); start the `atelier:refine` subagent to catalogue the
    expectations the operator may have omitted.
@@ -178,16 +178,12 @@ contract and this skill.
   it belongs to, or with a `title` when no open item holds it. It takes `purpose`,
   `actions` and `expected` (`answer` optional) and refuses a call without them
   (`specs/mcp.spec.md`). The
-  tool writes the block's `wait.operator` beside the label `needs-operator` and never
-  removes either: once he says the step is done, the head removes the label and the
-  `wait` and rewrites the block's `next` in the same edit, so `next` stops naming his
-  finished step.
+  tool writes the block's `wait.operator`, which alone makes the item wait on him,
+  and the label `needs-operator` as its view; it removes neither. Once he says the
+  step is done, the head removes the `wait` and the label and rewrites the block's
+  `next` in the same edit, so `next` stops naming his finished step.
 - An item that waits carries one `wait` in its block: his step, a date or a trigger
   fact, with `since` (`specs/body-block.spec.md`). `frozen_until` is a body defect.
-  An aco older than the `wait` field reads such a body as malformed, so the first `wait`
-  in a fleet is written only after aco is reinstalled on every machine, aco-board
-  restarted and every head ran `/reload-plugins` and `/mcp` → aco → Reconnect; then each
-  head adds `wait.operator` to its items labelled `needs-operator` before.
 - Take back your own open or returned line only with `aco withdraw <n> --line <k>`, never
   by editing the body (`specs/withdraw.spec.md`); it refuses a ruled line. Withdrawing a
   returned line drops the operator's note, so carry that note into the line that replaces

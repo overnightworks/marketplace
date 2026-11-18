@@ -7,23 +7,25 @@ export async function laneCi(A) {
   // A job qualifies for the one re-run only when the step it failed in is listed here; any other step, or none known, never does.
   const SETUP_STEPS = new Set(['Set up job'])
 
+  // A finding of a deterministic check (a size or baseline ratchet, a clone pair, lint, format, a coverage floor, a Sonar code-smell rule, a missing ID marker) carries deterministic true; the lane's record counts it as no miss only when the fixer also proves its fix changes no behaviour.
+  const CI_FINDING = { ...A.finding, properties: { ...A.finding.properties, deterministic: { type: 'boolean', description: 'true only when the check is one of: a size or baseline ratchet, a clone pair, lint, format, a coverage floor, a Sonar code-smell rule, a missing ID marker. False for a failing test, a secret or advisory scan, and a scanner bug or vulnerability finding.' } } }
   const REDCHECK = {
     type: 'object',
     required: ['name', 'link', 'runId', 'jobId', 'failingStep', 'findings'],
     properties: {
       name: { type: 'string' }, link: { type: 'string' }, runId: { type: 'string' }, jobId: { type: 'string' },
-      failingStep: { type: ['string', 'null'] }, findings: { type: 'array', items: A.finding },
+      failingStep: { type: ['string', 'null'] }, findings: { type: 'array', items: CI_FINDING },
     },
   }
   const CI = {
     type: 'object',
     required: ['green', 'failing'],
-    properties: { green: { type: 'boolean' }, failing: { type: 'array', items: A.finding }, red: { type: 'array', items: REDCHECK } },
+    properties: { green: { type: 'boolean' }, failing: { type: 'array', items: CI_FINDING }, red: { type: 'array', items: REDCHECK } },
   }
   const RERUN = {
     type: 'object',
     required: ['link', 'bucket', 'findings'],
-    properties: { link: { type: 'string' }, bucket: { type: 'string' }, findings: { type: 'array', items: A.finding } },
+    properties: { link: { type: 'string' }, bucket: { type: 'string' }, findings: { type: 'array', items: CI_FINDING } },
   }
 
   // How a red check becomes findings; the first watch and a job re-run quote the same way.
@@ -35,7 +37,7 @@ export async function laneCi(A) {
       `When those lines list findings as path:line plus a rule id (such as \`sonar tests/x.py:498 - python:S5778: text\`), return one failing entry per listed finding instead: where = path:line, kind = "defect", ` +
       `text = the finding's text, rule = its rule id, evidence = that line; a \`Fix:\` line belongs to the finding above it, and the list's header count (\`N open finding(s)\`) must equal your entries. A red check without such a list stays one entry under its check name with the quoted lines as evidence. ` +
       `If the last printed line is not an ##[error] line, the job did not fail in its own steps: make one entry under its check name with the check's state and link as evidence and say the log held no error line. ` +
-      `A check whose log only reports that a job it needs failed (such as \`gate job "sonar" result failure\`) is derived: leave it out when another failing entry already covers that job. Never guess a cause such as flakiness; quote what the log shows. `
+      `A check whose log only reports that a job it needs failed (such as \`gate job "sonar" result failure\`) is derived: leave it out when another failing entry already covers that job. Never guess a cause such as flakiness; quote what the log shows. Set deterministic true on a finding only when its check is a size or baseline ratchet, a clone pair, lint, format, a coverage floor, a Sonar code-smell rule or a missing ID marker; leave it false for a failing test, a secret or advisory scan, a scanner bug or vulnerability finding, and whatever you cannot place. `
     )
   }
 

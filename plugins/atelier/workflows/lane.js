@@ -42,23 +42,25 @@ async function laneCi(A) {
   // A job qualifies for the one re-run only when the step it failed in is listed here; any other step, or none known, never does.
   const SETUP_STEPS = new Set(['Set up job'])
 
+  // A finding of a deterministic check (a size or baseline ratchet, a clone pair, lint, format, a coverage floor, a Sonar code-smell rule, a missing ID marker) carries deterministic true; the lane's record counts it as no miss only when the fixer also proves its fix changes no behaviour.
+  const CI_FINDING = { ...A.finding, properties: { ...A.finding.properties, deterministic: { type: 'boolean', description: 'true only when the check is one of: a size or baseline ratchet, a clone pair, lint, format, a coverage floor, a Sonar code-smell rule, a missing ID marker. False for a failing test, a secret or advisory scan, and a scanner bug or vulnerability finding.' } } }
   const REDCHECK = {
     type: 'object',
     required: ['name', 'link', 'runId', 'jobId', 'failingStep', 'findings'],
     properties: {
       name: { type: 'string' }, link: { type: 'string' }, runId: { type: 'string' }, jobId: { type: 'string' },
-      failingStep: { type: ['string', 'null'] }, findings: { type: 'array', items: A.finding },
+      failingStep: { type: ['string', 'null'] }, findings: { type: 'array', items: CI_FINDING },
     },
   }
   const CI = {
     type: 'object',
     required: ['green', 'failing'],
-    properties: { green: { type: 'boolean' }, failing: { type: 'array', items: A.finding }, red: { type: 'array', items: REDCHECK } },
+    properties: { green: { type: 'boolean' }, failing: { type: 'array', items: CI_FINDING }, red: { type: 'array', items: REDCHECK } },
   }
   const RERUN = {
     type: 'object',
     required: ['link', 'bucket', 'findings'],
-    properties: { link: { type: 'string' }, bucket: { type: 'string' }, findings: { type: 'array', items: A.finding } },
+    properties: { link: { type: 'string' }, bucket: { type: 'string' }, findings: { type: 'array', items: CI_FINDING } },
   }
 
   // How a red check becomes findings; the first watch and a job re-run quote the same way.
@@ -70,7 +72,7 @@ async function laneCi(A) {
       `When those lines list findings as path:line plus a rule id (such as \`sonar tests/x.py:498 - python:S5778: text\`), return one failing entry per listed finding instead: where = path:line, kind = "defect", ` +
       `text = the finding's text, rule = its rule id, evidence = that line; a \`Fix:\` line belongs to the finding above it, and the list's header count (\`N open finding(s)\`) must equal your entries. A red check without such a list stays one entry under its check name with the quoted lines as evidence. ` +
       `If the last printed line is not an ##[error] line, the job did not fail in its own steps: make one entry under its check name with the check's state and link as evidence and say the log held no error line. ` +
-      `A check whose log only reports that a job it needs failed (such as \`gate job "sonar" result failure\`) is derived: leave it out when another failing entry already covers that job. Never guess a cause such as flakiness; quote what the log shows. `
+      `A check whose log only reports that a job it needs failed (such as \`gate job "sonar" result failure\`) is derived: leave it out when another failing entry already covers that job. Never guess a cause such as flakiness; quote what the log shows. Set deterministic true on a finding only when its check is a size or baseline ratchet, a clone pair, lint, format, a coverage floor, a Sonar code-smell rule or a missing ID marker; leave it false for a failing test, a secret or advisory scan, a scanner bug or vulnerability finding, and whatever you cannot place. `
     )
   }
 
@@ -172,27 +174,64 @@ const FULL_SHA = /^[0-9a-f]{40}$/
 
 const stageOf = (reviewer) => FINDING_STAGES.map(([pattern, name]) => pattern.test(reviewer) ? name ?? reviewer : null).find(Boolean)
 
-// The findings of one history entry by text and stage, each with the number of findings that share them.
-function findingsOfEntry(entry, stage) {
+// The findings of one history entry by text and stage, each with the number of findings that share them and how many of those are misses.
+function findingsOfEntry(entry, stage, isMiss) {
   const found = new Map()
   for (const where of entry.blocking) {
     const text = String(where).replace(/[\s;→]+/g, ' ').trim()
     const key = JSON.stringify([text, stage])
-    found.set(key, { text, stage, count: (found.get(key)?.count ?? 0) + 1 })
+    const had = found.get(key)
+    found.set(key, { text, stage, count: (had?.count ?? 0) + 1, misses: (had?.misses ?? 0) + (isMiss(where) ? 1 : 0) })
   }
   return found
 }
 
-// Distinct findings of one round that share a text each count; a finding that comes back in a later round counts once, as often as the most it was raised in one round.
+// A round that fixes only fold-ins counts under the first stage, in review, gate, ci, test order, that raised one of them; a fold-in without a stage names none.
+const foldInStage = (foldIn) => FINDING_STAGE_NAMES.find(name => foldIn.some(f => f.stage === name))
+
+// The problem with the first entry whose stage is none of the finding stages, or none.
+function unstagedProblem(name, entries) {
+  const index = entries.findIndex(entry => entry.stage !== undefined && !FINDING_STAGE_NAMES.includes(entry.stage))
+  return index < 0 ? null : `${name}[${index}] has the stage ${JSON.stringify(entries[index].stage)}: a stage is one of ${FINDING_STAGE_NAMES.join(', ')}`
+}
+
+// The fixer's proof that a fix changes no behaviour is what lets a deterministic CI finding stay out of the record's misses.
+function fixProofEntries(answered, blocking, after) {
+  const unchanged = (answered.noBehaviourChange || []).map(number => blocking[number - 1]?.where).filter(Boolean)
+  return unchanged.length ? [{ after, by: 'fix-proof', unchanged }] : []
+}
+
+const approvesRange = (entry) => entry.by === 'review' && entry.verdict === 'APPROVE' && entry.blocking?.length === 0
+
+// A finding of the gate, CI or the tester is a miss when a review approved the range before it (HEAD.md's Misses rule). A gate finding in the round of the approving review is no miss;
+// a CI finding is none either when its check is deterministic and the fixer's proof for it reports no behaviour change. The review stage has no misses.
+function missPredicate(history, index, stage) {
+  const entry = history[index]
+  if (stage === 'review') return () => false
+  const earlier = history.slice(0, index).filter(approvesRange)
+  if (stage === 'gate') {
+    const sameRound = history.some(approval => approvesRange(approval) && approval.after === entry.after)
+    return () => !sameRound && earlier.some(approval => approval.after < entry.after)
+  }
+  if (!earlier.length) return () => false
+  if (stage === 'test') return () => true
+  const following = history.slice(index + 1)
+  const nextWatch = following.findIndex(next => stageOf(next.by) === 'ci')
+  const proofs = (nextWatch < 0 ? following : following.slice(0, nextWatch)).filter(next => next.by === 'fix-proof')
+  return (where) => !((entry.deterministic ?? []).includes(where) && proofs.some(proof => proof.unchanged.includes(where)))
+}
+
+// Distinct findings of one round that share a text each count; a finding that comes back in a later round counts once, as often as the most it was raised in one round, and misses likewise.
 function blockingStages(history) {
   const found = new Map()
-  for (const entry of history) {
+  history.forEach((entry, index) => {
     const stage = Array.isArray(entry.blocking) ? stageOf(entry.by) : null
-    if (!stage) continue
-    findingsOfEntry(entry, stage).forEach((finding, key) => {
-      if (finding.count > (found.get(key)?.count ?? 0)) found.set(key, finding)
+    if (!stage) return
+    findingsOfEntry(entry, stage, missPredicate(history, index, stage)).forEach((finding, key) => {
+      const had = found.get(key)
+      found.set(key, { ...finding, count: Math.max(finding.count, had?.count ?? 0), misses: Math.max(finding.misses, had?.misses ?? 0) })
     })
-  }
+  })
   return [...found.values()]
 }
 
@@ -221,12 +260,17 @@ const lastVerdictSha = (history) => recordedVerdicts(history).at(-1)?.sha ?? nul
 function laneRecord({ routing, history, fixRole, fixRounds, risk, experiment }) {
   const stages = stageChoices({ routing, history, fixRole })
   const blocking = Object.fromEntries(FINDING_STAGE_NAMES.map(stage => [stage, 0]))
-  blockingStages(history).forEach(finding => { blocking[finding.stage] = Math.min(RECORD_COUNT_LIMIT, blocking[finding.stage] + finding.count) })
+  const misses = Object.fromEntries(FINDING_STAGE_NAMES.map(stage => [stage, 0]))
+  blockingStages(history).forEach(finding => {
+    blocking[finding.stage] = Math.min(RECORD_COUNT_LIMIT, blocking[finding.stage] + finding.count)
+    misses[finding.stage] = Math.min(RECORD_COUNT_LIMIT, misses[finding.stage] + finding.misses)
+  })
   return {
     version: RECORD_VERSION,
     stages: Object.fromEntries(RECORD_STAGES.map(stage => [stage, stages[stage]])),
     fix_rounds: Object.fromEntries(FINDING_STAGE_NAMES.map(stage => [stage, Math.min(RECORD_COUNT_LIMIT, fixRounds[stage])])),
     blocking,
+    misses,
     verdicts: recordedVerdicts(history),
     risk,
     ...(experiment && { experiment }),
@@ -378,6 +422,7 @@ async function laneRelay(A) {
         description: "empty only when no blocking finding needs a proof; otherwise every test you add, strengthen or keep for a blocking finding, and every probe cell you run for it, under that finding's number in the blocking list you were given",
         items: { type: 'object', required: ['finding', 'test', 'failedBefore', 'passesAfter'], properties: { finding: { type: 'integer', minimum: 1, description: 'the number of the blocking finding in the list you were given' }, resolution: { type: 'string', enum: ['removed'], description: 'for a finding of any kind whose fix only deletes dead code or a test that pins no behaviour, instead of changing behaviour or adding a test' }, test: { type: 'string' }, failedBefore: { type: 'boolean' }, passesAfter: { type: 'boolean' }, notRun: { type: 'string', description: 'why this machine could not run the test (a refused command, a machine another lane holds); CI on the pushed tip is its proof. Not for a test you ran and saw fail: that is passesAfter false' }, mutation: { type: 'string', description: 'for a test-gap finding: the production change, made and reverted, under which the test fails; it goes here and not inside test' } } },
       },
+      noBehaviourChange: { type: 'array', items: { type: 'integer', minimum: 1 }, description: 'the numbers of the blocking findings whose fix changes no behaviour of the code (formatting, lint, a ratchet baseline, a clone pair, a coverage floor, a code-smell rule, an ID marker); leave out a finding whose fix changes behaviour, and list none when unsure' },
       summary: { type: 'string' }, blocked: { type: 'boolean' }, blockedReason: { type: 'string' },
     },
   }
@@ -431,7 +476,7 @@ async function laneRelay(A) {
       : ''
     return (
       `${facts}\nYou are a fresh fixer for PR #${pr} (lane tip ${tip}). Merge origin/main if it moved, before or after your fixes (a merge commit; ` +
-      `resolve conflicts so both sides' behaviour holds, and set mergeResolvedLaneConflict true when files this lane changed needed resolution). If the worktree already carries commits or uncommitted changes past that tip from an earlier fixer that ran out of turns, judge them, keep what is right, and continue from there. Commit each finding as soon as it is green. Then commit what is green and return what is left in blockedReason with blocked true. ${task}${foldInBrief}\n\n` +
+      `resolve conflicts so both sides' behaviour holds, and set mergeResolvedLaneConflict true when files this lane changed needed resolution). If the worktree already carries commits or uncommitted changes past that tip from an earlier fixer that ran out of turns, judge them, keep what is right, and continue from there. Commit each finding as soon as it is green. List in noBehaviourChange the number of each blocking finding whose fix changes no behaviour of the code, and only those. Then commit what is green and return what is left in blockedReason with blocked true. ${task}${foldInBrief}\n\n` +
       `Each finding names the rule it breaks and its evidence. A scanner finding whose message covers the whole file (for example "in this file") is fixed at every occurrence in that file, not only at the reported line. Check the evidence yourself first. If it does not hold — the rule is not broken, or the evidence is wrong — ` +
       `do not change code for it: list it in disputed with your counter-evidence. Report every test you add, strengthen or keep for a blocking finding, and every probe cell you run for it, in regression under that finding's number in the list above; the number counts only for the blocking list, a follow-up needs no regression entry. Run the mutation you name, do not reason about it. ` +
       `A defect's test fails before your fix and passes after it; a defect with a test draft needs one. A defect in test code (hygiene) needs no regression test: the diff is its proof. A test you could not run on this machine is reported with notRun, the reason, and passesAfter false is kept for a test you ran and saw fail; the delta re-check judges a not-run test from its text and CI on the pushed tip runs it. A test-gap finding means a behaviour has no test, the code is already right, and it always needs a test: it passes before and after, ` +
@@ -511,7 +556,7 @@ async function laneRelay(A) {
     if (A.flakeRerunUsed || A.source !== 'CI' || !fixed.unchanged) return false
     return blocking.every(f => fixed.disputed.some(d => d.where === f.where && (d.counterEvidence || '').trim()))
   }
-  const disputeFlakes = (fixed, blocking) => fixed.disputed.filter(d => blocking.some(f => f.where === d.where)).map(d => ({ where: d.where, text: `${d.text} (a flake; the fixer's counter-evidence: ${d.counterEvidence})`, owner: 'distributor' }))
+  const disputeFlakes = (fixed, blocking) => fixed.disputed.filter(d => blocking.some(f => f.where === d.where)).map(d => ({ where: d.where, text: `${d.text} (a flake; the fixer's counter-evidence: ${d.counterEvidence})`, owner: 'distributor', stage: 'ci' }))
   // The evidence the fixer gave for a fold-in it found already done, or undefined without any.
   const satisfiedEvidence = (fixed, foldIn) => (fixed.resolved || []).find(r => r.where === foldIn.where && (r.evidence || '').trim())?.evidence
   // An unchanged tip is a fix only when there are no blocking findings and every fold-in is proven already satisfied.
@@ -938,7 +983,7 @@ async function laneReview(A) {
     return {
       history: { after: A.after, by: reviewer.key, tip: A.tip, verdict: result.verdict, blocking: blocking.map(f => f.where), reportPath },
       gateRounds: reviewer.isGate && !result.limit ? [{ after: A.after, verdict: result.verdict, blocking, reportPath, tip: A.tip }] : [],
-      followups: (result.followups || []).map(f => ({ ...f, tip: A.tip })),
+      followups: (result.followups || []).map(f => ({ ...f, stage: reviewer.key === 'review' ? 'review' : 'gate', tip: A.tip })),
     }
   }
 
@@ -1139,7 +1184,7 @@ async function laneTest(A) {
       ...answer,
       emptyVerdictReason: emptyVerdictReason(answer),
       historyEntry: { by: `e2e-${A.n}`, verdict: blocking.length ? 'FAIL' : 'PASS', blocking: blocking.map(f => f.where), cells: answer.cells || [], reportPath: answer.evidencePath || '' },
-      followups: (answer.followups || []).map(f => ({ ...f, tip })),
+      followups: (answer.followups || []).map(f => ({ ...f, stage: 'test', tip })),
     }
   }
 
@@ -1265,7 +1310,10 @@ const FINDING = {
 const FOLLOWUP = {
   type: 'object',
   required: ['where', 'text', 'owner'],
-  properties: { where: { type: 'string' }, text: { type: 'string' }, owner: { type: 'string', description: 'owning item #n, or "distributor"' } },
+  properties: {
+    where: { type: 'string' }, text: { type: 'string' }, owner: { type: 'string', description: 'owning item #n, or "distributor"' },
+    stage: { type: 'string', enum: FINDING_STAGE_NAMES, description: 'the stage that raised it; the lane sets it on every follow-up it reports' },
+  },
 }
 // An entry of the wrong shape (a bare string, a missing field) would reach the fixer as "undefined" fields, so the input check names it first.
 // A finding of a run that predates kinds lacks kind, which kindOf defaults.
@@ -1274,10 +1322,10 @@ const missingFields = (entry, schema) => entry === null || typeof entry !== 'obj
   ? 'is not an object'
   : `lacks ${requiredFields(schema).filter(field => typeof entry[field] !== 'string' || !entry[field].trim()).join(', ')}`
 const badEntry = (name, entries, schema) => {
-  if (entries === undefined) return null
-  if (!Array.isArray(entries)) return `${name} must be a list`
+  if (!Array.isArray(entries)) return entries === undefined ? null : `${name} must be a list`
   const index = entries.findIndex(entry => missingFields(entry, schema) !== 'lacks ')
-  return index < 0 ? null : `${name}[${index}] ${missingFields(entries[index], schema)}: each entry needs ${requiredFields(schema).join(', ')} as non-empty strings`
+  if (index >= 0) return `${name}[${index}] ${missingFields(entries[index], schema)}: each entry needs ${requiredFields(schema).join(', ')} as non-empty strings`
+  return name === 'foldIn' ? unstagedProblem(name, entries) : null
 }
 const entryProblem = badEntry('fixFirst', A.fixFirst, FINDING) || badEntry('foldIn', A.foldIn, FOLLOWUP)
 if (entryProblem) return { status: 'failed', stage: 'input', reason: entryProblem }
@@ -1613,8 +1661,8 @@ async function fixRound(blocking, source, budgetKey, carried, stage = budgetKey)
   if (stop) return { stop }
   spent[budgetKey]++
   spent.total++
-  fixRoundsByStage[stage]++
   const foldIn = inPlaceFollowups()
+  fixRoundsByStage[blocking.length ? stage : foldInStage(foldIn) ?? stage]++
   phase('Fix')
   const role = fixerRole(blocking, foldIn)
   fixRolesRun.push(role)
@@ -1633,6 +1681,7 @@ async function fixRound(blocking, source, budgetKey, carried, stage = budgetKey)
   if (answered.outcome === 'rejected') return unaccepted(await openResult('failed', 'fix', answered.rejection))
   const accepted = await acceptFix(answered, blocking, foldIn)
   if (accepted.stop) return unaccepted(accepted.stop)
+  history.push(...fixProofEntries(answered, blocking, spent.total))
   const { deltaFrom, note } = scopeOrigin(carried, tipBeforeFix)
   const scopeStop = await pushAndCheckScope(`scope-${spent.total}`, { note, deltaFrom })
   if (scopeStop) return unaccepted(scopeStop.stop)
@@ -1884,7 +1933,7 @@ while (true) {
     const stop = await settleTest(ci, ci.green || sharedOnly || Boolean(ci.operatorDoor))
     if (stop) return stop
   }
-  history.push({ after: spent.total, by: `ci-${n - 1}`, verdict: ci.proven ? 'GREEN' : 'RED', blocking: (ci.failing || []).map(f => f.where) })
+  history.push({ after: spent.total, by: `ci-${n - 1}`, verdict: ci.proven ? 'GREEN' : 'RED', blocking: (ci.failing || []).map(f => f.where), deterministic: (ci.failing || []).filter(f => f.deterministic === true).map(f => f.where) })
   if (ci.runsError) return await openResult('failed', 'ci', { reason: `the workflow runs of the pull request head could not be read: ${ci.runsError}` })
   if (ci.changedError) return await openResult('failed', 'ci', { reason: `the changed files of the pull request could not be listed: ${ci.changedError}` })
   if (ci.rulesError) return await openResult('failed', 'ci', { reason: `the required checks of the base branch could not be read: ${ci.rulesError}` })

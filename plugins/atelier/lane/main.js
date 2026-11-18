@@ -110,7 +110,10 @@ const FINDING = {
 const FOLLOWUP = {
   type: 'object',
   required: ['where', 'text', 'owner'],
-  properties: { where: { type: 'string' }, text: { type: 'string' }, owner: { type: 'string', description: 'owning item #n, or "distributor"' } },
+  properties: {
+    where: { type: 'string' }, text: { type: 'string' }, owner: { type: 'string', description: 'owning item #n, or "distributor"' },
+    stage: { type: 'string', enum: FINDING_STAGE_NAMES, description: 'the stage that raised it; the lane sets it on every follow-up it reports' },
+  },
 }
 // An entry of the wrong shape (a bare string, a missing field) would reach the fixer as "undefined" fields, so the input check names it first.
 // A finding of a run that predates kinds lacks kind, which kindOf defaults.
@@ -119,10 +122,10 @@ const missingFields = (entry, schema) => entry === null || typeof entry !== 'obj
   ? 'is not an object'
   : `lacks ${requiredFields(schema).filter(field => typeof entry[field] !== 'string' || !entry[field].trim()).join(', ')}`
 const badEntry = (name, entries, schema) => {
-  if (entries === undefined) return null
-  if (!Array.isArray(entries)) return `${name} must be a list`
+  if (!Array.isArray(entries)) return entries === undefined ? null : `${name} must be a list`
   const index = entries.findIndex(entry => missingFields(entry, schema) !== 'lacks ')
-  return index < 0 ? null : `${name}[${index}] ${missingFields(entries[index], schema)}: each entry needs ${requiredFields(schema).join(', ')} as non-empty strings`
+  if (index >= 0) return `${name}[${index}] ${missingFields(entries[index], schema)}: each entry needs ${requiredFields(schema).join(', ')} as non-empty strings`
+  return name === 'foldIn' ? unstagedProblem(name, entries) : null
 }
 const entryProblem = badEntry('fixFirst', A.fixFirst, FINDING) || badEntry('foldIn', A.foldIn, FOLLOWUP)
 if (entryProblem) return { status: 'failed', stage: 'input', reason: entryProblem }
@@ -458,8 +461,8 @@ async function fixRound(blocking, source, budgetKey, carried, stage = budgetKey)
   if (stop) return { stop }
   spent[budgetKey]++
   spent.total++
-  fixRoundsByStage[stage]++
   const foldIn = inPlaceFollowups()
+  fixRoundsByStage[blocking.length ? stage : foldInStage(foldIn) ?? stage]++
   phase('Fix')
   const role = fixerRole(blocking, foldIn)
   fixRolesRun.push(role)
@@ -478,6 +481,7 @@ async function fixRound(blocking, source, budgetKey, carried, stage = budgetKey)
   if (answered.outcome === 'rejected') return unaccepted(await openResult('failed', 'fix', answered.rejection))
   const accepted = await acceptFix(answered, blocking, foldIn)
   if (accepted.stop) return unaccepted(accepted.stop)
+  history.push(...fixProofEntries(answered, blocking, spent.total))
   const { deltaFrom, note } = scopeOrigin(carried, tipBeforeFix)
   const scopeStop = await pushAndCheckScope(`scope-${spent.total}`, { note, deltaFrom })
   if (scopeStop) return unaccepted(scopeStop.stop)
@@ -729,7 +733,7 @@ while (true) {
     const stop = await settleTest(ci, ci.green || sharedOnly || Boolean(ci.operatorDoor))
     if (stop) return stop
   }
-  history.push({ after: spent.total, by: `ci-${n - 1}`, verdict: ci.proven ? 'GREEN' : 'RED', blocking: (ci.failing || []).map(f => f.where) })
+  history.push({ after: spent.total, by: `ci-${n - 1}`, verdict: ci.proven ? 'GREEN' : 'RED', blocking: (ci.failing || []).map(f => f.where), deterministic: (ci.failing || []).filter(f => f.deterministic === true).map(f => f.where) })
   if (ci.runsError) return await openResult('failed', 'ci', { reason: `the workflow runs of the pull request head could not be read: ${ci.runsError}` })
   if (ci.changedError) return await openResult('failed', 'ci', { reason: `the changed files of the pull request could not be listed: ${ci.changedError}` })
   if (ci.rulesError) return await openResult('failed', 'ci', { reason: `the required checks of the base branch could not be read: ${ci.rulesError}` })

@@ -579,6 +579,7 @@ test('lane-record: a lane that is ready to land writes the stages it ran, no fin
     stages: { build: modelAndEffort(result.routing, 'build'), fix: 'none', review: modelAndEffort(result.routing, 'review'), test: modelAndEffort(result.routing, 'test'), gate: 'none', land: modelAndEffort(result.routing, 'mechanical') },
     fix_rounds: { review: 0, gate: 0, ci: 0, test: 0 },
     blocking: { review: 0, gate: 0, ci: 0, test: 0 },
+    misses: { review: 0, gate: 0, ci: 0, test: 0 },
     verdicts: [{ stage: 'review', verdict: 'approve', sha: resumeTip }],
     risk: 'normal',
   })
@@ -612,6 +613,72 @@ test('lane-record: a stand-in review counts as the gate in the record', async ()
   const record = writtenRecord(run)
   assert.deepEqual(record.verdicts.map(verdict => verdict.stage), ['review', 'gate'])
   assert.notEqual(record.stages.gate, 'none')
+})
+
+// Misses follow HEAD.md's Misses rule: a gate, CI or test finding raised after a review approved the range, with the exclusions of the writer.
+const ciRed = (...failing) => ({ head: resumeTip, green: false, failing })
+const lintFinding = { ...finding('src/x.py:3', 'the import order is wrong'), kind: 'defect', rule: 'CI check lint', deterministic: true }
+const afterApproval = { ...reachesToCi, 'r2-review': APPROVE, 'e2e-1': PASS, 'ci-1': greenCi(resumeFixedTip) }
+const recordOfCiRound = async (failing, fixer) => writtenRecord(await runLane({ ...resumeArgs, foldIn: [tidy] }, { ...afterApproval, 'ci-0': ciRed(...failing), 'fix-2': { ...resumeFix, ...fixer } }))
+
+test('lane-record: a CI finding after an approving review is a miss and the review stage has none', async () => {
+  const record = await recordOfCiRound([defectWithoutDraft], { regression: [{ finding: 1, test: 't.py::test_rule', failedBefore: true, passesAfter: true }] })
+  assert.deepEqual([record.blocking.ci, record.misses.ci, record.misses.review], [1, 1, 0])
+})
+
+test('lane-record: a deterministic CI finding whose fixer reports no behaviour change is no miss', async () => {
+  const record = await recordOfCiRound([lintFinding], { noBehaviourChange: [1] })
+  assert.deepEqual([record.blocking.ci, record.misses.ci], [1, 0])
+})
+
+test('lane-record: a deterministic CI finding without a fixer report of no behaviour change stays a miss', async () => {
+  const record = await recordOfCiRound([lintFinding], {})
+  assert.deepEqual([record.blocking.ci, record.misses.ci], [1, 1])
+})
+
+test('lane-record: a CI finding the reader did not mark deterministic stays a miss though the fixer reports no behaviour change', async () => {
+  const record = await recordOfCiRound([{ ...lintFinding, deterministic: false }], { noBehaviourChange: [1] })
+  assert.deepEqual([record.blocking.ci, record.misses.ci], [1, 1])
+})
+
+test('lane-record: a test finding after an approving review is a miss', async () => {
+  const failed = { verdict: 'FAIL', blocking: [defectWithoutDraft], followups: [] }
+  const run = await runLane({ ...resumeArgs, foldIn: [tidy] }, { ...afterApproval, 'e2e-0': failed, 'fix-2': { ...resumeFix, regression: [{ finding: 1, test: 't.py::test_rule', failedBefore: true, passesAfter: true }] } })
+  const record = writtenRecord(run)
+  assert.deepEqual([record.blocking.test, record.misses.test], [1, 1])
+})
+
+const gateRaises = { verdict: 'REVISE', blocking: [defectWithoutDraft], followups: [] }
+const materialMissLane = { ...resumeArgs, risk: 'material', productionPaths: ['src/'], routing: { gate: { model: 'opus', effort: 'high' } }, foldIn: [tidy] }
+const fixProof = { regression: [{ finding: 1, test: 't.py::test_rule', failedBefore: true, passesAfter: true }] }
+
+test('lane-record: a finding only the gate raised in the round of the approving review is no miss, one it raises in a later round is', async () => {
+  const sameRound = writtenRecord(await runLane(materialMissLane, { 'fix-1': resumeFix, 'r1-review': APPROVE, 'r1-gate': gateRaises, 'fix-2': { ...secondFix, ...fixProof }, 'r2-gate': APPROVE }))
+  assert.deepEqual([sameRound.blocking.gate, sameRound.misses.gate], [1, 0])
+  const laterRound = writtenRecord(await runLane(materialMissLane, { 'fix-1': resumeFix, 'r1-review': APPROVE, 'r1-gate': gateRaises, 'fix-2': { ...secondFix, ...fixProof }, 'r2-gate': { ...gateRaises, blocking: [{ ...defectWithoutDraft, where: 't.py:9' }] } }))
+  assert.deepEqual([laterRound.blocking.gate, laterRound.misses.gate], [2, 1])
+  const ciFixRound = { ...resumeFix, files: ['src/x.py'], ...fixProof }
+  const secondApprovingRound = writtenRecord(await runLane(materialMissLane, { ...reachesToCi, 'r1-review': APPROVE, 'r1-gate': APPROVE, 'e2e-0': PASS, 'ci-0': ciRed({ ...defectWithoutDraft, where: 'ci.py:1' }), 'fix-2': ciFixRound, 'r2-review': APPROVE, 'r2-gate': { ...gateRaises, blocking: [{ ...defectWithoutDraft, where: 't.py:9' }] }, 'fix-3': { ...secondFix, ...fixProof }, 'r3-gate': APPROVE, 'e2e-1': PASS, 'ci-1': greenCi(secondFix.head) }))
+  assert.deepEqual([secondApprovingRound.blocking.gate, secondApprovingRound.misses.gate], [1, 0])
+})
+
+test('lane-record: a later review round is the same stage, so its finding is no miss', async () => {
+  const record = writtenRecord(await runLane({ ...resumeArgs, foldIn: [tidy] }, { 'fix-1': resumeFix, 'r1-review': { verdict: 'REVISE', blocking: [defectWithoutDraft], followups: [] }, 'fix-2': { ...resumeFix, ...fixProof } }))
+  assert.deepEqual([record.blocking.review, record.misses.review], [1, 0])
+})
+
+test('lane-record: a round that fixes only the fold-ins the gate raised counts as a gate fix round, and one with no stage keeps the round where it counted', async () => {
+  const gateFollowup = { ...tidy, stage: 'gate' }
+  const staged = writtenRecord(await runLane({ ...resumeArgs, foldIn: [gateFollowup] }, reachesToCi))
+  assert.deepEqual(staged.fix_rounds, { review: 0, gate: 1, ci: 0, test: 0 })
+  const unstaged = writtenRecord(await runLane({ ...resumeArgs, foldIn: [tidy] }, reachesToCi))
+  assert.deepEqual(unstaged.fix_rounds, { review: 0, gate: 0, ci: 0, test: 1 })
+})
+
+test('lane-record: a fold-in naming no known stage is refused at input', async () => {
+  const { result } = await runLane({ ...resumeArgs, foldIn: [{ ...tidy, stage: 'build' }] })
+  assert.deepEqual([result.status, result.stage], ['failed', 'input'])
+  assert.match(result.reason, /foldIn\[0\] has the stage "build"/)
 })
 
 for (const [name, args, answers, options, expected] of [

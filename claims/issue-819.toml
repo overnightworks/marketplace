@@ -1,0 +1,8 @@
+claim_id = "6ceb5a3df0e24f8fa80383d4788d555d"
+agent = "Claude 30ec126a-30e5-431d-a4c3-088d393726d4"
+role = "builder"
+base = "b6ca62f1efd582509ea345ed5e92be49bff499be"
+branch = "claude/issue-819-land-after-trunk-merge"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/skills/aco/SKILL.md"]
+opened_commit = "2dce23e063f41cb801efe455a7c6f63491d83c0a"
+whole_reason = "One skill sentence plus the version raise every plugin change needs."

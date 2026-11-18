@@ -1,0 +1,8 @@
+claim_id = "dff748b908c34f64b540ad62f23d9541"
+agent = "Claude 30ec126a-30e5-431d-a4c3-088d393726d4"
+role = "builder"
+base = "acf01384bde77ab15baa17e59dba285b9ba9a842"
+branch = "claude/issue-799-aco-head-and-step"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/lane/main.js", "plugins/atelier/skills/aco/SKILL.md", "plugins/atelier/workflows/lane.js", "tests"]
+opened_commit = "5294ad3eba0f5dd4417e070c332dfd8d6c68b872"
+whole_reason = "Two aco interface changes reach atelier's text in one lane, with the generated bundle, its tests and the three version files."

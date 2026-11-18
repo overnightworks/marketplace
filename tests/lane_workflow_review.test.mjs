@@ -543,7 +543,7 @@ test('gate-stand-in: a production fix after the stand-in with the gate limited a
   })
   waitsAtReview(result)
   assert.deepEqual([result.gateUnseen.seenTip, result.gateUnseen.tip], [resumeTip, secondFix.head])
-  assert.ok(!('requiredHeadActions' in result))
+  assert.ok(!result.requiredHeadActions.some(action => action.includes('aco land')))
 })
 
 test('gate-stand-in: a production fix after the stand-in runs the gate, and ready-to-land keeps the first seen tip', async () => {

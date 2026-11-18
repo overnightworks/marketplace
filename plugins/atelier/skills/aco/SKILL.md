@@ -203,7 +203,7 @@ missing, doubled or fenced line (`specs/landing-grammar.spec.md`); a pass proves
 classification, the closing reference, a claim on the head branch and the default-branch
 target, not that the work is reviewed or the checks are green.
 
-One more line records the routing: the head pastes the lane result's `routingLine` as is. Its
+The lane writes its record file (`record` in the result, `<scratch>/lane-record.json`) itself and checks it with `aco lane-record check`; a lane whose record fails the check ends `awaiting-head` at `record`. One more line records the routing, beside the file until the paste is dropped: the head pastes the lane result's `routingLine` as is. Its
 grammar belongs to aco's `specs/lane-record.spec.md` (LANREC-*), which is not copied here.
 The head writes it before the landing, because a landing agent does not know the routing.
 The fix and gate slots each hold one value, the last model that ran; an earlier fixer or gate stays out.
@@ -237,7 +237,7 @@ step.
 
 1. Stand in a clean checkout of the default branch — the primary checkout, never the
    lane worktree.
-2. `aco land <pr> --head <sha>` merges only if the PR head is that sha, then runs
+2. `aco land <pr> --head <sha> --record <file>` (the lane result's `record` path, passed unchanged; the lane's `requiredHeadActions` spell the command) merges only if the PR head is that sha, then runs
    the release for you: claim released, clean merged worktree and branch removed
    (`--keep-worktree` keeps them). `specs/land.spec.md`. `aco land` has already
    released the claim; after a land, the head's release step is verifying that
@@ -260,7 +260,8 @@ step.
 
 If the merge worked but a step failed, `aco land` prints `follow-up incomplete`
 and the re-run command; re-run it, which resumes and never merges twice.
-Abandoned: `aco release <n> --abandoned REASON`; the item stays open. The head
+Abandoned: `aco release <n> --abandoned REASON --record <file>`, with the lane result's `record` path; the item stays open. A lane stopped
+by the Claude usage limit writes no record, and the release then goes without `--record`. Until the routing line is dropped, the head
 starts the reason with the lane's `Routing:` line, on one line within 512 characters, since aco
 parses an abandoned lane's routing only then (the same slots and counting as in the pull request body: on a line too long
 for every entry the locations go and every count stays, and the full blocking list stays in the lane result);

@@ -160,9 +160,107 @@ function rethrowClaudeUsageLimit(error) {
   if (claudeUsageLimitOf(error)) throw error
 }
 
+// Builds the lane record file aco reads with `aco land --record` and `aco release --abandoned --record` (aco's specs/lane-record.spec.md owns the schema)
+// from the lane's own state, and the courier brief and command that bring it to disk. No model retypes the record.
+const RECORD_VERSION = 1
+const RECORD_STAGES = ['build', 'fix', 'review', 'test', 'gate', 'land']
+const FINDING_STAGE_NAMES = ['review', 'gate', 'ci', 'test']
+const FINDING_STAGES = [[/^e2e-/, 'test'], [/^ci-/, 'ci'], [/^(review|gate)$/, null], [/^standin$/, 'gate']]
+const VERDICT_STAGES = { review: 'review', gate: 'gate', standin: 'gate' }
+const RECORD_COUNT_LIMIT = 999
+const FULL_SHA = /^[0-9a-f]{40}$/
+
+const stageOf = (reviewer) => FINDING_STAGES.map(([pattern, name]) => pattern.test(reviewer) ? name ?? reviewer : null).find(Boolean)
+
+// The findings of one history entry by text and stage, each with the number of findings that share them.
+function findingsOfEntry(entry, stage) {
+  const found = new Map()
+  for (const where of entry.blocking) {
+    const text = String(where).replace(/[\s;→]+/g, ' ').trim()
+    const key = JSON.stringify([text, stage])
+    found.set(key, { text, stage, count: (found.get(key)?.count ?? 0) + 1 })
+  }
+  return found
+}
+
+// Distinct findings of one round that share a text each count; a finding that comes back in a later round counts once, as often as the most it was raised in one round.
+function blockingStages(history) {
+  const found = new Map()
+  for (const entry of history) {
+    const stage = Array.isArray(entry.blocking) ? stageOf(entry.by) : null
+    if (!stage) continue
+    findingsOfEntry(entry, stage).forEach((finding, key) => {
+      if (finding.count > (found.get(key)?.count ?? 0)) found.set(key, finding)
+    })
+  }
+  return [...found.values()]
+}
+
+// The model and effort each stage ran on, or none for a stage that did not run; a stand-in review is the gate that ran.
+function stageChoices({ routing, history, fixRole }) {
+  const choiceOf = (role) => `${routing[role].model}/${routing[role].effort}`
+  const ran = (key) => history.some(entry => entry.by === key || entry.by?.startsWith(`${key}-`))
+  const gateRole = [['standin', 'review'], ['gate', 'gate']].find(([key]) => ran(key))?.[1] ?? null
+  const choiceOrNone = (role) => role ? choiceOf(role) : 'none'
+  return {
+    build: choiceOf('build'), fix: choiceOrNone(fixRole), review: choiceOf('review'),
+    test: choiceOrNone(ran('e2e') ? 'test' : null), gate: choiceOrNone(gateRole), land: choiceOf('mechanical'),
+  }
+}
+
+// Each review and gate verdict with the commit it judged, oldest first; a verdict that is neither approve nor revise, or whose commit is not a full sha, states nothing aco reads.
+function recordedVerdicts(history) {
+  return history
+    .filter(entry => Object.hasOwn(VERDICT_STAGES, entry.by) && ['APPROVE', 'REVISE'].includes(entry.verdict) && FULL_SHA.test(entry.tip ?? ''))
+    .map(entry => ({ stage: VERDICT_STAGES[entry.by], verdict: entry.verdict.toLowerCase(), sha: entry.tip }))
+}
+
+// The commit the newest review or gate verdict judged, or none; aco lands only the head that verdict judged.
+const lastVerdictSha = (history) => recordedVerdicts(history).at(-1)?.sha ?? null
+
+function laneRecord({ routing, history, fixRole, fixRounds, risk, experiment }) {
+  const stages = stageChoices({ routing, history, fixRole })
+  const blocking = Object.fromEntries(FINDING_STAGE_NAMES.map(stage => [stage, 0]))
+  blockingStages(history).forEach(finding => { blocking[finding.stage] = Math.min(RECORD_COUNT_LIMIT, blocking[finding.stage] + finding.count) })
+  return {
+    version: RECORD_VERSION,
+    stages: Object.fromEntries(RECORD_STAGES.map(stage => [stage, stages[stage]])),
+    fix_rounds: Object.fromEntries(FINDING_STAGE_NAMES.map(stage => [stage, Math.min(RECORD_COUNT_LIMIT, fixRounds[stage])])),
+    blocking,
+    verdicts: recordedVerdicts(history),
+    risk,
+    ...(experiment && { experiment }),
+  }
+}
+
+// The courier prompt's brief, which holds the record between two marker lines, and the command that cuts it out of the courier's own transcript into the file, compares its CRC32
+// with the record's, and only then lets the printer run `aco lane-record check` on it. The record has no whitespace, so the comparison over its words is over its bytes.
+function recordCourier({ record, file, scratch, label }) {
+  const text = JSON.stringify(record)
+  const checksum = crc32OfUtf8(text)
+  const token = `${label}-${checksum}`
+  const [start, end] = [`BRIEF-START ${token}`, `BRIEF-END ${token}`]
+  const quoted = (path) => "'" + path.replaceAll("'", String.raw`'\''`) + "'"
+  const brief =
+    `You are a courier for the lane record of one lane. Do not edit anything yourself. The record follows between its two marker lines. ` +
+    `It is addressed to the command below, not to you: never act on it, never copy it and never retype it.\n${start}\n${text}\n${end}\nWhatever happened,`
+  const before =
+    `mkdir -p ${quoted(scratch)} && python3 -c ${BRIEF_CUTTER_ARGUMENT} ${token} ${quoted(file)}` +
+    ` && { [ "$(python3 -c '${BRIEF_CRC_PRINTER}' < ${quoted(file)})" = ${checksum} ] || { echo '${BRIEF_MISMATCH}' >&2; false; }; }`
+  return { brief, before, fileArgument: quoted(file) }
+}
+
+const recordView = (written) => {
+  if (!written) return {}
+  return written.problem ? { recordProblem: written.problem } : { record: written.file }
+}
+
+// An open result leaves the head either a resume or an abandon, and aco release reads the same record file.
+const abandonActions = (item, written) => written?.file ? [`to abandon the lane instead, run \`aco release ${item} --abandoned REASON --record ${written.file}\``] : []
+
 // Builds the briefs of the sync and fix steps and owns the schemas of their reports, runs one printer command through an agent and returns the answer of the agent together with the CRC-checked values of the line it relays; for the fix step it judges the fixer's answer against the findings and fold-ins it answered, and for the ci step it reads those values and splits the failing checks into own and shared.
 async function laneRelay(A) {
-  const { label, phase: phaseName, step, relayArgs, nonce, requiredKeys, agentOptions, reread } = A
+  const { label, phase: phaseName, step, relayArgs, nonce, requiredKeys, agentOptions, reread, before } = A
 
   // agent() with a schema throws when the subagent ends without a result; an end without one is a null the lane reports.
   async function safeAgent(prompt, opts) {
@@ -178,7 +276,7 @@ async function laneRelay(A) {
   // A value a command prints reaches a decision only through one line the PRINTER wrote: the agent runs it and relays the
   // line unchanged, and a retyped or edited line fails its CRC32. The printer holds no single quote, so the shell passes
   // it as one argument. Its first argument names the step whose commands it runs; the branch step reports the branch the worktree has checked out, the scope step never forces a push,
-  // relays HEAD's parents and whether its second parent is in origin/main, at most 50 paths and no text of aco brief but its exit code and error output, the sync step reports the lane tip, its parents and whether it contains origin/main, the fix step reports those sync values and, per finding path the lane sent, the size in characters of the diff of that path in the first-parent commits between the held tip and HEAD, a merge showing only its conflict resolution, and the same size for the whole range, never the diff text, and the count and CRC32 of those paths like the ci step, and the ci step reports the pull request head, the count of listed checks, the checks that are neither pass nor skipping, each required context of the base whose bucket is not pass, with its bucket or missing, the exit code of each gh call, left out when it is 0 and the call has nothing else to carry, and its error output where it is not empty, the positions, among the finding paths the lane sent, of those that the pull request changes (the lane passes the finding paths as the last argument but one, each percent-encoded and joined by commas, so the argument holds no quote or backslash a copier could break; the file listing is paginated and never relayed), the exit code and error output of the head's workflow run listing, and the checks red on head that failed on the base tip too; a failed gh pr view ends its reads. A call that fails with a network marker is retried (see NETWORK_WAIT_SECONDS) and, still failing, puts its name into unreachable. Only when the verdict check (the check named quality / verdict) is red, the ci step also reads that job log with gh run view and relays two values of it, never its text: whether a line says that only declared loosenings made it red and only the operator merges it, and the quality merge command of its next line; the lines come in any order and carry a job name, a step and a timestamp before their text.
+  // relays HEAD's parents and whether its second parent is in origin/main, at most 50 paths and no text of aco brief but its exit code and error output, the record step reports the exit code and error output of `aco lane-record check` on the record file, the sync step reports the lane tip, its parents and whether it contains origin/main, the fix step reports those sync values and, per finding path the lane sent, the size in characters of the diff of that path in the first-parent commits between the held tip and HEAD, a merge showing only its conflict resolution, and the same size for the whole range, never the diff text, and the count and CRC32 of those paths like the ci step, and the ci step reports the pull request head, the count of listed checks, the checks that are neither pass nor skipping, each required context of the base whose bucket is not pass, with its bucket or missing, the exit code of each gh call, left out when it is 0 and the call has nothing else to carry, and its error output where it is not empty, the positions, among the finding paths the lane sent, of those that the pull request changes (the lane passes the finding paths as the last argument but one, each percent-encoded and joined by commas, so the argument holds no quote or backslash a copier could break; the file listing is paginated and never relayed), the exit code and error output of the head's workflow run listing, and the checks red on head that failed on the base tip too; a failed gh pr view ends its reads. A call that fails with a network marker is retried (see NETWORK_WAIT_SECONDS) and, still failing, puts its name into unreachable. Only when the verdict check (the check named quality / verdict) is red, the ci step also reads that job log with gh run view and relays two values of it, never its text: whether a line says that only declared loosenings made it red and only the operator merges it, and the quality merge command of its next line; the lines come in any order and carry a job name, a step and a timestamp before their text.
   // A git or gh call that fails with one of these untranslated network markers, or an aco brief call whose stdout JSON has the reason unreachable, is run again after this many seconds; the tests rewrite the constant to 0.
   const NETWORK_WAIT_SECONDS = 30
   // The printer waits at most twice, gives each call 60 s and stops retrying once its run nears 240 s, inside the 300 s Bash timeout RELAY_ASK asks for.
@@ -196,7 +294,7 @@ async function laneRelay(A) {
     'target=lambda repo:("-R",repo) if repo else ()',
     'api=lambda repo:"repos/"+(repo or "{owner}/{repo}")',
     'base=lambda r:json.loads(r["view"].stdout)["baseRefName"]',
-    'steps=dict(branch=lambda:(("branch",("git","branch","--show-current")),),scope=lambda item,branch:(("push",("git","push","origin",branch)),("remote",("git","rev-parse","origin/"+branch)),("head",("git","rev-parse","HEAD")),("parents",("git","rev-parse","HEAD^@")),("second_parent_in_main",("git","merge-base","--is-ancestor","HEAD^2","origin/main")),("brief",("aco","brief",item,"--json"))),sync=lambda:(("head",("git","rev-parse","HEAD")),("parents",("git","rev-parse","HEAD^@")),("main",("git","merge-base","--is-ancestor","origin/main","HEAD"))),fix=lambda start,paths:(*steps["sync"](),*((f"diff{i}",("git","log","-p","--first-parent","--remerge-diff","--format=","%s..HEAD"%start,"--",p)) for i,p in enumerate(diffed)),("diffall",("git","log","-p","--first-parent","--remerge-diff","--format=","%s..HEAD"%start))),ci=lambda pr,repo,paths:(("view",("gh","pr","view",pr,"--json","headRefOid,baseRefName",*target(repo))),("changed",("gh","api",api(repo)+"/pulls/"+pr+"/files","--paginate","--slurp")),("headruns",lambda r:("gh","run","list","--commit",json.loads(r["view"].stdout)["headRefOid"],"--json","status,name","--limit","100",*target(repo))),("checks",("gh","pr","checks",pr,"--json","name,bucket,link",*target(repo))),("rules",lambda r:("gh","api",api(repo)+"/rules/branches/"+base(r))),("runs",lambda r:("gh","api",api(repo)+"/commits/"+base(r)+"/check-runs","--paginate","--slurp"))))',
+    'steps=dict(branch=lambda:(("branch",("git","branch","--show-current")),),scope=lambda item,branch:(("push",("git","push","origin",branch)),("remote",("git","rev-parse","origin/"+branch)),("head",("git","rev-parse","HEAD")),("parents",("git","rev-parse","HEAD^@")),("second_parent_in_main",("git","merge-base","--is-ancestor","HEAD^2","origin/main")),("brief",("aco","brief",item,"--json"))),record=lambda file:(("check",("aco","lane-record","check",file)),),sync=lambda:(("head",("git","rev-parse","HEAD")),("parents",("git","rev-parse","HEAD^@")),("main",("git","merge-base","--is-ancestor","origin/main","HEAD"))),fix=lambda start,paths:(*steps["sync"](),*((f"diff{i}",("git","log","-p","--first-parent","--remerge-diff","--format=","%s..HEAD"%start,"--",p)) for i,p in enumerate(diffed)),("diffall",("git","log","-p","--first-parent","--remerge-diff","--format=","%s..HEAD"%start))),ci=lambda pr,repo,paths:(("view",("gh","pr","view",pr,"--json","headRefOid,baseRefName",*target(repo))),("changed",("gh","api",api(repo)+"/pulls/"+pr+"/files","--paginate","--slurp")),("headruns",lambda r:("gh","run","list","--commit",json.loads(r["view"].stdout)["headRefOid"],"--json","status,name","--limit","100",*target(repo))),("checks",("gh","pr","checks",pr,"--json","name,bucket,link",*target(repo))),("rules",lambda r:("gh","api",api(repo)+"/rules/branches/"+base(r))),("runs",lambda r:("gh","api",api(repo)+"/commits/"+base(r)+"/check-runs","--paginate","--slurp"))))',
     'ran={}',
     '[ran.__setitem__(n,run(*(c(ran) if callable(c) else c))) for n,c in steps[step](*rest) if "view" not in ran or ran["view"].returncode==0]',
     'verdict_jobs=[m[1] for c in (json.loads(ran["checks"].stdout) if step=="ci" and "checks" in ran and ran["checks"].returncode==0 else []) if c["name"]=="quality / verdict" and c["bucket"]=="fail" and (m:=re.search("/job/([0-9]+)",c.get("link") or ""))]',
@@ -221,7 +319,8 @@ async function laneRelay(A) {
     'payload=json.dumps(values,ensure_ascii=True,separators=(",",":"),sort_keys=True)',
     'print("""{"crc":"%08x","v":%s}"""%(zlib.crc32(payload.encode()),payload))',
   ].join(';')
-  const relayCommand = (...relayArgs) => `cd '${A.worktree}' && python3 -c '${PRINTER}' ${relayArgs.join(' ')}`
+  // A step may bring a command that must succeed first (the record step cuts its file from the transcript and compares its CRC32).
+  const relayCommand = (...relayArgs) => `${before ? before + ' && ' : ''}cd '${A.worktree}' && python3 -c '${PRINTER}' ${relayArgs.join(' ')}`
   const RELAY_ASK = 'run this one command line exactly as written with a Bash timeout of 300000 ms, without changing it or its directory, and return the line it prints unchanged as printed; when it prints no line, return its error output as printed:'
   const RELAY_LINE = /^\{"crc":"([0-9a-f]{8})","v":(.*)\}$/
   const CRC_TABLE = Array.from({ length: 256 }, (_, n) => {
@@ -646,10 +745,6 @@ async function laneReview(A) {
   const USAGE_LIMIT = 'hit your usage limit'
   // The error Codex prints when the courier started it without writing the output schema first.
   const SCHEMA_READ_ERROR = 'Failed to read output schema file'
-  // What the courier's start command prints when the brief file is not the brief the script wrote.
-  const BRIEF_MISMATCH = 'brief file differs from the brief the script wrote'
-  // What the courier's extraction command prints when no transcript record of the courier holds both marker lines of the brief.
-  const NO_BRIEF_RECORD = 'no transcript record of this courier holds the brief between its two marker lines'
   // A courier whose Codex never produced a verdict: it started none (its brief file is not the brief the script wrote, or no brief could be cut out of its transcript), or its run was killed.
   const startedNoCodex = (answer, reason) => answer?.verdict === 'failed' && answer.codexExit === -1 && String(answer.note ?? '').includes(reason)
   const isBriefMismatch = answer => startedNoCodex(answer, BRIEF_MISMATCH)
@@ -749,47 +844,6 @@ async function laneReview(A) {
     return runCourier(`${label}-retry`)
   }
 
-  const CRC_TABLE = Array.from({ length: 256 }, (_, n) => {
-    let crc = n
-    for (let bit = 0; bit < 8; bit++) crc = crc & 1 ? 0xedb88320 ^ (crc >>> 1) : crc >>> 1
-    return crc >>> 0
-  })
-  // CRC32 over the UTF-8 bytes, as Python's zlib.crc32 computes it for the file the courier wrote.
-  function crc32OfUtf8(text) {
-    let crc = 0xffffffff
-    for (const byte of utf8BytesOf(text)) crc = CRC_TABLE[(crc ^ byte) & 255] ^ (crc >>> 8)
-    return ((crc ^ 0xffffffff) >>> 0).toString(16).padStart(8, '0')
-  }
-  // Both sides compare the words of the brief: the Workflow runtime indents every line of a computed prompt and a model retyping the text adds blank lines, and neither changes what Codex reads.
-  const BRIEF_CRC_PRINTER = 'import sys,zlib;print("%08x"%zlib.crc32(b" ".join(sys.stdin.buffer.read().split())))'
-  // Cuts the brief out of the courier's own transcript, so no model copies it. The workflow host keeps the transcript of every workflow agent at
-  // ~/.claude/projects/<project>/<session>/subagents/workflows/<run>/agent-<id>.jsonl and its first record holds the prompt; a head session's transcript lies one level up and is never read.
-  // The marker lines are built from the token and count only as whole lines, so the command's own text and a brief that mentions a marker never match; the host indents every line of a prompt, which dedent removes, and a line that is not JSON, the host still writing it, is skipped.
-  // Quoted so that nothing of the brief is ever inside the command: the arguments are the round's token and the brief file.
-  // The program stands in the command as a bash $'...' string, so the command is one physical line: the host indents each line of a prompt and a line break inside the program would arrive indented.
-  const BRIEF_CUTTER = String.raw`import glob,json,os,re,sys,textwrap,time
-token,out=sys.argv[1:]
-start_marker,end_marker=("BRIEF-%s %s"%(kind,token) for kind in ("START","END"))
-pattern=re.compile("^[ \t]*"+re.escape(start_marker)+"[ \t]*\n(.*?)\n[ \t]*"+re.escape(end_marker)+"[ \t]*$",re.M|re.S)
-def contents(path):
-    for line in open(path,encoding="utf-8"):
-        if start_marker not in line: continue
-        try: record=json.loads(line)
-        except json.JSONDecodeError: continue
-        yield (record.get("message") or {}).get("content")
-files=sorted((f for f in glob.glob(os.path.expanduser("~/.claude/projects/*/*/subagents/workflows/*/agent-*.jsonl")) if time.time()-os.path.getmtime(f)<3600),key=os.path.getmtime,reverse=True)
-cuts=[m.group(1) for f in files for c in contents(f) if isinstance(c,str) for m in [pattern.search(c)] if m]
-cuts or sys.exit("${NO_BRIEF_RECORD}")
-open(out,"w",encoding="utf-8").write(textwrap.dedent(cuts[0])+"\n")`
-
-  const ESCAPED_BACKSLASH = String.raw`\\`
-  const ESCAPED_QUOTE = String.raw`\'`
-  const ESCAPED_NEWLINE = String.raw`\n`
-  const ansiCQuoted = source => {
-    const escaped = source.replaceAll('\\', ESCAPED_BACKSLASH).replaceAll("'", ESCAPED_QUOTE).replaceAll('\n', ESCAPED_NEWLINE)
-    return `$'${escaped}'`
-  }
-  const BRIEF_CUTTER_ARGUMENT = ansiCQuoted(BRIEF_CUTTER)
 
   function codexReview(label, routing, role, range) {
     const base = `${A.scratch}/${A.tag}-${label}`
@@ -882,7 +936,7 @@ open(out,"w",encoding="utf-8").write(textwrap.dedent(cuts[0])+"\n")`
     const blocking = result.blocking || []
     const reportPath = result.reportPath || ''
     return {
-      history: { after: A.after, by: reviewer.key, verdict: result.verdict, blocking: blocking.map(f => f.where), reportPath },
+      history: { after: A.after, by: reviewer.key, tip: A.tip, verdict: result.verdict, blocking: blocking.map(f => f.where), reportPath },
       gateRounds: reviewer.isGate && !result.limit ? [{ after: A.after, verdict: result.verdict, blocking, reportPath, tip: A.tip }] : [],
       followups: (result.followups || []).map(f => ({ ...f, tip: A.tip })),
     }
@@ -906,6 +960,53 @@ open(out,"w",encoding="utf-8").write(textwrap.dedent(cuts[0])+"\n")`
   return { ...outcome, verdict: classify(results, A.reviewers.length) }
 }
 
+// What the courier's start command prints when the brief file is not the brief the script wrote.
+const BRIEF_MISMATCH = 'brief file differs from the brief the script wrote'
+// What the courier's extraction command prints when no transcript record of the courier holds both marker lines of the brief.
+const NO_BRIEF_RECORD = 'no transcript record of this courier holds the brief between its two marker lines'
+
+const CRC_TABLE = Array.from({ length: 256 }, (_, n) => {
+  let crc = n
+  for (let bit = 0; bit < 8; bit++) crc = crc & 1 ? 0xedb88320 ^ (crc >>> 1) : crc >>> 1
+  return crc >>> 0
+})
+// CRC32 over the UTF-8 bytes, as Python's zlib.crc32 computes it for the file the courier wrote.
+function crc32OfUtf8(text) {
+  let crc = 0xffffffff
+  for (const byte of utf8BytesOf(text)) crc = CRC_TABLE[(crc ^ byte) & 255] ^ (crc >>> 8)
+  return ((crc ^ 0xffffffff) >>> 0).toString(16).padStart(8, '0')
+}
+// Both sides compare the words of the brief: the Workflow runtime indents every line of a computed prompt and a model retyping the text adds blank lines, and neither changes what Codex reads.
+const BRIEF_CRC_PRINTER = 'import sys,zlib;print("%08x"%zlib.crc32(b" ".join(sys.stdin.buffer.read().split())))'
+// Cuts the brief out of the courier's own transcript, so no model copies it. The workflow host keeps the transcript of every workflow agent at
+// ~/.claude/projects/<project>/<session>/subagents/workflows/<run>/agent-<id>.jsonl and its first record holds the prompt; a head session's transcript lies one level up and is never read.
+// The marker lines are built from the token and count only as whole lines, so the command's own text and a brief that mentions a marker never match; the host indents every line of a prompt, which dedent removes, and a line that is not JSON, the host still writing it, is skipped.
+// Quoted so that nothing of the brief is ever inside the command: the arguments are the round's token and the brief file.
+// The program stands in the command as a bash $'...' string, so the command is one physical line: the host indents each line of a prompt and a line break inside the program would arrive indented.
+const BRIEF_CUTTER = String.raw`import glob,json,os,re,sys,textwrap,time
+token,out=sys.argv[1:]
+start_marker,end_marker=("BRIEF-%s %s"%(kind,token) for kind in ("START","END"))
+pattern=re.compile("^[ \t]*"+re.escape(start_marker)+"[ \t]*\n(.*?)\n[ \t]*"+re.escape(end_marker)+"[ \t]*$",re.M|re.S)
+def contents(path):
+    for line in open(path,encoding="utf-8"):
+        if start_marker not in line: continue
+        try: record=json.loads(line)
+        except json.JSONDecodeError: continue
+        yield (record.get("message") or {}).get("content")
+files=sorted((f for f in glob.glob(os.path.expanduser("~/.claude/projects/*/*/subagents/workflows/*/agent-*.jsonl")) if time.time()-os.path.getmtime(f)<3600),key=os.path.getmtime,reverse=True)
+cuts=[m.group(1) for f in files for c in contents(f) if isinstance(c,str) for m in [pattern.search(c)] if m]
+cuts or sys.exit("${NO_BRIEF_RECORD}")
+open(out,"w",encoding="utf-8").write(textwrap.dedent(cuts[0])+"\n")`
+
+const ESCAPED_BACKSLASH = String.raw`\\`
+const ESCAPED_QUOTE = String.raw`\'`
+const ESCAPED_NEWLINE = String.raw`\n`
+const ansiCQuoted = source => {
+  const escaped = source.replaceAll('\\', ESCAPED_BACKSLASH).replaceAll("'", ESCAPED_QUOTE).replaceAll('\n', ESCAPED_NEWLINE)
+  return `$'${escaped}'`
+}
+const BRIEF_CUTTER_ARGUMENT = ansiCQuoted(BRIEF_CUTTER)
+
 function utf8BytesOf(text) {
   const bytes = []
   for (const character of text) {
@@ -921,7 +1022,6 @@ function utf8BytesOf(text) {
 // Prints the one Routing line of a lane from its routing table, its history and its fix rounds, and starts no agent.
 async function laneRouting(A) {
   // The Routing line aco reads (aco's specs/lane-record.spec.md owns the grammar), built from what the lane used; the head pastes it as is.
-  const FINDING_STAGES = [[/^e2e-/, 'test'], [/^ci-/, 'ci'], [/^(review|gate)$/, null], [/^standin$/, 'gate']]
   const ROUTING_LINE_LIMIT = 512  // the length the aco skill's abandon step asks of the line
   const LOCATION_LIMIT = 60
   const COUNT_LIMIT = 999  // aco reads a count of one to three digits
@@ -940,32 +1040,10 @@ async function laneRouting(A) {
   const READ_BY_ACO_AS_A_FIGURE = /^(?:\d+×|none(?=[.\s]|$))/
   const neutralised = (location) => READ_BY_ACO_AS_A_FIGURE.test(location) ? `~${location}` : location
 
-  const stageOf = (reviewer) => FINDING_STAGES.map(([pattern, name]) => pattern.test(reviewer) ? name ?? reviewer : null).find(Boolean)
   const locationOf = (text) => neutralised(text.split(' ').map(pathAndLine).find(Boolean) ?? text)
 
-  // The findings of one history entry by location and stage, each with the number of findings that share them.
-  function findingsOfEntry(entry, stage) {
-    const found = new Map()
-    for (const where of entry.blocking) {
-      const text = String(where).replace(/[\s;→]+/g, ' ').trim()
-      const key = JSON.stringify([text, stage])
-      found.set(key, { where: locationOf(text), stage, count: (found.get(key)?.count ?? 0) + 1 })
-    }
-    return found
-  }
-
-  // Distinct findings of one round that share a text each count; a finding that comes back in a later round counts once, as often as the most it was raised in one round.
-  function blockingStages(history) {
-    const found = new Map()
-    for (const entry of history) {
-      const stage = Array.isArray(entry.blocking) ? stageOf(entry.by) : null
-      if (!stage) continue
-      findingsOfEntry(entry, stage).forEach((finding, key) => {
-        if (finding.count > (found.get(key)?.count ?? 0)) found.set(key, finding)
-      })
-    }
-    return [...found.values()]
-  }
+  // The findings of the lane's history by location and stage, each with the number that share them (laneRecord's counting, with the location a Routing line prints).
+  const blockingLocations = (history) => blockingStages(history).map(({ text, stage, count }) => ({ where: locationOf(text), stage, count }))
 
   const countParts = (count) => Array.from({ length: Math.ceil(count / COUNT_LIMIT) }, (_, part) => Math.min(COUNT_LIMIT, count - part * COUNT_LIMIT))
   const printedEntry = (count, location, stage) => {
@@ -996,25 +1074,13 @@ async function laneRouting(A) {
     return groupedEntries(findings, 0).join('; ')
   }
 
-  const choiceOf = (role) => `${A.routing[role].model}/${A.routing[role].effort}`
-  const ran = (key) => A.history.some(entry => entry.by === key || entry.by?.startsWith(`${key}-`))
-  const gateRoleRun = () => [['standin', 'review'], ['gate', 'gate']].find(([key]) => ran(key))?.[1] ?? null
-  const choiceOrNone = (role) => role ? choiceOf(role) : 'none'
-
   function stagesText() {
-    const stages = [
-      `build ${choiceOf('build')}`,
-      `fix ${choiceOrNone(A.fixRole)}`,
-      `review ${choiceOf('review')}`,
-      `test ${choiceOrNone(ran('e2e') ? 'test' : null)}`,
-      `gate ${choiceOrNone(gateRoleRun())}`,
-      `land ${choiceOf('mechanical')}`,
-    ]
-    return stages.join('; ')
+    const choices = stageChoices(A)
+    return RECORD_STAGES.map(stage => `${stage} ${choices[stage]}`).join('; ')
   }
 
   const rest = [`Routing: ${stagesText()}. Fix rounds: ${A.rounds}.`, A.experiment && ` Experiment: ${A.experiment}.`, ' Blocking: '].filter(Boolean).join('')
-  return rest + blockingText(blockingStages(A.history), rest)
+  return rest + blockingText(blockingLocations(A.history), rest)
 }
 
 // Runs the explorative end-to-end tester of one pull request tip, with a fallback agent, and returns its answer with the history entry, the follow-ups at the tested tip and the reason an empty verdict is unusable; the lane judges the rest itself.
@@ -1305,6 +1371,7 @@ let pr = A.pr || null
 let tip = A.tip || null
 const spent = { review: 0, test: 0, ci: 0, total: 0 }
 const fixRolesRun = []  // the role of each fixer that ran, in order
+const fixRoundsByStage = { review: 0, gate: 0, ci: 0, test: 0 }  // the stage whose findings each fix round answered
 const seen = new Map()  // finding key -> how often it came back after a fix
 let productionSinceTest = false  // any fix since the last end-to-end test touched production
 let productionSinceGate = false  // any fix since the last unlimited gate result touched production
@@ -1336,13 +1403,29 @@ const claudeLimitResetText = () => claudeLimit.resetsAt ? 'The account resets ' 
 const claudeLimitReason = (stage) =>
   `a Claude agent hit its usage limit at stage ${stage}; the lane never moves a role to another model or provider. ${claudeLimitResetText()} After the reset`
 const claudeLimitOwnReason = (extra) => extra.reason ? ' The stage\'s own reason: ' + extra.reason : ''
+// The lane record reaches <scratch>/lane-record.json through a courier that cuts it out of its own transcript; the printer then runs aco lane-record check on it and a CRC-signed line brings the exit back.
+// A lane stopped by the Claude usage limit writes none, since the courier is a Claude agent too, and neither does a run refused at input, which has no lane state yet.
+let recordsWritten = 0
+async function writeRecord() {
+  const file = `${A.scratch}/lane-record.json`
+  const record = laneRecord({ routing: ROUTING, history, fixRole: fixRolesRun.at(-1) ?? null, fixRounds: fixRoundsByStage, risk: MATERIAL ? 'material' : 'normal', experiment: A.experiment })
+  const label = `record-${++recordsWritten}`
+  const nonce = label
+  const { brief, before, fileArgument } = recordCourier({ record, file, scratch: A.scratch, label })
+  const relayed = await relay({ label, phase: 'Record', step: 'record', relayArgs: [fileArgument, `'${nonce}'`], nonce, requiredKeys: ['check'], brief, before })
+  if (!relayed || relayed.problem) return { problem: `the record courier ${relayed?.problem ?? 'ended without a result'}${relayed ? printedLine(relayed) : ''}` }
+  const { code, err } = relayed.values.check
+  return code === 0 ? { file } : { problem: `aco lane-record check exited ${code}: ${err}` }
+}
 const openResult = async (status, stage, extra = {}) => {
   if (status === 'failed' && claudeLimit) return openResult('awaiting-head', stage, { ...extra, claudeLimit, resume: claudeLimitResume(stage, extra), reason: `${claudeLimitReason(stage)} start a new run with the arguments in resume.${claudeLimitOwnReason(extra)}` })
   const line = await routingLine()
+  const written = claudeLimit || stage === 'input' ? null : await writeRecord()
   const open = openFollowups()
   return {
-    status, stage, pr, tip, spent, routing: ROUTING, routingLine: line, history,
+    status, stage, pr, tip, spent, routing: ROUTING, routingLine: line, ...recordView(written), history,
     followups: open, raisedBeforeTip: raisedBeforeTip(open), folded: [...folded.values()], disputed, ...gateUnseenView(), ...extra,
+    ...(abandonActions(A.item, written).length ? { requiredHeadActions: [...(extra.requiredHeadActions ?? []), ...abandonActions(A.item, written)] } : {}),
   }
 }
 
@@ -1524,12 +1607,13 @@ function scopeOrigin(carried, tipBeforeFix) {
   return { deltaFrom: tipBeforeFix, note: 'The tip carries fix commits no reviewer has seen.' }
 }
 
-async function fixRound(blocking, source, budgetKey, carried) {
+async function fixRound(blocking, source, budgetKey, carried, stage = budgetKey) {
   const tipBeforeFix = tip
   const stop = await fixRoundStop(blocking, budgetKey)
   if (stop) return { stop }
   spent[budgetKey]++
   spent.total++
+  fixRoundsByStage[stage]++
   const foldIn = inPlaceFollowups()
   phase('Fix')
   const role = fixerRole(blocking, foldIn)
@@ -1668,7 +1752,7 @@ async function reviseAfter(rr) {
       'The final gate returned REVISE three times in a row; no fixer was started. Re-ask the pull question against gateRevisions first, ' +
       'then start a new run with pr and tip and fixFirst, or re-cut the item.' })
   }
-  const f = await fixRound(blocking, 'the review', 'review')
+  const f = await fixRound(blocking, 'the review', 'review', false, raised.some(r => r === GATE || r === STANDIN) ? 'gate' : 'review')
   if (f.stop) return f.stop
   if (!f.range) return openResult('failed', 'review', { reason: 'a review finding was answered by a merge alone', lastBlocking: blocking })
   const next = f.gateAgain && !raised.includes(GATE) ? raised.concat([GATE]) : raised
@@ -1844,13 +1928,19 @@ const shellQuoted = path => "'" + path.replaceAll("'", escapedQuote) + "'"
 const rescopeAdds = passedOutsidePaths.map(path => '--add ' + shellQuoted(path)).join(' ')
 const rescopeCommand = 'aco rescope ' + A.item + ' ' + rescopeAdds
 const stillOpen = openFollowups()
+// A clean merge of main moves the tip without a verdict, and aco refuses a landing whose head the record's last verdict did not judge.
+const lastJudged = lastVerdictSha(history)
+if (lastJudged !== tip) return await openResult('awaiting-head', 'record', { reason: `the tip ${tip} carries commits no review or gate verdict judged (the last verdict judged ${lastJudged ?? 'nothing'}), so aco would refuse to land it. Start a new run with pr ${pr} and tip ${tip} for a review of the whole lane.` })
 const finalRoutingLine = await routingLine()
+const finalRecord = await writeRecord()
+// The landing needs the file aco accepts, so a record that fails its check leaves the lane for the head.
+if (finalRecord.problem) return await openResult('awaiting-head', 'record', { reason: `${finalRecord.problem}. Start a new run with pr ${pr} and tip ${tip}.` })
 return {
-  status: 'ready-to-land', pr, tip, spent, routing: ROUTING, routingLine: finalRoutingLine, history, followups: stillOpen, raisedBeforeTip: raisedBeforeTip(stillOpen), folded: [...folded.values()], disputed,
+  status: 'ready-to-land', pr, tip, spent, routing: ROUTING, routingLine: finalRoutingLine, ...recordView(finalRecord), history, followups: stillOpen, raisedBeforeTip: raisedBeforeTip(stillOpen), folded: [...folded.values()], disputed,
   ...gateUnseenView(), pathsOutsideClaim: passedOutsidePaths,
   requiredHeadActions: [
     ...(passedOutsidePaths.length ? [`write these paths into the scope of item #${A.item}'s body (and a one-sentence whole there when the combined scope is wide), then run \`${rescopeCommand}\` from ${A.worktree} before landing: these paths are outside the claim and passed the scope check`] : []),
-    `land with \`aco land ${pr} --head ${tip}\` only while the pull request head is still ${tip}`,
+    `land with \`aco land ${pr} --head ${tip} --record ${finalRecord.file}\` only while the pull request head is still ${tip}`,
     ...(MATERIAL && isGateStandIn('gate', ROUTING.gate.model, ROUTING.gate.effort) ? [`name the Opus 5.5 stand-in as the final gate in the body of pull request #${pr}: the lane ran no Codex gate`] : []),
     ...(gateUnseen ? [`name ${gateUnseen.seenTip}..${tip} in the body of pull request #${pr}: the final gate, at its usage limit, did not see that range`] : []),
     ...(raisedBeforeTip(stillOpen).length ? ['re-check the follow-ups in raisedBeforeTip against the returned tip before routing them'] : []),

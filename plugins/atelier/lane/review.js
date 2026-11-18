@@ -32,10 +32,6 @@ export async function laneReview(A) {
   const USAGE_LIMIT = 'hit your usage limit'
   // The error Codex prints when the courier started it without writing the output schema first.
   const SCHEMA_READ_ERROR = 'Failed to read output schema file'
-  // What the courier's start command prints when the brief file is not the brief the script wrote.
-  const BRIEF_MISMATCH = 'brief file differs from the brief the script wrote'
-  // What the courier's extraction command prints when no transcript record of the courier holds both marker lines of the brief.
-  const NO_BRIEF_RECORD = 'no transcript record of this courier holds the brief between its two marker lines'
   // A courier whose Codex never produced a verdict: it started none (its brief file is not the brief the script wrote, or no brief could be cut out of its transcript), or its run was killed.
   const startedNoCodex = (answer, reason) => answer?.verdict === 'failed' && answer.codexExit === -1 && String(answer.note ?? '').includes(reason)
   const isBriefMismatch = answer => startedNoCodex(answer, BRIEF_MISMATCH)
@@ -135,47 +131,6 @@ export async function laneReview(A) {
     return runCourier(`${label}-retry`)
   }
 
-  const CRC_TABLE = Array.from({ length: 256 }, (_, n) => {
-    let crc = n
-    for (let bit = 0; bit < 8; bit++) crc = crc & 1 ? 0xedb88320 ^ (crc >>> 1) : crc >>> 1
-    return crc >>> 0
-  })
-  // CRC32 over the UTF-8 bytes, as Python's zlib.crc32 computes it for the file the courier wrote.
-  function crc32OfUtf8(text) {
-    let crc = 0xffffffff
-    for (const byte of utf8BytesOf(text)) crc = CRC_TABLE[(crc ^ byte) & 255] ^ (crc >>> 8)
-    return ((crc ^ 0xffffffff) >>> 0).toString(16).padStart(8, '0')
-  }
-  // Both sides compare the words of the brief: the Workflow runtime indents every line of a computed prompt and a model retyping the text adds blank lines, and neither changes what Codex reads.
-  const BRIEF_CRC_PRINTER = 'import sys,zlib;print("%08x"%zlib.crc32(b" ".join(sys.stdin.buffer.read().split())))'
-  // Cuts the brief out of the courier's own transcript, so no model copies it. The workflow host keeps the transcript of every workflow agent at
-  // ~/.claude/projects/<project>/<session>/subagents/workflows/<run>/agent-<id>.jsonl and its first record holds the prompt; a head session's transcript lies one level up and is never read.
-  // The marker lines are built from the token and count only as whole lines, so the command's own text and a brief that mentions a marker never match; the host indents every line of a prompt, which dedent removes, and a line that is not JSON, the host still writing it, is skipped.
-  // Quoted so that nothing of the brief is ever inside the command: the arguments are the round's token and the brief file.
-  // The program stands in the command as a bash $'...' string, so the command is one physical line: the host indents each line of a prompt and a line break inside the program would arrive indented.
-  const BRIEF_CUTTER = String.raw`import glob,json,os,re,sys,textwrap,time
-token,out=sys.argv[1:]
-start_marker,end_marker=("BRIEF-%s %s"%(kind,token) for kind in ("START","END"))
-pattern=re.compile("^[ \t]*"+re.escape(start_marker)+"[ \t]*\n(.*?)\n[ \t]*"+re.escape(end_marker)+"[ \t]*$",re.M|re.S)
-def contents(path):
-    for line in open(path,encoding="utf-8"):
-        if start_marker not in line: continue
-        try: record=json.loads(line)
-        except json.JSONDecodeError: continue
-        yield (record.get("message") or {}).get("content")
-files=sorted((f for f in glob.glob(os.path.expanduser("~/.claude/projects/*/*/subagents/workflows/*/agent-*.jsonl")) if time.time()-os.path.getmtime(f)<3600),key=os.path.getmtime,reverse=True)
-cuts=[m.group(1) for f in files for c in contents(f) if isinstance(c,str) for m in [pattern.search(c)] if m]
-cuts or sys.exit("${NO_BRIEF_RECORD}")
-open(out,"w",encoding="utf-8").write(textwrap.dedent(cuts[0])+"\n")`
-
-  const ESCAPED_BACKSLASH = String.raw`\\`
-  const ESCAPED_QUOTE = String.raw`\'`
-  const ESCAPED_NEWLINE = String.raw`\n`
-  const ansiCQuoted = source => {
-    const escaped = source.replaceAll('\\', ESCAPED_BACKSLASH).replaceAll("'", ESCAPED_QUOTE).replaceAll('\n', ESCAPED_NEWLINE)
-    return `$'${escaped}'`
-  }
-  const BRIEF_CUTTER_ARGUMENT = ansiCQuoted(BRIEF_CUTTER)
 
   function codexReview(label, routing, role, range) {
     const base = `${A.scratch}/${A.tag}-${label}`
@@ -268,7 +223,7 @@ open(out,"w",encoding="utf-8").write(textwrap.dedent(cuts[0])+"\n")`
     const blocking = result.blocking || []
     const reportPath = result.reportPath || ''
     return {
-      history: { after: A.after, by: reviewer.key, verdict: result.verdict, blocking: blocking.map(f => f.where), reportPath },
+      history: { after: A.after, by: reviewer.key, tip: A.tip, verdict: result.verdict, blocking: blocking.map(f => f.where), reportPath },
       gateRounds: reviewer.isGate && !result.limit ? [{ after: A.after, verdict: result.verdict, blocking, reportPath, tip: A.tip }] : [],
       followups: (result.followups || []).map(f => ({ ...f, tip: A.tip })),
     }
@@ -291,6 +246,53 @@ open(out,"w",encoding="utf-8").write(textwrap.dedent(cuts[0])+"\n")`
   if (usageLimitError) throw Object.assign(usageLimitError, { finished: outcome })
   return { ...outcome, verdict: classify(results, A.reviewers.length) }
 }
+
+// What the courier's start command prints when the brief file is not the brief the script wrote.
+const BRIEF_MISMATCH = 'brief file differs from the brief the script wrote'
+// What the courier's extraction command prints when no transcript record of the courier holds both marker lines of the brief.
+const NO_BRIEF_RECORD = 'no transcript record of this courier holds the brief between its two marker lines'
+
+const CRC_TABLE = Array.from({ length: 256 }, (_, n) => {
+  let crc = n
+  for (let bit = 0; bit < 8; bit++) crc = crc & 1 ? 0xedb88320 ^ (crc >>> 1) : crc >>> 1
+  return crc >>> 0
+})
+// CRC32 over the UTF-8 bytes, as Python's zlib.crc32 computes it for the file the courier wrote.
+function crc32OfUtf8(text) {
+  let crc = 0xffffffff
+  for (const byte of utf8BytesOf(text)) crc = CRC_TABLE[(crc ^ byte) & 255] ^ (crc >>> 8)
+  return ((crc ^ 0xffffffff) >>> 0).toString(16).padStart(8, '0')
+}
+// Both sides compare the words of the brief: the Workflow runtime indents every line of a computed prompt and a model retyping the text adds blank lines, and neither changes what Codex reads.
+const BRIEF_CRC_PRINTER = 'import sys,zlib;print("%08x"%zlib.crc32(b" ".join(sys.stdin.buffer.read().split())))'
+// Cuts the brief out of the courier's own transcript, so no model copies it. The workflow host keeps the transcript of every workflow agent at
+// ~/.claude/projects/<project>/<session>/subagents/workflows/<run>/agent-<id>.jsonl and its first record holds the prompt; a head session's transcript lies one level up and is never read.
+// The marker lines are built from the token and count only as whole lines, so the command's own text and a brief that mentions a marker never match; the host indents every line of a prompt, which dedent removes, and a line that is not JSON, the host still writing it, is skipped.
+// Quoted so that nothing of the brief is ever inside the command: the arguments are the round's token and the brief file.
+// The program stands in the command as a bash $'...' string, so the command is one physical line: the host indents each line of a prompt and a line break inside the program would arrive indented.
+const BRIEF_CUTTER = String.raw`import glob,json,os,re,sys,textwrap,time
+token,out=sys.argv[1:]
+start_marker,end_marker=("BRIEF-%s %s"%(kind,token) for kind in ("START","END"))
+pattern=re.compile("^[ \t]*"+re.escape(start_marker)+"[ \t]*\n(.*?)\n[ \t]*"+re.escape(end_marker)+"[ \t]*$",re.M|re.S)
+def contents(path):
+    for line in open(path,encoding="utf-8"):
+        if start_marker not in line: continue
+        try: record=json.loads(line)
+        except json.JSONDecodeError: continue
+        yield (record.get("message") or {}).get("content")
+files=sorted((f for f in glob.glob(os.path.expanduser("~/.claude/projects/*/*/subagents/workflows/*/agent-*.jsonl")) if time.time()-os.path.getmtime(f)<3600),key=os.path.getmtime,reverse=True)
+cuts=[m.group(1) for f in files for c in contents(f) if isinstance(c,str) for m in [pattern.search(c)] if m]
+cuts or sys.exit("${NO_BRIEF_RECORD}")
+open(out,"w",encoding="utf-8").write(textwrap.dedent(cuts[0])+"\n")`
+
+const ESCAPED_BACKSLASH = String.raw`\\`
+const ESCAPED_QUOTE = String.raw`\'`
+const ESCAPED_NEWLINE = String.raw`\n`
+const ansiCQuoted = source => {
+  const escaped = source.replaceAll('\\', ESCAPED_BACKSLASH).replaceAll("'", ESCAPED_QUOTE).replaceAll('\n', ESCAPED_NEWLINE)
+  return `$'${escaped}'`
+}
+const BRIEF_CUTTER_ARGUMENT = ansiCQuoted(BRIEF_CUTTER)
 
 function utf8BytesOf(text) {
   const bytes = []

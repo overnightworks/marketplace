@@ -216,6 +216,7 @@ let pr = A.pr || null
 let tip = A.tip || null
 const spent = { review: 0, test: 0, ci: 0, total: 0 }
 const fixRolesRun = []  // the role of each fixer that ran, in order
+const fixRoundsByStage = { review: 0, gate: 0, ci: 0, test: 0 }  // the stage whose findings each fix round answered
 const seen = new Map()  // finding key -> how often it came back after a fix
 let productionSinceTest = false  // any fix since the last end-to-end test touched production
 let productionSinceGate = false  // any fix since the last unlimited gate result touched production
@@ -247,13 +248,29 @@ const claudeLimitResetText = () => claudeLimit.resetsAt ? 'The account resets ' 
 const claudeLimitReason = (stage) =>
   `a Claude agent hit its usage limit at stage ${stage}; the lane never moves a role to another model or provider. ${claudeLimitResetText()} After the reset`
 const claudeLimitOwnReason = (extra) => extra.reason ? ' The stage\'s own reason: ' + extra.reason : ''
+// The lane record reaches <scratch>/lane-record.json through a courier that cuts it out of its own transcript; the printer then runs aco lane-record check on it and a CRC-signed line brings the exit back.
+// A lane stopped by the Claude usage limit writes none, since the courier is a Claude agent too, and neither does a run refused at input, which has no lane state yet.
+let recordsWritten = 0
+async function writeRecord() {
+  const file = `${A.scratch}/lane-record.json`
+  const record = laneRecord({ routing: ROUTING, history, fixRole: fixRolesRun.at(-1) ?? null, fixRounds: fixRoundsByStage, risk: MATERIAL ? 'material' : 'normal', experiment: A.experiment })
+  const label = `record-${++recordsWritten}`
+  const nonce = label
+  const { brief, before, fileArgument } = recordCourier({ record, file, scratch: A.scratch, label })
+  const relayed = await relay({ label, phase: 'Record', step: 'record', relayArgs: [fileArgument, `'${nonce}'`], nonce, requiredKeys: ['check'], brief, before })
+  if (!relayed || relayed.problem) return { problem: `the record courier ${relayed?.problem ?? 'ended without a result'}${relayed ? printedLine(relayed) : ''}` }
+  const { code, err } = relayed.values.check
+  return code === 0 ? { file } : { problem: `aco lane-record check exited ${code}: ${err}` }
+}
 const openResult = async (status, stage, extra = {}) => {
   if (status === 'failed' && claudeLimit) return openResult('awaiting-head', stage, { ...extra, claudeLimit, resume: claudeLimitResume(stage, extra), reason: `${claudeLimitReason(stage)} start a new run with the arguments in resume.${claudeLimitOwnReason(extra)}` })
   const line = await routingLine()
+  const written = claudeLimit || stage === 'input' ? null : await writeRecord()
   const open = openFollowups()
   return {
-    status, stage, pr, tip, spent, routing: ROUTING, routingLine: line, history,
+    status, stage, pr, tip, spent, routing: ROUTING, routingLine: line, ...recordView(written), history,
     followups: open, raisedBeforeTip: raisedBeforeTip(open), folded: [...folded.values()], disputed, ...gateUnseenView(), ...extra,
+    ...(abandonActions(A.item, written).length ? { requiredHeadActions: [...(extra.requiredHeadActions ?? []), ...abandonActions(A.item, written)] } : {}),
   }
 }
 
@@ -435,12 +452,13 @@ function scopeOrigin(carried, tipBeforeFix) {
   return { deltaFrom: tipBeforeFix, note: 'The tip carries fix commits no reviewer has seen.' }
 }
 
-async function fixRound(blocking, source, budgetKey, carried) {
+async function fixRound(blocking, source, budgetKey, carried, stage = budgetKey) {
   const tipBeforeFix = tip
   const stop = await fixRoundStop(blocking, budgetKey)
   if (stop) return { stop }
   spent[budgetKey]++
   spent.total++
+  fixRoundsByStage[stage]++
   const foldIn = inPlaceFollowups()
   phase('Fix')
   const role = fixerRole(blocking, foldIn)
@@ -579,7 +597,7 @@ async function reviseAfter(rr) {
       'The final gate returned REVISE three times in a row; no fixer was started. Re-ask the pull question against gateRevisions first, ' +
       'then start a new run with pr and tip and fixFirst, or re-cut the item.' })
   }
-  const f = await fixRound(blocking, 'the review', 'review')
+  const f = await fixRound(blocking, 'the review', 'review', false, raised.some(r => r === GATE || r === STANDIN) ? 'gate' : 'review')
   if (f.stop) return f.stop
   if (!f.range) return openResult('failed', 'review', { reason: 'a review finding was answered by a merge alone', lastBlocking: blocking })
   const next = f.gateAgain && !raised.includes(GATE) ? raised.concat([GATE]) : raised
@@ -755,13 +773,19 @@ const shellQuoted = path => "'" + path.replaceAll("'", escapedQuote) + "'"
 const rescopeAdds = passedOutsidePaths.map(path => '--add ' + shellQuoted(path)).join(' ')
 const rescopeCommand = 'aco rescope ' + A.item + ' ' + rescopeAdds
 const stillOpen = openFollowups()
+// A clean merge of main moves the tip without a verdict, and aco refuses a landing whose head the record's last verdict did not judge.
+const lastJudged = lastVerdictSha(history)
+if (lastJudged !== tip) return await openResult('awaiting-head', 'record', { reason: `the tip ${tip} carries commits no review or gate verdict judged (the last verdict judged ${lastJudged ?? 'nothing'}), so aco would refuse to land it. Start a new run with pr ${pr} and tip ${tip} for a review of the whole lane.` })
 const finalRoutingLine = await routingLine()
+const finalRecord = await writeRecord()
+// The landing needs the file aco accepts, so a record that fails its check leaves the lane for the head.
+if (finalRecord.problem) return await openResult('awaiting-head', 'record', { reason: `${finalRecord.problem}. Start a new run with pr ${pr} and tip ${tip}.` })
 return {
-  status: 'ready-to-land', pr, tip, spent, routing: ROUTING, routingLine: finalRoutingLine, history, followups: stillOpen, raisedBeforeTip: raisedBeforeTip(stillOpen), folded: [...folded.values()], disputed,
+  status: 'ready-to-land', pr, tip, spent, routing: ROUTING, routingLine: finalRoutingLine, ...recordView(finalRecord), history, followups: stillOpen, raisedBeforeTip: raisedBeforeTip(stillOpen), folded: [...folded.values()], disputed,
   ...gateUnseenView(), pathsOutsideClaim: passedOutsidePaths,
   requiredHeadActions: [
     ...(passedOutsidePaths.length ? [`write these paths into the scope of item #${A.item}'s body (and a one-sentence whole there when the combined scope is wide), then run \`${rescopeCommand}\` from ${A.worktree} before landing: these paths are outside the claim and passed the scope check`] : []),
-    `land with \`aco land ${pr} --head ${tip}\` only while the pull request head is still ${tip}`,
+    `land with \`aco land ${pr} --head ${tip} --record ${finalRecord.file}\` only while the pull request head is still ${tip}`,
     ...(MATERIAL && isGateStandIn('gate', ROUTING.gate.model, ROUTING.gate.effort) ? [`name the Opus 5.5 stand-in as the final gate in the body of pull request #${pr}: the lane ran no Codex gate`] : []),
     ...(gateUnseen ? [`name ${gateUnseen.seenTip}..${tip} in the body of pull request #${pr}: the final gate, at its usage limit, did not see that range`] : []),
     ...(raisedBeforeTip(stillOpen).length ? ['re-check the follow-ups in raisedBeforeTip against the returned tip before routing them'] : []),

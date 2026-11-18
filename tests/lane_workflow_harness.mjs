@@ -45,7 +45,9 @@ case "$1 $2" in
   *) fail 1 "unexpected gh call $*" ;;
 esac
 `
+// aco lane-record check reads its file alone: it counts no call and meets no network failure; FAKE_RECORD_ERROR makes it refuse the file as aco does.
 export const FAKE_ACO = `#!/bin/sh
+[ "$1" != lane-record ] || { [ -z "$FAKE_RECORD_ERROR" ] || { printf '%s\\n' "$FAKE_RECORD_ERROR" >&2; exit 2; }; exit 0; }
 ${NETWORK_DOWN}[ -z "$FAKE_BRIEF_ERROR" ] || printf '%s\\n' "$FAKE_BRIEF_ERROR" >&2
 printf '%s' "$FAKE_BRIEF_OUTPUT"
 [ -z "$FAKE_BRIEF_ERROR" ]
@@ -59,8 +61,8 @@ export const courierBriefOf = (prompt) => {
 export const installFake = (directory, program, script) => fs.writeFileSync(path.join(directory, program), script, { mode: 0o755 })
 
 // Runs a command line the way the agent does and returns what it printed (its error output when it printed nothing).
-export const runCommandLine = (line, { cwd, env }) => {
-  const ran = spawnSync('sh', ['-c', line], { cwd, env, encoding: 'utf8' })
+export const runCommandLine = (line, { cwd, env, shell = 'sh' }) => {
+  const ran = spawnSync(shell, ['-c', line], { cwd, env, encoding: 'utf8' })
   return (ran.stdout || ran.stderr).trim()
 }
 
@@ -75,13 +77,14 @@ export async function runLane(args, answers = {}, options = {}) {
   const isFixer = (label) => label.startsWith('fix-')
   const REREAD = '-reread'
   const baseLabel = (label) => label.endsWith(REREAD) ? label.slice(0, -REREAD.length) : label
-  const isRelayed = (label) => /^(branch|sync|scope-|ci-read-|fix-|checkpoint-)/.test(baseLabel(label))
+  const isRelayed = (label) => /^(branch|sync|scope-|ci-read-|fix-|checkpoint-|record-)/.test(baseLabel(label))
   const defaultAnswerFor = (label) => isRelayed(label) && !isFixer(label) ? {} : null
   // The branch carries the newest tip a builder, fixer or sync returned. A scope, sync or fixer answer says what the fake
   // git and aco print (scope: push_error, remote_tip, brief_error, outside_claim; sync and fixer: head, parents, head_code,
   // main_code; a fixer's answer also holds its own report, which is returned with the printed line) and how the agent mishandled the printed line (nonce, edit, printed, printerMode: the printer mode it ran instead); the line itself always comes from
   // running the real printer the prompt carries. Without answers a sync leaves an up-to-date lane as it is.
   let newestTip = args.tip
+  const writtenRecords = []
   let fakeBin
   const fakeCommands = () => {
     if (!fakeBin) {
@@ -109,15 +112,31 @@ export async function runLane(args, answers = {}, options = {}) {
     const watcher = answers[label.replace('ci-read-', 'ci-')]
     return watcher && typeof watcher === 'object' ? { pr_head: watcher.head, checks: watcher.checks, required: watcher.requiredChecks, base_runs: watcher.baseChecks, changed_files: watcher.changedFiles } : {}
   }
-  const printedBy = (prompt, scenario, reread) => {
+  // The record courier's command as the agent runs it: its brief is cut out of a transcript of the courier (in a home of its own) into the scratch directory (a temporary one in place of the lane's), and the file it wrote is kept for the test.
+  const recordDirectories = []
+  const recordPrinted = (prompt, line, env, scenario) => {
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'lane-record-'))
+    recordDirectories.push(directory)
+    const transcript = path.join(directory, 'home/.claude/projects/p/s/subagents/workflows/w/agent-courier.jsonl')
+    fs.mkdirSync(path.dirname(transcript), { recursive: true })
+    fs.writeFileSync(transcript, `${JSON.stringify({ message: { content: prompt } })}\n`)
+    const scratch = path.join(directory, 'scratch')
+    const command = line.replace(/cd '[^']*' && /, '').replaceAll(`'${args.scratch}'`, `'${scratch}'`).replaceAll(`'${args.scratch}/`, `'${scratch}/`)
+    const printed = runCommandLine(scenario.record_command ? scenario.record_command(command) : command, { cwd: os.tmpdir(), shell: 'bash', env: { ...env, HOME: path.join(directory, 'home') } })
+    const file = path.join(scratch, 'lane-record.json')
+    if (fs.existsSync(file)) writtenRecords.push(fs.readFileSync(file, 'utf8'))
+    return printed
+  }
+  const printedBy = (prompt, scenario, reread, label) => {
     if ('printed' in scenario) return scenario.printed
     const line = prompt.split('\n').at(-1).replace(/^cd '[^']*' && /, '')
     const env = {
       ...process.env, PATH: `${fakeCommands()}:${process.env.PATH}`, FAKE_HEAD: scenario.head ?? newestTip, FAKE_BRANCH: scenario.branch ?? args.branch, FAKE_BRANCH_CODE: scenario.branch_code ?? 0, FAKE_REMOTE: scenario.remote_tip ?? newestTip,
       FAKE_HEAD_CODE: scenario.head_code ?? 0, FAKE_PARENTS: (scenario.parents ?? []).join('\n'), FAKE_MAIN_CODE: scenario.main_code ?? 0, FAKE_TOUCHED: (scenario.touched_paths ?? []).join('\n'),
       FAKE_PUSH_ERROR: scenario.push_error ?? '', FAKE_NETWORK_ERROR: scenario.network_error ?? '', FAKE_NETWORK_STDOUT: scenario.network_stdout ?? '', FAKE_NETWORK_FAILS: scenario.network_fails ?? 1, FAKE_BRIEF_ERROR: scenario.brief_error ?? '',
-      FAKE_BRIEF_OUTPUT: JSON.stringify({ outside_claim: 'outside_claim' in scenario ? scenario.outside_claim : [] }), ...ghEnv(scenario),
+      FAKE_RECORD_ERROR: scenario.record_error ?? '', FAKE_BRIEF_OUTPUT: JSON.stringify({ outside_claim: 'outside_claim' in scenario ? scenario.outside_claim : [] }), ...ghEnv(scenario),
     }
+    if (label.startsWith('record-')) return recordPrinted(prompt, line, env, scenario)
     const typed = scenario.typedCommand && !reread ? scenario.typedCommand(line) : line
     const asked = scenario.printerMode ? typed.replace(/' scope .* ('[^']*')$/, `' ${scenario.printerMode} $1`) : typed
     const printed = runCommandLine(scenario.nonce ? asked.replace(/'[^']*'$/, `'${scenario.nonce}'`) : asked, { cwd: os.tmpdir(), env })
@@ -132,13 +151,13 @@ export async function runLane(args, answers = {}, options = {}) {
     const answer = isRelayed(label) && given ? { ...(base.startsWith('ci-read-') ? ciWorldOf(base) : {}), ...given } : structuredClone(given)
     if (answer?.tip && label === 'build') newestTip = answer.tip
     if (!isRelayed(label) || !answer) return answer
-    const printed = printedBy(prompt, answer, reread)
+    const printed = printedBy(prompt, answer, reread, label)
     if (answer.head && !base.startsWith('scope-')) newestTip = answer.head
     const { pr_head: _prHead, checks: _checks, required: _required, base_runs: _baseRuns, changed_files: _changedFiles, changed_code: _changedCode, changed_error: _changedError, runlist_code: _runlistCode, runlist_error: _runlistError, head: _head, parents: _parents, head_code: _headCode, branch_code: _branchCode, main_code: _mainCode, touched_paths: _touchedPaths, nonce: _nonce, edit: _edit, typedCommand: _typedCommand, printerMode: _printerMode, push_error: _pushError, network_error: _networkError, network_fails: _networkFails, remote_tip: _remoteTip, brief_error: _briefError, outside_claim: _outsideClaim, printed: _printed, ...report } = answer
     return reread ? { printed } : { ...report, printed }
   }
-  // The worktree check runs before every lane, so the launch lists hold only the agents after it; agentCalls keeps it.
-  const agent = async (prompt, agentOptions = {}) => { if (agentOptions.label !== WORKTREE_CHECK) { launchedAgents.push(agentOptions.label); launchedPrompts.push(prompt) } agentCalls[agentOptions.label] = { prompt, options: structuredClone(agentOptions) }; return answerFor(agentOptions.label, prompt) }
+  // The worktree check runs before every lane and the record courier after every lane that leaves one, so the launch lists hold only the agents between them; agentCalls keeps both.
+  const agent = async (prompt, agentOptions = {}) => { if (agentOptions.label !== WORKTREE_CHECK && !agentOptions.label.startsWith('record-')) { launchedAgents.push(agentOptions.label); launchedPrompts.push(prompt) } agentCalls[agentOptions.label] = { prompt, options: structuredClone(agentOptions) }; return answerFor(agentOptions.label, prompt) }
   // A thunk that throws resolves to null, as in the Workflow runtime.
   const parallel = async thunks => Promise.all(thunks.map(thunk => thunk().catch(() => null)))
   const ignore = () => {}
@@ -147,9 +166,10 @@ export async function runLane(args, answers = {}, options = {}) {
   const callsOf = () => Object.fromEntries(['aco', 'gh'].map(program => [program, fakeBin && fs.existsSync(path.join(fakeBin, `${program}.calls`)) ? Number(fs.readFileSync(path.join(fakeBin, `${program}.calls`), 'utf8')) : 0]))
   try {
     const result = await compile(source)(args, agent, parallel, async () => [], ignore, ignore)
-    return { result: structuredClone(result), calls: callsOf(), launchedAgents, launchedPrompts, agentCalls }
+    return { result: structuredClone(result), calls: callsOf(), launchedAgents, launchedPrompts, agentCalls, writtenRecords }
   } finally {
     if (fakeBin) fs.rmSync(fakeBin, { recursive: true })
+    recordDirectories.forEach(directory => fs.rmSync(directory, { recursive: true, force: true }))
   }
 }
 

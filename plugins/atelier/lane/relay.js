@@ -366,6 +366,16 @@ export async function laneRelay(A) {
   const pathsDigest = (paths) => ({ count: paths.length, hash: crc32(JSON.stringify(paths).replace(/[^\x20-\x7e]/g, char => String.raw`\u` + char.codePointAt(0).toString(16).padStart(4, '0'))) })
   const sameDigest = (echoed, sent) => echoed?.count === sent.count && echoed?.hash === sent.hash
 
+  // The printer leaves out the values equal to their default (an empty list, no finding paths), so a copy that drops them is the printed line.
+  function withPrinterDefaults(values) {
+    if (step === 'ci') return { paths: pathsDigest([]), shared: [], changed_index: [], ...values }
+    if (step === 'fix') return { paths: pathsDigest([]), ...values }
+    return values
+  }
+
+  // The head and main commands of the sync and fix steps: head must exit 0, and main (merge-base --is-ancestor) exits 0 or 1.
+  const gitCommandFailed = (values) => values.head && values.main ? values.head.code !== 0 || ![0, 1].includes(values.main.code) : undefined
+
   // The values of a relay line, or why the line cannot be trusted: checked as text first (shape, CRC32), parsed after.
   // A caller stops at the stage of the step that ran the printer, so an unreadable scope line stops at scope, because it
   // proves nothing about the push; push is only for a readable line that shows the push failed or the remote lacks the tip.
@@ -377,16 +387,13 @@ export async function laneRelay(A) {
     try { values = JSON.parse(printedPayload ?? match[2]) } catch { return printedPayload === undefined ? { problem: 'fails its CRC check' } : { problem: 'does not hold JSON' } }
     if (printedPayload === undefined && crc32(printerText(sortedListing(values))) !== match[1]) return { problem: 'fails its CRC check' }
     if (values?.nonce !== nonce) return { problem: `carries the nonce ${values?.nonce}, not ${nonce}` }
-    // The printer leaves out the values equal to their default (an empty list, no finding paths), so a copy that drops them is the printed line.
-    if (['ci', 'fix'].includes(step)) values = { paths: pathsDigest([]), ...values }
-    if (step === 'ci') values = { shared: [], changed_index: [], ...values }
+    values = withPrinterDefaults(values)
     if (['ci', 'fix'].includes(step) && A.sentPaths && !sameDigest(values.paths, pathsDigest(A.sentPaths))) return { problem: 'echoes other finding paths than the lane sent' }
     // The printer leaves out an entry of the ci step that carries only exit code 0, so its absence reads as that code.
     const complete = step === 'ci' ? { view: { code: 0 }, runs: { code: 0 }, rules: { code: 0 }, changed: { code: 0 }, headruns: { code: 0 }, files: values.changed_index.map(position => A.sentPaths?.[position]).filter(Boolean), ...values } : values
     const missing = requiredKeys.find(key => !complete[key])
     if (missing) return { problem: `lacks the ${missing} entry` }
-    const commandFailed = complete.head && complete.main ? complete.head.code !== 0 || ![0, 1].includes(complete.main.code) : undefined
-    return { values: complete, commandFailed, unreachable: complete.unreachable?.length ? `GitHub is unreachable: ${complete.unreachable.join(', ')} failed with a network error, or timed out, after the retries a network error gets (a timeout is not retried).` : '', ...(step === 'ci' && complete.view.code === 0 && { ci: readCi(complete) }) }
+    return { values: complete, commandFailed: gitCommandFailed(complete), unreachable: complete.unreachable?.length ? `GitHub is unreachable: ${complete.unreachable.join(', ')} failed with a network error, or timed out, after the retries a network error gets (a timeout is not retried).` : '', ...(step === 'ci' && complete.view.code === 0 && { ci: readCi(complete) }) }
   }
 
   const answer = await safeAgent(`${A.delegatedLine}\n${brief} ${RELAY_ASK}\n${relayCommand(step, ...relayArgs)}`, {

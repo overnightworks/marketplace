@@ -657,6 +657,9 @@ test('lane-record: a finding only the gate raised in the round of the approving 
   assert.deepEqual([sameRound.blocking.gate, sameRound.misses.gate], [1, 0])
   const laterRound = writtenRecord(await runLane(materialMissLane, { 'fix-1': resumeFix, 'r1-review': APPROVE, 'r1-gate': gateRaises, 'fix-2': { ...secondFix, ...fixProof }, 'r2-gate': { ...gateRaises, blocking: [{ ...defectWithoutDraft, where: 't.py:9' }] } }))
   assert.deepEqual([laterRound.blocking.gate, laterRound.misses.gate], [2, 1])
+  const ciFixRound = { ...resumeFix, files: ['src/x.py'], ...fixProof }
+  const secondApprovingRound = writtenRecord(await runLane(materialMissLane, { ...reachesToCi, 'r1-review': APPROVE, 'r1-gate': APPROVE, 'e2e-0': PASS, 'ci-0': ciRed({ ...defectWithoutDraft, where: 'ci.py:1' }), 'fix-2': ciFixRound, 'r2-review': APPROVE, 'r2-gate': { ...gateRaises, blocking: [{ ...defectWithoutDraft, where: 't.py:9' }] }, 'fix-3': { ...secondFix, ...fixProof }, 'r3-gate': APPROVE, 'e2e-1': PASS, 'ci-1': greenCi(secondFix.head) }))
+  assert.deepEqual([secondApprovingRound.blocking.gate, secondApprovingRound.misses.gate], [1, 0])
 })
 
 test('lane-record: a later review round is the same stage, so its finding is no miss', async () => {

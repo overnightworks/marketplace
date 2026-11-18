@@ -209,7 +209,10 @@ function missPredicate(history, index, stage) {
   const entry = history[index]
   if (stage === 'review') return () => false
   const earlier = history.slice(0, index).filter(approvesRange)
-  if (stage === 'gate') return () => earlier.some(approval => approval.after < entry.after)
+  if (stage === 'gate') {
+    const sameRound = history.some(approval => approvesRange(approval) && approval.after === entry.after)
+    return () => !sameRound && earlier.some(approval => approval.after < entry.after)
+  }
   if (!earlier.length) return () => false
   if (stage === 'test') return () => true
   const following = history.slice(index + 1)

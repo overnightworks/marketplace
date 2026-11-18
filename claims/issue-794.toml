@@ -1,8 +1,0 @@
-claim_id = "018044934bf74fe1893f26c142b806f8"
-agent = "Claude 30ec126a-30e5-431d-a4c3-088d393726d4"
-role = "builder"
-base = "d55a91435f3d4313a8ebf5f2c7ebdea8f543409f"
-branch = "claude/issue-794-vision-question-end-state"
-scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/skills/write-docs/references/document-types.md"]
-opened_commit = "0a558ced4f68de330a691682f33d128a6a02616d"
-whole_reason = "One table cell plus the version raise every plugin change needs."

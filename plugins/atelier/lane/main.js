@@ -137,8 +137,8 @@ async function runPart(name, part, partArgs) {
     return { problem: `ended in ${name} with ${String(error).slice(0, 300)}`, ...(error?.finished && { finished: error.finished }) }
   }
 }
-// The path of a finding is its `where` without the line and column suffix: the one rule the printer's match, the lane's own-finding match and the printer's input digest share.
-const findingPath = (where) => String(where).replace(/:\d+(:\d+)?$/, '').toWellFormed()
+// The path of a finding is its `where` up to the first line number that ends it or is followed by a column, whitespace or a parenthetical label: the one rule the printer's match, the lane's own-finding match and the printer's input digest share.
+const findingPath = (where) => String(where).replace(/:\d+(?=$|:\d|\s|\().*$/s, '').toWellFormed()
 // The paths as one argument of unreserved characters only, so no quoting a copier applies to the command can change it: each path percent-encoded, joined by commas, with the slash kept.
 const pathsArgument = (paths) => paths.map(path => encodeURIComponent(path).replace(/[!'()*]/g, char => '%' + char.codePointAt(0).toString(16).toUpperCase()).replaceAll('%2F', '/')).join(',')
 // A value a command prints reaches a decision only through the line laneRelay reads back and checks.

@@ -587,6 +587,14 @@ test('AC-removal-empty-path-real-git: a finding with an empty path ahead of a re
   assert.match(agentCalls['r1-review'].prompt, /diff --git a\/t\.py/)
 })
 
+test('AC-removal-labelled-where-real-git: a removal finding whose where carries a parenthetical label leaves the raiser the fixer\'s diff', async (t) => {
+  const lane = laneRepository(t, { onMain: true })
+  const labelled = { ...defectWithoutDraft, where: 't.py:430 (second defaults test)' }
+  const { agentCalls, launchedAgents } = await runRemovalStep(lane, () => lane.commitIn(lane.worktree, 't.py'), [labelled], [removalOfT])
+  assert.ok(launchedAgents.includes('r1-review'), launchedAgents.join())
+  assert.match(agentCalls['r1-review'].prompt, /diff --git a\/t\.py/)
+})
+
 test('AC-removal-long-diff-real-git: a removal diff longer than the printer keeps reaches the raiser with a cut marker', async (t) => {
   const lane = laneRepository(t, { onMain: true })
   const { agentCalls } = await runRemovalStep(lane, () => {

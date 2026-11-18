@@ -544,7 +544,7 @@ async function laneRelay(A) {
     if (step === 'ci') values = { shared: [], changed_index: [], ...values }
     if (['ci', 'fix'].includes(step) && A.sentPaths && !sameDigest(values.paths, pathsDigest(A.sentPaths))) return { problem: 'echoes other finding paths than the lane sent' }
     // The printer leaves out an entry of the ci step that carries only exit code 0, so its absence reads as that code.
-    const complete = step === 'ci' ? { view: { code: 0 }, runs: { code: 0 }, rules: { code: 0 }, changed: { code: 0 }, headruns: { code: 0 }, files: (values.changed_index || []).map(position => A.sentPaths?.[position]).filter(Boolean), ...values } : values
+    const complete = step === 'ci' ? { view: { code: 0 }, runs: { code: 0 }, rules: { code: 0 }, changed: { code: 0 }, headruns: { code: 0 }, files: values.changed_index.map(position => A.sentPaths?.[position]).filter(Boolean), ...values } : values
     const missing = requiredKeys.find(key => !complete[key])
     if (missing) return { problem: `lacks the ${missing} entry` }
     const commandFailed = complete.head && complete.main ? complete.head.code !== 0 || ![0, 1].includes(complete.main.code) : undefined
@@ -1212,8 +1212,8 @@ async function runPart(name, part, partArgs) {
     return { problem: `ended in ${name} with ${String(error).slice(0, 300)}`, ...(error?.finished && { finished: error.finished }) }
   }
 }
-// The path of a finding is its `where` without the line and column suffix: the one rule the printer's match, the lane's own-finding match and the printer's input digest share.
-const findingPath = (where) => String(where).replace(/:\d+(:\d+)?$/, '').toWellFormed()
+// The path of a finding is its `where` up to the first line number that ends it or is followed by a column, whitespace or a parenthetical label: the one rule the printer's match, the lane's own-finding match and the printer's input digest share.
+const findingPath = (where) => String(where).replace(/:\d+(?=$|:\d|\s|\().*$/s, '').toWellFormed()
 // The paths as one argument of unreserved characters only, so no quoting a copier applies to the command can change it: each path percent-encoded, joined by commas, with the slash kept.
 const pathsArgument = (paths) => paths.map(path => encodeURIComponent(path).replace(/[!'()*]/g, char => '%' + char.codePointAt(0).toString(16).toUpperCase()).replaceAll('%2F', '/')).join(',')
 // A value a command prints reaches a decision only through the line laneRelay reads back and checks.

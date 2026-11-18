@@ -382,7 +382,7 @@ export async function laneRelay(A) {
     if (step === 'ci') values = { shared: [], changed_index: [], ...values }
     if (['ci', 'fix'].includes(step) && A.sentPaths && !sameDigest(values.paths, pathsDigest(A.sentPaths))) return { problem: 'echoes other finding paths than the lane sent' }
     // The printer leaves out an entry of the ci step that carries only exit code 0, so its absence reads as that code.
-    const complete = step === 'ci' ? { view: { code: 0 }, runs: { code: 0 }, rules: { code: 0 }, changed: { code: 0 }, headruns: { code: 0 }, files: (values.changed_index || []).map(position => A.sentPaths?.[position]).filter(Boolean), ...values } : values
+    const complete = step === 'ci' ? { view: { code: 0 }, runs: { code: 0 }, rules: { code: 0 }, changed: { code: 0 }, headruns: { code: 0 }, files: values.changed_index.map(position => A.sentPaths?.[position]).filter(Boolean), ...values } : values
     const missing = requiredKeys.find(key => !complete[key])
     if (missing) return { problem: `lacks the ${missing} entry` }
     const commandFailed = complete.head && complete.main ? complete.head.code !== 0 || ![0, 1].includes(complete.main.code) : undefined

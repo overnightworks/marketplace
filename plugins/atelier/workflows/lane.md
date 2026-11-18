@@ -169,7 +169,7 @@ and each review and gate verdict with the full sha it judged, the approving one 
 courier cuts it out of its own transcript into the file, compares its CRC32 with the script's, and only
 then runs `aco lane-record check`, whose exit comes back on a CRC-signed printer line. Every status
 a release can follow carries `record`. A record that fails the check turns `ready-to-land` into
-`awaiting-head` at `record`, with `recordProblem` quoting aco; so does a tip no verdict judged (a clean merge of main after the last review), since aco lands only the head the last verdict judged, and `reason` names both shas; a run refused at input and a lane
-stopped by the Claude usage limit write none. The landing is `aco land <pr> --head <tip> --record <path>` and an
+`awaiting-head` at `record`, with `recordProblem` quoting aco; so does a tip no verdict judged (a clean merge of main after the last review), since aco lands only the head the last verdict judged, and `reason` names both shas; a run refused at input writes none, and a lane that hit the Claude usage limit at any point
+may end without a record, since the record courier is a Claude agent (no code guard). The landing is `aco land <pr> --head <tip> --record <path>` and an
 abandoned lane is released with `aco release <n> --abandoned REASON --record <path>`. The Routing line is still
 printed, and pasted beside the record until aco stops reading it.

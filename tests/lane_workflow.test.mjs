@@ -1,6 +1,9 @@
 // Drives the atelier lane workflow script through its inputs with a stub agent runner, so no subagent ever starts.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
 import { runLane, partReplaced, courierBriefOf, resumedLane, APPROVE, PASS, resumeFixedTip, greenCi, finding, webauthTips, webauthReplay, agentProvidersReplay, answersWith, resumeTip, olderTip, tidy, defectWithoutDraft, resumeFix, resumeArgs, unchangedFix, satisfied, reachesTheEnd, secondFix, mergedOnlyTip, conflictsWithMain, mergeOnlyFix, delegatedLineOfContract } from './lane_workflow_harness.mjs'
 
 const misspelledChoices = [
@@ -716,6 +719,16 @@ test('lane-record: a file whose CRC32 differs from the record stops at the compa
   assert.deepEqual([result.status, result.stage], ['awaiting-head', 'record'])
   assert.match(result.recordProblem, /brief file differs from the brief the script wrote/)
   assert.doesNotMatch(result.recordProblem, /invalid/)
+})
+
+test('lane-record: the relayed line of the record step carries the exit code and no stdout of aco lane-record check', async () => {
+  const printedLine = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'lane-record-line-')), 'line')
+  const teeing = { record_command: (command) => `${command} | tee ${printedLine}` }
+  const { result } = await runLane(resumeArgs, { ...reachesTheEnd, 'r0-review': APPROVE, 'record-1': teeing })
+  assert.equal(result.record, recordFile)
+  const relayed = JSON.parse(fs.readFileSync(printedLine, 'utf8')).v
+  assert.equal(relayed.check.code, 0)
+  assert.equal('out' in relayed.check, false)
 })
 
 test('lane-record: a record is written once for a lane that ends once', async () => {

@@ -1,0 +1,8 @@
+claim_id = "45e8e4964039456fbd9c78d2417a8fed"
+agent = "Claude 30ec126a-30e5-431d-a4c3-088d393726d4"
+role = "builder"
+base = "cb4e2db95147f5f947fcd93b0a9275550a5acd89"
+branch = "claude/issue-807-removal-judged-from-git"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/lane", "plugins/atelier/workflows/lane.js", "plugins/atelier/workflows/lane.md", "tests"]
+opened_commit = "0176c8fcd1326e0031656e0b6e93d15b6d389e61"
+whole_reason = "The removal proof runs through the fix printer, the relay judge, the raiser brief, the generated bundle and their tests."

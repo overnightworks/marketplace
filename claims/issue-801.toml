@@ -1,8 +1,0 @@
-claim_id = "47a90b4f06564ac1973e0aa8a8ca927f"
-agent = "Claude 30ec126a-30e5-431d-a4c3-088d393726d4"
-role = "builder"
-base = "3a4cd518de88b6ba807ccfaeec9a763a97e00639"
-branch = "claude/issue-801-wait-operator-holds"
-scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/skills/aco/SKILL.md"]
-opened_commit = "defce58516cd1e860cda53f28d7261a35ddf0384"
-whole_reason = "One skill's wait wording changes together with the three version files."

@@ -1,8 +1,0 @@
-claim_id = "2a7398726edb4b0daac7ebb996552d6b"
-agent = "Claude 30ec126a-30e5-431d-a4c3-088d393726d4"
-role = "builder"
-base = "04858a8274bd3e38af23d747c1bff87d99286419"
-branch = "claude/issue-825-item-edit-base"
-scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/skills/aco/SKILL.md"]
-opened_commit = "31fecd1b7a6d11881a0aca3d923c757448fa3d69"
-whole_reason = "One skill's body-write paths plus the version raise every plugin change needs."

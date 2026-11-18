@@ -1,0 +1,8 @@
+claim_id = "0f553553d5fb4b63856f8a1c98af7cab"
+agent = "Claude 30ec126a-30e5-431d-a4c3-088d393726d4"
+role = "builder"
+base = "1c1bce20c08dc1e4c57255ebc31572b52bad5451"
+branch = "claude/issue-805-board-answer-clears-step"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/skills/aco/SKILL.md"]
+opened_commit = "675a4a902341bfab6d386fc72aaf0f5fd7495b13"
+whole_reason = "One skill sentence plus the three version files the plugin rule requires."

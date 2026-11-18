@@ -41,7 +41,7 @@ export async function laneRelay(A) {
     'ran.update({"log":run("gh","run","view","--job",verdict_jobs[0],*target(rest[1]),"--log")} if verdict_jobs else {})',
     'brief=json.loads(ran["brief"].stdout) if "brief" in ran and ran["brief"].returncode==0 else None',
     'claim=brief and brief["outside_claim"]',
-    String.raw`values={n:{"code":p.returncode,**({"err":e} if ((e:=" ".join(l for l in p.stderr.splitlines() if l[:5]!="hint:")[-300:]) or step!="ci") and (n!="log" or p.returncode) else {}),**({} if n in("brief","view","checks","rules","runs","log","changed","headruns") else {"out":p.stdout.strip()[:100]} if n[:4]!="diff" else {"size":len(p.stdout.strip())})} for n,p in ran.items()}`,
+    'values={n:{"code":p.returncode,**({"err":e} if ((e:=" ".join(l for l in p.stderr.splitlines() if l[:5]!="hint:")[-300:]) or step!="ci") and (n!="log" or p.returncode) else {}),**({} if n in("brief","view","checks","rules","runs","log","changed","headruns") else {"out":p.stdout.strip()[:100]} if n[:4]!="diff" else {"size":len(p.stdout.strip())})} for n,p in ran.items()}',
     'parsed=lambda n:json.loads(ran[n].stdout) if n in ran and ran[n].returncode==0 else None',
     'view,listing,rules,pages=parsed("view"),parsed("checks"),parsed("rules"),parsed("runs")',
     'listing=listing and sorted(listing,key=lambda c:(c["name"],c["bucket"]))',
@@ -213,7 +213,9 @@ export async function laneRelay(A) {
   // A proof with a gap beside a valid proof for its finding reaches the raiser as a note, so it can judge whether the proof misleads.
   const removalNote = ({ proof, finding }) => {
     const { range, path, size } = proof.removal
-    return `\nThe fixer answered ${finding.where} by removing code or a test instead of changing behaviour; judge whether what was removed was dead or pinned no behaviour. Read the removal yourself: git log -p --first-parent --remerge-diff ${range}${path ? ` -- ${path}` : ''} (${size} characters${path ? '' : ', the whole range, because the finding names no path'}).`
+    const pathArgument = path ? ` -- ${path}` : ''
+    const scope = path ? '' : ', the whole range, because the finding names no path'
+    return `\nThe fixer answered ${finding.where} by removing code or a test instead of changing behaviour; judge whether what was removed was dead or pinned no behaviour. Read the removal yourself: git log -p --first-parent --remerge-diff ${range}${pathArgument} (${size} characters${scope}).`
   }
   const supportingNote = ({ proof, finding, gap }) => `\nThe fixer also offered the test ${proof.test} for ${finding.where}, though it shows less than the bar: ${gap}; judge whether it misleads.`
   // The half of a proof the fixer did not run, for the raiser to judge from the test's text; CI on the tip runs the test.

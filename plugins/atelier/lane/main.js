@@ -110,7 +110,10 @@ const FINDING = {
 const FOLLOWUP = {
   type: 'object',
   required: ['where', 'text', 'owner'],
-  properties: { where: { type: 'string' }, text: { type: 'string' }, owner: { type: 'string', description: 'owning item #n, or "distributor"' } },
+  properties: {
+    where: { type: 'string' }, text: { type: 'string' }, owner: { type: 'string', description: 'owning item #n, or "distributor"' },
+    stage: { type: 'string', enum: FINDING_STAGE_NAMES, description: 'the stage that raised it; the lane sets it on every follow-up it reports' },
+  },
 }
 // An entry of the wrong shape (a bare string, a missing field) would reach the fixer as "undefined" fields, so the input check names it first.
 // A finding of a run that predates kinds lacks kind, which kindOf defaults.
@@ -122,7 +125,9 @@ const badEntry = (name, entries, schema) => {
   if (entries === undefined) return null
   if (!Array.isArray(entries)) return `${name} must be a list`
   const index = entries.findIndex(entry => missingFields(entry, schema) !== 'lacks ')
-  return index < 0 ? null : `${name}[${index}] ${missingFields(entries[index], schema)}: each entry needs ${requiredFields(schema).join(', ')} as non-empty strings`
+  if (index >= 0) return `${name}[${index}] ${missingFields(entries[index], schema)}: each entry needs ${requiredFields(schema).join(', ')} as non-empty strings`
+  const unstaged = entries.findIndex(entry => entry.stage !== undefined && !FINDING_STAGE_NAMES.includes(entry.stage))
+  return unstaged < 0 ? null : `${name}[${unstaged}] has the stage ${JSON.stringify(entries[unstaged].stage)}: a stage is one of ${FINDING_STAGE_NAMES.join(', ')}`
 }
 const entryProblem = badEntry('fixFirst', A.fixFirst, FINDING) || badEntry('foldIn', A.foldIn, FOLLOWUP)
 if (entryProblem) return { status: 'failed', stage: 'input', reason: entryProblem }
@@ -397,6 +402,8 @@ async function fixRoundStop(blocking, budgetKey) {
 // The head named the items it passes as foldIn, so the wording filter does not second-guess them.
 const namedByHead = new Set((A.foldIn || []).map(findingKey))
 const inPlaceFollowups = () => openFollowups().filter(f => namedByHead.has(findingKey(f)) || /fix in place/i.test(`${f.owner} ${f.text}`))
+// A round that fixes only fold-ins counts under the first stage, in review, gate, ci, test order, that raised one of them; a fold-in without a stage names none.
+const foldInStage = (foldIn) => FINDING_STAGE_NAMES.find(name => foldIn.some(f => f.stage === name))
 const listFoldIns = (foldIn) => foldIn.map(f => `- ${f.where} — ${f.text}`).join('\n')
 // The reviewer sees which follow-ups the fixer was given, so it can tell a skipped one from a done one.
 const foldInsInRange = (foldIn) => foldIn.length ? `\nThe fixer was also given these follow-ups to fold in; check each is done:\n${listFoldIns(foldIn)}` : ''
@@ -458,8 +465,8 @@ async function fixRound(blocking, source, budgetKey, carried, stage = budgetKey)
   if (stop) return { stop }
   spent[budgetKey]++
   spent.total++
-  fixRoundsByStage[stage]++
   const foldIn = inPlaceFollowups()
+  fixRoundsByStage[blocking.length ? stage : foldInStage(foldIn) ?? stage]++
   phase('Fix')
   const role = fixerRole(blocking, foldIn)
   fixRolesRun.push(role)
@@ -478,6 +485,9 @@ async function fixRound(blocking, source, budgetKey, carried, stage = budgetKey)
   if (answered.outcome === 'rejected') return unaccepted(await openResult('failed', 'fix', answered.rejection))
   const accepted = await acceptFix(answered, blocking, foldIn)
   if (accepted.stop) return unaccepted(accepted.stop)
+  // The fixer's proof that a fix changes no behaviour is what lets a deterministic CI finding stay out of the record's misses.
+  const unchanged = (answered.noBehaviourChange || []).map(number => blocking[number - 1]?.where).filter(Boolean)
+  if (unchanged.length) history.push({ after: spent.total, by: 'fix-proof', unchanged })
   const { deltaFrom, note } = scopeOrigin(carried, tipBeforeFix)
   const scopeStop = await pushAndCheckScope(`scope-${spent.total}`, { note, deltaFrom })
   if (scopeStop) return unaccepted(scopeStop.stop)
@@ -729,7 +739,7 @@ while (true) {
     const stop = await settleTest(ci, ci.green || sharedOnly || Boolean(ci.operatorDoor))
     if (stop) return stop
   }
-  history.push({ after: spent.total, by: `ci-${n - 1}`, verdict: ci.proven ? 'GREEN' : 'RED', blocking: (ci.failing || []).map(f => f.where) })
+  history.push({ after: spent.total, by: `ci-${n - 1}`, verdict: ci.proven ? 'GREEN' : 'RED', blocking: (ci.failing || []).map(f => f.where), deterministic: (ci.failing || []).filter(f => f.deterministic === true).map(f => f.where) })
   if (ci.runsError) return await openResult('failed', 'ci', { reason: `the workflow runs of the pull request head could not be read: ${ci.runsError}` })
   if (ci.changedError) return await openResult('failed', 'ci', { reason: `the changed files of the pull request could not be listed: ${ci.changedError}` })
   if (ci.rulesError) return await openResult('failed', 'ci', { reason: `the required checks of the base branch could not be read: ${ci.rulesError}` })

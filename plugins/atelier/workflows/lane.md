@@ -82,7 +82,11 @@ The lane needs a repository that coordinates with aco, after the head ran
   is `defect`, `test-gap` or `docs`, `rule` the rule it breaks, `text` and
   `evidence` what is wrong and how it shows; `testDraft` (a path) is optional.
 - `foldIn`: none. `Followup[]`, follow-ups for that fixer, each handed over
-  whatever its owner or wording; given alone it still starts the fixer.
+  whatever its owner or wording; given alone it still starts the fixer. A
+  follow-up has an optional `stage` (`review`, `gate`, `ci` or `test`), the stage
+  that raised it; every follow-up the lane reports carries it. A round that fixes
+  only fold-ins counts as a fix round under the first of their stages in that
+  order, and under the stage it would count under without one when none names a stage.
 - `experiment`: none. A tag of 1 to 40 lowercase letters, digits or hyphens,
   appended to the Routing line as `Experiment: <tag>`.
 
@@ -165,7 +169,10 @@ The result carries `routingLine`, the one Routing line the head pastes as is,
 (its `specs/lane-record.spec.md` owns the schema). The script builds the record from its own
 state: per stage the model and effort, the fix rounds and blocking findings by stage
 (`review`, `gate`, `ci`, `test`; a stand-in counts as gate), the risk class, the experiment tag
-and each review and gate verdict with the full sha it judged, the approving one last. No model retypes it: a
+the misses by stage (never above the blocking findings: a gate, CI or test finding raised after a
+review approved the range counts, except a gate finding of the approving review's own round and a CI finding
+whose check the CI reader marks `deterministic` and whose fix the fixer reports in `noBehaviourChange`; the
+review stage counts none), and each review and gate verdict with the full sha it judged, the approving one last. No model retypes it: a
 courier cuts it out of its own transcript into the file, compares its CRC32 with the script's, and only
 then runs `aco lane-record check`, whose exit comes back on a CRC-signed printer line. Every status
 a release can follow carries `record`. A record that fails the check turns `ready-to-land` into

@@ -54,7 +54,7 @@ export async function laneTest(A) {
       ...answer,
       emptyVerdictReason: emptyVerdictReason(answer),
       historyEntry: { by: `e2e-${A.n}`, verdict: blocking.length ? 'FAIL' : 'PASS', blocking: blocking.map(f => f.where), cells: answer.cells || [], reportPath: answer.evidencePath || '' },
-      followups: (answer.followups || []).map(f => ({ ...f, tip })),
+      followups: (answer.followups || []).map(f => ({ ...f, stage: 'test', tip })),
     }
   }
 

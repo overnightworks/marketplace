@@ -16,3 +16,13 @@ test('a tester answer without a verdict fails the lane at test naming what came 
   assert.deepEqual([result.status, result.stage], ['failed', 'test'])
   assert.match(result.reason, /lane-test answered without a verdict.*surprise/)
 })
+
+test('every follow-up the lane reports names the stage that raised it', async () => {
+  const note = (where, owner = '#9') => ({ where, text: `note on ${where}`, owner })
+  const args = { ...resumedLane, risk: 'material', productionPaths: ['src/'], routing: { gate: { model: 'opus', effort: 'high' } } }
+  const { result } = await runLane(args, {
+    'r0-review': { ...APPROVE, followups: [note('a.py:1')] }, 'r0-gate': { ...APPROVE, followups: [note('b.py:1')] },
+    'e2e-0': { ...PASS, followups: [note('c.py:1')] }, 'ci-0': greenCi(resumedLane.tip),
+  })
+  assert.deepEqual(Object.fromEntries(result.followups.map(f => [f.where, f.stage])), { 'a.py:1': 'review', 'b.py:1': 'gate', 'c.py:1': 'test' })
+})

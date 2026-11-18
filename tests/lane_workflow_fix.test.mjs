@@ -76,7 +76,7 @@ test('a fix that only merged main with a fold-in ends awaiting-head, folds nothi
   })
   assert.deepEqual([result.status, result.stage], ['awaiting-head', 'record'])
   assert.deepEqual(result.folded, [])
-  assert.deepEqual(result.followups, [{ ...foldIn, tip: built }])
+  assert.deepEqual(result.followups, [{ ...foldIn, stage: 'review', tip: built }])
 })
 
 test('a stopped fix reports the fold-ins its fixer found already done, and leaves them open', async () => {

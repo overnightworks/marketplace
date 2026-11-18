@@ -238,9 +238,6 @@ const defectWithDraft = { ...finding('t.py:1', 'the code breaks the rule'), kind
 
 const proofOf = (finding, overrides) => ({ finding, test: 't.py [case]', failedBefore: false, passesAfter: true, ...overrides })
 
-// What the fake git prints for a path the fixer's commits touch.
-const readRemovalDiff = '-removed in t.py'
-
 const rejectedForNoProof = /test-gap finding or a defect with a test draft got no regression test/
 
 const proofsByNumber = [
@@ -385,27 +382,28 @@ for (const [behaviour, answered, shownAsRemoval] of removalsByFindingKind) {
     const { agentCalls } = await runLane({ ...resumeArgs, fixFirst: [answered] }, { 'fix-1': { ...resumeFix, regression, touched_paths: ['t.py'] } })
     const prompt = agentCalls['r1-review'].prompt
     assert.equal(/removing code or a test.*judge whether what was removed was dead or pinned no behaviour/.test(prompt), shownAsRemoval)
-    assert.equal(prompt.includes(readRemovalDiff), shownAsRemoval)
+    assert.equal(prompt.includes(` -- t.py (`), shownAsRemoval)
     assert.equal(prompt.includes(`answered ${answered.where} by removing`), shownAsRemoval)
   })
 }
 
-test('a docs finding answered as removed reaches the re-check with the diff read for its path', async () => {
+test('a docs finding answered as removed reaches the re-check with the command that reads the diff of its path', async () => {
   const regression = [proofOf(1, { resolution: 'removed' })]
   const { agentCalls } = await runLane({ ...resumeArgs, fixFirst: [docsFinding] }, { 'fix-1': { ...resumeFix, regression, touched_paths: ['README.md'] } })
   const prompt = agentCalls['r1-review'].prompt
-  assert.ok(prompt.includes('-removed in README.md'))
+  assert.match(prompt, /git log -p --first-parent --remerge-diff [0-9a-f]+\.\.[0-9a-f]+ -- README\.md \(\d+ characters\)/)
+  assert.ok(!prompt.includes('-removed in'))
   assert.ok(prompt.includes(`answered ${docsFinding.where} by removing`))
 })
 
-test('with two findings on different paths, the removal shows the diff of its own path and not the first finding', async () => {
+test('with two findings on different paths, the removal names the path of its own finding and not the first finding', async () => {
   const first = { ...testGap, where: 'a.py:1' }
   const second = { ...testGap, where: 'b.py:1' }
   const regression = [proofOf(1, { mutation: 'drop the guard' }), proofOf(2, { resolution: 'removed' })]
   const { agentCalls } = await runLane({ ...resumeArgs, fixFirst: [first, second] }, { 'fix-1': { ...resumeFix, regression, touched_paths: ['a.py', 'b.py'] } })
   const prompt = agentCalls['r1-review'].prompt
-  assert.ok(prompt.includes('-removed in b.py'))
-  assert.ok(!prompt.includes('-removed in a.py'))
+  assert.match(prompt, / -- b\.py \(/)
+  assert.ok(!prompt.includes(' -- a.py'))
 })
 
 // The contract stops the fix loop at the final gate's third consecutive REVISE; the ordinary reviewer is bound by the budgets only.

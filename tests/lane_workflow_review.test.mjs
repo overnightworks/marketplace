@@ -566,7 +566,7 @@ test('gate-stand-in: the stand-in is given the removal diff and the fold-ins the
   })
   assert.equal(result.status, 'ready-to-land', result.reason)
   const prompt = agentCalls['r1-standin'].prompt
-  assert.ok(prompt.includes(`-removed in ${testGapFinding.where.replace(/:\d+$/, '')}`))
+  assert.ok(prompt.includes(` -- ${testGapFinding.where.replace(/:\d+$/, '')} (`))
   assert.match(prompt, /judge whether what was removed was dead or pinned no behaviour/)
   assert.ok(prompt.includes(tidy.text))
 })

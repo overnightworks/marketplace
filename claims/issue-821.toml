@@ -1,0 +1,8 @@
+claim_id = "19b00283f5d9449496f7a88b9f50cf22"
+agent = "Claude 30ec126a-30e5-431d-a4c3-088d393726d4"
+role = "builder"
+base = "139d5afb9fcd79a3d52bd1597de467171f922874"
+branch = "claude/issue-821-finding-path-colon-symbol"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/lane/main.js", "plugins/atelier/workflows/lane.js", "tests"]
+opened_commit = "61c2e4a9e59e00589fc60afce5b2d188dc8d0183"
+whole_reason = "One parsing rule, its test, the generated bundle and the version raise."

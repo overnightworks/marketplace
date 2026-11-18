@@ -1,0 +1,8 @@
+claim_id = "0a5b4bced142464d8d5e161f0b165a28"
+agent = "Claude 30ec126a-30e5-431d-a4c3-088d393726d4"
+role = "builder"
+base = "e4c6d1366e328e3b0b28bf9900886f2c150a80c9"
+branch = "claude/issue-809-lane-record-file"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/lane", "plugins/atelier/skills/aco/SKILL.md", "plugins/atelier/workflows/lane.js", "plugins/atelier/workflows/lane.md", "tests"]
+opened_commit = "6da2f0df0d2808a59e0da40eb0298f23c6cb1315"
+whole_reason = "The record is built across the lane's result, courier and routing code, and its docs, bundle and tests change together."

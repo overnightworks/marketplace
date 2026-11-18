@@ -205,13 +205,15 @@ or hal is unfrozen.
 
 | File | Type | Reader's question | Length | Picture | Carried |
 |---|---|---|---|---|---|
-| `README.md` | README | What is this, for whom, how do I start, where do I read on? | ≤ 150 lines | at most one context diagram; a screenshot where there is a surface | every repository; quick start is a section, not its own file |
+| `README.md` | README | What is this, for whom, how do I start, where do I read on? | ≤ 1250 words | at most one context diagram; a screenshot where there is a surface | every repository; quick start is a section, not its own file |
 | `AGENTS.md` | Agent guidance | What must I know here that neither the code nor the global contract tells me? | ≤ 100 lines and ≤ 4 KiB; `CLAUDE.md` = `@AGENTS.md` | none | every repository |
-| `docs/VISION.md` | Vision | Why does it exist, for whom today, what is it deliberately not? | ≤ 40 lines | none | every repository |
-| `docs/ARCHITECTURE.md` | Architecture overview (arc42-lite) | Which parts, who talks to whom, where are the boundaries and the trust? | ≤ 200 lines, with the sections of the skeleton above | context and container diagram, one sequence diagram for the core flow | every repository; a small repository keeps it to a few lines and one diagram |
+| `docs/VISION.md` | Vision | Why does it exist, for whom today, what is it deliberately not? | ≤ 500 words | none | every repository |
+| `docs/ARCHITECTURE.md` | Architecture overview (arc42-lite) | Which parts, who talks to whom, where are the boundaries and the trust? | ≤ 2200 words, with the sections of the skeleton above | context and container diagram, one sequence diagram for the core flow | every repository; a small repository keeps it to a few lines and one diagram |
 | `docs/<contract>.md` | Reference | What exactly does the contract promise, and which test proves each rule? | one contract per file | state or sequence diagram only where the order is the rule | where others implement a contract, or where an app's own surface carries ruled sentences; generated where derivable; each rule carries the ID its test cites |
 | `docs/runbooks/<task>.md` | Runbook | Which command when, and how do I see it worked? | one task, one screen | flow chart for diagnosis | always for infrastructure, elsewhere where a reader operates something |
 | `docs/mockups/<surface>.html` | Mockup | What does the blessed surface look like? | one file per surface | it is the picture | from the operator's blessing until the landing that finishes its surface |
+
+A word budget counts every word of the file, split at white space, fenced code and diagrams included.
 
 `AGENTS.md` has one shape, at the repository root only (the marketplace's
 `instructions/AGENTS.md` is the contract, not a repository file):

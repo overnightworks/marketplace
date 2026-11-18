@@ -175,7 +175,9 @@ contract and this skill.
   shows that one item, open or closed, and refuses a pull request number
   (`specs/rulings.spec.md`).
 - Mark a step only the operator can take with the `step` tool of `aco mcp`, on the item
-  it belongs to, or with a `title` when no open item holds it (`specs/mcp.spec.md`). The
+  it belongs to, or with a `title` when no open item holds it. It takes `purpose`,
+  `actions` and `expected` (`answer` optional) and refuses a call without them
+  (`specs/mcp.spec.md`). The
   tool writes the block's `wait.operator` beside the label `needs-operator` and never
   removes either: once he says the step is done, the head removes the label and the
   `wait` and rewrites the block's `next` in the same edit, so `next` stops naming his

@@ -1828,7 +1828,7 @@ return {
   ...gateUnseenView(), pathsOutsideClaim: passedOutsidePaths,
   requiredHeadActions: [
     ...(passedOutsidePaths.length ? [`write these paths into the scope of item #${A.item}'s body (and a one-sentence whole there when the combined scope is wide), then run \`${rescopeCommand}\` from ${A.worktree} before landing: these paths are outside the claim and passed the scope check`] : []),
-    `land with \`aco land ${pr}\` only while the pull request head is still ${tip}`,
+    `land with \`aco land ${pr} --head ${tip}\` only while the pull request head is still ${tip}`,
     ...(MATERIAL && isGateStandIn('gate', ROUTING.gate.model, ROUTING.gate.effort) ? [`name the Opus 5.5 stand-in as the final gate in the body of pull request #${pr}: the lane ran no Codex gate`] : []),
     ...(gateUnseen ? [`name ${gateUnseen.seenTip}..${tip} in the body of pull request #${pr}: the final gate, at its usage limit, did not see that range`] : []),
     ...(raisedBeforeTip(stillOpen).length ? ['re-check the follow-ups in raisedBeforeTip against the returned tip before routing them'] : []),

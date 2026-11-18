@@ -224,7 +224,7 @@ becomes its own item first (`aco cut`).
 
 ## Land
 
-Gates are green and you hold the tip the reviewers saw. Landing is delegated as a
+Gates are green and you hold the tip the reviewers saw. After a merge of the default branch into a ready-to-land lane the tip changed, so the head re-runs the lane with `pr`, the new `tip` and `deltaFrom` the judged tip, which yields a fresh record; a lane that wrote a record file never lands without `--record`. Landing is delegated as a
 named task, but the precondition is aco's. The landing task runs under the claim's
 identity. A subagent of the claiming head's own provider inherits it and passes neither
 `ACO_AGENT` nor `--agent`; an agent started through another provider's CLI (`grok`,

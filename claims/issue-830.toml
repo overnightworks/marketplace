@@ -1,0 +1,8 @@
+claim_id = "3de55bef03894045a4a12cb9f5dd97c4"
+agent = "Claude 30ec126a-30e5-431d-a4c3-088d393726d4"
+role = "builder"
+base = "544c53174249bb41a91979e9910e43f0c3fee873"
+branch = "claude/issue-830-record-courier"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/lane/relay.js", "plugins/atelier/workflows/lane.js", "tests"]
+opened_commit = "de6b9323565b0d34310d384aaedbfebf65b9f37a"
+whole_reason = "One printer change, its harness pin, the regenerated bundle and the three version files move together."

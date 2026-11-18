@@ -124,10 +124,10 @@ contract and this skill.
   idea label and replace the body with a work-item body (the fenced `aco`
   block); `aco claim` refuses an idea whose body still lacks the
   work-item block (`body incomplete`).
-- Forge issues are edited on the forge; `aco item edit` on a forge issue
-  refuses.
-- Read a body with `gh issue view <n> --json body --jq .body` and write it with
-  `gh issue edit <n> --body-file <file>` (a PR uses `gh pr view` and `gh pr edit`).
+- Read an item body with `aco item show <n> --json` (its `body` and `body_hash`) and
+  write the whole body with `aco item edit <n> --base <hash> < file`, under both
+  storages. A stale-base refusal means read again and apply your change to the new
+  body. A PR body uses `gh pr view` and `gh pr edit`.
 - Record each blocker as a GitHub issue dependency, never as a body line: `aco next`
   and `aco board` read only those (`specs/body-block.spec.md`). `gh api -X POST
   repos/<owner>/<repo>/issues/<n>/dependencies/blocked_by -F issue_id=<id>`, where
@@ -142,8 +142,8 @@ contract and this skill.
   `specs/body-block.spec.md`, "Option lines"), never as a yes/no line. Put it on an
   existing open item with the `ask` tool of `aco mcp` (`specs/mcp.spec.md`). A
   session without the tool, or a revision of a returned line, writes it by hand:
-  pipe the new body through `aco check -` first, then write it with `gh issue edit`
-  under `storage = "github"` or `aco item edit` under state-ref.
+  pipe the new body through `aco check -` first, then write it with
+  `aco item edit <n> --base <hash>`.
   Read `references/decision-cards.md` before writing or revising a card: it holds
   the judgement `aco check` cannot make.
 - After `ask`, start `aco wait <n> --line <k>` as a background command (the flag
@@ -191,9 +191,6 @@ contract and this skill.
   by editing the body (`specs/withdraw.spec.md`); it refuses a ruled line. Withdrawing a
   returned line drops the operator's note, so carry that note into the line that replaces
   it first.
-- A GitHub body has no compare-and-swap: re-read it right before writing, diff old
-  against new so only your own lines differ, and afterwards check with `aco rulings`
-  that every other line kept its state.
 
 ## Pull request body
 

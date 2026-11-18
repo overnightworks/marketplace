@@ -1,0 +1,8 @@
+claim_id = "4efce90f5cdc49f7997caf29085cec43"
+agent = "Claude 30ec126a-30e5-431d-a4c3-088d393726d4"
+role = "builder"
+base = "f518dc25d935a9adb78dc97fef98a01ca753c46e"
+branch = "claude/issue-815-step-answer-keeps-next"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/skills/aco/SKILL.md"]
+opened_commit = "13e5a25f87b77a39151124d1f65955e7e1815c82"
+whole_reason = "One skill sentence plus the version raise every plugin change needs."

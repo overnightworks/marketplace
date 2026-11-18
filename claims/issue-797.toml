@@ -1,8 +1,0 @@
-claim_id = "b549dbbae9cb4099af78457dd7817b48"
-agent = "Claude 30ec126a-30e5-431d-a4c3-088d393726d4"
-role = "builder"
-base = "aa08b4fd47f2598faa8699bd1efc02f31020c10c"
-branch = "claude/issue-797-document-budgets-count-words"
-scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/skills/write-docs/references/document-types.md"]
-opened_commit = "be66dfb3cfc7329278b8ca304013161533aa07e5"
-whole_reason = "One table change plus the version raise every plugin change needs."

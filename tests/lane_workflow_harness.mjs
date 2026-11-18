@@ -45,9 +45,9 @@ case "$1 $2" in
   *) fail 1 "unexpected gh call $*" ;;
 esac
 `
-// aco lane-record check reads its file alone: it counts no call and meets no network failure; FAKE_RECORD_ERROR makes it refuse the file as aco does.
+// aco lane-record check reads its file alone: it counts no call and meets no network failure; it prints the file path on success and FAKE_RECORD_ERROR makes it refuse the file, as aco does.
 export const FAKE_ACO = `#!/bin/sh
-[ "$1" != lane-record ] || { [ -z "$FAKE_RECORD_ERROR" ] || { printf '%s\\n' "$FAKE_RECORD_ERROR" >&2; exit 2; }; exit 0; }
+[ "$1" != lane-record ] || { [ -z "$FAKE_RECORD_ERROR" ] || { printf '%s\\n' "$FAKE_RECORD_ERROR" >&2; exit 2; }; printf 'lane record %s\\n' "$3"; exit 0; }
 ${NETWORK_DOWN}[ -z "$FAKE_BRIEF_ERROR" ] || printf '%s\\n' "$FAKE_BRIEF_ERROR" >&2
 printf '%s' "$FAKE_BRIEF_OUTPUT"
 [ -z "$FAKE_BRIEF_ERROR" ]

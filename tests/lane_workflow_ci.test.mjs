@@ -697,6 +697,19 @@ for (const [what, answers, expected] of testerRounds) {
   })
 }
 
+test('tester-delta: a CI fix that moves the tip while the first tester runs leaves the range at the tip that round started on', tolerates, async () => {
+  const tester = heldTester()
+  const answers = {
+    ...roundReviews,
+    'r0-review': APPROVE, 'e2e-0': tester.answer, 'e2e-1': PASS,
+    'ci-0': roundRed(0), 'ci-1': () => { tester.resolve(PASS); return greenCi(roundTip(1)) }, 'ci-2': greenCi(roundTip(1)),
+    'ci-read-1': { pr_head: roundTip(1), checks: greenCi(roundTip(1)).checks, required: ['quality / verdict'] }, 'fix-1': { ...resumeFix, head: roundTip(1), files: ['src/x.py'], regression: [] },
+  }
+  const { agentCalls, result } = await runLane(resumeArgs, answers)
+  assert.equal(result.status, 'ready-to-land', result.reason)
+  assert.ok(agentCalls['e2e-1'].prompt.includes(fixRangeText(resumeArgs.tip)), 'the second tester prompt lacks the first round start')
+})
+
 test('tester-delta: a CI-only fix after a tester PASS lists no findings in the range', tolerates, async () => {
   const { agentCalls } = await runLane(resumeArgs, { 'r0-review': APPROVE, ...testerRounds[1][1]() })
   assert.doesNotMatch(agentCalls['e2e-1'].prompt, /\n1\. /)

@@ -544,7 +544,8 @@ async function laneRelay(A) {
   const removalNote = ({ proof, finding }) => {
     const { range, path, untouchedPath, size } = proof.removal
     const pathArgument = path ? ` -- ${path}` : ''
-    const scope = path ? '' : untouchedPath ? `, the whole range, because ${untouchedPath} carries no diff` : ', the whole range, because the finding names no path'
+    const wholeRangeReason = untouchedPath ? `${untouchedPath} carries no diff` : 'the finding names no path'
+    const scope = path ? '' : `, the whole range, because ${wholeRangeReason}`
     return `\nThe fixer answered ${finding.where} by removing code or a test instead of changing behaviour; judge whether what was removed was dead or pinned no behaviour. Read the removal yourself: git log -p --first-parent --remerge-diff ${range}${pathArgument} (${size} characters${scope}).`
   }
   const supportingNote = ({ proof, finding, gap }) => `\nThe fixer also offered the test ${proof.test} for ${finding.where}, though it shows less than the bar: ${gap}; judge whether it misleads.`
@@ -614,7 +615,7 @@ async function laneRelay(A) {
       const finding = blocking[proof.finding - 1]
       const path = finding ? A.findingPath(finding.where) : ''
       const ofPath = path ? values[`diff${A.sentPaths.indexOf(path)}`] : null
-      const untouched = path && !(ofPath?.size > 0)
+      const untouched = path && !ofPath?.size
       const measured = path && !untouched ? ofPath : values.diffall
       return { size: finding ? measured?.size ?? 0 : 0, path: untouched ? '' : path, untouchedPath: untouched ? path : '', range }
     }

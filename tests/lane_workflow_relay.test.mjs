@@ -296,7 +296,17 @@ const mergeWithEvilEdit = (lane) => () => {
   lane.git(lane.worktree, 'commit', '-m', 'merge main')
 }
 
+const mergeCarryingTheFix = (lane) => () => {
+  lane.advanceMain('main-file')
+  lane.git(lane.worktree, 'fetch', 'origin')
+  lane.git(lane.worktree, 'merge', '--no-commit', '--no-ff', 'origin/main')
+  fs.writeFileSync(path.join(lane.worktree, 'fix-file'), 'the fix inside the merge')
+  lane.git(lane.worktree, 'add', 'fix-file')
+  lane.git(lane.worktree, 'commit', '-m', 'merge main')
+}
+
 const fixShapes = [
+  ['AC-merge-carrying-fix-real-git: a merge of main that also holds the fix', mergeCarryingTheFix, /\+the fix inside the merge/],
   ['AC-fix-then-merge-real-git: a fix commit followed by a merge of main', fixThenMerge, /diff --git a\/fix-file/],
   ['AC-merge-then-fix-real-git: a merge of main followed by a fix commit', mergeThenFix, /diff --git a\/fix-file/],
   ['AC-evil-merge-real-git: a merge of main amended with an extra lane edit', mergeWithEvilEdit, /\+evil lane edit/],

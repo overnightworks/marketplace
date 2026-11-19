@@ -21,6 +21,8 @@ case "$1 $2" in
   "rev-parse HEAD") [ "$FAKE_HEAD_CODE" = 0 ] || { printf 'fatal: bad revision\\n' >&2; exit "$FAKE_HEAD_CODE"; }; printf '%s\\n' "$FAKE_HEAD" ;;
   "branch --show-current") [ "$FAKE_BRANCH_CODE" = 0 ] || { printf 'fatal: not a git repository\\n' >&2; exit "$FAKE_BRANCH_CODE"; }; printf '%s\\n' "$FAKE_BRANCH" ;;
   "rev-parse HEAD^@") printf '%s\\n' "$FAKE_PARENTS" ;;
+  "rev-parse HEAD^{tree}") printf '%s\\n' "$FAKE_TREE" ;;
+  "merge-tree --write-tree") printf '%s\\n' "$FAKE_MERGE_TREE"; exit "$FAKE_MERGE_TREE_CODE" ;;
   "log -p") for last; do :; done; case "$last" in *..HEAD) [ -z "$FAKE_TOUCHED" ] || printf -- '-removed in the range\\n' ;; *) printf '%s\\n' "$FAKE_TOUCHED" | grep -qxF -- "$last" && printf -- '-removed in %s\\n' "$last" ;; esac ;;
   "merge-base --is-ancestor") exit "$FAKE_MAIN_CODE" ;;
   "rev-parse origin/"*) printf '%s\\n' "$FAKE_REMOTE" ;;
@@ -132,7 +134,7 @@ export async function runLane(args, answers = {}, options = {}) {
     const line = prompt.split('\n').at(-1).replace(/^cd '[^']*' && /, '')
     const env = {
       ...process.env, PATH: `${fakeCommands()}:${process.env.PATH}`, FAKE_HEAD: scenario.head ?? newestTip, FAKE_BRANCH: scenario.branch ?? args.branch, FAKE_BRANCH_CODE: scenario.branch_code ?? 0, FAKE_REMOTE: scenario.remote_tip ?? newestTip,
-      FAKE_HEAD_CODE: scenario.head_code ?? 0, FAKE_PARENTS: (scenario.parents ?? []).join('\n'), FAKE_MAIN_CODE: scenario.main_code ?? 0, FAKE_TOUCHED: (scenario.touched_paths ?? []).join('\n'),
+      FAKE_HEAD_CODE: scenario.head_code ?? 0, FAKE_PARENTS: (scenario.parents ?? []).join('\n'), FAKE_MAIN_CODE: scenario.main_code ?? 0, FAKE_TREE: scenario.tree ?? 'a1a1a1a1', FAKE_MERGE_TREE: scenario.merge_tree ?? scenario.tree ?? 'a1a1a1a1', FAKE_MERGE_TREE_CODE: scenario.merge_tree_code ?? 0, FAKE_TOUCHED: (scenario.touched_paths ?? []).join('\n'),
       FAKE_PUSH_ERROR: scenario.push_error ?? '', FAKE_NETWORK_ERROR: scenario.network_error ?? '', FAKE_NETWORK_STDOUT: scenario.network_stdout ?? '', FAKE_NETWORK_FAILS: scenario.network_fails ?? 1, FAKE_BRIEF_ERROR: scenario.brief_error ?? '',
       FAKE_RECORD_ERROR: scenario.record_error ?? '', FAKE_BRIEF_OUTPUT: JSON.stringify({ outside_claim: 'outside_claim' in scenario ? scenario.outside_claim : [] }), ...ghEnv(scenario),
     }

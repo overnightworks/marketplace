@@ -1,0 +1,8 @@
+claim_id = "74eba6ee1237400fb700cf0bda95f0e9"
+agent = "Claude 57d5a480-511e-4e68-ac3e-58f0f400e3c5"
+role = "builder"
+base = "655d2ed77d663ce93c2f7490c79a43e48dcb4d73"
+branch = "claude/issue-572-a-probe-the-fixer-has-since-acted-on-sto"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/lane/relay.js", "plugins/atelier/workflows/lane.js", "tests/lane_workflow_fix.test.mjs"]
+opened_commit = "6772626f2efa982d2bf9377b0ba40c1c8a56f5a6"
+whole_reason = "The judging rule, its regenerated bundle, its tests and the version files change together."

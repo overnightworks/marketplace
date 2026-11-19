@@ -302,7 +302,7 @@ async function checkpointOrFail(stage, startRef, failure, fixer) {
   const pushStop = await pushAndCheckScope(`scope-checkpoint-${stage}-${spent.total}`, unreviewed)
   const resumeFix = fixer
     ? { fixFirst: fixer.blocking }
-    : { fixFirst: [{ where: 'the build brief', kind: 'defect', text: 'The builder ended without a result, so the checkpoint is unfinished: complete the build brief against it. The brief follows.', rule: 'the build brief', evidence: `the builder's work is committed on ${A.branch} at ${tip} and the brief is not yet met:\n${A.build}` }] }
+    : { fixFirst: [{ where: CHECKPOINT_FINDING_WHERE, kind: 'defect', text: 'The builder ended without a result, so the checkpoint is unfinished: complete the build brief against it; when it already meets the brief with its checks green, change nothing and report briefMet. The brief follows.', rule: CHECKPOINT_FINDING_WHERE, evidence: `the builder's work is committed on ${A.branch} at ${tip} and the brief is not yet met:\n${A.build}` }] }
   const resume = { pr, tip, ...resumeFix }
   if (pushStop) return { ...pushStop.stop, resume }
   const openedDraft = fixer ? '' : ' and opened draft pull request #' + pr
@@ -490,7 +490,7 @@ async function fixRound(blocking, source, budgetKey, carried, stage = budgetKey)
   if (accepted.range || answered.satisfied) {
     foldIn.forEach(f => folded.set(findingKey(f), { ...f, tip: answered.tip, ...(answered.foldInEvidence[f.where] && { evidence: answered.foldInEvidence[f.where] }) }))
   }
-  return { ...accepted, foldIn, deltaFrom }
+  return { ...accepted, foldIn, deltaFrom, checkpointMet: answered.checkpointMet }
 }
 
 function newRunOf(origin) { return ['a new run with pr and tip', origin.deltaFrom && ` and deltaFrom ${origin.deltaFrom}`].filter(Boolean).join('') }
@@ -627,23 +627,25 @@ if (!carriesBatch && A.build) {
 }
 if (firstScopeCheck?.stop) return firstScopeCheck.stop
 // Re-entry after the head settled an awaiting-head result: review only the fix commits no reviewer has seen yet.
+const WHOLE_LANE = 'the whole lane: git diff origin/main...HEAD'
 const firstRange = A.deltaFrom
   ? `only this delta: git diff ${A.deltaFrom}..HEAD — fix commits made for earlier blocking findings that no reviewer has seen yet. They answer:\n${A.answers || '(see the commit messages in the range)'}`
-  : 'the whole lane: git diff origin/main...HEAD'
+  : WHOLE_LANE
 // Re-entry at the fix: the head hands over blocking findings from an earlier run (for example the tester's), and
 // in-place follow-ups to fold in. The delta the fixer makes is reviewed before the test and CI run again.
 if (carriesBatch) {
   followups.push(...(A.foldIn || []))
   const f = await fixRound(carriedOver, 'the head (carried over from the previous run)', 'test', true)
   if (f.stop) return f.stop
-  // Without deltaFrom the head has not said what reviewers saw, so the round covers the whole lane.
+  const asDelta = A.deltaFrom && !f.checkpointMet  // without deltaFrom the round covers the whole lane
+  const withoutFixRange = f.checkpointMet ? WHOLE_LANE : firstRange  // a complete checkpoint has no fix commits: review as a first build
   const wholeLane = f.range
     ? `${firstRange}. It includes the fixer's commits for the head's carried-over findings, described next as a delta to look at closely; review the whole lane, not only that delta:\n${f.range}`
-    : `${firstRange}${foldInsInRange(f.foldIn)}`
-  const range = A.deltaFrom
+    : `${withoutFixRange}${foldInsInRange(f.foldIn)}`
+  const range = asDelta
     ? `only this delta: git diff ${A.deltaFrom}..HEAD — fixes no reviewer has seen yet. They answer:\n${A.answers || ''}\n${listFindings(carriedOver)}${f.proofNotes}${foldInsInRange(f.foldIn)}`
     : wholeLane
-  const stop = await reviewUntilClean(ALL, range, f.deltaFrom)
+  const stop = await reviewUntilClean(ALL, range, asDelta ? f.deltaFrom : undefined)
   if (stop) return stop
 } else {
   const first = await reviewUntilClean(ALL, firstRange, A.deltaFrom)
@@ -763,10 +765,16 @@ while (true) {
   needTest ||= taken.length > 0 || productionSinceTest
 }
 
+// A pull request still titled as the unfinished checkpoint gets the item's title by a relay step over REST; a failed write is the head's.
+async function checkpointRenameActions() {
+  const relayed = await relay({ label: 'retitle', phase: 'Title', step: 'retitle', relayArgs: [pr, A.item, `'${A.repo || ''}'`, "'retitle'"], nonce: 'retitle', requiredKeys: ['title'], brief: `${laneFacts}\nChange nothing in the files;` })
+  const problem = checkpointRenameProblem(relayed, A.item)
+  return problem ? [`rename pull request #${pr} to the title of item #${A.item} (gh api -X PATCH repos/${A.repo || '{owner}/{repo}'}/pulls/${pr} -f title=...): it still carries the checkpoint title and the lane's write failed: ${problem}`] : []
+}
+
 const escapedQuote = String.raw`'\''`
 const shellQuoted = path => "'" + path.replaceAll("'", escapedQuote) + "'"
-const rescopeAdds = passedOutsidePaths.map(path => '--add ' + shellQuoted(path)).join(' ')
-const rescopeCommand = 'aco rescope ' + A.item + ' ' + rescopeAdds
+const rescopeCommand = 'aco rescope ' + A.item + ' ' + passedOutsidePaths.map(path => '--add ' + shellQuoted(path)).join(' ')
 const stillOpen = openFollowups()
 // A clean merge of main moves the tip without a verdict, and aco refuses a landing whose head the record's last verdict did not judge.
 const lastJudged = lastVerdictSha(history)
@@ -780,6 +788,7 @@ return {
   ...gateUnseenView(), pathsOutsideClaim: passedOutsidePaths,
   requiredHeadActions: [
     ...(passedOutsidePaths.length ? [`write these paths into the scope of item #${A.item}'s body (and a one-sentence whole there when the combined scope is wide), then run \`${rescopeCommand}\` from ${A.worktree} before landing: these paths are outside the claim and passed the scope check`] : []),
+    ...await checkpointRenameActions(),
     `land with \`aco land ${pr} --head ${tip} --record ${finalRecord.file}\` only while the pull request head is still ${tip}`,
     ...(MATERIAL && isGateStandIn('gate', ROUTING.gate.model, ROUTING.gate.effort) ? [`name the Opus 5.5 stand-in as the final gate in the body of pull request #${pr}: the lane ran no Codex gate`] : []),
     ...(gateUnseen ? [`name ${gateUnseen.seenTip}..${tip} in the body of pull request #${pr}: the final gate, at its usage limit, did not see that range`] : []),

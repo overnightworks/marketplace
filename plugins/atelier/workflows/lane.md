@@ -170,7 +170,14 @@ gpt-6-astra/high.
   findings, or after a build a finding that tells a fresh finisher to complete
   the build brief). When the checkpoint push hits the claim scope or fails, the
   result is the ordinary `scope` (or `failed`) result, now carrying `resume`. A
-  worktree with nothing new stays failed.
+  worktree with nothing new stays failed. A run resumed with that build
+  finding as its only `fixFirst` entry goes on to the review when the fixer
+  changes nothing and reports `briefMet`: the checkpoint is complete, and the
+  review judges the whole lane as for a first build, even when `deltaFrom` is
+  given. Any other finding a fixer leaves without a change still fails the
+  run at `fix`. Before `ready-to-land`, a pull request still titled
+  `Unfinished checkpoint of #<n>` gets the item's title by a relay step over
+  REST; when that write fails, `requiredHeadActions` name the rename.
 
 ## Result
 

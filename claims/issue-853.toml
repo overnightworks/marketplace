@@ -1,8 +1,0 @@
-claim_id = "7fc18f077b5446e986a1ed0dd3a8cd1e"
-agent = "Claude 57d5a480-511e-4e68-ac3e-58f0f400e3c5"
-role = "builder"
-base = "8445ace47a62af919d91447ac4ac658e2f2dd3b0"
-branch = "claude/issue-853-the-builder-s-reuse-search-is-a-required"
-scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/lane/build.js", "plugins/atelier/lane/main.js", "plugins/atelier/lane/review.js", "plugins/atelier/workflows/lane.js", "plugins/atelier/workflows/lane.md", "tests/lane_workflow_builder.test.mjs", "tests/lane_workflow_harness.mjs", "tests/lane_workflow_review.test.mjs"]
-opened_commit = "8a4f92ddd69c45f67122d1080370f58e9044279b"
-whole_reason = "The field, its brief, the reviewer's paragraph, the regenerated bundle, the reference, the tests and the version files change together."

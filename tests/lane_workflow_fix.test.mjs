@@ -519,6 +519,21 @@ for (const [what, shape] of fixerShapes) {
   })
 }
 
+// The relay reads the merge commit's tree and the tree git itself produces for its parents; only equal trees are a clean merge.
+const mergeShapes = [
+  ['a merge commit whose tree differs from git\'s own merge', { tree: 'b2b2b2b2', merge_tree: 'a1a1a1a1' }, true],
+  ['a merge git cannot merge cleanly', { merge_tree_code: 1 }, true],
+  ['a merge commit whose tree equals git\'s own merge', {}, false],
+]
+
+for (const [what, shape, changed] of mergeShapes) {
+  test(`${what} ${changed ? 'counts as the fixer\'s change and reaches the delta review' : 'still reads as merge-only'}`, async () => {
+    const { result, launchedAgents } = await runLane({ ...resumeArgs, fixFirst: [defectWithoutDraft] }, { 'fix-1': { ...mergeOnlyFix, ...shape, files: ['tests/x.test.mjs'] }, ...reachesTheEnd, 'ci-0': greenCi(mergedOnlyTip) })
+    assert.equal(launchedAgents.includes('r1-review'), changed)
+    if (!changed) assert.deepEqual([result.status, result.stage, result.reason], ['failed', 'fix', 'the fixer only merged main and fixed nothing'])
+  })
+}
+
 test('a fixer that only merged main fixes nothing when a review finding, not the merge, was the finding', async () => {
   const { result, launchedAgents } = await runLane({ ...resumeArgs, fixFirst: [defectWithoutDraft] }, { 'fix-1': mergeOnlyFix })
   assert.deepEqual([result.status, result.stage, result.reason], ['failed', 'fix', 'the fixer only merged main and fixed nothing'])

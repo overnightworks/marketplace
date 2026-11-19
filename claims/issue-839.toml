@@ -1,0 +1,8 @@
+claim_id = "59e1926ee90e47e78106008a270f55e4"
+agent = "Claude 57d5a480-511e-4e68-ac3e-58f0f400e3c5"
+role = "builder"
+base = "c55b434548eef2627d70743d7bc417be29f0c055"
+branch = "claude/issue-839-a-lane-whose-ci-watcher-hits-github-s-ra"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/lane/ci.js", "plugins/atelier/lane/main.js", "plugins/atelier/lane/relay.js", "plugins/atelier/lane/test.js", "plugins/atelier/workflows/lane.js", "plugins/atelier/workflows/lane.md", "tests/lane_workflow_ci.test.mjs", "tests/lane_workflow_relay.test.mjs"]
+opened_commit = "d9688a4a8576496f1b72d00325196efe6100028a"
+whole_reason = "The wait, the watcher brief, the regenerated bundle, the reference, the tests and the version files change together."

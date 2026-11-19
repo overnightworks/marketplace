@@ -1,7 +1,7 @@
 // The builder runs as laneBuild inside the lane script; a crash fails the lane at build naming it.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { runLane, resumedLane, built, partReplaced, resumeArgs, resumeFixedTip, resumeTip, olderTip, defectWithoutDraft } from './lane_workflow_harness.mjs'
+import { runLane, resumedLane, built, partReplaced, resumeArgs, resumeFixedTip, resumeTip, olderTip, defectWithoutDraft, unchangedFix, reachesTheEnd, APPROVE } from './lane_workflow_harness.mjs'
 
 const builtLane = { ...resumedLane, pr: undefined, tip: undefined, build: 'b' }
 
@@ -74,4 +74,48 @@ test('a carried fixer without a result whose checkpoint is outside the claim nam
   assert.equal(result.stage, 'scope')
   assert.match(result.reason, new RegExp(`deltaFrom ${olderTip}`))
   assert.deepEqual(result.resume.fixFirst, [blocking])
+})
+
+// The resume the lane hands out after a build checkpoint carries the lane's own finding.
+const checkpointFinding = async () => (await runLane(builtLane, { build: null, 'checkpoint-build': { work: true, pr: 7, head: checkpointTip } })).result.resume.fixFirst[0]
+
+const unchangedCheckpointRuns = [
+  ['the checkpoint finding alone and the brief reported met', (own) => [own], true, true],
+  ['the checkpoint finding alone and the brief not reported met', (own) => [own], false, false],
+  ['another finding alone and the brief reported met', () => [blocking], true, false],
+  ['the checkpoint finding beside another finding and the brief reported met', (own) => [own, blocking], true, false],
+]
+
+for (const [what, findings, briefMet, goesOn] of unchangedCheckpointRuns) {
+  test(`a fixer that changes nothing with ${what} ${goesOn ? 'reaches the review of the whole lane' : 'still ends the lane failed at fix'}`, async () => {
+    const fixFirst = findings(await checkpointFinding())
+    const { result, launchedAgents, agentCalls } = await runLane({ ...resumeArgs, deltaFrom: olderTip, fixFirst }, { ...reachesTheEnd, 'fix-1': { ...unchangedFix, briefMet } })
+    assert.deepEqual([result.status, result.stage], goesOn ? ['ready-to-land', undefined] : ['failed', 'fix'])
+    assert.equal(launchedAgents.includes('r1-review'), goesOn)
+    if (goesOn) {
+      assert.match(agentCalls['r1-review'].prompt, /the whole lane/)
+      assert.doesNotMatch(agentCalls['r1-review'].prompt, /only this delta/)
+    }
+  })
+}
+
+// Before ready-to-land a pull request still titled as the checkpoint gets the item's title.
+const titledRuns = [
+  ['the checkpoint title', { pr_title: `Unfinished checkpoint of #${resumedLane.item}` }, true],
+  ['a title of its own', { pr_title: 'Add the feature' }, false],
+]
+
+for (const [what, scenario, renamed] of titledRuns) {
+  test(`a pull request with ${what} ${renamed ? 'is renamed to the item title' : 'keeps its title'} before ready-to-land`, async () => {
+    const { result, patchedTitles } = await runLane(resumeArgs, { ...reachesTheEnd, 'r0-review': APPROVE, retitle: { ...scenario, item_title: 'The item title' } })
+    assert.equal(result.status, 'ready-to-land')
+    assert.deepEqual(patchedTitles, renamed ? ['title=The item title'] : [])
+    assert.ok(!result.requiredHeadActions.some(action => /rename pull request/.test(action)))
+  })
+}
+
+test('a failed title write names the rename among the head actions', async () => {
+  const { result } = await runLane(resumeArgs, { ...reachesTheEnd, 'r0-review': APPROVE, retitle: { pr_title: `Unfinished checkpoint of #${resumedLane.item}`, patch_code: 1 } })
+  assert.equal(result.status, 'ready-to-land')
+  assert.ok(result.requiredHeadActions.some(action => /rename pull request #1 to the title of item #1/.test(action)))
 })

@@ -306,6 +306,22 @@ const recordView = (written) => {
 // An open result leaves the head either a resume or an abandon, and aco release reads the same record file.
 const abandonActions = (item, written) => written?.file ? [`to abandon the lane instead, run \`aco release ${item} --abandoned REASON --record ${written.file}\``] : []
 
+// The one finding the lane writes when a builder ends without a result (checkpointOrFail) and a fixer reading it may find already met, and the title of the draft pull request its checkpoint opens.
+const CHECKPOINT_FINDING_WHERE = 'the build brief'
+const CHECKPOINT_TITLE_PREFIX = 'Unfinished checkpoint of #'
+const checkpointTitle = (item) => `${CHECKPOINT_TITLE_PREFIX}${item}`
+// A fixer's unchanged tip answers the checkpoint finding when it is the only finding and the fixer reports the brief met.
+const checkpointMet = (fixed, blocking) => Boolean(fixed.briefMet) && blocking.length === 1 && blocking[0].where === CHECKPOINT_FINDING_WHERE
+// Why the pull request keeps its checkpoint title, or null when it was renamed or never carried it; the printer's retitle step reads both titles and writes only on a match.
+function checkpointRenameProblem(relayed, item) {
+  if (!relayed || relayed.problem) return `the title step ${relayed ? relayed.problem : 'returned no result'}`
+  if (relayed.unreachable) return relayed.unreachable
+  const { title, item: itemTitle, retitle } = relayed.values
+  if (title.code !== 0) return `reading the pull request title exited ${title.code}: ${title.err}`
+  if (title.out !== checkpointTitle(item)) return null
+  if (itemTitle.code !== 0) return `reading the item title exited ${itemTitle.code}: ${itemTitle.err}`
+  return retitle.code === 0 ? null : `the title write exited ${retitle.code}: ${retitle.err}`
+}
 // Builds the briefs of the sync and fix steps and owns the schemas of their reports, runs one printer command through an agent and returns the answer of the agent together with the CRC-checked values of the line it relays; for the fix step it judges the fixer's answer against the findings and fold-ins it answered, and for the ci step it reads those values and splits the failing checks into own and shared.
 async function laneRelay(A) {
   const { label, phase: phaseName, step, relayArgs, nonce, requiredKeys, agentOptions, reread, before } = A
@@ -343,7 +359,8 @@ async function laneRelay(A) {
     'target=lambda repo:("-R",repo) if repo else ()',
     'api=lambda repo:"repos/"+(repo or "{owner}/{repo}")',
     'base=lambda r:json.loads(r["view"].stdout)["baseRefName"]',
-    'steps=dict(branch=lambda:(("branch",("git","branch","--show-current")),),scope=lambda item,branch:(("push",("git","push","origin",branch)),("remote",("git","rev-parse","origin/"+branch)),("head",("git","rev-parse","HEAD")),("parents",("git","rev-parse","HEAD^@")),("second_parent_in_main",("git","merge-base","--is-ancestor","HEAD^2","origin/main")),("brief",("aco","brief",item,"--json"))),record=lambda file:(("check",("aco","lane-record","check",file)),),sync=lambda:(("head",("git","rev-parse","HEAD")),("parents",("git","rev-parse","HEAD^@")),("main",("git","merge-base","--is-ancestor","origin/main","HEAD"))),fix=lambda start,paths:(*steps["sync"](),*((f"diff{i}",("git","log","-p","--first-parent","--remerge-diff","--format=","%s..HEAD"%start,"--",p)) for i,p in enumerate(diffed)),("diffall",("git","log","-p","--first-parent","--remerge-diff","--format=","%s..HEAD"%start)),("tree",("git","rev-parse","HEAD^{tree}")),("mergetree",("git","merge-tree","--write-tree","HEAD^1","HEAD^2"))),ci=lambda pr,repo,paths:(("view",("gh","api",api(repo)+"/pulls/"+pr,"--jq","{headRefOid:.head.sha,baseRefName:.base.ref}")),("changed",("gh","api",api(repo)+"/pulls/"+pr+"/files","--paginate","--slurp")),("headruns",lambda r:("gh","run","list","--commit",json.loads(r["view"].stdout)["headRefOid"],"--json","status,name","--limit","100",*target(repo))),("checks",("gh","pr","checks",pr,"--json","name,bucket,link",*target(repo))),("rules",lambda r:("gh","api",api(repo)+"/rules/branches/"+base(r))),("runs",lambda r:("gh","api",api(repo)+"/commits/"+base(r)+"/check-runs","--paginate","--slurp"))))',
+    `retitle=lambda pr,item,repo:(("title",("gh","api",api(repo)+"/pulls/"+pr,"--jq",".title")),("item",("gh","api",api(repo)+"/issues/"+item,"--jq",".title")),("retitle",lambda r:("gh","api","-X","PATCH",api(repo)+"/pulls/"+pr,"-f","title="+r["item"].stdout.strip()) if r["title"].stdout.strip()==${JSON.stringify(CHECKPOINT_TITLE_PREFIX)}+item and r["item"].stdout.strip() else ("true",)))`,
+    'steps=dict(retitle=retitle,branch=lambda:(("branch",("git","branch","--show-current")),),scope=lambda item,branch:(("push",("git","push","origin",branch)),("remote",("git","rev-parse","origin/"+branch)),("head",("git","rev-parse","HEAD")),("parents",("git","rev-parse","HEAD^@")),("second_parent_in_main",("git","merge-base","--is-ancestor","HEAD^2","origin/main")),("brief",("aco","brief",item,"--json"))),record=lambda file:(("check",("aco","lane-record","check",file)),),sync=lambda:(("head",("git","rev-parse","HEAD")),("parents",("git","rev-parse","HEAD^@")),("main",("git","merge-base","--is-ancestor","origin/main","HEAD"))),fix=lambda start,paths:(*steps["sync"](),*((f"diff{i}",("git","log","-p","--first-parent","--remerge-diff","--format=","%s..HEAD"%start,"--",p)) for i,p in enumerate(diffed)),("diffall",("git","log","-p","--first-parent","--remerge-diff","--format=","%s..HEAD"%start)),("tree",("git","rev-parse","HEAD^{tree}")),("mergetree",("git","merge-tree","--write-tree","HEAD^1","HEAD^2"))),ci=lambda pr,repo,paths:(("view",("gh","api",api(repo)+"/pulls/"+pr,"--jq","{headRefOid:.head.sha,baseRefName:.base.ref}")),("changed",("gh","api",api(repo)+"/pulls/"+pr+"/files","--paginate","--slurp")),("headruns",lambda r:("gh","run","list","--commit",json.loads(r["view"].stdout)["headRefOid"],"--json","status,name","--limit","100",*target(repo))),("checks",("gh","pr","checks",pr,"--json","name,bucket,link",*target(repo))),("rules",lambda r:("gh","api",api(repo)+"/rules/branches/"+base(r))),("runs",lambda r:("gh","api",api(repo)+"/commits/"+base(r)+"/check-runs","--paginate","--slurp"))))',
     'ran={}',
     '[ran.__setitem__(n,run(*(c(ran) if callable(c) else c))) for n,c in steps[step](*rest) if "view" not in ran or ran["view"].returncode==0]',
     'verdict_jobs=[m[1] for c in (json.loads(ran["checks"].stdout) if step=="ci" and "checks" in ran and ran["checks"].returncode==0 else []) if c["name"]=="quality / verdict" and c["bucket"]=="fail" and (m:=re.search("/job/([0-9]+)",c.get("link") or ""))]',
@@ -428,6 +445,7 @@ async function laneRelay(A) {
         items: { type: 'object', required: ['finding', 'test', 'failedBefore', 'passesAfter'], properties: { finding: { type: 'integer', minimum: 1, description: 'the number of the blocking finding in the list you were given' }, resolution: { type: 'string', enum: ['removed'], description: 'for a finding of any kind whose fix only deletes dead code or a test that pins no behaviour, instead of changing behaviour or adding a test' }, test: { type: 'string' }, failedBefore: { type: 'boolean' }, passesAfter: { type: 'boolean' }, notRun: { type: 'string', description: 'why this machine could not run the test (a refused command, a machine another lane holds); CI on the pushed tip is its proof. Not for a test you ran and saw fail: that is passesAfter false' }, mutation: { type: 'string', description: 'for a test-gap finding: the production change, made and reverted, under which the test fails; it goes here and not inside test' } } },
       },
       noBehaviourChange: { type: 'array', items: { type: 'integer', minimum: 1 }, description: 'the numbers of the blocking findings whose fix changes no behaviour of the code (formatting, lint, a ratchet baseline, a clone pair, a coverage floor, a code-smell rule, an ID marker); leave out a finding whose fix changes behaviour, and list none when unsure' },
+      briefMet: { type: 'boolean', description: `true only when the one finding is the unfinished checkpoint of the build brief (where "${CHECKPOINT_FINDING_WHERE}") and the checkpoint already meets the brief with its checks green, so you changed nothing` },
       summary: { type: 'string' }, blocked: { type: 'boolean' }, blockedReason: { type: 'string' },
     },
   }
@@ -446,7 +464,7 @@ async function laneRelay(A) {
   function checkpointBrief({ facts, stage, startRef, branch, item, repo }) {
     const who = stage === 'build' ? 'builder' : 'fixer'
     const draft = stage === 'build'
-      ? `Then run \`gh pr list --head '${branch}' --state open --json number${repo}\`; when it lists no pull request, open a draft with \`gh pr create --draft --head '${branch}' --title 'Unfinished checkpoint of #${item}' --body "$(printf 'Work-Item: #${item}\\nCloses #${item}')"${repo}\`. Return the number of the pull request in pr. `
+      ? `Then run \`gh pr list --head '${branch}' --state open --json number${repo}\`; when it lists no pull request, open a draft with \`gh pr create --draft --head '${branch}' --title '${checkpointTitle(item)}' --body "$(printf 'Work-Item: #${item}\\nCloses #${item}')"${repo}\`. Return the number of the pull request in pr. `
       : ''
     return (
       `${facts}\nThe ${who} of this lane ended without a result and may have left work in the worktree. Save it and change no file: run each command exactly as written, with its -C option. ` +
@@ -581,7 +599,7 @@ async function laneRelay(A) {
     if (findingNumbers) return { ...rejection, lastBlocking: findingNumbers.map(number => blocking[number - 1]) }
     // Satisfied fold-ins leave the lane at the held tip, or at a merge of main onto it: anything past that is unasked work.
     const foldInsOnly = everyFoldInSatisfied(fixed, blocking, foldIn)
-    if (fixed.unchanged) return (foldInsOnly && fixed.containsMain) || answeredOutside(fixed, blocking, foldIn) ? null : { reason: 'the fixer changed nothing', lastBlocking: blocking }
+    if (fixed.unchanged) return (foldInsOnly && fixed.containsMain) || answeredOutside(fixed, blocking, foldIn) || checkpointMet(fixed, blocking) ? null : { reason: 'the fixer changed nothing', lastBlocking: blocking }
     const mergeWasTheFinding = A.source === 'CI' || (blocking.length === 1 && blocking[0].where === 'mergeable')
     if (fixed.mergeOnly && !mergeWasTheFinding && !foldInsOnly) return { reason: 'the fixer only merged main and fixed nothing', lastBlocking: blocking }
     return null
@@ -629,6 +647,7 @@ async function laneRelay(A) {
       outsidePaths: relative.filter(f => f.startsWith('/')),
       touchesProduction: Boolean(fixed.mergeResolvedLaneConflict) || relative.some(f => A.productionPaths.some(prefix => f.startsWith(prefix))),
       answeredOutside: fixed.unchanged && answeredOutside(fixed, blocking, foldIn),
+      checkpointMet: fixed.unchanged && checkpointMet(fixed, blocking),
       satisfied: everyFoldInSatisfied(fixed, blocking, foldIn),
       foldInEvidence: Object.fromEntries(foldIn.map(f => [f.where, satisfiedEvidence(fixed, f)]).filter(([, evidence]) => evidence)),
     }
@@ -1551,7 +1570,7 @@ async function checkpointOrFail(stage, startRef, failure, fixer) {
   const pushStop = await pushAndCheckScope(`scope-checkpoint-${stage}-${spent.total}`, unreviewed)
   const resumeFix = fixer
     ? { fixFirst: fixer.blocking }
-    : { fixFirst: [{ where: 'the build brief', kind: 'defect', text: 'The builder ended without a result, so the checkpoint is unfinished: complete the build brief against it. The brief follows.', rule: 'the build brief', evidence: `the builder's work is committed on ${A.branch} at ${tip} and the brief is not yet met:\n${A.build}` }] }
+    : { fixFirst: [{ where: CHECKPOINT_FINDING_WHERE, kind: 'defect', text: 'The builder ended without a result, so the checkpoint is unfinished: complete the build brief against it; when it already meets the brief with its checks green, change nothing and report briefMet. The brief follows.', rule: CHECKPOINT_FINDING_WHERE, evidence: `the builder's work is committed on ${A.branch} at ${tip} and the brief is not yet met:\n${A.build}` }] }
   const resume = { pr, tip, ...resumeFix }
   if (pushStop) return { ...pushStop.stop, resume }
   const openedDraft = fixer ? '' : ' and opened draft pull request #' + pr
@@ -1739,7 +1758,7 @@ async function fixRound(blocking, source, budgetKey, carried, stage = budgetKey)
   if (accepted.range || answered.satisfied) {
     foldIn.forEach(f => folded.set(findingKey(f), { ...f, tip: answered.tip, ...(answered.foldInEvidence[f.where] && { evidence: answered.foldInEvidence[f.where] }) }))
   }
-  return { ...accepted, foldIn, deltaFrom }
+  return { ...accepted, foldIn, deltaFrom, checkpointMet: answered.checkpointMet }
 }
 
 function newRunOf(origin) { return ['a new run with pr and tip', origin.deltaFrom && ` and deltaFrom ${origin.deltaFrom}`].filter(Boolean).join('') }
@@ -1876,9 +1895,10 @@ if (!carriesBatch && A.build) {
 }
 if (firstScopeCheck?.stop) return firstScopeCheck.stop
 // Re-entry after the head settled an awaiting-head result: review only the fix commits no reviewer has seen yet.
+const WHOLE_LANE = 'the whole lane: git diff origin/main...HEAD'
 const firstRange = A.deltaFrom
   ? `only this delta: git diff ${A.deltaFrom}..HEAD — fix commits made for earlier blocking findings that no reviewer has seen yet. They answer:\n${A.answers || '(see the commit messages in the range)'}`
-  : 'the whole lane: git diff origin/main...HEAD'
+  : WHOLE_LANE
 // Re-entry at the fix: the head hands over blocking findings from an earlier run (for example the tester's), and
 // in-place follow-ups to fold in. The delta the fixer makes is reviewed before the test and CI run again.
 if (carriesBatch) {
@@ -1886,13 +1906,14 @@ if (carriesBatch) {
   const f = await fixRound(carriedOver, 'the head (carried over from the previous run)', 'test', true)
   if (f.stop) return f.stop
   // Without deltaFrom the head has not said what reviewers saw, so the round covers the whole lane.
-  const wholeLane = f.range
+  const asDelta = A.deltaFrom && !f.checkpointMet
+  const wholeLane = f.range  // a checkpoint the fixer found complete has no fix commits and gets the review of a first build
     ? `${firstRange}. It includes the fixer's commits for the head's carried-over findings, described next as a delta to look at closely; review the whole lane, not only that delta:\n${f.range}`
-    : `${firstRange}${foldInsInRange(f.foldIn)}`
-  const range = A.deltaFrom
+    : `${f.checkpointMet ? WHOLE_LANE : firstRange}${foldInsInRange(f.foldIn)}`
+  const range = asDelta
     ? `only this delta: git diff ${A.deltaFrom}..HEAD — fixes no reviewer has seen yet. They answer:\n${A.answers || ''}\n${listFindings(carriedOver)}${f.proofNotes}${foldInsInRange(f.foldIn)}`
     : wholeLane
-  const stop = await reviewUntilClean(ALL, range, f.deltaFrom)
+  const stop = await reviewUntilClean(ALL, range, asDelta ? f.deltaFrom : undefined)
   if (stop) return stop
 } else {
   const first = await reviewUntilClean(ALL, firstRange, A.deltaFrom)
@@ -2012,6 +2033,13 @@ while (true) {
   needTest ||= taken.length > 0 || productionSinceTest
 }
 
+// A pull request still titled as the unfinished checkpoint gets the item's title by a relay step over REST; a failed write is the head's.
+async function checkpointRenameActions() {
+  const relayed = await relay({ label: 'retitle', phase: 'Title', step: 'retitle', relayArgs: [pr, A.item, `'${A.repo || ''}'`, "'retitle'"], nonce: 'retitle', requiredKeys: ['title'], brief: `${laneFacts}\nChange nothing in the files;` })
+  const problem = checkpointRenameProblem(relayed, A.item)
+  return problem ? [`rename pull request #${pr} to the title of item #${A.item} (gh api -X PATCH repos/${A.repo || '{owner}/{repo}'}/pulls/${pr} -f title=...): it still carries the checkpoint title and the lane's write failed: ${problem}`] : []
+}
+
 const escapedQuote = String.raw`'\''`
 const shellQuoted = path => "'" + path.replaceAll("'", escapedQuote) + "'"
 const rescopeAdds = passedOutsidePaths.map(path => '--add ' + shellQuoted(path)).join(' ')
@@ -2029,6 +2057,7 @@ return {
   ...gateUnseenView(), pathsOutsideClaim: passedOutsidePaths,
   requiredHeadActions: [
     ...(passedOutsidePaths.length ? [`write these paths into the scope of item #${A.item}'s body (and a one-sentence whole there when the combined scope is wide), then run \`${rescopeCommand}\` from ${A.worktree} before landing: these paths are outside the claim and passed the scope check`] : []),
+    ...await checkpointRenameActions(),
     `land with \`aco land ${pr} --head ${tip} --record ${finalRecord.file}\` only while the pull request head is still ${tip}`,
     ...(MATERIAL && isGateStandIn('gate', ROUTING.gate.model, ROUTING.gate.effort) ? [`name the Opus 5.5 stand-in as the final gate in the body of pull request #${pr}: the lane ran no Codex gate`] : []),
     ...(gateUnseen ? [`name ${gateUnseen.seenTip}..${tip} in the body of pull request #${pr}: the final gate, at its usage limit, did not see that range`] : []),

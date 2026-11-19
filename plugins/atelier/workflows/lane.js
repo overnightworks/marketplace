@@ -1160,9 +1160,11 @@ async function laneTest(A) {
   }
 
   function explore() {
+    const fixRange = A.fixRange && `This is a delta re-check of a fix: the fix is \`git diff ${A.fixRange.from}..HEAD\` and answers these findings of your earlier round:\n${A.fixRange.findings}\n` +
+      `Judge whether the repair holds and opened nothing new, and still drive the real flow in full. A new finding in a part the fix left unchanged goes into follow-ups, not blocking, unless it touches security, data or a failing check.\n\n`
     const prompt =
       `${A.laneFacts}\nYou test PR #${pr} at its lane tip ${tip} through the real entry point, like a curious user, before it lands. ` +
-      `Run the lane's code, not the installed tool (from ${A.worktree}). What to drive:\n${A.e2e}\n\nContract:\n${A.contract}\n\n${A.blockingLine}\n` +
+      `Run the lane's code, not the installed tool (from ${A.worktree}). What to drive:\n${A.e2e}\n\nContract:\n${A.contract}\n\n${fixRange || ''}${A.blockingLine}\n` +
       `For every blocking finding give a scenario name in where, unique within your report, the command that shows it in repro, and — when it can be automated stably — a failing test draft ` +
       `under your scratch path in testDraft (a live or UI case stays a manual proof; leave testDraft empty then). ` +
       `First create your own directory with \`mktemp -d ${A.scratch}/${A.tag}-e2e-${A.n}-XXXXXX\` and write only there, besides the environment the repository's own sync command creates in ${A.worktree}. For any server, browser or E2E run load the atelier:explorative-testing skill and follow its Probe stack section; use a free port above 8790 and keep your pid files in your directory. ` +
@@ -1197,6 +1199,39 @@ function emptyVerdictReason(answer) {
   if (answer.verdict === 'FAIL' && (answer.blocking || []).length === 0) return 'a FAIL verdict came without any blocking finding'
   return ''
 }
+
+// The tester's state across rounds; main.js assigns it, and every part shares the bundle's one scope.
+let testSettled = false
+let pendingTest = null  // the tester started and not yet judged
+let testBlocking = []  // the tester's findings, held until a fix batch takes them
+let lastTestedTip = null  // the tip the last tester round that returned a verdict started on
+let lastTestRaised = []  // the blocking findings that round raised, which the fix answers
+let pendingTestTip = null
+// The state is assigned here only, so each part declares what it assigns.
+function trackTest(startedOnTip, running) {
+  testSettled = false
+  pendingTestTip = startedOnTip
+  pendingTest = running.then(e2e => {
+    testSettled = true
+    return e2e
+  })
+}
+const takePendingTest = () => pendingTest.then(e2e => {
+  pendingTest = null
+  return e2e
+})
+function recordTestRound(blocking) {
+  testBlocking = blocking
+  lastTestedTip = pendingTestTip
+  lastTestRaised = blocking
+}
+function takeTestBlocking() {
+  const taken = testBlocking
+  testBlocking = []
+  return taken
+}
+// A round after a settled one, on a later tip, re-checks the fix range of the findings that round raised; a first round and a retry of one without a verdict carry none.
+const fixRangeOfTest = () => lastTestedTip && !sameCommit(lastTestedTip, tip) ? { from: lastTestedTip, findings: lastTestRaised.length ? listFindings(lastTestRaised) : '(none: the fix answers CI or review only)' } : undefined
 
 // ---------------------------------------------------------------- inputs
 const A = args || {}
@@ -1852,7 +1887,7 @@ if (carriesBatch) {
 
 // ---------------------------- end-to-end test and CI side by side
 // laneTest returns the tester's answer, null when both agents ended without a result, or a problem the lane stops on.
-const explore = (n) => runPart('lane-test', laneTest, { delegatedLine: DELEGATED_LINE, n, pr, tip, worktree: A.worktree, scratch: A.scratch, tag: TAG, e2e: A.e2e, contract: A.contract, laneFacts, blockingLine: BLOCKING_LINE, finding: FINDING, followup: FOLLOWUP, routing: claudeRole('test') })
+const explore = (n, fixRange) => runPart('lane-test', laneTest, { fixRange, delegatedLine: DELEGATED_LINE, n, pr, tip, worktree: A.worktree, scratch: A.scratch, tag: TAG, e2e: A.e2e, contract: A.contract, laneFacts, blockingLine: BLOCKING_LINE, finding: FINDING, followup: FOLLOWUP, routing: claudeRole('test') })
 // The paths the watcher's findings name; the printer keeps those among the pull request's changed files.
 const findingPaths = (failing = []) => [...new Set(failing.map(finding => findingPath(finding.where)).filter(Boolean))]
 async function watchCi(n, rerun) {
@@ -1875,23 +1910,12 @@ let n = 0
 let testCalls = 0
 let needTest = true
 let lockRetried = false
-let testSettled = false
-let pendingTest = null  // the tester started and not yet judged
 let rerunRed  // the red jobs a flake dispute hands to the next watch for one re-run
-let testBlocking = []  // the tester's findings, held until a fix batch takes them
 function startTest() {
   needTest = false
   productionSinceTest = false
-  testSettled = false
-  pendingTest = explore(testCalls++).then(e2e => {
-    testSettled = true
-    return e2e
-  })
+  trackTest(tip, explore(testCalls++, fixRangeOfTest()))
 }
-const takePendingTest = () => pendingTest.then(e2e => {
-  pendingTest = null
-  return e2e
-})
 // Judges the pending tester's answer; returns the result that stops the lane, or undefined. A lock-busy answer is retried once, awaited when CI has nothing of its own to fix.
 async function settleTest(ci, awaitRetry = true) {
   let e2e = await takePendingTest()
@@ -1908,7 +1932,7 @@ async function settleTest(ci, awaitRetry = true) {
     return openResult('awaiting-head', 'test', { reason: `load wait: the load stayed above the limit for both tries, so the end-to-end test did not run; CI of this round: ${ci && !ci.problem && !ci.unreachable ? ci.state : 'not readable'}. Start a new run with pr and tip once the load falls.` })
   }
   if (!e2e || e2e.verdict === 'failed') return openResult('failed', 'test', { reason: 'the tester returned no usable result' })
-  testBlocking = e2e.blocking || []
+  recordTestRound(e2e.blocking || [])
   if (e2e.emptyVerdictReason) return openResult('failed', 'test', { reason: e2e.emptyVerdictReason })
   history.push({ after: spent.total, ...e2e.historyEntry })
   followups.push(...e2e.followups)
@@ -1951,8 +1975,7 @@ while (true) {
     if (needTest) continue
     return await openResult('awaiting-head', 'ci', { reason: `the only red check is the quality verdict, red because the diff holds only declared loosenings, which only the operator merges, so no fixer was launched. It waits at the operator's merge door: run \`${ci.operatorDoor}\`.` })
   }
-  const taken = testBlocking
-  testBlocking = []
+  const taken = takeTestBlocking()
   const ciBlocking = ci.green || sharedOnly ? [] : ownRed
   const f = await fixRound(taken.concat(ciBlocking), taken.length ? 'the end-to-end test and CI' : 'CI', ci.green || sharedOnly ? 'test' : 'ci')
   if (f.stop) return f.stop

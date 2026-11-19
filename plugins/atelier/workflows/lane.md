@@ -15,7 +15,11 @@ lists `requiredHeadActions`.
 3. Fix: fresh fixers answer evidence-bearing findings; whoever raised a finding
    re-checks the delta.
 4. Test and CI run side by side: the explorative end-to-end test and the CI of
-   the pull request. A red CI is fixed at once while the tester runs on.
+   the pull request. A red CI is fixed at once while the tester runs on. A tester
+   round after a fix is a delta re-check: it gets the fix range and the findings it
+   raised, still drives the real flow in full, and reports a new finding in a part
+   the fix left unchanged as a follow-up unless it touches security, data or a
+   failing check.
 
 The builder and every fixer run the targeted tests of their change and the fast
 static checks the repository names after the last merge of the default branch;

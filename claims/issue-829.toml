@@ -1,8 +1,0 @@
-claim_id = "945a2163cd35477ab705cb67fdb491f0"
-agent = "Claude 57d5a480-511e-4e68-ac3e-58f0f400e3c5"
-role = "builder"
-base = "31b7bc45dec6f0390b80190feb7c72b35692e9bd"
-branch = "claude/issue-829-lane-md-does-not-say-that-each-foldin-en"
-scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/workflows/lane.md"]
-opened_commit = "947ecc0a266c5997a0e43c7e1c359e29cbcd9770"
-whole_reason = "The reference text and the three version files the repository's rule makes every plugin change raise land together."

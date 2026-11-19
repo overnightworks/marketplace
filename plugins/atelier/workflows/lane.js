@@ -694,6 +694,13 @@ async function laneRelay(A) {
   // The head and main commands of the sync and fix steps: head must exit 0, and main (merge-base --is-ancestor) exits 0 or 1.
   const gitCommandFailed = (values) => values.head && values.main ? values.head.code !== 0 || ![0, 1].includes(values.main.code) : undefined
 
+  // Why the ci step could not read GitHub, or '' when it could: a network error or timeout, and the commands the rate limit refused on every try.
+  function unreachableReason(complete) {
+    if (!complete.unreachable?.length) return ''
+    const limitedNote = complete.limited?.length ? ` GitHub's rate limit refused ${complete.limited.join(', ')} on every try.` : ''
+    return `GitHub is unreachable: ${complete.unreachable.join(', ')} failed with a network error, or timed out, after the retries a network error gets (a timeout is not retried).${limitedNote}`
+  }
+
   // The values of a relay line, or why the line cannot be trusted: checked as text first (shape, CRC32), parsed after.
   // A caller stops at the stage of the step that ran the printer, so an unreadable scope line stops at scope, because it
   // proves nothing about the push; push is only for a readable line that shows the push failed or the remote lacks the tip.
@@ -711,7 +718,7 @@ async function laneRelay(A) {
     const complete = step === 'ci' ? { view: { code: 0 }, runs: { code: 0 }, rules: { code: 0 }, changed: { code: 0 }, headruns: { code: 0 }, files: values.changed_index.map(position => A.sentPaths?.[position]).filter(Boolean), ...values } : values
     const missing = requiredKeys.find(key => !complete[key])
     if (missing) return { problem: `lacks the ${missing} entry` }
-    return { values: complete, commandFailed: gitCommandFailed(complete), unreachable: complete.unreachable?.length ? `GitHub is unreachable: ${complete.unreachable.join(', ')} failed with a network error, or timed out, after the retries a network error gets (a timeout is not retried).${complete.limited?.length ? ` GitHub's rate limit refused ${complete.limited.join(', ')} on every try.` : ''}` : '', ...(step === 'ci' && complete.view.code === 0 && { ci: readCi(complete) }) }
+    return { values: complete, commandFailed: gitCommandFailed(complete), unreachable: unreachableReason(complete), ...(step === 'ci' && complete.view.code === 0 && { ci: readCi(complete) }) }
   }
 
   const answer = await safeAgent(`${A.delegatedLine}\n${brief} ${RELAY_ASK}\n${relayCommand(step, ...relayArgs)}`, {

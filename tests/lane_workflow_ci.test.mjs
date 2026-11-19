@@ -5,7 +5,7 @@ import path from 'node:path'
 import { spawnSync } from 'node:child_process'
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { runLane, partReplaced, runCommandLine, installFake, resumeArgs, resumeFix, mergeOnlyFix, mainMovedTip, defectWithoutDraft, PASS, APPROVE, greenCi, tidy } from './lane_workflow_harness.mjs'
+import { runLane, resumeTip, resumeFixedTip, partReplaced, runCommandLine, installFake, resumeArgs, resumeFix, mergeOnlyFix, mainMovedTip, defectWithoutDraft, PASS, APPROVE, greenCi, tidy } from './lane_workflow_harness.mjs'
 
 const tip = 'c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0'
 const lane = { item: 1, worktree: '/w', branch: 'b', contract: 'c', e2e: 'e', scratch: '/s', pr: 1, tip }
@@ -775,4 +775,18 @@ test('ci-operator-door: a tester PASS on an older production tip does not open t
 test('ci-rate-limit-wait: the watcher brief tells the watcher to wait and repeat a gh command the rate limit refused', async () => {
   const { agentCalls } = await driveCi(ciAnswer([check(required, 'pass')]), lane)
   assert.match(agentCalls['ci-0'].prompt, /refused with "API rate limit"[^`]*wait[^`]*repeat[^`]*instead of reporting a red or missing check/)
+})
+
+const orphanedEntry = { where: 'quality/baseline.toml', kind: 'defect', text: 'orphaned clone entry for src/personas/ownership.py', rule: 'quality clone', evidence: 'orphaned baseline entry' }
+const baselineRemoval = (touched_paths) => ({ ...resumeFix, regression: [{ finding: 1, test: 'quality/baseline.toml', failedBefore: false, passesAfter: true, resolution: 'removed' }], touched_paths })
+const driveOrphanedEntry = (touched_paths) => runLane(resumeArgs, { 'r0-review': APPROVE, 'e2e-0': PASS, 'ci-0': { head: resumeTip, green: false, failing: [orphanedEntry] }, 'r1-review': APPROVE, 'fix-1': baselineRemoval(touched_paths), 'ci-1': greenCi(resumeFixedTip) })
+
+test('ci-orphaned-entry: the watcher brief puts an orphaned baseline or allowlist entry under the baseline file and the code path in the text', async () => {
+  const { agentCalls } = await driveCi(ciAnswer([check(required, 'pass')]))
+  assert.match(agentCalls['ci-0'].prompt, /orphaned or stale entry of a baseline or allowlist file[^.]*where = that file and names the code path[^.]*in text/)
+})
+
+test('ci-orphaned-entry: a fixer that removes the entry of a baseline-file finding and answers removed passes the removal check', async () => {
+  const { result } = await driveOrphanedEntry(['quality/baseline.toml'])
+  assert.equal(result.status, 'ready-to-land', result.reason)
 })

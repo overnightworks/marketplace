@@ -580,7 +580,6 @@ const runRemovalStep = (lane, work, fixFirst, regression) => runLane({ ...laneAr
 test('AC-removal-merge-real-git: a merge of main that changes the finding path is no removal the fixer made', async (t) => {
   const lane = laneRepository(t, { onMain: true })
   const { result, launchedAgents } = await runRemovalStep(lane, () => {
-    lane.commitIn(lane.worktree, 'fix-file')
     lane.advanceMain('t.py')
     mergeMain(lane)
   }, [defectWithoutDraft], [removalOfT])

@@ -1,0 +1,8 @@
+claim_id = "6c0d3ee4fcc04018942f88d888c97053"
+agent = "Claude 57d5a480-511e-4e68-ac3e-58f0f400e3c5"
+role = "builder"
+base = "1b29f3a061170cfbbf21e793307f373f18f6d098"
+branch = "claude/issue-848-the-lane-relay-does-not-recognise-aco-s"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/lane/relay.js", "plugins/atelier/workflows/lane.js", "tests/lane_workflow_network.test.mjs"]
+opened_commit = "1dd3ecd62f77d43a6fafedb0abcc6de5e6f9e50f"
+whole_reason = "The marker, the regenerated bundle, its test rows and the version files change together."

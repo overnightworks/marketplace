@@ -83,6 +83,8 @@ The lane needs a repository that coordinates with aco, after the head ran
   `evidence` what is wrong and how it shows; `testDraft` (a path) is optional.
 - `foldIn`: none. `Followup[]`, follow-ups for that fixer, each handed over
   whatever its owner or wording; given alone it still starts the fixer. A
+  `Followup` is `{ where, text, owner }`, all non-empty strings: `where` the
+  place, `text` what to do, `owner` the owning item `#n` or `distributor`. A
   follow-up has an optional `stage` (`review`, `gate`, `ci` or `test`), the stage
   that raised it; every follow-up the lane reports carries it. A round that fixes
   only fold-ins counts as a fix round under the first of their stages in that

@@ -93,6 +93,9 @@ function recordedVerdicts(history) {
 // The commit the newest review or gate verdict judged, or none; aco lands only the head that verdict judged.
 const lastVerdictSha = (history) => recordedVerdicts(history).at(-1)?.sha ?? null
 
+// Whether the newest review or gate verdict approved exactly this commit.
+const approvedOn = (history, sha) => { const last = recordedVerdicts(history).at(-1); return last?.verdict === 'approve' && last.sha === sha }
+
 function laneRecord({ routing, history, fixRole, fixRounds, risk, experiment }) {
   const stages = stageChoices({ routing, history, fixRole })
   const blocking = Object.fromEntries(FINDING_STAGE_NAMES.map(stage => [stage, 0]))

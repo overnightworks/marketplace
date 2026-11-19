@@ -655,6 +655,9 @@ if (carriesBatch) {
 const explore = (n, fixRange) => runPart('lane-test', laneTest, { fixRange, delegatedLine: DELEGATED_LINE, n, pr, tip, worktree: A.worktree, scratch: A.scratch, tag: TAG, e2e: A.e2e, contract: A.contract, laneFacts, blockingLine: BLOCKING_LINE, finding: FINDING, followup: FOLLOWUP, routing: claudeRole('test') })
 // The paths the watcher's findings name; the printer keeps those among the pull request's changed files.
 const findingPaths = (failing = []) => [...new Set(failing.map(finding => findingPath(finding.where)).filter(Boolean))]
+// Review and tester both passed on the tip, so a CI read that stays refused leaves only the check runs for the head to read.
+const provenOnTip = () => approvedOn(history, tip) && !testBlocking.length && lastTestedTip === tip
+const restCheckAction = () => `without a new run: read the check runs of ${tip} with \`gh api repos/${A.repo || '{owner}/{repo}'}/commits/${tip}/check-runs --paginate\` (REST, outside the GraphQL budget); once every one is completed and green, land with \`aco land ${pr} --head ${tip} --record <the record path of this result>\``
 async function watchCi(n, rerun) {
   const watched = await runPart('lane-ci', laneCi, { delegatedLine: DELEGATED_LINE, pr, n, rerun, repo: A.repo, worktree: A.worktree, finding: FINDING, mechanical: MECHANICAL })
   if (!watched || watched.problem) return watched
@@ -665,7 +668,7 @@ async function watchCi(n, rerun) {
   if (read.problem) return { problem: `read the CI values, but their relay line ${read.problem}${printedLine(read)}` }
   if (read.unreachable) return { unreachable: read.unreachable }
   const { view } = read.values
-  if (view.code !== 0) return { problem: `could not read the pull request: gh pr view exited ${view.code}: ${view.err ?? ''}` }
+  if (view.code !== 0) return { problem: `could not read the pull request: gh api pulls exited ${view.code}: ${view.err ?? ''}` }
   return { ...watched, ...read.ci }
 }
 
@@ -713,7 +716,7 @@ while (true) {
   n++
   if (!ci || ci.problem || ci.unreachable) {
     const stop = pendingTest && await settleTest(ci)
-    if (ci?.unreachable) return stop || await openResult('awaiting-head', 'ci', { reason: `${ci.unreachable} Start a new run with pr ${pr} and tip ${tip} once it answers.` })
+    if (ci?.unreachable) return stop || await openResult('awaiting-head', 'ci', { reason: `${ci.unreachable} Start a new run with pr ${pr} and tip ${tip} once it answers.`, ...(provenOnTip() && { requiredHeadActions: [restCheckAction()] }) })
     return stop || await openResult('failed', 'ci', ci ? { reason: `the CI watcher ${ci.problem}` } : undefined)
   }
   if (!sameCommit(ci.head, tip)) return await openResult('failed', 'ci', { reason: `the pull request head ${ci.head} is not the lane tip ${tip}` })

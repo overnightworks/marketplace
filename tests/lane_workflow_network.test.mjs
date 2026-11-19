@@ -47,3 +47,42 @@ test('AC-network-retry: an aco brief that fails with a network marker on stderr 
   assert.deepEqual([result.status, result.stage], ['failed', 'scope'])
   assert.equal(calls.aco, 1)
 })
+
+const rateLimitMessages = [
+  'GraphQL: API rate limit already exceeded for user ID 1.',
+  'gh: API rate limit exceeded for user ID 1. (HTTP 403)',
+  'gh: You have exceeded a secondary rate limit. (HTTP 403)',
+]
+
+for (const message of rateLimitMessages) {
+  test(`AC-rate-limit-retry: a ci read that GitHub's rate limit refuses once is retried and the lane goes on (${message.slice(0, 30)})`, async () => {
+    const { result, calls } = await runLane(resumeArgs, { 'ci-read-0': { network_error: message, network_fails: 1 }, ...throughCi }, noWait)
+    assert.equal(result.status, 'ready-to-land', result.reason)
+    assert.equal(calls.gh, 7)
+  })
+
+  test(`AC-rate-limit-retry: a ci read refused on every try ends awaiting-head at ci with the REST head action (${message.slice(0, 30)})`, async () => {
+    const { result } = await runLane(resumeArgs, { 'ci-read-0': { network_error: message, network_fails: 'always' }, ...throughCi }, noWait)
+    assert.deepEqual([result.status, result.stage], ['awaiting-head', 'ci'])
+    assert.match(result.reason, /GitHub is unreachable: view[\s\S]*rate limit refused/)
+    assert.ok(result.requiredHeadActions.some(action => /check-runs/.test(action) && action.includes(result.tip) && /aco land/.test(action)), result.requiredHeadActions.join('\n'))
+  })
+
+  test(`AC-rate-limit-retry: a scope read refused on every try ends awaiting-head at scope (${message.slice(0, 30)})`, async () => {
+    const { result } = await runLane(resumeArgs, { 'scope-resume': { network_error: message, network_fails: 'always' } }, noWait)
+    assert.deepEqual([result.status, result.stage], ['awaiting-head', 'scope'])
+    assert.match(result.reason, /rate limit refused/)
+  })
+}
+
+test('AC-rate-limit-retry: the head action names no landing when the tester has not passed', async () => {
+  const { result } = await runLane(resumeArgs, { 'ci-read-0': { network_error: rateLimitMessages[0], network_fails: 'always' }, ...throughCi, 'e2e-0': { verdict: 'FAIL', blocking: [{ where: 'x', kind: 'defect', text: 't', rule: 'r', evidence: 'e' }], followups: [] } }, noWait)
+  assert.equal(result.status, 'awaiting-head')
+  assert.ok(!(result.requiredHeadActions ?? []).some(action => /check-runs/.test(action)))
+})
+
+test('AC-rate-limit-retry: a pull request read that fails with another error ends the lane failed after one call', async () => {
+  const { result, calls } = await runLane(resumeArgs, { 'ci-read-0': { view_code: 1, view_error: 'gh: HTTP 500' }, ...throughCi }, noWait)
+  assert.deepEqual([result.status, result.stage], ['failed', 'ci'])
+  assert.equal(calls.gh, 1)
+})

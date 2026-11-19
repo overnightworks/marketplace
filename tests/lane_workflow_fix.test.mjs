@@ -250,8 +250,10 @@ const proofsByNumber = [
   ['a defect with a test draft still needs its test to fail before', [defectWithDraft], [proofOf(1)], /did not fail before/],
   ['a removal without a copied diff whose commits touch its path answers a test-gap', [testGap], [proofOf(1, { resolution: 'removed' })], null],
   ['a removal whose commits touch its path answers a defect with a test draft without a failing-first test', [defectWithDraft], [proofOf(1, { resolution: 'removed', passesAfter: false })], null],
-  ['a removal whose commits leave its path untouched is rejected, with a copied diff too', [testGap], [proofOf(1, { resolution: 'removed', diff: '-copied' })], /t\.py:1.*no diff/, []],
-  ['a removal whose commits leave its path untouched does not answer a defect with a test draft', [defectWithDraft], [proofOf(1, { resolution: 'removed' })], /t\.py:1.*no diff/, []],
+  ['a removal in a range that carries no diff is rejected, with a copied diff too', [testGap], [proofOf(1, { resolution: 'removed', diff: '-copied' })], /t\.py:1.*no diff/, []],
+  ['a removal in a range that carries no diff does not answer a defect with a test draft', [defectWithDraft], [proofOf(1, { resolution: 'removed' })], /t\.py:1.*no diff/, []],
+  ['a removal whose path is untouched but whose range carries a diff answers a test-gap', [testGap], [proofOf(1, { resolution: 'removed' })], null, ['pyproject.toml']],
+  ['a removal whose path is untouched but whose range carries a diff answers a defect with a test draft', [defectWithDraft], [proofOf(1, { resolution: 'removed', passesAfter: false })], null, ['pyproject.toml']],
   ['a behaviour-changing defect fix without its test is still rejected', [defectWithDraft], [], rejectedForNoProof],
   ['a number pointing at a docs finding adds no pass for the test-gap behind it', [docsFinding, testGap], [proofOf(1)], rejectedForNoProof],
   ['two proofs for one number, one of them bad, are still rejected', [testGap], [proofOf(1, { mutation: 'drop the guard' }), proofOf(1, { mutation: 'drop the guard', passesAfter: false })], /did not pass/],
@@ -391,6 +393,15 @@ for (const [behaviour, answered, shownAsRemoval] of removalsByFindingKind) {
     assert.equal(prompt.includes(`answered ${answered.where} by removing`), shownAsRemoval)
   })
 }
+
+test('a removal whose path is untouched is handed to the raiser over the whole range, saying the finding path carries no diff', async () => {
+  const regression = [proofOf(1, { resolution: 'removed' })]
+  const { agentCalls } = await runLane({ ...resumeArgs, fixFirst: [testGap] }, { 'fix-1': { ...resumeFix, regression, touched_paths: ['pyproject.toml'] } })
+  const prompt = agentCalls['r1-review'].prompt
+  assert.match(prompt, /git log -p --first-parent --remerge-diff [0-9a-f]+\.\.[0-9a-f]+ \(\d+ characters/)
+  assert.doesNotMatch(prompt, / -- t\.py/)
+  assert.match(prompt, /t\.py carries no diff/)
+})
 
 test('a docs finding answered as removed reaches the re-check with the command that reads the diff of its path', async () => {
   const regression = [proofOf(1, { resolution: 'removed' })]

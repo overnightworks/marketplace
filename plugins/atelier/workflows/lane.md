@@ -159,9 +159,11 @@ gpt-6-astra/high.
   the fixer's commits (start tip to its tip, first-parent only, so a merge of
   main shows just its conflict resolution) and hands the raiser the size and
   the git command that prints it, which the raiser runs itself. A `where` that
-  names no path (a CI check name) is judged by the whole range of the fixer's
-  commits. A removal whose path those commits leave untouched, or whose range
-  is empty, fails the run at fix.
+  names no path (a CI check name), or whose path those commits leave untouched
+  (a check reports where a rule is declared, the removal sits where it broke),
+  is judged by the whole range of the fixer's commits, and the raiser is told
+  that the finding's own path carries no diff. A removal whose range is empty
+  fails the run at fix.
 - A builder or fixer that returns no result while its worktree holds commits
   past the start tip or uncommitted work has that work committed as an
   unfinished checkpoint and pushed by a lane step (and, after a build, a draft

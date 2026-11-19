@@ -3,6 +3,6 @@ agent = "Claude 57d5a480-511e-4e68-ac3e-58f0f400e3c5"
 role = "builder"
 base = "48aa5354495cb61c9cf32519725d45fffd4b5cf9"
 branch = "claude/issue-847-a-removal-outside-the-finding-s-path-fai"
-scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/lane/relay.js", "plugins/atelier/workflows/lane.js", "plugins/atelier/workflows/lane.md", "tests/lane_workflow_fix.test.mjs"]
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/lane/relay.js", "plugins/atelier/workflows/lane.js", "plugins/atelier/workflows/lane.md", "tests/lane_workflow_fix.test.mjs", "tests/lane_workflow_relay.test.mjs"]
 opened_commit = "b4a1763b0df1bd7dfc2f0e18a2d6c0ad501690a4"
 whole_reason = "The removal reading, the regenerated bundle, the reference, its tests and the version files change together."

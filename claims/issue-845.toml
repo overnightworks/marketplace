@@ -1,0 +1,8 @@
+claim_id = "5fe44a9ee49e437fb79ecdadab3cf2e2"
+agent = "Claude 57d5a480-511e-4e68-ac3e-58f0f400e3c5"
+role = "builder"
+base = "cecc93d9554b59eb37faa5de0b59530b33d8973f"
+branch = "claude/issue-845-a-ci-finding-for-an-orphaned-baseline-en"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/lane/ci.js", "plugins/atelier/workflows/lane.js", "tests/lane_workflow_ci.test.mjs"]
+opened_commit = "e64a2341d63cc1828b083819eab52dc6dc475e39"
+whole_reason = "The brief, the regenerated bundle, its tests and the version files change together."

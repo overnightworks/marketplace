@@ -679,17 +679,8 @@ let rerunRed  // the red jobs a flake dispute hands to the next watch for one re
 function startTest() {
   needTest = false
   productionSinceTest = false
-  testSettled = false
-  pendingTestTip = tip
-  pendingTest = explore(testCalls++, fixRangeOfTest()).then(e2e => {
-    testSettled = true
-    return e2e
-  })
+  trackTest(tip, explore(testCalls++, fixRangeOfTest()))
 }
-const takePendingTest = () => pendingTest.then(e2e => {
-  pendingTest = null
-  return e2e
-})
 // Judges the pending tester's answer; returns the result that stops the lane, or undefined. A lock-busy answer is retried once, awaited when CI has nothing of its own to fix.
 async function settleTest(ci, awaitRetry = true) {
   let e2e = await takePendingTest()
@@ -706,9 +697,7 @@ async function settleTest(ci, awaitRetry = true) {
     return openResult('awaiting-head', 'test', { reason: `load wait: the load stayed above the limit for both tries, so the end-to-end test did not run; CI of this round: ${ci && !ci.problem && !ci.unreachable ? ci.state : 'not readable'}. Start a new run with pr and tip once the load falls.` })
   }
   if (!e2e || e2e.verdict === 'failed') return openResult('failed', 'test', { reason: 'the tester returned no usable result' })
-  testBlocking = e2e.blocking || []
-  lastTestedTip = pendingTestTip
-  lastTestRaised = testBlocking
+  recordTestRound(e2e.blocking || [])
   if (e2e.emptyVerdictReason) return openResult('failed', 'test', { reason: e2e.emptyVerdictReason })
   history.push({ after: spent.total, ...e2e.historyEntry })
   followups.push(...e2e.followups)
@@ -751,8 +740,7 @@ while (true) {
     if (needTest) continue
     return await openResult('awaiting-head', 'ci', { reason: `the only red check is the quality verdict, red because the diff holds only declared loosenings, which only the operator merges, so no fixer was launched. It waits at the operator's merge door: run \`${ci.operatorDoor}\`.` })
   }
-  const taken = testBlocking
-  testBlocking = []
+  const taken = takeTestBlocking()
   const ciBlocking = ci.green || sharedOnly ? [] : ownRed
   const f = await fixRound(taken.concat(ciBlocking), taken.length ? 'the end-to-end test and CI' : 'CI', ci.green || sharedOnly ? 'test' : 'ci')
   if (f.stop) return f.stop

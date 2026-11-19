@@ -77,5 +77,28 @@ let testBlocking = []  // the tester's findings, held until a fix batch takes th
 let lastTestedTip = null  // the tip the last tester round that returned a verdict started on
 let lastTestRaised = []  // the blocking findings that round raised, which the fix answers
 let pendingTestTip = null
+// The state is assigned here only, so each part declares what it assigns.
+function trackTest(startedOnTip, running) {
+  testSettled = false
+  pendingTestTip = startedOnTip
+  pendingTest = running.then(e2e => {
+    testSettled = true
+    return e2e
+  })
+}
+const takePendingTest = () => pendingTest.then(e2e => {
+  pendingTest = null
+  return e2e
+})
+function recordTestRound(blocking) {
+  testBlocking = blocking
+  lastTestedTip = pendingTestTip
+  lastTestRaised = blocking
+}
+function takeTestBlocking() {
+  const taken = testBlocking
+  testBlocking = []
+  return taken
+}
 // A round after a settled one, on a later tip, re-checks the fix range of the findings that round raised; a first round and a retry of one without a verdict carry none.
 const fixRangeOfTest = () => lastTestedTip && !sameCommit(lastTestedTip, tip) ? { from: lastTestedTip, findings: lastTestRaised.length ? listFindings(lastTestRaised) : '(none: the fix answers CI or review only)' } : undefined

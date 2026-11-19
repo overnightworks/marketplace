@@ -1207,6 +1207,29 @@ let testBlocking = []  // the tester's findings, held until a fix batch takes th
 let lastTestedTip = null  // the tip the last tester round that returned a verdict started on
 let lastTestRaised = []  // the blocking findings that round raised, which the fix answers
 let pendingTestTip = null
+// The state is assigned here only, so each part declares what it assigns.
+function trackTest(startedOnTip, running) {
+  testSettled = false
+  pendingTestTip = startedOnTip
+  pendingTest = running.then(e2e => {
+    testSettled = true
+    return e2e
+  })
+}
+const takePendingTest = () => pendingTest.then(e2e => {
+  pendingTest = null
+  return e2e
+})
+function recordTestRound(blocking) {
+  testBlocking = blocking
+  lastTestedTip = pendingTestTip
+  lastTestRaised = blocking
+}
+function takeTestBlocking() {
+  const taken = testBlocking
+  testBlocking = []
+  return taken
+}
 // A round after a settled one, on a later tip, re-checks the fix range of the findings that round raised; a first round and a retry of one without a verdict carry none.
 const fixRangeOfTest = () => lastTestedTip && !sameCommit(lastTestedTip, tip) ? { from: lastTestedTip, findings: lastTestRaised.length ? listFindings(lastTestRaised) : '(none: the fix answers CI or review only)' } : undefined
 
@@ -1891,17 +1914,8 @@ let rerunRed  // the red jobs a flake dispute hands to the next watch for one re
 function startTest() {
   needTest = false
   productionSinceTest = false
-  testSettled = false
-  pendingTestTip = tip
-  pendingTest = explore(testCalls++, fixRangeOfTest()).then(e2e => {
-    testSettled = true
-    return e2e
-  })
+  trackTest(tip, explore(testCalls++, fixRangeOfTest()))
 }
-const takePendingTest = () => pendingTest.then(e2e => {
-  pendingTest = null
-  return e2e
-})
 // Judges the pending tester's answer; returns the result that stops the lane, or undefined. A lock-busy answer is retried once, awaited when CI has nothing of its own to fix.
 async function settleTest(ci, awaitRetry = true) {
   let e2e = await takePendingTest()
@@ -1918,9 +1932,7 @@ async function settleTest(ci, awaitRetry = true) {
     return openResult('awaiting-head', 'test', { reason: `load wait: the load stayed above the limit for both tries, so the end-to-end test did not run; CI of this round: ${ci && !ci.problem && !ci.unreachable ? ci.state : 'not readable'}. Start a new run with pr and tip once the load falls.` })
   }
   if (!e2e || e2e.verdict === 'failed') return openResult('failed', 'test', { reason: 'the tester returned no usable result' })
-  testBlocking = e2e.blocking || []
-  lastTestedTip = pendingTestTip
-  lastTestRaised = testBlocking
+  recordTestRound(e2e.blocking || [])
   if (e2e.emptyVerdictReason) return openResult('failed', 'test', { reason: e2e.emptyVerdictReason })
   history.push({ after: spent.total, ...e2e.historyEntry })
   followups.push(...e2e.followups)
@@ -1963,8 +1975,7 @@ while (true) {
     if (needTest) continue
     return await openResult('awaiting-head', 'ci', { reason: `the only red check is the quality verdict, red because the diff holds only declared loosenings, which only the operator merges, so no fixer was launched. It waits at the operator's merge door: run \`${ci.operatorDoor}\`.` })
   }
-  const taken = testBlocking
-  testBlocking = []
+  const taken = takeTestBlocking()
   const ciBlocking = ci.green || sharedOnly ? [] : ownRed
   const f = await fixRound(taken.concat(ciBlocking), taken.length ? 'the end-to-end test and CI' : 'CI', ci.green || sharedOnly ? 'test' : 'ci')
   if (f.stop) return f.stop

@@ -16,15 +16,15 @@ export const meta = {
 async function laneBuild(A) {
   const BUILD = {
     type: 'object',
-    required: ['pr', 'tip', 'blocked'],
-    properties: { pr: { type: 'number' }, tip: { type: 'string', pattern: '^[0-9a-f]{7,40}$', description: 'a commit sha from git rev-parse, nothing else' }, summary: { type: 'string' }, blocked: { type: 'boolean' }, blockedReason: { type: 'string' } },
+    required: ['pr', 'tip', 'reuse', 'blocked'],
+    properties: { pr: { type: 'number' }, tip: { type: 'string', pattern: '^[0-9a-f]{7,40}$', description: 'a commit sha from git rev-parse, nothing else' }, summary: { type: 'string' }, reuse: { type: 'string', description: 'the owner you extended (module and function), or the search you ran and why nothing found fits' }, blocked: { type: 'boolean' }, blockedReason: { type: 'string' } },
   }
 
   // agent() with a schema throws when the subagent ends without a result; an end without one is a null the lane reports.
   try {
     return await agent(
       `${A.delegatedLine}\n${A.laneFacts} ${A.driveFacts} ${A.rescopeFacts} ${A.localCheckFacts}\nYou are the builder. ${A.build}\nCommit each goal as soon as its targeted tests pass — never hold more than one goal uncommitted. Merge origin/main into the lane before pushing (a merge commit). ` +
-      `Open the pull request as the build RULES say, run \`aco check <pr>\`, and return pr, tip and summary.`,
+      `Open the pull request as the build RULES say, run \`aco check <pr>\`, and return pr, tip, summary and reuse: the owner you extended (module and function), or the search you ran and why nothing found fits.`,
       { label: 'build', phase: 'Build', schema: BUILD, agentType: 'atelier:code-worker', ...A.routing })
   } catch (error) {
     rethrowClaudeUsageLimit(error)
@@ -863,9 +863,16 @@ async function laneReview(A) {
   // agent); a fresh Claude reviewer is the default, Sonnet at high effort and Opus at medium on material risk. The
   // final gate on a material lane runs on Codex through a courier, because the Claude builder needs another provider,
   // unless the lane routes it to the Opus stand-in, which runs as a fresh Claude reviewer like the ordinary review.
+  // Only the first round of a run that built has the builder's text; a run started with pr and tip says so instead of inventing one.
+  function reuseParagraph() {
+    if (A.after !== 0) return ''
+    if (!A.reuse) return 'No build ran in this run, so no builder reuse text exists.\n\n'
+    return `The builder reports its reuse search:\n${A.reuse}\nJudge it: new code that repeats existing code the search should have found is a blocking finding.\n\n`
+  }
+
   function reviewerBrief(role, range) {
     return `You are the ${role} for work item #${A.item}: a fresh, independent reviewer who did not write this change. ` +
-      `Contract:\n${A.contract}\n\nReview ${range}.\n\n${A.blockingLine}\n\n${STOPGAP_LINE}\n\n${TEST_VOLUME_LINE}\n\n` +
+      `Contract:\n${A.contract}\n\nReview ${range}.\n\n${reuseParagraph()}${A.blockingLine}\n\n${STOPGAP_LINE}\n\n${TEST_VOLUME_LINE}\n\n` +
       `verdict is APPROVE with no blocking findings, REVISE with at least one, or architectural when the cut itself is wrong.`
   }
 
@@ -1489,6 +1496,7 @@ const followups = []
 const disputed = []
 let pr = A.pr || null
 let tip = A.tip || null
+let buildReuse = null
 const spent = { review: 0, test: 0, ci: 0, total: 0 }
 const fixRolesRun = []  // the role of each fixer that ran, in order
 const fixRoundsByStage = { review: 0, gate: 0, ci: 0, test: 0 }  // the stage whose findings each fix round answered
@@ -1603,8 +1611,7 @@ if (A.build) {
   if (!built || built.problem) return await checkpointOrFail('build', 'origin/main', { reason: `the builder returned no result; inspect ${A.worktree} for uncommitted work, checkpoint it, and hand it to a fresh finisher` })
   if (built.blocked) return await openResult('escalated', 'build', { reason: built.blockedReason })
   if (!SHA.test(built.tip || '')) return await openResult('failed', 'build', { reason: `the builder returned a tip that is not a sha: ${String(built.tip).slice(0, 80)}` })
-  pr = built.pr
-  tip = built.tip
+  pr = built.pr; tip = built.tip; buildReuse = built.reuse
   log(`built PR #${pr} at ${tip}`)
 } else {
   phase('Sync')
@@ -1629,7 +1636,7 @@ function unfitRoundAnswer(answer, expectedResults) {
 // from is the tip where the round's delta starts (none for a whole-lane round); a limited round hands it back for the resume.
 async function reviewRound(which, range, from) {
   const reviewers = which.map(r => ({ key: r.key, provider: r.provider, role: r.role, isGate: r === GATE, routing: claudeRole(r === GATE ? 'gate' : 'review') }))
-  const answer = await runPart('lane-review', laneReview, { item: A.item, pr, repo: A.repo, after: spent.total, tip, delegatedLine: DELEGATED_LINE, worktree: A.worktree, branch: A.branch, scratch: A.scratch, tag: TAG, label: `r${spent.total}`, range, contract: A.contract, blockingLine: BLOCKING_LINE, reviewers, findingKinds: FINDING_KINDS, finding: FINDING, followup: FOLLOWUP, mechanical: MECHANICAL })
+  const answer = await runPart('lane-review', laneReview, { item: A.item, pr, repo: A.repo, after: spent.total, tip, delegatedLine: DELEGATED_LINE, worktree: A.worktree, branch: A.branch, scratch: A.scratch, tag: TAG, label: `r${spent.total}`, range, reuse: buildReuse, contract: A.contract, blockingLine: BLOCKING_LINE, reviewers, findingKinds: FINDING_KINDS, finding: FINDING, followup: FOLLOWUP, mechanical: MECHANICAL })
   const unfit = unfitRoundAnswer(answer, which.length)
   if (unfit) {
     // The reviewers that finished before a usage limit keep their records, so the resume carries their findings.

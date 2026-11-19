@@ -13,8 +13,13 @@ test('a builder part that throws fails the lane at build naming the error', asyn
 
 test('the builder schema requires no check report and its prompt asks for no quality check', async () => {
   const { agentCalls } = await runLane(builtLane, { build: built })
-  assert.deepEqual(agentCalls.build.options.schema.required, ['pr', 'tip', 'blocked'])
+  assert.deepEqual(agentCalls.build.options.schema.required, ['pr', 'tip', 'reuse', 'blocked'])
   assert.doesNotMatch(agentCalls.build.prompt, /quality check|noQualityGate/)
+})
+
+test('the builder prompt asks for the owner extended or the search that found none', async () => {
+  const { agentCalls } = await runLane(builtLane, { build: built })
+  assert.match(agentCalls.build.prompt, /reuse: the owner you extended \(module and function\), or the search you ran and why nothing found fits/)
 })
 
 // A builder or fixer without a result: the lane's checkpoint step saves what the worktree holds.

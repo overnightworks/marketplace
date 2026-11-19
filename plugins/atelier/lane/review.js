@@ -67,9 +67,16 @@ export async function laneReview(A) {
   // agent); a fresh Claude reviewer is the default, Sonnet at high effort and Opus at medium on material risk. The
   // final gate on a material lane runs on Codex through a courier, because the Claude builder needs another provider,
   // unless the lane routes it to the Opus stand-in, which runs as a fresh Claude reviewer like the ordinary review.
+  // Only the first round of a run that built has the builder's text; a run started with pr and tip says so instead of inventing one.
+  function reuseParagraph() {
+    if (A.after !== 0) return ''
+    if (!A.reuse) return 'No build ran in this run, so no builder reuse text exists.\n\n'
+    return `The builder reports its reuse search:\n${A.reuse}\nJudge it: new code that repeats existing code the search should have found is a blocking finding.\n\n`
+  }
+
   function reviewerBrief(role, range) {
     return `You are the ${role} for work item #${A.item}: a fresh, independent reviewer who did not write this change. ` +
-      `Contract:\n${A.contract}\n\nReview ${range}.\n\n${A.blockingLine}\n\n${STOPGAP_LINE}\n\n${TEST_VOLUME_LINE}\n\n` +
+      `Contract:\n${A.contract}\n\nReview ${range}.\n\n${reuseParagraph()}${A.blockingLine}\n\n${STOPGAP_LINE}\n\n${TEST_VOLUME_LINE}\n\n` +
       `verdict is APPROVE with no blocking findings, REVISE with at least one, or architectural when the cut itself is wrong.`
   }
 

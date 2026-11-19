@@ -386,13 +386,6 @@ export async function laneRelay(A) {
   // The head and main commands of the sync and fix steps: head must exit 0, and main (merge-base --is-ancestor) exits 0 or 1.
   const gitCommandFailed = (values) => values.head && values.main ? values.head.code !== 0 || ![0, 1].includes(values.main.code) : undefined
 
-  // Why the ci step could not read GitHub, or '' when it could: a network error or timeout, and the commands the rate limit refused on every try.
-  function unreachableReason(complete) {
-    if (!complete.unreachable?.length) return ''
-    const limitedNote = complete.limited?.length ? ` GitHub's rate limit refused ${complete.limited.join(', ')} on every try.` : ''
-    return `GitHub is unreachable: ${complete.unreachable.join(', ')} failed with a network error, or timed out, after the retries a network error gets (a timeout is not retried).${limitedNote}`
-  }
-
   // The values of a relay line, or why the line cannot be trusted: checked as text first (shape, CRC32), parsed after.
   // A caller stops at the stage of the step that ran the printer, so an unreadable scope line stops at scope, because it
   // proves nothing about the push; push is only for a readable line that shows the push failed or the remote lacks the tip.
@@ -443,6 +436,13 @@ function testGapProofGap(proof, finding) {
 
 // A passing test-gap proof with neither a mutation nor a failing-before run: the raiser judges from the test text whether it names the mutation.
 const namesNoMutationField = (proof, finding) => finding.kind === 'test-gap' && proof.passesAfter && !proof.failedBefore && !(proof.mutation || '').trim()
+
+// Why the ci step could not read GitHub, or '' when it could: a network error or timeout, and the commands the rate limit refused on every try.
+function unreachableReason(complete) {
+  if (!complete.unreachable?.length) return ''
+  const limitedNote = complete.limited?.length ? ` GitHub's rate limit refused ${complete.limited.join(', ')} on every try.` : ''
+  return `GitHub is unreachable: ${complete.unreachable.join(', ')} failed with a network error, or timed out, after the retries a network error gets (a timeout is not retried).${limitedNote}`
+}
 
 // The printed values, not the watcher's word, decide whether CI counts as green; null means they prove it.
 function unprovenGreen({ checks, rules }) {

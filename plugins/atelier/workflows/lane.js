@@ -1200,6 +1200,16 @@ function emptyVerdictReason(answer) {
   return ''
 }
 
+// The tester's state across rounds; main.js assigns it, and every part shares the bundle's one scope.
+let testSettled = false
+let pendingTest = null  // the tester started and not yet judged
+let testBlocking = []  // the tester's findings, held until a fix batch takes them
+let lastTestedTip = null  // the tip the last tester round that returned a verdict started on
+let lastTestRaised = []  // the blocking findings that round raised, which the fix answers
+let pendingTestTip = null
+// A round after a settled one, on a later tip, re-checks the fix range of the findings that round raised; a first round and a retry of one without a verdict carry none.
+const fixRangeOfTest = () => lastTestedTip && !sameCommit(lastTestedTip, tip) ? { from: lastTestedTip, findings: lastTestRaised.length ? listFindings(lastTestRaised) : '(none: the fix answers CI or review only)' } : undefined
+
 // ---------------------------------------------------------------- inputs
 const A = args || {}
 const need = ['item', 'worktree', 'branch', 'contract', 'e2e', 'scratch']
@@ -1877,15 +1887,7 @@ let n = 0
 let testCalls = 0
 let needTest = true
 let lockRetried = false
-let testSettled = false
-let pendingTest = null  // the tester started and not yet judged
 let rerunRed  // the red jobs a flake dispute hands to the next watch for one re-run
-let testBlocking = []  // the tester's findings, held until a fix batch takes them
-let lastTestedTip = null  // the tip the last tester round that returned a verdict started on
-let lastTestRaised = []  // the blocking findings that round raised, which the fix answers
-let pendingTestTip = null
-// A round after a settled one, on a later tip, re-checks the fix range of the findings that round raised; a first round and a retry of one without a verdict carry none.
-const fixRangeOfTest = () => lastTestedTip && !sameCommit(lastTestedTip, tip) ? { from: lastTestedTip, findings: lastTestRaised.length ? listFindings(lastTestRaised) : '(none: the fix answers CI or review only)' } : undefined
 function startTest() {
   needTest = false
   productionSinceTest = false

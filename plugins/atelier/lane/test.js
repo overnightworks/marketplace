@@ -69,3 +69,13 @@ function emptyVerdictReason(answer) {
   if (answer.verdict === 'FAIL' && (answer.blocking || []).length === 0) return 'a FAIL verdict came without any blocking finding'
   return ''
 }
+
+// The tester's state across rounds; main.js assigns it, and every part shares the bundle's one scope.
+let testSettled = false
+let pendingTest = null  // the tester started and not yet judged
+let testBlocking = []  // the tester's findings, held until a fix batch takes them
+let lastTestedTip = null  // the tip the last tester round that returned a verdict started on
+let lastTestRaised = []  // the blocking findings that round raised, which the fix answers
+let pendingTestTip = null
+// A round after a settled one, on a later tip, re-checks the fix range of the findings that round raised; a first round and a retry of one without a verdict carry none.
+const fixRangeOfTest = () => lastTestedTip && !sameCommit(lastTestedTip, tip) ? { from: lastTestedTip, findings: lastTestRaised.length ? listFindings(lastTestRaised) : '(none: the fix answers CI or review only)' } : undefined

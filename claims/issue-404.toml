@@ -1,8 +1,0 @@
-claim_id = "04279cc5d26f467ea408572c597f184c"
-agent = "Claude 57d5a480-511e-4e68-ac3e-58f0f400e3c5"
-role = "builder"
-base = "655d2ed77d663ce93c2f7490c79a43e48dcb4d73"
-branch = "claude/issue-404-the-aco-skill-names-the-trailer-an-outsi"
-scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/skills/aco/SKILL.md"]
-opened_commit = "0acc21267cea296eafa1a2f84038319c66b89d58"
-whole_reason = "The skill text and the three version files the repository's rule makes every plugin change raise land together."

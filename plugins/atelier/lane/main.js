@@ -774,8 +774,7 @@ async function checkpointRenameActions() {
 
 const escapedQuote = String.raw`'\''`
 const shellQuoted = path => "'" + path.replaceAll("'", escapedQuote) + "'"
-const rescopeAdds = passedOutsidePaths.map(path => '--add ' + shellQuoted(path)).join(' ')
-const rescopeCommand = 'aco rescope ' + A.item + ' ' + rescopeAdds
+const rescopeCommand = 'aco rescope ' + A.item + ' ' + passedOutsidePaths.map(path => '--add ' + shellQuoted(path)).join(' ')
 const stillOpen = openFollowups()
 // A clean merge of main moves the tip without a verdict, and aco refuses a landing whose head the record's last verdict did not judge.
 const lastJudged = lastVerdictSha(history)

@@ -1905,11 +1905,11 @@ if (carriesBatch) {
   followups.push(...(A.foldIn || []))
   const f = await fixRound(carriedOver, 'the head (carried over from the previous run)', 'test', true)
   if (f.stop) return f.stop
-  // Without deltaFrom the head has not said what reviewers saw, so the round covers the whole lane.
-  const asDelta = A.deltaFrom && !f.checkpointMet
-  const wholeLane = f.range  // a checkpoint the fixer found complete has no fix commits and gets the review of a first build
+  const asDelta = A.deltaFrom && !f.checkpointMet  // without deltaFrom the round covers the whole lane
+  const withoutFixRange = f.checkpointMet ? WHOLE_LANE : firstRange  // a complete checkpoint has no fix commits: review as a first build
+  const wholeLane = f.range
     ? `${firstRange}. It includes the fixer's commits for the head's carried-over findings, described next as a delta to look at closely; review the whole lane, not only that delta:\n${f.range}`
-    : `${f.checkpointMet ? WHOLE_LANE : firstRange}${foldInsInRange(f.foldIn)}`
+    : `${withoutFixRange}${foldInsInRange(f.foldIn)}`
   const range = asDelta
     ? `only this delta: git diff ${A.deltaFrom}..HEAD — fixes no reviewer has seen yet. They answer:\n${A.answers || ''}\n${listFindings(carriedOver)}${f.proofNotes}${foldInsInRange(f.foldIn)}`
     : wholeLane

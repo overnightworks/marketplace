@@ -1,8 +1,0 @@
-claim_id = "30f766904d724989b51977913a6ec3d5"
-agent = "Claude 57d5a480-511e-4e68-ac3e-58f0f400e3c5"
-role = "builder"
-base = "655d2ed77d663ce93c2f7490c79a43e48dcb4d73"
-branch = "claude/issue-532-lane-testers-re-test-the-whole-lane-on-e"
-scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/lane/main.js", "plugins/atelier/lane/test.js", "plugins/atelier/workflows/lane.js", "plugins/atelier/workflows/lane.md", "tests/lane_workflow_ci.test.mjs", "tests/lane_workflow_tester.test.mjs"]
-opened_commit = "cf0f77ad8784b0e9ef472d91190921cc7a7cc2a7"
-whole_reason = "The tester's hand-over, its brief, the regenerated bundle, the reference, the tests and the version files change together."

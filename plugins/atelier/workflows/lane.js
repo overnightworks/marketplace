@@ -1611,7 +1611,9 @@ if (A.build) {
   if (!built || built.problem) return await checkpointOrFail('build', 'origin/main', { reason: `the builder returned no result; inspect ${A.worktree} for uncommitted work, checkpoint it, and hand it to a fresh finisher` })
   if (built.blocked) return await openResult('escalated', 'build', { reason: built.blockedReason })
   if (!SHA.test(built.tip || '')) return await openResult('failed', 'build', { reason: `the builder returned a tip that is not a sha: ${String(built.tip).slice(0, 80)}` })
-  ;({ pr, tip, reuse: buildReuse } = built)
+  pr = built.pr
+  tip = built.tip
+  buildReuse = built.reuse
   log(`built PR #${pr} at ${tip}`)
 } else {
   phase('Sync')

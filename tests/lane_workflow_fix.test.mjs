@@ -288,6 +288,7 @@ test('a proof numbered 1 is judged as blocking finding 1 whatever it covers, and
   assert.match(prompt, /^- x\.py:1 — tidy the import order$/m)
   assert.doesNotMatch(prompt, /^\d+\. x\.py:1/m)
   assert.match(prompt, /a follow-up needs no regression entry/)
+  assert.match(prompt, /a probe you saw fail and then acted on is reported before the entry that passes, and the last entry per finding is its proof/)
 })
 
 test('the numbers in the fixer prompt are the ones a proof is judged by, on a CI fix as on the first fix', async () => {

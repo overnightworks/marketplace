@@ -54,6 +54,9 @@ const rateLimitMessages = [
   'GraphQL: API rate limit already exceeded for user ID 1.',
   'gh: API rate limit exceeded for user ID 1. (HTTP 403)',
   'gh: You have exceeded a secondary rate limit. (HTTP 403)',
+  "GitHub's GraphQL rate limit is reached; it resets at 2026-11-19 21:00 UTC",
+  "GitHub's REST rate limit is reached; its reset time could not be read",
+  "GitHub's secondary rate limit is reached; try again in a minute",
 ]
 
 for (const message of rateLimitMessages) {

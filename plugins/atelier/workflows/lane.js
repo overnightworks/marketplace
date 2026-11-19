@@ -353,7 +353,7 @@ async function laneRelay(A) {
     `wait=${NETWORK_WAIT_SECONDS}`,
     'start=time.monotonic();waits=[];unreachable=set()',
     'network=re.compile("Could not resolve host|Failed to connect to|check your internet connection or https://githubstatus.com")',
-    'limit=re.compile("API rate limit already exceeded|API rate limit exceeded|secondary rate limit")',
+    'limit=re.compile("API rate limit already exceeded|API rate limit exceeded|secondary rate limit|rate limit is reached")',
     'timed_out=lambda c:subprocess.CompletedProcess(c,124,"","timed out: "+c[0])',
     String.raw`exec("def typed(s):\n try:return json.loads(s).get(\"reason\")==\"unreachable\"\n except Exception:return False\ndef down(c,p):return bool(limit.search(p.stderr)) or (typed(p.stdout) if c[:2]==(\"aco\",\"brief\") else bool(network.search(p.stderr)))\ndef call(c):\n while 1:\n  try:p=subprocess.run(c,capture_output=True,text=True,timeout=max(5,min(60,240-time.monotonic()+start)))\n  except subprocess.TimeoutExpired:p=timed_out(c);p.down=1;return p\n  if p.returncode==0 or not down(c,p):return p\n  if len(waits)>1 or time.monotonic()-start+wait>=240:p.down=1;return p\n  waits.append(1);time.sleep(wait)")`,
     'run=lambda*c:call(c) if shutil.which(c[0]) else subprocess.CompletedProcess(c,127,"","not found: "+c[0])',

@@ -30,9 +30,11 @@ export async function laneTest(A) {
   }
 
   function explore() {
+    const fixRange = A.fixRange && `This is a delta re-check of a fix: the fix is \`git diff ${A.fixRange.from}..HEAD\` and answers these findings of your earlier round:\n${A.fixRange.findings}\n` +
+      `Judge whether the repair holds and opened nothing new, and still drive the real flow in full. A new finding in a part the fix left unchanged goes into follow-ups, not blocking, unless it touches security, data or a failing check.\n\n`
     const prompt =
       `${A.laneFacts}\nYou test PR #${pr} at its lane tip ${tip} through the real entry point, like a curious user, before it lands. ` +
-      `Run the lane's code, not the installed tool (from ${A.worktree}). What to drive:\n${A.e2e}\n\nContract:\n${A.contract}\n\n${A.blockingLine}\n` +
+      `Run the lane's code, not the installed tool (from ${A.worktree}). What to drive:\n${A.e2e}\n\nContract:\n${A.contract}\n\n${fixRange || ''}${A.blockingLine}\n` +
       `For every blocking finding give a scenario name in where, unique within your report, the command that shows it in repro, and — when it can be automated stably — a failing test draft ` +
       `under your scratch path in testDraft (a live or UI case stays a manual proof; leave testDraft empty then). ` +
       `First create your own directory with \`mktemp -d ${A.scratch}/${A.tag}-e2e-${A.n}-XXXXXX\` and write only there, besides the environment the repository's own sync command creates in ${A.worktree}. For any server, browser or E2E run load the atelier:explorative-testing skill and follow its Probe stack section; use a free port above 8790 and keep your pid files in your directory. ` +

@@ -676,6 +676,37 @@ test('ci-fixer-at-once: a tester PASS on a tip a later fix changed in production
   assert.equal(result.tip, roundTip(2))
 })
 
+const fixRangeText = (from) => `git diff ${from}..HEAD`
+const testerRounds = [
+  ['a second round after a tester FAIL carries the first round start and the finding place', () => ({
+    'e2e-0': { verdict: 'FAIL', blocking: [lateFinding], followups: [] }, 'e2e-1': PASS,
+    'ci-0': greenCi(resumeArgs.tip), 'fix-1': { ...lateFix, parents: [resumeArgs.tip] }, 'r1-review': APPROVE, 'ci-1': greenCi(roundTip(3)),
+  }), [fixRangeText(resumeArgs.tip), 'flow.py:9']],
+  ['a second round after a tester PASS and a production fix carries the range and no findings', () => ({
+    ...roundReviews, 'e2e-0': PASS, 'e2e-1': PASS,
+    'ci-0': roundRed(0), 'ci-1': greenCi(roundTip(1)),
+    'fix-1': { ...resumeFix, head: roundTip(1), files: ['src/x.py'], regression: [] }, 'r1-review': APPROVE,
+  }), [fixRangeText(resumeArgs.tip), 'none']],
+]
+for (const [what, answers, expected] of testerRounds) {
+  test(`tester-delta: ${what}`, tolerates, async () => {
+    const { agentCalls, result } = await runLane(resumeArgs, { 'r0-review': APPROVE, ...answers() })
+    assert.equal(result.status, 'ready-to-land', result.reason)
+    for (const text of expected) assert.ok(agentCalls['e2e-1'].prompt.includes(text), `the second tester prompt lacks ${text}`)
+    assert.match(agentCalls['e2e-1'].prompt, /still drive the real flow in full[\s\S]*follow-ups/)
+  })
+}
+
+test('tester-delta: a CI-only fix after a tester PASS lists no findings in the range', tolerates, async () => {
+  const { agentCalls } = await runLane(resumeArgs, { 'r0-review': APPROVE, ...testerRounds[1][1]() })
+  assert.doesNotMatch(agentCalls['e2e-1'].prompt, /\n1\. /)
+})
+
+test('tester-delta: the first round and a lock-busy retry of it carry no range', tolerates, async () => {
+  const { agentCalls } = await runLane(resumeArgs, { 'r0-review': APPROVE, 'e2e-0': lockBusy, 'e2e-1': PASS, 'ci-0': greenCi(resumeArgs.tip), 'ci-1': greenCi(resumeArgs.tip) })
+  for (const label of ['e2e-0', 'e2e-1']) assert.doesNotMatch(agentCalls[label].prompt, /git diff \S+\.\.HEAD/)
+})
+
 test('ci-fixer-at-once: a lock-busy tester does not hold a red CI back from the fixer', tolerates, async () => {
   const retry = heldTester()
   const answers = {

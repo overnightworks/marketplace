@@ -652,7 +652,7 @@ if (carriesBatch) {
 
 // ---------------------------- end-to-end test and CI side by side
 // laneTest returns the tester's answer, null when both agents ended without a result, or a problem the lane stops on.
-const explore = (n) => runPart('lane-test', laneTest, { delegatedLine: DELEGATED_LINE, n, pr, tip, worktree: A.worktree, scratch: A.scratch, tag: TAG, e2e: A.e2e, contract: A.contract, laneFacts, blockingLine: BLOCKING_LINE, finding: FINDING, followup: FOLLOWUP, routing: claudeRole('test') })
+const explore = (n, fixRange) => runPart('lane-test', laneTest, { fixRange, delegatedLine: DELEGATED_LINE, n, pr, tip, worktree: A.worktree, scratch: A.scratch, tag: TAG, e2e: A.e2e, contract: A.contract, laneFacts, blockingLine: BLOCKING_LINE, finding: FINDING, followup: FOLLOWUP, routing: claudeRole('test') })
 // The paths the watcher's findings name; the printer keeps those among the pull request's changed files.
 const findingPaths = (failing = []) => [...new Set(failing.map(finding => findingPath(finding.where)).filter(Boolean))]
 async function watchCi(n, rerun) {
@@ -679,11 +679,17 @@ let testSettled = false
 let pendingTest = null  // the tester started and not yet judged
 let rerunRed  // the red jobs a flake dispute hands to the next watch for one re-run
 let testBlocking = []  // the tester's findings, held until a fix batch takes them
+let lastTestedTip = null  // the tip the last tester round that returned a verdict started on
+let lastTestRaised = []  // the blocking findings that round raised, which the fix answers
+let pendingTestTip = null
+// A round after a settled one, on a later tip, re-checks the fix range of the findings that round raised; a first round and a retry of one without a verdict carry none.
+const fixRangeOfTest = () => lastTestedTip && !sameCommit(lastTestedTip, tip) ? { from: lastTestedTip, findings: lastTestRaised.length ? listFindings(lastTestRaised) : '(none: the fix answers CI or review only)' } : undefined
 function startTest() {
   needTest = false
   productionSinceTest = false
   testSettled = false
-  pendingTest = explore(testCalls++).then(e2e => {
+  pendingTestTip = tip
+  pendingTest = explore(testCalls++, fixRangeOfTest()).then(e2e => {
     testSettled = true
     return e2e
   })
@@ -709,6 +715,8 @@ async function settleTest(ci, awaitRetry = true) {
   }
   if (!e2e || e2e.verdict === 'failed') return openResult('failed', 'test', { reason: 'the tester returned no usable result' })
   testBlocking = e2e.blocking || []
+  lastTestedTip = pendingTestTip
+  lastTestRaised = testBlocking
   if (e2e.emptyVerdictReason) return openResult('failed', 'test', { reason: e2e.emptyVerdictReason })
   history.push({ after: spent.total, ...e2e.historyEntry })
   followups.push(...e2e.followups)

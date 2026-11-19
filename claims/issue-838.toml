@@ -3,6 +3,6 @@ agent = "Claude 57d5a480-511e-4e68-ac3e-58f0f400e3c5"
 role = "builder"
 base = "a2f62bd1f515b29eda2c77e0320dd1a6392bc343"
 branch = "claude/issue-838-a-fix-inside-the-fixer-s-merge-commit-re"
-scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/lane/main.js", "plugins/atelier/lane/relay.js", "plugins/atelier/workflows/lane.js", "tests/lane_workflow_fix.test.mjs", "tests/lane_workflow_relay.test.mjs"]
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/lane/main.js", "plugins/atelier/lane/relay.js", "plugins/atelier/workflows/lane.js", "tests/lane_workflow_fix.test.mjs", "tests/lane_workflow_harness.mjs", "tests/lane_workflow_relay.test.mjs"]
 opened_commit = "94e68f50e56ee59d0bd281e52c442e7df56945a8"
 whole_reason = "The merge reading, its relay values, the regenerated bundle, the tests and the version files change together."

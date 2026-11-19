@@ -3,6 +3,6 @@ agent = "Claude 57d5a480-511e-4e68-ac3e-58f0f400e3c5"
 role = "builder"
 base = "3d69682cb1093fe167a0bf0d41e60ab5e2f31fa1"
 branch = "claude/issue-842-a-complete-checkpoint-resumed-with-the-l"
-scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/lane/main.js", "plugins/atelier/lane/relay.js", "plugins/atelier/workflows/lane.js", "plugins/atelier/workflows/lane.md", "tests/lane_workflow_builder.test.mjs", "tests/lane_workflow_fix.test.mjs", "tests/lane_workflow_harness.mjs"]
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/lane/main.js", "plugins/atelier/lane/relay.js", "plugins/atelier/workflows/lane.js", "plugins/atelier/workflows/lane.md", "tests/lane_workflow_builder.test.mjs", "tests/lane_workflow_fix.test.mjs", "tests/lane_workflow_harness.mjs", "tests/lane_workflow_network.test.mjs"]
 opened_commit = "515573edd50264e0c70bc6031dafa9576a2fced8"
 whole_reason = "The fixer reading, the title step, the regenerated bundle, the reference, the tests and the version files change together."

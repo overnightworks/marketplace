@@ -512,7 +512,7 @@ async function laneRelay(A) {
 
   // What a proof still has to show for the finding it names, or null when it shows it. A test-gap's code was already
   // right, so its test passes after the fix and pins the behaviour when a mutation, or the pre-fix code, makes it fail.
-  // Dead code or a test that pins nothing may be removed instead, for a finding of any kind, with the size of the diff of its path (of the whole range when the finding names no path) in the fixer's commits as the proof.
+  // Dead code or a test that pins nothing may be removed instead, for a finding of any kind, with the size of the diff of its path (of the whole range when the finding names no path or its path carries no diff) in the fixer's commits as the proof.
   function proofGap(proof, finding) {
     const kind = finding.kind
     if (proof.resolution === 'removed') return proof.removal?.size > 0 ? null : `the removal for ${finding.where} carried no diff`
@@ -542,9 +542,9 @@ async function laneRelay(A) {
   // A removal answers a finding only if the reviewer agrees what was removed was dead or pinned nothing.
   // A proof with a gap beside a valid proof for its finding reaches the raiser as a note, so it can judge whether the proof misleads.
   const removalNote = ({ proof, finding }) => {
-    const { range, path, size } = proof.removal
+    const { range, path, untouchedPath, size } = proof.removal
     const pathArgument = path ? ` -- ${path}` : ''
-    const scope = path ? '' : ', the whole range, because the finding names no path'
+    const scope = path ? '' : untouchedPath ? `, the whole range, because ${untouchedPath} carries no diff` : ', the whole range, because the finding names no path'
     return `\nThe fixer answered ${finding.where} by removing code or a test instead of changing behaviour; judge whether what was removed was dead or pinned no behaviour. Read the removal yourself: git log -p --first-parent --remerge-diff ${range}${pathArgument} (${size} characters${scope}).`
   }
   const supportingNote = ({ proof, finding, gap }) => `\nThe fixer also offered the test ${proof.test} for ${finding.where}, though it shows less than the bar: ${gap}; judge whether it misleads.`
@@ -608,13 +608,15 @@ async function laneRelay(A) {
   // A fixer may report absolute paths; an absolute path once hid a production change and skipped the gate.
   const worktreeRelative = (files) => files.map(f => f.startsWith(`${A.worktree}/`) ? f.slice(A.worktree.length + 1) : f.replace(/^\.\//, ''))
 
-  // A removal is judged by the size of the diff the printer measured in the fixer's commits, for the path of the finding its proof names, or for the whole range when that finding names no path; the raiser reads the diff itself.
+  // A removal is judged by the size of the diff the printer measured in the fixer's commits, for the path of the finding its proof names, or for the whole range when that finding names no path or its path carries no diff (a check may report where a rule is declared, not where it broke); the raiser reads the diff itself.
   function withReadRemovals(regression, blocking, values, range) {
     const removalOf = (proof) => {
       const finding = blocking[proof.finding - 1]
       const path = finding ? A.findingPath(finding.where) : ''
-      const measured = path ? values[`diff${A.sentPaths.indexOf(path)}`] : values.diffall
-      return { size: finding ? measured?.size ?? 0 : 0, path, range }
+      const ofPath = path ? values[`diff${A.sentPaths.indexOf(path)}`] : null
+      const untouched = path && !(ofPath?.size > 0)
+      const measured = path && !untouched ? ofPath : values.diffall
+      return { size: finding ? measured?.size ?? 0 : 0, path: untouched ? '' : path, untouchedPath: untouched ? path : '', range }
     }
     return regression.map(proof => proof.resolution === 'removed' ? { ...proof, removal: removalOf(proof) } : proof)
   }

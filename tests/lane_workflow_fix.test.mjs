@@ -255,6 +255,10 @@ const proofsByNumber = [
   ['a behaviour-changing defect fix without its test is still rejected', [defectWithDraft], [], rejectedForNoProof],
   ['a number pointing at a docs finding adds no pass for the test-gap behind it', [docsFinding, testGap], [proofOf(1)], rejectedForNoProof],
   ['two proofs for one number, one of them bad, are still rejected', [testGap], [proofOf(1, { mutation: 'drop the guard' }), proofOf(1, { mutation: 'drop the guard', passesAfter: false })], /did not pass/],
+  ['a defect with a test draft whose red entry is followed by a valid proof is accepted', [defectWithDraft], [proofOf(1, { failedBefore: true, passesAfter: false }), proofOf(1, { failedBefore: true })], null],
+  ['a defect with a test draft whose valid proof is followed by a red entry is rejected', [defectWithDraft], [proofOf(1, { failedBefore: true }), proofOf(1, { failedBefore: true, passesAfter: false })], /did not pass after its fix$/],
+  ['a test-gap whose red entry is followed by a valid proof is accepted', [testGap], [proofOf(1, { mutation: 'drop the guard', passesAfter: false }), proofOf(1, { mutation: 'drop the guard' })], null],
+  ['a test-gap whose valid proof is followed by a red entry is rejected', [testGap], [proofOf(1, { mutation: 'drop the guard' }), proofOf(1, { mutation: 'drop the guard', passesAfter: false })], /t\.py:1.*did not pass/],
   ['a not-run proof is no gap for a defect without a test draft', [defectWithoutDraft], [proofOf(1, { passesAfter: false, notRun: 'the probe stack was held by another lane' })], null],
   ['a not-run proof for a defect with a test draft goes on to the delta re-check', [defectWithDraft], [proofOf(1, { passesAfter: false, notRun: 'the probe stack was held by another lane' })], null],
   ['a not-run proof for a test-gap goes on to the delta re-check', [testGap], [proofOf(1, { passesAfter: false, notRun: 'permission refused' })], null],
@@ -284,6 +288,7 @@ test('a proof numbered 1 is judged as blocking finding 1 whatever it covers, and
   assert.match(prompt, /^- x\.py:1 — tidy the import order$/m)
   assert.doesNotMatch(prompt, /^\d+\. x\.py:1/m)
   assert.match(prompt, /a follow-up needs no regression entry/)
+  assert.match(prompt, /a probe you saw fail and then acted on is reported before the entry that passes, and the last entry per finding is its proof/)
 })
 
 test('the numbers in the fixer prompt are the ones a proof is judged by, on a CI fix as on the first fix', async () => {
@@ -310,6 +315,7 @@ test('the fixer schema requires regression, so a report that leaves it out is re
 
 const supportingProofNotes = [
   ['a test-gap with one proof naming a mutation and a supporting proof naming none', testGap, [proofOf(1, { mutation: 'drop the guard' }), proofOf(1, { test: 'supporting_test.py [image]' })], /named no mutation/],
+  ['a defect with a test draft, a red entry the fixer acted on and the proof that follows it', defectWithDraft, [proofOf(1, { test: 'supporting_test.py [image]', failedBefore: true, passesAfter: false }), proofOf(1, { failedBefore: true })], /did not pass after/],
   ['a defect with a test draft, one proof failed before and a supporting proof did not', defectWithDraft, [proofOf(1, { failedBefore: true }), proofOf(1, { test: 'supporting_test.py [image]' })], /did not fail before/],
 ]
 

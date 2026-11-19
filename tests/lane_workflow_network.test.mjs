@@ -81,8 +81,9 @@ test('AC-rate-limit-retry: the head action names no landing when the tester has 
   assert.ok(!(result.requiredHeadActions ?? []).some(action => /check-runs/.test(action)))
 })
 
-test('AC-rate-limit-retry: the head action names no landing when a clean merge of main moved the tip past the last verdict', async () => {
-  const { result } = await runLane(resumeArgs, { 'r0-review': APPROVE, 'e2e-0': PASS, 'ci-0': { head: resumeTip, green: false, failing: [defectWithoutDraft] }, 'fix-1': mergeOnlyFix, 'ci-1': greenCi(mergedOnlyTip), 'ci-read-1': { network_error: rateLimitMessages[0], network_fails: 'always' } }, noWait)
+test('AC-rate-limit-retry: the head action names no landing when a clean merge of main moved the tip past the review and the tester re-ran on it', async () => {
+  const testFailure = { where: 'mergeable', kind: 'defect', text: 't', rule: 'r', evidence: 'e' }
+  const { result } = await runLane(resumeArgs, { 'r0-review': APPROVE, 'e2e-0': { verdict: 'FAIL', blocking: [testFailure], followups: [] }, 'ci-0': greenCi(resumeTip), 'fix-1': mergeOnlyFix, 'e2e-1': PASS, 'ci-1': greenCi(mergedOnlyTip), 'ci-read-1': { network_error: rateLimitMessages[0], network_fails: 'always' } }, noWait)
   assert.deepEqual([result.status, result.stage], ['awaiting-head', 'ci'], result.reason)
   assert.ok(!(result.requiredHeadActions ?? []).some(action => /check-runs|aco land/.test(action)))
 })

@@ -33,12 +33,12 @@ if [ -n "$FAKE_NETWORK_ERROR" ] && { [ "$FAKE_NETWORK_FAILS" = always ] || [ "$c
 const FAKE_GH = `#!/bin/sh
 ${NETWORK_DOWN}fail() { printf '%s\\n' "$2" >&2; exit "$1"; }
 case "$1 $2" in
-  "pr view") [ "$FAKE_VIEW_CODE" = 0 ] || fail "$FAKE_VIEW_CODE" "$FAKE_VIEW_ERROR"; printf '{"baseRefName":"main","headRefOid":"%s"}' "$FAKE_PR_HEAD" ;;
   "run list") [ "$FAKE_RUNLIST_CODE" = 0 ] || fail "$FAKE_RUNLIST_CODE" "$FAKE_RUNLIST_ERROR"; printf '[]' ;;
   "pr checks") [ "$FAKE_CHECKS_CODE" = 0 ] || fail "$FAKE_CHECKS_CODE" "$FAKE_CHECKS_ERROR"; printf '%s' "$FAKE_CHECKS" ;;
   "api repos/"*) case "$2" in
     */rules/branches/main) [ "$FAKE_RULES_CODE" = 0 ] || fail "$FAKE_RULES_CODE" "$FAKE_RULES_ERROR"; printf '%s' "$FAKE_RULES" ;;
     */pulls/*/files) [ "$FAKE_CHANGED_CODE" = 0 ] || fail "$FAKE_CHANGED_CODE" "$FAKE_CHANGED_ERROR"; printf '%s' "$FAKE_FILES" ;;
+    */pulls/[0-9]*) [ "$FAKE_VIEW_CODE" = 0 ] || fail "$FAKE_VIEW_CODE" "$FAKE_VIEW_ERROR"; printf '{"baseRefName":"main","headRefOid":"%s"}' "$FAKE_PR_HEAD" ;;
     */commits/main/check-runs) printf '%s' "$FAKE_BASE_RUNS" ;;
     *) fail 1 "unexpected gh api path $2" ;;
   esac ;;

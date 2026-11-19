@@ -65,10 +65,10 @@ test('ci-relay-line: the checks the watcher copies do not count, the printed lis
   assert.match(result.reason, /Python: tests/)
 })
 
-test('ci-relay-line: a failed gh pr view fails the lane at ci naming its exit and error', async () => {
+test('ci-relay-line: a failed read of the pull request fails the lane at ci naming its exit and error', async () => {
   const { result, launchedAgents } = await driveCi(ciAnswer([check(required, 'pass')]), lane, { view_code: 1, view_error: 'no pull requests found' })
   assert.deepEqual([result.status, result.stage], ['failed', 'ci'])
-  assert.match(result.reason, /gh pr view exited 1: no pull requests found/)
+  assert.match(result.reason, /gh api pulls exited 1: no pull requests found/)
   assert.ok(!launchedAgents.includes('fix-2'))
 })
 
@@ -398,7 +398,7 @@ const fakeGhWithLog = (t, { logLines, logCode = 0 }) => {
   installFake(bin, 'gh', `#!/bin/sh
 echo "$*" >> '${calls}'
 case "$1 $2" in
-  "pr view") printf '{"baseRefName":"main","headRefOid":"%s","files":[]}' "$FAKE_PR_HEAD" ;;
+  "api "*/pulls/[0-9]) printf '{"baseRefName":"main","headRefOid":"%s"}' "$FAKE_PR_HEAD" ;;
   "pr checks") printf '%s' "$FAKE_CHECKS" ;;
   "run view") [ ${logCode} = 0 ] || { echo 'HTTP 410: logs expired' >&2; exit ${logCode}; }; cat '${path.join(bin, 'log')}' ;;
   *) printf '[]' ;;
@@ -770,4 +770,9 @@ test('ci-operator-door: a tester PASS on an older production tip does not open t
   assert.deepEqual([result.status, result.stage], ['awaiting-head', 'ci'])
   assert.match(result.reason, door)
   assert.deepEqual(testerLabels(launchedAgents), ['e2e-0', 'e2e-1'])
+})
+
+test('ci-rate-limit-wait: the watcher brief tells the watcher to wait and repeat a gh command the rate limit refused', async () => {
+  const { agentCalls } = await driveCi(ciAnswer([check(required, 'pass')]), lane)
+  assert.match(agentCalls['ci-0'].prompt, /refused with "API rate limit"[^`]*wait[^`]*repeat[^`]*instead of reporting a red or missing check/)
 })

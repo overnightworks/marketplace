@@ -70,14 +70,13 @@ function emptyVerdictReason(answer) {
   return ''
 }
 
-// The tester's state across rounds; main.js assigns it, and every part shares the bundle's one scope.
+// The tester's state across rounds, assigned in this file only; every part shares the bundle's one scope.
 let testSettled = false
 let pendingTest = null  // the tester started and not yet judged
 let testBlocking = []  // the tester's findings, held until a fix batch takes them
 let lastTestedTip = null  // the tip the last tester round that returned a verdict started on
 let lastTestRaised = []  // the blocking findings that round raised, which the fix answers
 let pendingTestTip = null
-// The state is assigned here only, so each part declares what it assigns.
 function trackTest(startedOnTip, running) {
   testSettled = false
   pendingTestTip = startedOnTip

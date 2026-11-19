@@ -55,7 +55,8 @@ export async function laneCi(A) {
       evidenceRules(inWorktree) +
       `Read the required contexts of the base branch only to pace the wait: \`${inWorktree}gh api ${rulesRepoPath}/rules/branches/<base> --jq '[.[]|select(.type=="required_status_checks")|.parameters.required_status_checks[].context]'\`, ` +
       `the base is \`${inWorktree}gh pr view ${pr}${R} --json baseRefName --jq .baseRefName\`. The lane reads them again itself, so neither what you read nor its error is returned or judged; when the read fails, wait as if no required context were missing. ` +
-      `If a required context is missing from \`${inWorktree}gh pr checks ${pr}${R} --json name,bucket\` while a run of head is not completed, or a check is still pending after the watch, watch again; re-watching shares the cap of 7 watches and the 540 s timeout per watch. Once every run of head has completed, a missing required context is judged as it stands and is not watched for.`,
+      `If a required context is missing from \`${inWorktree}gh pr checks ${pr}${R} --json name,bucket\` while a run of head is not completed, or a check is still pending after the watch, watch again; re-watching shares the cap of 7 watches and the 540 s timeout per watch. Once every run of head has completed, a missing required context is judged as it stands and is not watched for. ` +
+      `When a gh command is refused with "API rate limit" (primary or secondary), wait a few minutes and repeat that command inside the same cap, instead of reporting a red or missing check.`,
       { label: `ci-${A.n}`, phase: 'Test and CI', schema: CI, ...A.mechanical })
   }
 

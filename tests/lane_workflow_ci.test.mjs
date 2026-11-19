@@ -771,3 +771,8 @@ test('ci-operator-door: a tester PASS on an older production tip does not open t
   assert.match(result.reason, door)
   assert.deepEqual(testerLabels(launchedAgents), ['e2e-0', 'e2e-1'])
 })
+
+test('ci-rate-limit-wait: the watcher brief tells the watcher to wait and repeat a gh command the rate limit refused', async () => {
+  const { agentCalls } = await driveCi(ciAnswer([check(required, 'pass')]), lane)
+  assert.match(agentCalls['ci-0'].prompt, /refused with "API rate limit"[^`]*wait[^`]*repeat[^`]*instead of reporting a red or missing check/)
+})

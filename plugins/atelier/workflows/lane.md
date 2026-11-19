@@ -134,11 +134,17 @@ gpt-6-astra/high.
   (report the defect to marketplace, run the gate through `routing.gate`) and no
   resume.
 - A networked call of the scope or ci printer that fails with a network error
-  (cannot resolve or connect to GitHub) is retried twice after 30 seconds; a
+  (cannot resolve or connect to GitHub) or that GitHub's rate limit refuses
+  (primary or secondary) is retried twice after 30 seconds; a
   call that stays unreachable ends the lane awaiting-head at `scope` (resume
   with a new run with `pr` and `tip`, and `deltaFrom` where the stop names it) or
   at `ci` (resume with `pr` and `tip`; a resume from `ci` runs scope and the
-  review again) with "GitHub is unreachable" instead of failed.
+  review again) with "GitHub is unreachable" instead of failed; a refusal by the
+  rate limit says so in the reason. At `ci`, when review approved and the tester
+  passed on the tip, `requiredHeadActions` name the head's way without a new run:
+  read the tip's check runs over REST and land with the record once every one is
+  green. The printer reads the pull request over REST (`gh api`), which spends no
+  GraphQL points; `gh pr checks` stays on GraphQL.
 - A Claude agent of any stage (builder, reviewer, fixer, tester, CI reader or
   mechanical step) that fails with its account usage limit returns awaiting-head
   at its stage with `claudeLimit` (`resetsAt` when the error names a reset), the

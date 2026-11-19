@@ -217,6 +217,7 @@ const followups = []
 const disputed = []
 let pr = A.pr || null
 let tip = A.tip || null
+let buildReuse = null
 const spent = { review: 0, test: 0, ci: 0, total: 0 }
 const fixRolesRun = []  // the role of each fixer that ran, in order
 const fixRoundsByStage = { review: 0, gate: 0, ci: 0, test: 0 }  // the stage whose findings each fix round answered
@@ -331,8 +332,7 @@ if (A.build) {
   if (!built || built.problem) return await checkpointOrFail('build', 'origin/main', { reason: `the builder returned no result; inspect ${A.worktree} for uncommitted work, checkpoint it, and hand it to a fresh finisher` })
   if (built.blocked) return await openResult('escalated', 'build', { reason: built.blockedReason })
   if (!SHA.test(built.tip || '')) return await openResult('failed', 'build', { reason: `the builder returned a tip that is not a sha: ${String(built.tip).slice(0, 80)}` })
-  pr = built.pr
-  tip = built.tip
+  ;({ pr, tip, reuse: buildReuse } = built)
   log(`built PR #${pr} at ${tip}`)
 } else {
   phase('Sync')
@@ -357,7 +357,7 @@ function unfitRoundAnswer(answer, expectedResults) {
 // from is the tip where the round's delta starts (none for a whole-lane round); a limited round hands it back for the resume.
 async function reviewRound(which, range, from) {
   const reviewers = which.map(r => ({ key: r.key, provider: r.provider, role: r.role, isGate: r === GATE, routing: claudeRole(r === GATE ? 'gate' : 'review') }))
-  const answer = await runPart('lane-review', laneReview, { item: A.item, pr, repo: A.repo, after: spent.total, tip, delegatedLine: DELEGATED_LINE, worktree: A.worktree, branch: A.branch, scratch: A.scratch, tag: TAG, label: `r${spent.total}`, range, contract: A.contract, blockingLine: BLOCKING_LINE, reviewers, findingKinds: FINDING_KINDS, finding: FINDING, followup: FOLLOWUP, mechanical: MECHANICAL })
+  const answer = await runPart('lane-review', laneReview, { item: A.item, pr, repo: A.repo, after: spent.total, tip, delegatedLine: DELEGATED_LINE, worktree: A.worktree, branch: A.branch, scratch: A.scratch, tag: TAG, label: `r${spent.total}`, range, reuse: buildReuse, contract: A.contract, blockingLine: BLOCKING_LINE, reviewers, findingKinds: FINDING_KINDS, finding: FINDING, followup: FOLLOWUP, mechanical: MECHANICAL })
   const unfit = unfitRoundAnswer(answer, which.length)
   if (unfit) {
     // The reviewers that finished before a usage limit keep their records, so the resume carries their findings.

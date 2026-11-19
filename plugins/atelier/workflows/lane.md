@@ -6,7 +6,11 @@ lists `requiredHeadActions`.
 
 ## What it runs
 
-1. Build: a builder runs the brief.
+1. Build: a builder runs the brief and answers with `reuse`, a required
+   string: the owner it extended (module and function), or the search it ran and
+   why nothing found fits. The first review receives that text with the
+   instruction to judge it; a run started with `pr` and `tip` has none and says
+   so to the reviewer.
 2. Review: a fresh Claude reviewer (Sonnet at high effort; Opus at medium on a
    material lane). A material lane adds a Codex gpt-6-astra final gate, or an
    Opus gate at high effort through `routing.gate`. A Claude reviewer that fails

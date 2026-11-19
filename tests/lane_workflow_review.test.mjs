@@ -5,7 +5,7 @@ import path from 'node:path'
 import { spawnSync } from 'node:child_process'
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { runLane, partReplaced, courierBriefOf, resumedLane, installFake, APPROVE, PASS, greenCi, finding, resumeArgs, resumeTip, olderTip, resumeFixedTip, resumeFix, secondFix, tidy, delegatedLineOfContract } from './lane_workflow_harness.mjs'
+import { runLane, built, builtReuse, partReplaced, courierBriefOf, resumedLane, installFake, APPROVE, PASS, greenCi, finding, resumeArgs, resumeTip, olderTip, resumeFixedTip, resumeFix, secondFix, tidy, delegatedLineOfContract } from './lane_workflow_harness.mjs'
 
 const driveGate = (options) => runLane({ ...resumedLane, risk: 'material' }, { 'r0-review': APPROVE }, options)
 
@@ -46,6 +46,18 @@ const bodyLane = { ...resumedLane, item: 7, pr: 9, repo: 'o/r' }
 test('review-reads-body: the Claude reviewer brief names both gh commands with the repo flag', async () => {
   const { agentCalls } = await runLane(bodyLane, { 'r0-review': APPROVE })
   for (const command of bodyCommands(' -R o/r')) assert.ok(agentCalls['r0-review'].prompt.includes(command), command)
+})
+
+test('reuse-judged: the first review of a build carries the builder reuse text and the instruction to judge it', async () => {
+  const { agentCalls } = await runLane({ ...bodyLane, pr: undefined, tip: undefined, build: 'b' }, { build: built, 'r0-review': APPROVE })
+  const prompt = agentCalls['r0-review'].prompt
+  assert.ok(prompt.includes(builtReuse))
+  assert.match(prompt, /new code that repeats existing code the search should have found is a blocking finding/)
+})
+
+test('reuse-absent: a run started with pr and tip tells the reviewer no build ran in this run', async () => {
+  const { agentCalls } = await runLane(bodyLane, { 'r0-review': APPROVE })
+  assert.match(agentCalls['r0-review'].prompt, /No build ran in this run/)
 })
 
 test('test-volume: the Claude reviewer brief carries the ratio rule naming D1 and D3', async () => {

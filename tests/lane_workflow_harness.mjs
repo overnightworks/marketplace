@@ -192,6 +192,7 @@ export const finding = (where, text) => ({ where, text, rule: 'recorded rule', e
 
 export const followup = (where, text, owner) => ({ where, text, owner })
 
+export const builtReuse = 'extended lane/review.js reviewerBrief'
 export const webauthTips = { built: '7ac1653ab10c05e6b41a393d47a586a2bacb9640', firstFix: 'd7e50a7509ea87793fed5bdbabcf7df3955bc893', secondFix: '307742391d346d4579400c733ef7adbdeea5ef79' }
 
 export const webauthC1Finding = 'src/webauth/jwt_verification.py:65 (_URL_CONTROL_OR_SPACE) via is_https_url, reached through OidcClientConfig.__post_init__ (src/webauth/oidc.py:73-92)'
@@ -214,7 +215,7 @@ export const webauthReplay = {
   },
   followupsToRoute: 3,
   answers: {
-    build: { pr: 58, tip: webauthTips.built, blocked: false },
+    build: { pr: 58, tip: webauthTips.built, reuse: builtReuse, blocked: false },
     'r0-review': {
       verdict: 'REVISE',
       blocking: [
@@ -289,7 +290,7 @@ export const agentProvidersReplay = {
   },
   followupsToRoute: 4,
   answers: {
-    build: { pr: 26, tip: agentProvidersTips.built, blocked: false },
+    build: { pr: 26, tip: agentProvidersTips.built, reuse: builtReuse, blocked: false },
     'r0-review': {
       verdict: 'APPROVE', blocking: [],
       followups: [
@@ -360,7 +361,7 @@ export const testGap = { ...finding('t.py:1', 'a behaviour has no test'), kind: 
 
 export const secondFix = { ...resumeFix, head: 'e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3', parents: [resumeFixedTip], files: ['x.py'], regression: [] }
 
-export const built = { pr: 2, tip: resumeTip, blocked: false }
+export const built = { pr: 2, tip: resumeTip, reuse: builtReuse, blocked: false }
 
 export const mainMovedTip = 'f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3'
 

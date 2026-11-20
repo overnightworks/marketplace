@@ -1,8 +1,0 @@
-claim_id = "eefc1cbf221f423984f7bde1f3e21b3e"
-agent = "Claude 57d5a480-511e-4e68-ac3e-58f0f400e3c5"
-role = "builder"
-base = "2a5afd91f15aeaa643bf50b44725181803d2f086"
-branch = "claude/issue-854-the-judgement-audit-runs-on-a-schedule-t"
-scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/skills/aco/SKILL.md", "plugins/atelier/skills/audit/SKILL.md", "plugins/atelier/skills/audit/references/architecture.md", "plugins/atelier/skills/audit/references/deadweight.md", "plugins/atelier/skills/audit/references/ownership.md", "plugins/atelier/skills/audit/references/platform.md", "plugins/atelier/skills/audit/references/standards.md", "plugins/atelier/skills/audit/references/tests.md", "plugins/atelier/skills/board-hygiene/SKILL.md"]
-opened_commit = "7ee1623b1d74cb7cc2a2b9e93867bf8215ca052c"
-whole_reason = "The rule, the lens references that name the standing item, the two skills that act on it and the version files change together."

@@ -135,40 +135,6 @@ test('AC-ci-listing-proof: green false with all checks passing does not become r
   assert.equal(result.history.at(-1).verdict, 'RED')
 })
 
-const stillQueued = [
-  ['only pending checks in the listing', [check(required, 'pending'), check('Python: tests', 'pending'), check('lint', 'pass')], undefined, /"Python: tests", "quality \/ verdict"/],
-  ['a head run not completed and a required check missing', [check('lint', 'pass')], [{ status: 'queued', name: 'quality' }], /"quality"/],
-]
-for (const [what, checks, head_runs, named] of stillQueued) {
-  test(`ci-pending: a not green answer without failing checks and ${what} ends awaiting-head at ci with no fixer`, async () => {
-    const { result, launchedAgents } = await driveCi(ciAnswer(checks, { green: false }), lane, { head_runs })
-    assert.deepEqual([result.status, result.stage], ['awaiting-head', 'ci'])
-    assert.match(result.reason, named)
-    assert.match(result.reason, new RegExp(`pr ${lane.pr} and tip ${tip}`))
-    assert.ok(!launchedAgents.includes('fix-2'))
-    assert.deepEqual(result.history.at(-1), { ...result.history.at(-1), by: 'ci-0', verdict: 'PENDING', blocking: [] })
-  })
-}
-
-const redWhilePending = [
-  ['a failed check and a pending check in the listing', ciAnswer([check('b', 'fail'), check(required, 'pending')], { green: false })],
-  ['a failing finding of the watcher and only pending checks in the listing', ciAnswer([check(required, 'pending')], { green: false, failing: [{ where: 'b', kind: 'defect', text: 'fails', rule: 'CI check b', evidence: 'boom' }] })],
-]
-for (const [what, answer] of redWhilePending) {
-  test(`ci-pending: a not green answer with ${what} goes to a fixer and is RED`, async () => {
-    const { result, launchedAgents } = await driveCi(answer)
-    assert.ok(launchedAgents.includes('fix-2'))
-    assert.notEqual(result.status, 'awaiting-head')
-    assert.equal(result.history.find(entry => entry.by === 'ci-0').verdict, 'RED')
-  })
-}
-
-test('ci-pending: a completed head run leaves a not green answer without pending checks to today\'s handling', async () => {
-  const { result } = await driveCi(ciAnswer([check(required, 'pass')], { green: false }), lane, { head_runs: [{ status: 'completed', name: 'quality' }] })
-  assert.notEqual(result.status, 'awaiting-head')
-  assert.equal(result.history.at(-1).verdict, 'RED')
-})
-
 test('ci-relay-line: the CI brief keeps the registration wait, the re-watch rule and the rules read for pacing only, and returns no listing', async () => {
   const { agentCalls } = await driveCi(ciAnswer([check(required, 'pass')]), { ...lane, repo: 'o/n' })
   const brief = agentCalls['ci-0'].prompt

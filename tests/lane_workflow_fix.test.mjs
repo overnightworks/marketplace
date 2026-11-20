@@ -653,6 +653,16 @@ test('AC-outside-answer-brief: a body-settled finding at an unchanged tip is re-
   assert.doesNotMatch(prompt, new RegExp(`git diff ${resumeTip}\\.\\.HEAD`))
 })
 
+test('AC-outside-answer-gate-rechecks: a body-settled finding on a material lane re-checks with the gate as well, both reading the answers of the head and the unchanged tip', async () => {
+  const { result, agentCalls } = await runLane({ ...resumeArgs, ...settledArgs, risk: 'material', fixFirst: [docsFinding] }, { 'fix-1': { ...unchangedFix, outside: [{ finding: 1, where: 'PR body' }] }, ...reachesTheEnd, 'r1-gate': { ...APPROVE, codexExit: 0 } })
+  assert.equal(result.status, 'ready-to-land')
+  for (const reviewer of ['r1-review', 'r1-gate']) {
+    assert.ok(agentCalls[reviewer], `${reviewer} runs`)
+    assert.ok(agentCalls[reviewer].prompt.includes(settledByTheHead))
+    assert.match(agentCalls[reviewer].prompt, /whether the unchanged tip does more or less than the changed body asks/)
+  }
+})
+
 test('AC-outside-answer-delta-kept: a body-settled finding with a deltaFrom older than the tip keeps the delta range and does not call the tip unchanged', async () => {
   const { result, agentCalls } = await settledRun({ ...settledArgs, deltaFrom: olderTip })
   assert.equal(result.status, 'ready-to-land')

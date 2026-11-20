@@ -1145,7 +1145,7 @@ function firstReviewRange({ deltaFrom, answers, tip, item, pr, repoFlag, fix }) 
       : `${wholeLane}${fix.foldInsText}` }
   }
   if (!fix.answeredOutside) return { from: fix.deltaFrom, range: `only this delta: git diff ${deltaFrom}..HEAD — fixes no reviewer has seen yet. They answer:\n${answers || ''}\n${fix.findingsText}${fix.proofNotes}${fix.foldInsText}` }
-  const unchanged = deltaFrom.startsWith(tip) || tip.startsWith(deltaFrom)
+  const unchanged = sameCommit(deltaFrom, tip)
   const what = unchanged ? 'the unchanged tip' : 'the tip'
   return { from: fix.deltaFrom, range: `${unchanged ? 'no commit is new, so judge the whole tip: git diff origin/main...HEAD' : `only this delta: git diff ${deltaFrom}..HEAD`}. The head's answers:\n${answers || '(none)'}\n${fix.range}\nRead the item body and the pull request body live (gh issue view ${item}${repoFlag} --json body --jq .body; gh pr view ${pr}${repoFlag} --json body --jq .body); for each finding say whether it still holds, and whether ${what} does more or less than the changed body asks.` }
 }

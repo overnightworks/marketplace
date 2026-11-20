@@ -18,6 +18,7 @@ export const partReplaced = (part, statements) => (source) => {
 const FAKE_GIT = `#!/bin/sh
 case "$1 $2" in
   "push origin") [ -z "$FAKE_PUSH_ERROR" ] || { printf '%s\\n' "$FAKE_PUSH_ERROR" >&2; exit 1; } ;;
+  "rev-parse --verify") [ "$FAKE_RESOLVE_CODE" = 0 ] || { printf 'fatal: Needed a single revision\\n' >&2; exit "$FAKE_RESOLVE_CODE"; }; full=\${3%'^{commit}'}; [ "$full" != HEAD ] || full=$FAKE_HEAD; while [ \${#full} -lt 40 ]; do full=\${full}0; done; printf '%s\\n' "$full" ;;
   "rev-parse HEAD") [ "$FAKE_HEAD_CODE" = 0 ] || { printf 'fatal: bad revision\\n' >&2; exit "$FAKE_HEAD_CODE"; }; printf '%s\\n' "$FAKE_HEAD" ;;
   "branch --show-current") [ "$FAKE_BRANCH_CODE" = 0 ] || { printf 'fatal: not a git repository\\n' >&2; exit "$FAKE_BRANCH_CODE"; }; printf '%s\\n' "$FAKE_BRANCH" ;;
   "rev-parse HEAD^@") printf '%s\\n' "$FAKE_PARENTS" ;;
@@ -49,9 +50,16 @@ case "$1 $2" in
   *) fail 1 "unexpected gh call $*" ;;
 esac
 `
-// aco lane-record check reads its file alone: it counts no call and meets no network failure; it prints the file path on success and FAKE_RECORD_ERROR makes it refuse the file, as aco does.
+// aco lane-record reads no network: check prints the file path on success and FAKE_RECORD_ERROR makes it refuse the file, as aco does; begin and add log their arguments in a file beside the fake and
+// FAKE_BEGIN_ERROR and FAKE_ADD_ERROR make them refuse, as aco does.
 export const FAKE_ACO = `#!/bin/sh
-[ "$1" != lane-record ] || { [ -z "$FAKE_RECORD_ERROR" ] || { printf '%s\\n' "$FAKE_RECORD_ERROR" >&2; exit 2; }; printf 'lane record %s\\n' "$3"; exit 0; }
+logged() { printf '%s\\n' "$*" >> "$0.lane-record"; }
+refuse() { logged "$@"; [ -z "$FAKE_REFUSAL" ] || { printf '%s\\n' "$FAKE_REFUSAL" >&2; exit 2; }; }
+case "$1 $2" in
+  "lane-record check") [ -z "$FAKE_RECORD_ERROR" ] || { printf '%s\\n' "$FAKE_RECORD_ERROR" >&2; exit 2; }; printf 'lane record %s\\n' "$3"; exit 0 ;;
+  "lane-record begin") FAKE_REFUSAL=$FAKE_BEGIN_ERROR refuse "$@"; printf 'BEGAN run\\n'; exit 0 ;;
+  "lane-record add") FAKE_REFUSAL=$FAKE_ADD_ERROR refuse "$@"; printf 'ADDED run\\n'; exit 0 ;;
+esac
 ${NETWORK_DOWN}[ -z "$FAKE_BRIEF_ERROR" ] || printf '%s\\n' "$FAKE_BRIEF_ERROR" >&2
 printf '%s' "$FAKE_BRIEF_OUTPUT"
 [ -z "$FAKE_BRIEF_ERROR" ]
@@ -81,7 +89,7 @@ export async function runLane(args, answers = {}, options = {}) {
   const isFixer = (label) => label.startsWith('fix-')
   const REREAD = '-reread'
   const baseLabel = (label) => label.endsWith(REREAD) ? label.slice(0, -REREAD.length) : label
-  const isRelayed = (label) => /^(branch|sync|scope-|ci-read-|fix-|checkpoint-|record-|retitle)/.test(baseLabel(label))
+  const isRelayed = (label) => /^(branch|begin|add|sync|scope-|ci-read-|fix-|checkpoint-|record-|retitle)/.test(baseLabel(label))
   const defaultAnswerFor = (label) => isRelayed(label) && !isFixer(label) ? {} : null
   // The branch carries the newest tip a builder, fixer or sync returned. A scope, sync or fixer answer says what the fake
   // git and aco print (scope: push_error, remote_tip, brief_error, outside_claim; sync and fixer: head, parents, head_code,
@@ -138,7 +146,7 @@ export async function runLane(args, answers = {}, options = {}) {
       ...process.env, PATH: `${fakeCommands()}:${process.env.PATH}`, FAKE_HEAD: scenario.head ?? newestTip, FAKE_BRANCH: scenario.branch ?? args.branch, FAKE_BRANCH_CODE: scenario.branch_code ?? 0, FAKE_REMOTE: scenario.remote_tip ?? newestTip,
       FAKE_HEAD_CODE: scenario.head_code ?? 0, FAKE_PARENTS: (scenario.parents ?? []).join('\n'), FAKE_MAIN_CODE: scenario.main_code ?? 0, FAKE_TREE: scenario.tree ?? 'a1a1a1a1', FAKE_MERGE_TREE: scenario.merge_tree ?? scenario.tree ?? 'a1a1a1a1', FAKE_MERGE_TREE_CODE: scenario.merge_tree_code ?? 0, FAKE_TOUCHED: (scenario.touched_paths ?? []).join('\n'),
       FAKE_PUSH_ERROR: scenario.push_error ?? '', FAKE_NETWORK_ERROR: scenario.network_error ?? '', FAKE_NETWORK_STDOUT: scenario.network_stdout ?? '', FAKE_NETWORK_FAILS: scenario.network_fails ?? 1, FAKE_BRIEF_ERROR: scenario.brief_error ?? '',
-      FAKE_RECORD_ERROR: scenario.record_error ?? '', FAKE_PR_TITLE: scenario.pr_title ?? 'Add the feature', FAKE_ITEM_TITLE: scenario.item_title ?? 'The item title', FAKE_PATCH_CODE: scenario.patch_code ?? 0, FAKE_BRIEF_OUTPUT: JSON.stringify({ outside_claim: 'outside_claim' in scenario ? scenario.outside_claim : [] }), ...ghEnv(scenario),
+      FAKE_RECORD_ERROR: scenario.record_error ?? '', FAKE_BEGIN_ERROR: scenario.begin_error ?? '', FAKE_ADD_ERROR: scenario.add_error ?? '', FAKE_RESOLVE_CODE: scenario.resolve_code ?? 0, FAKE_PR_TITLE: scenario.pr_title ?? 'Add the feature', FAKE_ITEM_TITLE: scenario.item_title ?? 'The item title', FAKE_PATCH_CODE: scenario.patch_code ?? 0, FAKE_BRIEF_OUTPUT: JSON.stringify({ outside_claim: 'outside_claim' in scenario ? scenario.outside_claim : [] }), ...ghEnv(scenario),
     }
     if (label.startsWith('record-')) return recordPrinted(prompt, line, env, scenario)
     const typed = scenario.typedCommand && !reread ? scenario.typedCommand(line) : line
@@ -160,8 +168,8 @@ export async function runLane(args, answers = {}, options = {}) {
     const { pr_title: _prTitle, item_title: _itemTitle, patch_code: _patchCode, pr_head: _prHead, checks: _checks, required: _required, base_runs: _baseRuns, changed_files: _changedFiles, changed_code: _changedCode, changed_error: _changedError, head_runs: _headRuns, runlist_code: _runlistCode, runlist_error: _runlistError, head: _head, parents: _parents, head_code: _headCode, branch_code: _branchCode, main_code: _mainCode, touched_paths: _touchedPaths, nonce: _nonce, edit: _edit, typedCommand: _typedCommand, printerMode: _printerMode, push_error: _pushError, network_error: _networkError, network_fails: _networkFails, remote_tip: _remoteTip, brief_error: _briefError, outside_claim: _outsideClaim, printed: _printed, ...report } = answer
     return reread ? { printed } : { ...report, printed }
   }
-  // The worktree check runs before every lane and the record courier after every lane that leaves one, so the launch lists hold only the agents between them; agentCalls keeps both.
-  const agent = async (prompt, agentOptions = {}) => { if (agentOptions.label !== WORKTREE_CHECK && !agentOptions.label.startsWith('record-')) { launchedAgents.push(agentOptions.label); launchedPrompts.push(prompt) } agentCalls[agentOptions.label] = { prompt, options: structuredClone(agentOptions) }; return answerFor(agentOptions.label, prompt) }
+  // The worktree check and the begin of the run come before every lane's work and the add and the record courier after every lane that leaves one, so the launch lists hold only the agents between them; agentCalls keeps both.
+  const agent = async (prompt, agentOptions = {}) => { if (![WORKTREE_CHECK, 'begin', 'add'].includes(agentOptions.label) && !agentOptions.label.startsWith('record-')) { launchedAgents.push(agentOptions.label); launchedPrompts.push(prompt) } agentCalls[agentOptions.label] = { prompt, options: structuredClone(agentOptions) }; return answerFor(agentOptions.label, prompt) }
   // A thunk that throws resolves to null, as in the Workflow runtime.
   const parallel = async thunks => Promise.all(thunks.map(thunk => thunk().catch(() => null)))
   const ignore = () => {}
@@ -171,7 +179,8 @@ export async function runLane(args, answers = {}, options = {}) {
   try {
     const result = await compile(source)(args, agent, parallel, async () => [], ignore, ignore)
     const patched = fakeBin && fs.existsSync(path.join(fakeBin, 'gh.patched')) ? fs.readFileSync(path.join(fakeBin, 'gh.patched'), 'utf8').trim().split('\n') : []
-    return { result: structuredClone(result), patchedTitles: patched, calls: callsOf(), launchedAgents, launchedPrompts, agentCalls, writtenRecords }
+    const laneRecordLog = fakeBin && fs.existsSync(path.join(fakeBin, 'aco.lane-record')) ? fs.readFileSync(path.join(fakeBin, 'aco.lane-record'), 'utf8').trim().split('\n') : []
+    return { result: structuredClone(result), patchedTitles: patched, laneRecordCalls: laneRecordLog.map(line => line.split(' ')), calls: callsOf(), launchedAgents, launchedPrompts, agentCalls, writtenRecords }
   } finally {
     if (fakeBin) fs.rmSync(fakeBin, { recursive: true })
     recordDirectories.forEach(directory => fs.rmSync(directory, { recursive: true, force: true }))

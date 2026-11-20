@@ -574,7 +574,7 @@ const modelAndEffort = (routing, role) => `${routing[role].model}/${routing[role
 const refusedRecord = { record_error: `lane record ${recordFile} is invalid: version 2 is unknown; this aco reads version 1` }
 const noWait = { transform: (source) => source.replace(/const NETWORK_WAIT_SECONDS = \d+$/m, 'const NETWORK_WAIT_SECONDS = 0') }
 
-test('lane-record: a lane that is ready to land writes the stages it ran, no findings and its approving verdict, and the landing command passes the file', async () => {
+test('lane-record: a lane that is ready to land writes the stages it ran, no findings and its approving verdict, and the landing command lands the stored run without the file', async () => {
   const run = await runLane(resumeArgs, { ...reachesTheEnd, 'r0-review': APPROVE })
   const { result } = run
   assert.equal(result.status, 'ready-to-land')
@@ -588,7 +588,7 @@ test('lane-record: a lane that is ready to land writes the stages it ran, no fin
     verdicts: [{ stage: 'review', verdict: 'approve', sha: resumeTip }],
     risk: 'normal',
   })
-  assert.ok(result.requiredHeadActions.some(action => action.includes(`aco land 1 --head ${resumeTip} --record ${recordFile}`)))
+  assert.ok(result.requiredHeadActions.some(action => action.includes(`aco land 1 --head ${resumeTip}`) && !action.includes('--record')))
   assert.match(result.routingLine, /^Routing: /)
 })
 

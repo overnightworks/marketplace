@@ -164,8 +164,7 @@ gpt-6-astra/high.
   review again) with "GitHub is unreachable" instead of failed; a refusal by the
   rate limit says so in the reason. At `ci`, when review approved and the tester
   passed on the tip, `requiredHeadActions` name the head's way without a new run:
-  read the tip's check runs over REST and land with the record once every one is
-  green. The printer reads the pull request over REST (`gh api`), which spends no
+  read the tip's check runs over REST and land once every one is green. The printer reads the pull request over REST (`gh api`), which spends no
   GraphQL points; `gh pr checks` stays on GraphQL.
 - A CI answer that is not green and names no failing check, while the printed
   listing shows no failed check but a pending one or a run of the head not
@@ -236,6 +235,18 @@ courier cuts it out of its own transcript into the file, compares its CRC32 with
 then runs `aco lane-record check`, whose exit comes back on a CRC-signed printer line. Every status
 a release can follow carries `record`. A record that fails the check turns `ready-to-land` into
 `awaiting-head` at `record`, with `recordProblem` quoting aco; so does a tip no verdict judged (a clean merge of main after the last review), since aco lands only the head the last verdict judged, and `reason` names both shas; a run refused at input writes none, and a lane that hit the Claude usage limit at any point
-may end without a record, since the record courier is a Claude agent (no code guard). The landing is `aco land <pr> --head <tip> --record <path>` and an
-abandoned lane is released with `aco release <n> --abandoned REASON --record <path>`. The Routing line is still
-printed, and pasted beside the record until aco stops reading it.
+may end without a record, since the record courier is a Claude agent (no code guard).
+
+Each run stores its record on the claim. Its first relay step, the branch check, mints a run id. A `build` run runs
+`aco lane-record begin <n> --run <id>` right after that check; a run started with `pr` and `tip` runs it right after a
+successful sync, with the synced head as `--start-tip`, and a run that ends at `sync` is never begun. At every end that
+writes a record, a begun run adds it once with `aco lane-record add <n> <path> --run <id> --end-tip <sha> --ran <stages>`,
+the stages being those it started (`build`, `review`, `fix`, `test`, `gate`; a begun run that started none stores nothing,
+since aco takes no empty `--ran`). Every tip aco receives is the 40-digit sha `git rev-parse` resolves in the worktree,
+and a `build` run that ended without a tip passes the worktree's `HEAD`. A begin or an add that aco refuses, or whose tip
+git cannot resolve, ends the run `awaiting-head` at `record`; the `reason` holds the refusal and, for an add, the status
+and reason the run would have ended with. Once a run is begun, landing and release go without `--record`, because aco
+computes the record from the stored runs and refuses the flag: the landing is `aco land <pr> --head <tip>` and an abandoned
+lane is released with `aco release <n> --abandoned REASON`; a run that never began (it ended at `sync`) keeps
+`--record <path>` in the abandon action. The Routing line is still printed, and pasted beside the record until aco stops
+reading it.

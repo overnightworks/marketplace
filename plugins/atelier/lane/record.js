@@ -71,15 +71,25 @@ function blockingStages(history) {
   return [...found.values()]
 }
 
-// The model and effort each stage ran on, or none for a stage that did not run; a stand-in review is the gate that ran.
+const historyRan = (history, key) => history.some(entry => entry.by === key || entry.by?.startsWith(`${key}-`))
+
+// The stages the history and the fixers show for fix, test and gate; a stand-in review is the gate that ran.
+const stagesOfHistory = ({ history, fixRole }) => ({ fix: Boolean(fixRole), test: historyRan(history, 'e2e'), gate: historyRan(history, 'standin') || historyRan(history, 'gate') })
+
+// The stages this run started, in the order aco names them; the record's own slots and the --ran stages of aco lane-record add read this one history.
+function stagesRan({ history, fixRole, builderRan, reviewStarted }) {
+  const ofHistory = stagesOfHistory({ history, fixRole })
+  return [['build', builderRan], ['review', reviewStarted], ...Object.entries(ofHistory)].filter(([, ran]) => ran).map(([stage]) => stage)
+}
+
+// The model and effort each stage ran on, or none for a stage that did not run.
 function stageChoices({ routing, history, fixRole }) {
   const choiceOf = (role) => `${routing[role].model}/${routing[role].effort}`
-  const ran = (key) => history.some(entry => entry.by === key || entry.by?.startsWith(`${key}-`))
-  const gateRole = [['standin', 'review'], ['gate', 'gate']].find(([key]) => ran(key))?.[1] ?? null
-  const choiceOrNone = (role) => role ? choiceOf(role) : 'none'
+  const ofHistory = stagesOfHistory({ history, fixRole })
+  const choiceOrNone = (ran, role) => ran ? choiceOf(role) : 'none'
   return {
-    build: choiceOf('build'), fix: choiceOrNone(fixRole), review: choiceOf('review'),
-    test: choiceOrNone(ran('e2e') ? 'test' : null), gate: choiceOrNone(gateRole), land: choiceOf('mechanical'),
+    build: choiceOf('build'), fix: choiceOrNone(ofHistory.fix, fixRole), review: choiceOf('review'),
+    test: choiceOrNone(ofHistory.test, 'test'), gate: choiceOrNone(ofHistory.gate, historyRan(history, 'standin') ? 'review' : 'gate'), land: choiceOf('mechanical'),
   }
 }
 
@@ -133,10 +143,40 @@ function recordCourier({ record, file, scratch, label }) {
   return { brief, before, fileArgument: quoted(file) }
 }
 
+// The relay requests of aco lane-record begin, with the start tip when the run has one, and of aco add, with the stages the run started; both resolve their tip with git rev-parse first.
+const beginRequest = ({ item, runId, startTip, facts }) => ({ label: 'begin', phase: 'Record', step: 'begin', relayArgs: [item, `'${runId}'`, ...(startTip ? [`'${startTip}'`] : []), "'begin'"], nonce: 'begin', requiredKeys: [startTip ? 'start' : 'begin'], brief: `${facts}\nChange nothing in the files;` })
+const addRequest = ({ item, runId, fileArgument, tip, ran, facts }) => ({ label: 'add', phase: 'Record', step: 'add', relayArgs: [item, fileArgument, `'${runId}'`, `'${tip ?? 'HEAD'}'`, ...ran.map(stage => `'${stage}'`), "'add'"], nonce: 'add', requiredKeys: ['end'], brief: `${facts}\nChange nothing in the files;` })
+// The problem with a begin or an add through its relay line (the command exited non-zero, its tip did not resolve, or the line was unreadable), or null.
+function storeProblem(verb, relayed, printedLine) {
+  if (!relayed) return `the ${verb} step ended without a result`
+  if (relayed.problem) return `the ${verb} step ${relayed.problem}${printedLine(relayed)}`
+  const resolved = relayed.values[verb === 'begin' ? 'start' : 'end']
+  if (resolved && resolved.code !== 0) return `git could not resolve the tip: rev-parse exited ${resolved.code}: ${resolved.err}`
+  const { code, err } = relayed.values[verb]
+  return code === 0 ? null : `aco lane-record ${verb} exited ${code}: ${err}`
+}
+const refusedAddReason = (problem, wouldHaveEnded) => `aco did not store this run's record on the claim: ${problem}. The run would have ended ${wouldHaveEnded}`
+
 const recordView = (written) => {
   if (!written) return {}
   return written.problem ? { recordProblem: written.problem } : { record: written.file }
 }
 
-// An open result leaves the head either a resume or an abandon, and aco release reads the same record file.
-const abandonActions = (item, written) => written?.file ? [`to abandon the lane instead, run \`aco release ${item} --abandoned REASON --record ${written.file}\``] : []
+// An open result leaves the head either a resume or an abandon, and aco release reads the same record file; a run that began stores its record on the claim, and aco refuses --record then.
+const abandonActions = (item, written, began) => {
+  if (!written?.file) return []
+  return [`to abandon the lane instead, run \`aco release ${item} --abandoned REASON${began ? '' : ` --record ${written.file}`}\``]
+}
+
+// An entry of the wrong shape (a bare string, a missing field) would reach the fixer as "undefined" fields, so the input check names it first.
+// A finding of a run that predates kinds lacks kind, which kindOf defaults.
+const requiredFields = (schema) => schema.required.filter(field => field !== 'kind')
+const missingFields = (entry, schema) => entry === null || typeof entry !== 'object' || Array.isArray(entry)
+  ? 'is not an object'
+  : `lacks ${requiredFields(schema).filter(field => typeof entry[field] !== 'string' || !entry[field].trim()).join(', ')}`
+const badEntry = (name, entries, schema) => {
+  if (!Array.isArray(entries)) return entries === undefined ? null : `${name} must be a list`
+  const index = entries.findIndex(entry => missingFields(entry, schema) !== 'lacks ')
+  if (index >= 0) return `${name}[${index}] ${missingFields(entries[index], schema)}: each entry needs ${requiredFields(schema).join(', ')} as non-empty strings`
+  return name === 'foldIn' ? unstagedProblem(name, entries) : null
+}

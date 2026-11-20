@@ -209,7 +209,7 @@ missing, doubled or fenced line (`specs/landing-grammar.spec.md`); a pass proves
 classification, the closing reference, a claim on the head branch and the default-branch
 target, not that the work is reviewed or the checks are green.
 
-The lane writes its record file (`record` in the result, `<scratch>/lane-record.json`) itself and checks it with `aco lane-record check`; a lane whose record fails the check ends `awaiting-head` at `record`. One more line records the routing, beside the file until the paste is dropped: the head pastes the lane result's `routingLine` as is. Its
+The lane writes its record file (`record` in the result, `<scratch>/lane-record.json`) itself and checks it with `aco lane-record check`; a lane whose record fails the check ends `awaiting-head` at `record`. Each run also stores its record on the claim (`aco lane-record begin` and `add`, which aco's `specs/lane-record.spec.md` owns); a refused begin or add ends the run `awaiting-head` at `record`. One more line records the routing, beside the file until the paste is dropped: the head pastes the lane result's `routingLine` as is. Its
 grammar belongs to aco's `specs/lane-record.spec.md` (LANREC-*), which is not copied here.
 The head writes it before the landing, because a landing agent does not know the routing.
 The fix and gate slots each hold one value, the last model that ran; an earlier fixer or gate stays out.
@@ -229,7 +229,7 @@ becomes its own item first (`aco cut`).
 
 ## Land
 
-Gates are green and you hold the tip the reviewers saw. After a merge of the default branch into a ready-to-land lane the tip changed, so the head re-runs the lane with `pr`, the new `tip` and `deltaFrom` the judged tip, which yields a fresh record; a lane that wrote a record file never lands without `--record`. Landing is delegated as a
+Gates are green and you hold the tip the reviewers saw. After a merge of the default branch into a ready-to-land lane the tip changed, so the head re-runs the lane with `pr`, the new `tip` and `deltaFrom` the judged tip, which yields a fresh stored record; a lane that stored its record lands without `--record`, which aco refuses on a claim with stored runs. Landing is delegated as a
 named task, but the precondition is aco's. The landing task runs under the claim's
 identity. A subagent of the claiming head's own provider inherits it and passes neither
 `ACO_AGENT` nor `--agent`; an agent started through another provider's CLI (`grok`,
@@ -243,7 +243,7 @@ step.
 
 1. Stand in a clean checkout of the default branch — the primary checkout, never the
    lane worktree.
-2. `aco land <pr> --head <sha> --record <file>` (the lane result's `record` path, passed unchanged; the lane's `requiredHeadActions` spell the command) merges only if the PR head is that sha, then runs
+2. `aco land <pr> --head <sha>` (the lane's `requiredHeadActions` spell the command, without `--record` once the lane stored its record) merges only if the PR head is that sha, then runs
    the release for you: claim released, clean merged worktree and branch removed
    (`--keep-worktree` keeps them). `specs/land.spec.md`. `aco land` has already
    released the claim; after a land, the head's release step is verifying that
@@ -266,8 +266,8 @@ step.
 
 If the merge worked but a step failed, `aco land` prints `follow-up incomplete`
 and the re-run command; re-run it, which resumes and never merges twice.
-Abandoned: `aco release <n> --abandoned REASON --record <file>`, with the lane result's `record` path; the item stays open. A lane stopped
-by the Claude usage limit writes no record, and the release then goes without `--record`. Until the routing line is dropped, the head
+Abandoned: `aco release <n> --abandoned REASON`, the item stays open; only a lane that never began a run (it ended at `sync`) passes `--record <file>`, the lane result's `record` path, and its `requiredHeadActions` say so. A lane stopped
+by the Claude usage limit writes no record, and the release goes without `--record`. Until the routing line is dropped, the head
 starts the reason with the lane's `Routing:` line, on one line within 512 characters, since aco
 parses an abandoned lane's routing only then (the same slots and counting as in the pull request body: on a line too long
 for every entry the locations go and every count stays, and the full blocking list stays in the lane result);

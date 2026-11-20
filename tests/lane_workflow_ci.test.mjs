@@ -150,6 +150,19 @@ for (const [what, checks, head_runs, named] of stillQueued) {
   })
 }
 
+const redWhilePending = [
+  ['a failed check and a pending check in the listing', ciAnswer([check('b', 'fail'), check(required, 'pending')], { green: false })],
+  ['a failing finding of the watcher and only pending checks in the listing', ciAnswer([check(required, 'pending')], { green: false, failing: [{ where: 'b', kind: 'defect', text: 'fails', rule: 'CI check b', evidence: 'boom' }] })],
+]
+for (const [what, answer] of redWhilePending) {
+  test(`ci-pending: a not green answer with ${what} goes to a fixer and is RED`, async () => {
+    const { result, launchedAgents } = await driveCi(answer)
+    assert.ok(launchedAgents.includes('fix-2'))
+    assert.notEqual(result.status, 'awaiting-head')
+    assert.equal(result.history.find(entry => entry.by === 'ci-0').verdict, 'RED')
+  })
+}
+
 test('ci-pending: a completed head run leaves a not green answer without pending checks to today\'s handling', async () => {
   const { result } = await driveCi(ciAnswer([check(required, 'pass')], { green: false }), lane, { head_runs: [{ status: 'completed', name: 'quality' }] })
   assert.notEqual(result.status, 'awaiting-head')

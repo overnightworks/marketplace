@@ -193,6 +193,11 @@ gpt-6-astra/high.
 
 ## Result
 
+A result `ci-red` or `unresolved` from a spent budget carries `resume`: `pr`,
+`tip`, `deltaFrom` equal to that tip and `fixFirst` holding the remaining
+blocking findings. A new run with exactly these arguments starts at the fixer and
+reviews only its commits.
+
 The result carries `routingLine`, the one Routing line the head pastes as is,
 `record` and `requiredHeadActions`.
 

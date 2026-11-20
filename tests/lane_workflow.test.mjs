@@ -545,6 +545,7 @@ for (const [what, deltaFrom, batch] of [
     assert.deepEqual([result.status, result.stage], ['failed', 'input'])
     assert.match(result.reason, /without deltaFrom for a full review/)
     assert.match(result.reason, /commit before the commits no reviewer has seen/)
+    assert.match(result.reason, /fixFirst or foldIn/)
     assert.deepEqual(launchedAgents, [])
   })
 }

@@ -1581,7 +1581,7 @@ const carriedOver = A.fixFirst || []
 const carriesBatch = carriedOver.length || A.foldIn?.length
 if (A.deltaFrom && !SHA.test(A.deltaFrom)) return await openResult('failed', 'input', { reason: 'deltaFrom is not a sha' })
 // Without fixFirst or foldIn an empty delta has no reviewer to satisfy, and the lane cannot verify an earlier approval; the head names the honest resume. With either, the fixer's commits are the delta.
-if (sameCommit(A.deltaFrom, A.tip) && !carriesBatch) return await openResult('failed', 'input', { reason: 'deltaFrom is the tip, so the delta is empty and nothing is reviewed. Start the run again without deltaFrom for a full review, or name the commit before the commits no reviewer has seen as deltaFrom.' })
+if (sameCommit(A.deltaFrom, A.tip) && !carriesBatch) return await openResult('failed', 'input', { reason: 'deltaFrom is the tip, so the delta is empty and nothing is reviewed. Start the run again without deltaFrom for a full review, name the commit before the commits no reviewer has seen as deltaFrom, or pass fixFirst or foldIn for a run that starts at the fixer.' })
 
 // A builder or fixer that ends without a result may leave commits or uncommitted work in the worktree. The lane saves
 // it (commit, push, and for the build a draft pull request) and hands the head a resumable awaiting-head result; a worktree with nothing new keeps the failed result.
@@ -1688,7 +1688,7 @@ function noProgress(blocking) {
 async function fixRoundStop(blocking, budgetKey) {
   if (spent[budgetKey] >= B[budgetKey] || spent.total >= B.total) {
     const which = spent.total >= B.total ? 'total' : budgetKey
-    return openResult(budgetKey === 'ci' ? 'ci-red' : 'unresolved', budgetKey, { reason: `${which} budget spent`, lastBlocking: blocking })
+    return openResult(budgetKey === 'ci' ? 'ci-red' : 'unresolved', budgetKey, { reason: `${which} budget spent; a new run with the arguments in resume starts at the fixer and reviews only its commits`, lastBlocking: blocking, resume: { ...claudeLimitResume('fix', { lastBlocking: blocking }), deltaFrom: tip } })
   }
   const repeated = noProgress(blocking)
   return repeated.length ? openResult('unresolved', budgetKey, { reason: 'a finding came back unchanged after its fix', lastBlocking: repeated }) : null

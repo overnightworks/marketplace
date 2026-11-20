@@ -662,7 +662,7 @@ test('AC-fix-brief-outside-and-answers: the fix brief sends a body answer to out
   assert.match(prompt, /answered by editing the item body or the pull request body is reported in outside, never as removed; removed is only for code or a test deleted in your commits/)
   assert.ok(prompt.includes(settledByTheHead))
   const { agentCalls: without } = await runLane({ ...resumeArgs, fixFirst: [docsFinding] }, { 'fix-1': { ...unchangedFix, outside: [{ finding: 1, where: 'PR body' }] }, ...reachesTheEnd })
-  assert.doesNotMatch(without['fix-1'].prompt, /answers of the head/)
+  assert.ok(!without['fix-1'].prompt.includes(settledByTheHead))
 })
 
 test('AC-outside-answer-brief: a body-settled finding at an unchanged tip is re-checked with the answers of the head, the finding verbatim, both bodies read live and the whole tip as the range', async () => {

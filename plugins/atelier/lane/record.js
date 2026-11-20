@@ -39,17 +39,17 @@ function fixProofEntries(answered, blocking, after) {
 
 const approvesRange = (entry) => entry.by === 'review' && entry.verdict === 'APPROVE' && entry.blocking?.length === 0
 
-// A finding of the gate, CI or the tester is a miss when a review approved the range before it (HEAD.md's Misses rule). A gate finding in the round of the approving review is no miss;
-// a CI finding is none either when its check is deterministic and the fixer's proof for it reports no behaviour change. The review stage has no misses.
-function missPredicate(history, index, stage) {
+// A finding of the gate, CI or the tester is a miss when a review approved the range before it (HEAD.md's Misses rule), in this run or, when the run follows, in an earlier run stored on the claim (approvedBefore holds those shas).
+// A gate finding in the round of the approving review, or on a sha an earlier run approved, is no miss; a CI finding is none either when its check is deterministic and the fixer's proof for it reports no behaviour change. The review stage has no misses.
+function missPredicate(history, index, stage, approvedBefore) {
   const entry = history[index]
   if (stage === 'review') return () => false
   const earlier = history.slice(0, index).filter(approvesRange)
   if (stage === 'gate') {
-    const sameRound = history.some(approval => approvesRange(approval) && approval.after === entry.after)
-    return () => !sameRound && earlier.some(approval => approval.after < entry.after)
+    const sameRound = history.some(approval => approvesRange(approval) && approval.after === entry.after) || approvedBefore.includes(entry.tip)
+    return () => !sameRound && (earlier.some(approval => approval.after < entry.after) || approvedBefore.length > 0)
   }
-  if (!earlier.length) return () => false
+  if (!earlier.length && !approvedBefore.length) return () => false
   if (stage === 'test') return () => true
   const following = history.slice(index + 1)
   const nextWatch = following.findIndex(next => stageOf(next.by) === 'ci')
@@ -58,12 +58,12 @@ function missPredicate(history, index, stage) {
 }
 
 // Distinct findings of one round that share a text each count; a finding that comes back in a later round counts once, as often as the most it was raised in one round, and misses likewise.
-function blockingStages(history) {
+function blockingStages(history, approvedBefore = []) {
   const found = new Map()
   history.forEach((entry, index) => {
     const stage = Array.isArray(entry.blocking) ? stageOf(entry.by) : null
     if (!stage) return
-    findingsOfEntry(entry, stage, missPredicate(history, index, stage)).forEach((finding, key) => {
+    findingsOfEntry(entry, stage, missPredicate(history, index, stage, approvedBefore)).forEach((finding, key) => {
       const had = found.get(key)
       found.set(key, { ...finding, count: Math.max(finding.count, had?.count ?? 0), misses: Math.max(finding.misses, had?.misses ?? 0) })
     })
@@ -106,11 +106,15 @@ const lastVerdictSha = (history) => recordedVerdicts(history).at(-1)?.sha ?? nul
 // Whether the newest review or gate verdict approved exactly this commit.
 const approvedOn = (history, sha) => { const last = recordedVerdicts(history).at(-1); return last?.verdict === 'approve' && last.sha === sha }
 
-function laneRecord({ routing, history, fixRole, fixRounds, risk, experiment }) {
+// The shas of earlier runs' review approvals count for this run's misses only when the run follows them (aco marks the lane's misses unknown otherwise).
+const approvedBeforeRun = (earlier) => earlier?.follows ? earlier.approved : []
+
+// The record leaves misses out when the read of the stored runs failed: aco then shows the lane's misses as unknown instead of a low count.
+function laneRecord({ routing, history, fixRole, fixRounds, risk, experiment, earlier }) {
   const stages = stageChoices({ routing, history, fixRole })
   const blocking = Object.fromEntries(FINDING_STAGE_NAMES.map(stage => [stage, 0]))
   const misses = Object.fromEntries(FINDING_STAGE_NAMES.map(stage => [stage, 0]))
-  blockingStages(history).forEach(finding => {
+  blockingStages(history, approvedBeforeRun(earlier)).forEach(finding => {
     blocking[finding.stage] = Math.min(RECORD_COUNT_LIMIT, blocking[finding.stage] + finding.count)
     misses[finding.stage] = Math.min(RECORD_COUNT_LIMIT, misses[finding.stage] + finding.misses)
   })
@@ -119,7 +123,7 @@ function laneRecord({ routing, history, fixRole, fixRounds, risk, experiment }) 
     stages: Object.fromEntries(RECORD_STAGES.map(stage => [stage, stages[stage]])),
     fix_rounds: Object.fromEntries(FINDING_STAGE_NAMES.map(stage => [stage, Math.min(RECORD_COUNT_LIMIT, fixRounds[stage])])),
     blocking,
-    misses,
+    ...(earlier?.gap ? {} : { misses }),
     verdicts: recordedVerdicts(history),
     risk,
     ...(experiment && { experiment }),
@@ -154,11 +158,27 @@ function storeProblem(verb, relayed, printedLine) {
   const { code, err } = relayed.values[verb]
   return code === 0 ? null : `aco lane-record ${verb} exited ${code}: ${err}`
 }
+// What the begin step relayed of `aco lane-record show`: whether this run follows and the shas the earlier runs' stored review verdicts approve, or the gap that a failed or unreadable read leaves.
+function storedRunsRead(values) {
+  const { code, err, follows, approved } = values.lane ?? {}
+  if (code === undefined) return { gap: 'the begin step relayed no read of the stored runs' }
+  if (code !== 0) return { gap: `aco lane-record show exited ${code}: ${err}` }
+  if (typeof follows !== 'boolean' || !Array.isArray(approved)) return { gap: 'aco lane-record show printed stored runs the lane cannot read' }
+  return { follows, approved }
+}
+// The outcome of a begin: the problem that ends the run, or what the run read of the stored runs.
+function beganRun(relayed, printedLine) {
+  const problem = storeProblem('begin', relayed, printedLine)
+  return problem ? { problem } : { read: storedRunsRead(relayed.values) }
+}
 const refusedAddReason = (problem, wouldHaveEnded) => `aco did not store this run's record on the claim: ${problem}. The run would have ended ${wouldHaveEnded}`
 
-const recordView = (written) => {
+// The result shows what the read of the stored runs found (this run's follows and the earlier runs' approving shas), or names the failed read next to the record whose misses it left out.
+const recordView = (written, earlier) => {
   if (!written) return {}
-  return written.problem ? { recordProblem: written.problem } : { record: written.file }
+  if (written.problem) return { recordProblem: written.problem }
+  const { gap, follows, approved } = earlier ?? {}
+  return { record: written.file, ...(gap && { missesGap: `the record leaves misses out, so aco shows the lane's misses as unknown: ${gap}` }), ...(earlier && !gap && { storedRuns: { follows, approved } }) }
 }
 
 // An open result leaves the head either a resume or an abandon, and aco release reads the same record file; a run that began stores its record on the claim, and aco refuses --record then.

@@ -51,13 +51,14 @@ case "$1 $2" in
 esac
 `
 // aco lane-record reads no network: check prints the file path on success and FAKE_RECORD_ERROR makes it refuse the file, as aco does; begin and add log their arguments in a file beside the fake and
-// FAKE_BEGIN_ERROR and FAKE_ADD_ERROR make them refuse, as aco does.
+// FAKE_BEGIN_ERROR and FAKE_ADD_ERROR make them refuse, as aco does; show prints FAKE_SHOW_OUTPUT with the run id of the logged begin in place of @RUN@, or fails with FAKE_SHOW_CODE and FAKE_SHOW_ERROR.
 export const FAKE_ACO = `#!/bin/sh
 logged() { printf '%s\\n' "$*" >> "$0.lane-record"; }
 refuse() { logged "$@"; [ -z "$FAKE_REFUSAL" ] || { printf '%s\\n' "$FAKE_REFUSAL" >&2; exit 2; }; }
 case "$1 $2" in
   "lane-record check") [ -z "$FAKE_RECORD_ERROR" ] || { printf '%s\\n' "$FAKE_RECORD_ERROR" >&2; exit 2; }; printf 'lane record %s\\n' "$3"; exit 0 ;;
   "lane-record begin") FAKE_REFUSAL=$FAKE_BEGIN_ERROR refuse "$@"; printf 'BEGAN run\\n'; exit 0 ;;
+  "lane-record show") [ "$FAKE_SHOW_CODE" = 0 ] || { printf '%s\\n' "$FAKE_SHOW_ERROR" >&2; exit "$FAKE_SHOW_CODE"; }; run=$(sed -n 's/.* --run \\([0-9a-f]*\\).*/\\1/p' "$0.lane-record" | tail -1); printf '%s' "$FAKE_SHOW_OUTPUT" | sed "s/@RUN@/$run/g"; exit 0 ;;
   "lane-record add") FAKE_REFUSAL=$FAKE_ADD_ERROR refuse "$@"; printf 'ADDED run\\n'; exit 0 ;;
 esac
 ${NETWORK_DOWN}[ -z "$FAKE_BRIEF_ERROR" ] || printf '%s\\n' "$FAKE_BRIEF_ERROR" >&2
@@ -146,7 +147,7 @@ export async function runLane(args, answers = {}, options = {}) {
       ...process.env, PATH: `${fakeCommands()}:${process.env.PATH}`, FAKE_HEAD: scenario.head ?? newestTip, FAKE_BRANCH: scenario.branch ?? args.branch, FAKE_BRANCH_CODE: scenario.branch_code ?? 0, FAKE_REMOTE: scenario.remote_tip ?? newestTip,
       FAKE_HEAD_CODE: scenario.head_code ?? 0, FAKE_PARENTS: (scenario.parents ?? []).join('\n'), FAKE_MAIN_CODE: scenario.main_code ?? 0, FAKE_TREE: scenario.tree ?? 'a1a1a1a1', FAKE_MERGE_TREE: scenario.merge_tree ?? scenario.tree ?? 'a1a1a1a1', FAKE_MERGE_TREE_CODE: scenario.merge_tree_code ?? 0, FAKE_TOUCHED: (scenario.touched_paths ?? []).join('\n'),
       FAKE_PUSH_ERROR: scenario.push_error ?? '', FAKE_NETWORK_ERROR: scenario.network_error ?? '', FAKE_NETWORK_STDOUT: scenario.network_stdout ?? '', FAKE_NETWORK_FAILS: scenario.network_fails ?? 1, FAKE_BRIEF_ERROR: scenario.brief_error ?? '',
-      FAKE_RECORD_ERROR: scenario.record_error ?? '', FAKE_BEGIN_ERROR: scenario.begin_error ?? '', FAKE_ADD_ERROR: scenario.add_error ?? '', FAKE_RESOLVE_CODE: scenario.resolve_code ?? 0, FAKE_PR_TITLE: scenario.pr_title ?? 'Add the feature', FAKE_ITEM_TITLE: scenario.item_title ?? 'The item title', FAKE_PATCH_CODE: scenario.patch_code ?? 0, FAKE_BRIEF_OUTPUT: JSON.stringify({ outside_claim: 'outside_claim' in scenario ? scenario.outside_claim : [] }), ...ghEnv(scenario),
+      FAKE_RECORD_ERROR: scenario.record_error ?? '', FAKE_BEGIN_ERROR: scenario.begin_error ?? '', FAKE_ADD_ERROR: scenario.add_error ?? '', FAKE_SHOW_CODE: scenario.show_code ?? 0, FAKE_SHOW_ERROR: scenario.show_error ?? '', FAKE_SHOW_OUTPUT: JSON.stringify({ runs: scenario.stored_runs ?? [storedOwnRun()] }), FAKE_RESOLVE_CODE: scenario.resolve_code ?? 0, FAKE_PR_TITLE: scenario.pr_title ?? 'Add the feature', FAKE_ITEM_TITLE: scenario.item_title ?? 'The item title', FAKE_PATCH_CODE: scenario.patch_code ?? 0, FAKE_BRIEF_OUTPUT: JSON.stringify({ outside_claim: 'outside_claim' in scenario ? scenario.outside_claim : [] }), ...ghEnv(scenario),
     }
     if (label.startsWith('record-')) return recordPrinted(prompt, line, env, scenario)
     const typed = scenario.typedCommand && !reread ? scenario.typedCommand(line) : line
@@ -186,6 +187,10 @@ export async function runLane(args, answers = {}, options = {}) {
     recordDirectories.forEach(directory => fs.rmSync(directory, { recursive: true, force: true }))
   }
 }
+
+// The runs `aco lane-record show --json` lists for the claim: this run's own entry (the printer's run id replaces @RUN@) and the earlier runs with the review verdicts their stored records hold.
+export const storedOwnRun = (follows = true) => ({ run: '@RUN@', start_tip: null, follows, end_tip: null, ran: null, record: null })
+export const storedEarlierRun = (...reviewVerdicts) => ({ run: 'earlier-run', start_tip: null, follows: true, end_tip: 'f0'.repeat(20), ran: ['build', 'review'], record: { version: 1, verdicts: reviewVerdicts.map(([verdict, sha]) => ({ stage: 'review', verdict, sha })) } })
 
 export const WORKTREE_CHECK = 'branch'
 

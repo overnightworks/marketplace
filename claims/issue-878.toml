@@ -1,8 +1,0 @@
-claim_id = "1d067c9523d94dbfb5f008e1daafb12a"
-agent = "Claude 5fd48eeb-f686-416f-85b1-085a6741a604"
-role = "builder"
-base = "ad669eb8685016e82e75f426c8b5352921fa8336"
-branch = "claude/issue-878-ci-gates-the-scripts-javascript-coverage"
-scope = [".github/workflows/ci.yml", "scripts/build_lane.mjs", "scripts/install.py", "tests/build_lane.test.mjs", "tests/conftest.py", "tests/hook_fixtures.py", "tests/test_contract_change_hook.py", "tests/test_fleet_plans_hook.py", "tests/test_install.py", "tests/test_probe_run.py", "tests/workflow_meta.test.mjs"]
-opened_commit = "bd9fe430376d6b4ac7e5bc1fe16ffd40dbf5bc53"
-whole_reason = "Three findings of one audit, each a small test or ownership fix outside the lane's files, bundled per HEAD.md Bundles."

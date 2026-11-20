@@ -39,10 +39,16 @@ test('run-record: a build run stopped at its builder adds --ran build alone, wit
   assert.equal(add[3], '/s/lane-record.json')
 })
 
-test('run-record: a run started with pr and tip begins after its sync with the synced head as start tip', async () => {
+test('run-record: a run started with pr and tip begins after its sync and its scope check with the synced head as start tip', async () => {
   const { laneRecordCalls, agentCalls } = await runLane(resumeArgs, readyAnswers)
   assert.deepEqual(optionValues(callOf(laneRecordCalls, 'begin'), '--start-tip'), [resumeTip])
-  assert.deepEqual(Object.keys(agentCalls).slice(0, 3), ['branch', 'sync', 'begin'])
+  assert.deepEqual(Object.keys(agentCalls).slice(0, 4), ['branch', 'sync', 'scope-resume', 'begin'])
+})
+
+test('run-record: a run that starts at a fixer begins right after its sync, before the fixer', async () => {
+  const { laneRecordCalls, agentCalls } = await runLane({ ...resumeArgs, foldIn: [tidy] }, withFixer)
+  assert.deepEqual(optionValues(callOf(laneRecordCalls, 'begin'), '--start-tip'), [resumeTip])
+  assert.deepEqual(Object.keys(agentCalls).slice(0, 4), ['branch', 'sync', 'begin', 'fix-1'])
 })
 
 test('run-record: a short tip reaches aco as the 40 digits git resolves', async () => {
@@ -85,10 +91,18 @@ for (const [name, args, answers, expected] of [
   })
 }
 
-test('run-record: a run that started no stage stores nothing, since aco takes no empty --ran', async () => {
+test('run-record: a pr and tip run that ends at the scope check is never begun and keeps the record in the abandon release', async () => {
   const { result, laneRecordCalls } = await runLane(resumeArgs, { 'scope-resume': { brief_error: 'aco: no such item' } })
   assert.equal(result.stage, 'scope')
-  assert.deepEqual(laneRecordCalls.map(call => call[1]), ['begin'])
+  assert.deepEqual(laneRecordCalls, [])
+  assert.ok(result.requiredHeadActions.some(action => action.includes('aco release 1 --abandoned REASON --record /s/lane-record.json')))
+})
+
+test('run-record: a build run that ends at the scope check adds --ran build', async () => {
+  const { result, laneRecordCalls } = await runLane(builtLane, { build: built, 'scope-0': { brief_error: 'aco: no such item' }, add: { head: worktreeHead } })
+  assert.equal(result.stage, 'scope')
+  assert.deepEqual(laneRecordCalls.map(call => call[1]), ['begin', 'add'])
+  assert.deepEqual(optionValues(callOf(laneRecordCalls, 'add'), '--ran'), ['build'])
 })
 
 test('run-record: a refused begin ends the run awaiting-head at record with aco\'s refusal and starts no agent', async () => {
@@ -96,7 +110,7 @@ test('run-record: a refused begin ends the run awaiting-head at record with aco\
   const { result, launchedAgents, laneRecordCalls } = await runLane(resumeArgs, { begin: { begin_error: refusal } })
   assert.deepEqual([result.status, result.stage], ['awaiting-head', 'record'])
   assert.ok(result.reason.includes(refusal))
-  assert.deepEqual(launchedAgents, ['sync'])
+  assert.deepEqual(launchedAgents, ['sync', 'scope-resume'])
   assert.deepEqual(laneRecordCalls.map(call => call[1]), ['begin'])
 })
 
@@ -150,7 +164,7 @@ test('run-record: the landing action of a stored run goes without --record', asy
 })
 
 test('run-record: the abandon action of a begun run goes without --record', async () => {
-  const { result } = await runLane(resumeArgs, { 'scope-resume': { brief_error: 'aco: no such item' } })
+  const { result } = await runLane(builtLane, { build: built, 'scope-0': { brief_error: 'aco: no such item' } })
   assert.ok(result.requiredHeadActions.includes('to abandon the lane instead, run `aco release 1 --abandoned REASON`'))
 })
 

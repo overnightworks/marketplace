@@ -196,6 +196,7 @@ let tip = A.tip || null
 let buildReuse = null
 const spent = { review: 0, test: 0, ci: 0, total: 0 }
 const fixRolesRun = []  // the role of each fixer that ran, in order
+let syncedTip = null  // the head the sync read: the start tip of a pr/tip run's begin
 let runId = null  // minted by the branch relay step: the id this run has on the claim in aco lane-record begin and add
 let began = false  // aco lane-record begin ran for this run, so its record goes to the claim and landing or release takes no --record
 let addAttempted = false  // aco lane-record add runs once per run
@@ -247,7 +248,7 @@ async function writeRecord() {
   const { code, err } = relayed.values.check
   return code === 0 ? { file, fileArgument } : { problem: `aco lane-record check exited ${code}: ${err}` }
 }
-// A run marks its begin right after its input checks; a refused begin ends it, since nothing is stored for it.
+// A run marks its begin right after its input checks (the branch check, or the sync and the scope check); a refused begin ends it, since nothing is stored for it.
 async function beginRun(startTip) {
   const problem = storeProblem('begin', await relay(beginRequest({ item: A.item, runId, startTip, facts: laneFacts })), printedLine)
   if (problem) return await openResult('awaiting-head', 'record', { reason: `aco did not begin this run on the claim, so the run did none of its work: ${problem}` })
@@ -348,8 +349,12 @@ if (A.build) {
   if (values.main.code === 1) return await openResult('escalated', 'sync', { reason: synced.note || `the lane tip ${values.head.out} does not contain origin/main, and the sync named no cause` })
   if (!sameCommit(values.head.out, tip) && !mergedOnto(values, tip)) history.push({ after: 0, by: 'sync', from: tip, tip: values.head.out })
   tip = values.head.out
-  const beginStop = await beginRun(tip)
-  if (beginStop) return beginStop
+  syncedTip = tip
+  // A run that starts at a fixer has no scope check before its work, so it begins here; every other run begins after the scope check below.
+  if (carriesBatch) {
+    const beginStop = await beginRun(syncedTip)
+    if (beginStop) return beginStop
+  }
 }
 
 // ------------------------------------------------------- review / fix
@@ -633,6 +638,10 @@ if (!carriesBatch && A.build) {
   firstScopeCheck = await pushAndCheckScope('scope-resume', { note: 'The commits came from an earlier run.' })
 }
 if (firstScopeCheck?.stop) return firstScopeCheck.stop
+if (syncedTip && !carriesBatch) {
+  const beginStop = await beginRun(syncedTip)
+  if (beginStop) return beginStop
+}
 // Re-entry after the head settled an awaiting-head result: review only the fix commits no reviewer has seen yet.
 // Re-entry at the fix: the head hands over blocking findings from an earlier run (for example the tester's), and
 // in-place follow-ups to fold in. The delta the fixer makes is reviewed before the test and CI run again.

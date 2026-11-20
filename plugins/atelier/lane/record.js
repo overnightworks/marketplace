@@ -173,11 +173,12 @@ function beganRun(relayed, printedLine) {
 }
 const refusedAddReason = (problem, wouldHaveEnded) => `aco did not store this run's record on the claim: ${problem}. The run would have ended ${wouldHaveEnded}`
 
-// The result names a failed read of the stored runs next to the record whose misses it left out.
+// The result shows what the read of the stored runs found (this run's follows and the earlier runs' approving shas), or names the failed read next to the record whose misses it left out.
 const recordView = (written, earlier) => {
   if (!written) return {}
   if (written.problem) return { recordProblem: written.problem }
-  return { record: written.file, ...(earlier?.gap && { missesGap: `the record leaves misses out, so aco shows the lane's misses as unknown: ${earlier.gap}` }) }
+  const { gap, follows, approved } = earlier ?? {}
+  return { record: written.file, ...(gap && { missesGap: `the record leaves misses out, so aco shows the lane's misses as unknown: ${gap}` }), ...(earlier && !gap && { storedRuns: { follows, approved } }) }
 }
 
 // An open result leaves the head either a resume or an abandon, and aco release reads the same record file; a run that began stores its record on the claim, and aco refuses --record then.

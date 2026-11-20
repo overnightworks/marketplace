@@ -46,6 +46,13 @@ test('run-misses: a failed read leaves misses out of the record, names the gap i
   assert.deepEqual([failed.result.status, failed.result.stage], [read.result.status, read.result.stage])
 })
 
+test('run-misses: the result shows this run\'s follows and the shas the earlier runs\' approvals hold, and none after a failed read', async () => {
+  const read = await recordOf({ stored_runs: [storedEarlierRun(['approve', olderTip], ['revise', resumeTip]), storedOwnRun(true)] })
+  const failed = await recordOf({ show_code: 2, show_error: 'bad shape' })
+  assert.deepEqual(read.result.storedRuns, { follows: true, approved: [olderTip] })
+  assert.equal(failed.result.storedRuns, undefined)
+})
+
 test('run-misses: the printer relays only the exit code, the error, this run\'s follows and the approving shas of the earlier runs', async () => {
   const lines = []
   const withNoise = { ...storedEarlierRun(['approve', olderTip], ['revise', resumeTip], ['approve', olderTip]), record: { ...storedEarlierRun().record, risk: 'material', note: 'free text', verdicts: [{ stage: 'review', verdict: 'approve', sha: olderTip }, { stage: 'gate', verdict: 'approve', sha: resumeTip }, { stage: 'review', verdict: 'revise', sha: resumeTip }] } }

@@ -236,7 +236,7 @@ review stage counts none). The misses also see the earlier runs' approvals: righ
 approval of an earlier run counts as one of this run, with both exemptions kept: a gate finding on a sha an
 earlier review approved is no miss either. A run that does not follow counts only its own approvals (aco shows
 the lane's misses as unknown then). When the read fails, the record leaves `misses` out, aco shows the lane's
-misses as unknown, and the result names the gap in `missesGap`; the status stays. The record also holds each review and gate verdict with the full sha it judged, the approving one last. No model retypes it: a
+misses as unknown, and the result names the gap in `missesGap`; the status stays. After a successful read the result shows `storedRuns`: the run's `follows` and the shas it read. The record also holds each review and gate verdict with the full sha it judged, the approving one last. No model retypes it: a
 courier cuts it out of its own transcript into the file, compares its CRC32 with the script's, and only
 then runs `aco lane-record check`, whose exit comes back on a CRC-signed printer line. Every status
 a release can follow carries `record`. A record that fails the check turns `ready-to-land` into

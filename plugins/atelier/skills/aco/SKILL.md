@@ -29,7 +29,10 @@ claimed, reviewed and landed; this says *how*.
    calls it, point the entry at that item.
    An audit that `aco next` names as due (`audit_due`) is dispatched before the
    item it names and before the head waits, as a delegated run of the `audit`
-   skill with the entry's `run` text.
+   skill with the entry's `run` text. A recurring audit is declared as
+   `[[audit]]` in `.aco/board.toml`; `aco next --json` lists the due ones under
+   `audits`, and the audit is dispatched even when `aco next` exits 3 with no
+   actionable item (`specs/next.spec.md`, NEXT-62..68).
 3. `aco board --json` reads the whole board, read-only (bare `aco board` refuses);
    the browser view for deciding expectation lines is `aco serve` (`specs/serve.spec.md`).
 
@@ -156,7 +159,9 @@ contract and this skill.
   another way.
 - When `aco next` names nothing actionable, run `aco wait` without an item as a
   background command, and `aco next` once it ends: it ends when `aco next` would
-  name an action, such as a closed blocker or a ruled card (`specs/wait.spec.md`).
+  name an action, such as a closed blocker or a ruled card, or when a recurring
+  audit is due (`AUDIT <name>`, WAIT-23, WAIT-25): `aco next` may still exit 3,
+  and the audit runs first (`specs/wait.spec.md`).
   Start it again after a restart or a compaction.
 - Outside an option's `contract`, a card carries no issue numbers, paths, file names,
   backticks, code names or flags; the problem is at most 20 words and an option name

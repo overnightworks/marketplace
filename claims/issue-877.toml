@@ -1,0 +1,8 @@
+claim_id = "1a9edf2a92b24f568cfc66d91cd2e81c"
+agent = "Claude 5fd48eeb-f686-416f-85b1-085a6741a604"
+role = "builder"
+base = "ad669eb8685016e82e75f426c8b5352921fa8336"
+branch = "claude/issue-877-each-lane-run-stores-its-record-on-the-c"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/lane/main.js", "plugins/atelier/lane/record.js", "plugins/atelier/lane/relay.js", "plugins/atelier/skills/aco/SKILL.md", "plugins/atelier/workflows/lane.js", "plugins/atelier/workflows/lane.md", "tests/lane_workflow.test.mjs", "tests/lane_workflow_courier_brief.test.mjs", "tests/lane_workflow_fix.test.mjs", "tests/lane_workflow_harness.mjs", "tests/lane_workflow_relay.test.mjs"]
+opened_commit = "8348ae17c5ad8e49a882f336c87a15401edf89d8"
+whole_reason = "The lane's record handover, its generated workflow, its pinning tests and the documents that spell the landing change together."

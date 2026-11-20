@@ -1,5 +1,7 @@
 // Pins that the committed lane script is exactly what its generator builds from the sources.
 import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
@@ -14,4 +16,33 @@ test('the lane script starts with a line that says it is generated and names the
 
 test('the generator check passes on the committed tree', () => {
   assert.equal(spawnSync(process.execPath, [generator, '--check'], { encoding: 'utf8' }).status, 0)
+})
+
+function withTemporaryBundle(content, body) {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'build-lane-'))
+  const file = path.join(directory, 'lane.js')
+  try {
+    fs.writeFileSync(file, content)
+    body(file)
+  } finally {
+    fs.rmSync(directory, { recursive: true, force: true })
+  }
+}
+
+const run = (...args) => spawnSync(process.execPath, [generator, ...args], { encoding: 'utf8' })
+
+test('the generator check fails and names the stale file when the lane script differs from its sources', () => {
+  withTemporaryBundle('// stale\n', (file) => {
+    const result = run('--check', '--bundle', file)
+    assert.equal(result.status, 1)
+    assert.ok(result.stderr.includes(file), result.stderr)
+  })
+})
+
+test('the generator writes the committed lane script to the file it is given, and the check then passes on it', () => {
+  withTemporaryBundle('// stale\n', (file) => {
+    assert.equal(run('--bundle', file).status, 0)
+    assert.equal(fs.readFileSync(file, 'utf8'), fs.readFileSync(bundle, 'utf8'))
+    assert.equal(run('--check', '--bundle', file).status, 0)
+  })
 })

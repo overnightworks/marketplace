@@ -21,11 +21,18 @@ export function renderLane() {
   return [HEADER + read(META_MODULE), ...parts.map(name => read(name).replace(EXPORTED_FUNCTION, '$1')), read(MAIN_MODULE)].join('\n')
 }
 
+// `--bundle <file>` redirects the generated script, so a test can drive a stale or missing copy without touching the committed one.
+function bundleFile(argv) {
+  const flag = argv.indexOf('--bundle')
+  return flag < 0 ? fileURLToPath(BUNDLE) : argv[flag + 1]
+}
+
 function main(argv) {
   const rendered = renderLane()
-  if (!argv.includes('--check')) return fs.writeFileSync(BUNDLE, rendered)
-  if (fs.readFileSync(BUNDLE, 'utf8') === rendered) return
-  console.error(`${fileURLToPath(BUNDLE)} differs from its sources; run \`${COMMAND}\` and commit the result`)
+  const bundle = bundleFile(argv)
+  if (!argv.includes('--check')) return fs.writeFileSync(bundle, rendered)
+  if (fs.readFileSync(bundle, 'utf8') === rendered) return
+  console.error(`${bundle} differs from its sources; run \`${COMMAND}\` and commit the result`)
   process.exitCode = 1
 }
 

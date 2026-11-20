@@ -595,7 +595,8 @@ for (const [what, shape, problem] of fixRelayFailures) {
 
 test('a blocked fixer that ran out of turns before the relay line stays escalated with its reason', async () => {
   const { result } = await runLane({ ...resumeArgs, fixFirst: [defectWithoutDraft] }, { 'fix-1': { ...resumeFix, printed: '', blocked: true, blockedReason: 'out of turns' } })
-  assert.deepEqual([result.status, result.stage, result.reason], ['escalated', 'fix', 'out of turns'])
+  assert.deepEqual([result.status, result.stage], ['escalated', 'fix'])
+  assert.ok(result.reason.startsWith('out of turns'))
 })
 
 test('the builder and the fixer are told to run the targeted tests and fast static checks and to use their turn budget, the reviewer is not', async () => {
@@ -621,14 +622,72 @@ const answeredOutsideTheTree = [
   ['an item comment', 'https://github.com/o/r/issues/1#issuecomment-1'],
 ]
 
+const settledByTheHead = 'the head settled this in the item body and the pull request body'
+const outsideEntries = [
+  ['without deltaFrom', {}],
+  ['with deltaFrom equal to the tip', { deltaFrom: resumeTip, answers: settledByTheHead }],
+]
+
+const settledRun = (extraArgs, outsideAnswers = [{ finding: 1, where: 'PR body' }]) => runLane({ ...resumeArgs, ...extraArgs, fixFirst: [docsFinding] }, { 'fix-1': { ...unchangedFix, outside: outsideAnswers }, ...reachesTheEnd })
+const settledArgs = { deltaFrom: resumeTip, answers: settledByTheHead }
+
 for (const [what, where] of answeredOutsideTheTree) {
-  test(`AC-outside-answer-reaches-recheck: a docs finding answered by ${what} at an unchanged tip reaches the raiser's re-check, which reads it live`, async () => {
-    const { result, agentCalls } = await runLane({ ...resumeArgs, fixFirst: [docsFinding] }, { 'fix-1': { ...unchangedFix, outside: [{ finding: 1, where }] }, ...reachesTheEnd })
-    assert.equal(result.status, 'ready-to-land')
-    assert.match(agentCalls['r1-review'].prompt, /read live what the fixer edited outside the tree/)
-    assert.ok(agentCalls['r1-review'].prompt.includes(where))
-  })
+  for (const [entry, extraArgs] of outsideEntries) {
+    test(`AC-outside-answer-reaches-recheck: a docs finding answered by ${what} at an unchanged tip ${entry} reaches the raiser's re-check, which reads it live`, async () => {
+      const { result, agentCalls } = await runLane({ ...resumeArgs, ...extraArgs, fixFirst: [docsFinding] }, { 'fix-1': { ...unchangedFix, outside: [{ finding: 1, where }] }, ...reachesTheEnd })
+      assert.equal(result.status, 'ready-to-land')
+      const prompt = agentCalls['r1-review'].prompt
+      assert.match(prompt, /read live what the fixer edited outside the tree/)
+      assert.ok(prompt.includes(where))
+    })
+  }
 }
+
+test('AC-outside-answer-brief: a body-settled finding at an unchanged tip is re-checked with the answers of the head, the finding verbatim, both bodies read live and the whole tip as the range', async () => {
+  const { agentCalls } = await settledRun(settledArgs)
+  const prompt = agentCalls['r1-review'].prompt
+  assert.ok(prompt.includes(settledByTheHead))
+  assert.ok(prompt.includes(docsFinding.text) && prompt.includes(docsFinding.evidence))
+  assert.match(prompt, /item body[^.]*pull request body[^.]*live|live[^.]*item body[^.]*pull request body/)
+  assert.match(prompt, /whether the unchanged tip does more or less than the changed body asks/)
+  assert.doesNotMatch(prompt, new RegExp(`git diff ${resumeTip}\\.\\.HEAD`))
+})
+
+test('AC-outside-answer-gate-rechecks: a body-settled finding on a material lane re-checks with the gate as well, both reading the answers of the head and the unchanged tip', async () => {
+  const { result, agentCalls } = await runLane({ ...resumeArgs, ...settledArgs, risk: 'material', fixFirst: [docsFinding] }, { 'fix-1': { ...unchangedFix, outside: [{ finding: 1, where: 'PR body' }] }, ...reachesTheEnd, 'r1-gate': { ...APPROVE, codexExit: 0 } })
+  assert.equal(result.status, 'ready-to-land')
+  for (const reviewer of ['r1-review', 'r1-gate']) {
+    assert.ok(agentCalls[reviewer], `${reviewer} runs`)
+    assert.ok(agentCalls[reviewer].prompt.includes(settledByTheHead))
+    assert.match(agentCalls[reviewer].prompt, /whether the unchanged tip does more or less than the changed body asks/)
+  }
+})
+
+test('AC-outside-answer-delta-kept: a body-settled finding with a deltaFrom older than the tip keeps the delta range and does not call the tip unchanged', async () => {
+  const { result, agentCalls } = await settledRun({ ...settledArgs, deltaFrom: olderTip })
+  assert.equal(result.status, 'ready-to-land')
+  const prompt = agentCalls['r1-review'].prompt
+  assert.match(prompt, new RegExp(`only this delta: git diff ${olderTip}\\.\\.HEAD`))
+  assert.doesNotMatch(prompt, /unchanged tip|judge the whole tip/)
+})
+
+test('AC-outside-answer-record: a body-settled finding at an unchanged tip ends with an approving review at that tip and a green record', async () => {
+  const { result } = await settledRun(settledArgs)
+  const lastReview = result.history.filter(entry => entry.by === 'review').at(-1)
+  assert.equal(lastReview.verdict, 'APPROVE')
+  assert.equal(lastReview.tip, resumeTip)
+  assert.equal(result.history.at(-1).verdict, 'GREEN')
+})
+
+test('AC-outside-answer-resume: a blocked fixer ends escalated with the resume of the carried batch, and a new run with it plus a tip is accepted', async () => {
+  const batch = [docsFinding]
+  const { result } = await runLane({ ...resumeArgs, fixFirst: batch }, { 'fix-1': { ...resumeFix, printed: '', blocked: true, blockedReason: 'the body must change' } })
+  assert.deepEqual([result.status, result.stage], ['escalated', 'fix'])
+  assert.deepEqual(result.resume, { pr: resumeArgs.pr, deltaFrom: resumeTip, fixFirst: batch })
+  assert.match(result.reason, /the branch's current head as tip/)
+  const again = await runLane({ ...resumeArgs, ...result.resume, tip: resumeTip }, { 'fix-1': { ...unchangedFix, outside: [{ finding: 1, where: 'PR body' }] }, ...reachesTheEnd })
+  assert.equal(again.result.status, 'ready-to-land')
+})
 
 test('AC-outside-recheck-names-repo: with repo set the re-check reads the body and the comment from that repository', async () => {
   const { agentCalls } = await runLane({ ...resumeArgs, repo: 'owner/name', fixFirst: [docsFinding] }, { 'fix-1': { ...unchangedFix, outside: [{ finding: 1, where: 'PR body' }] }, ...reachesTheEnd })

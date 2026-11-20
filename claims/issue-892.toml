@@ -1,0 +1,7 @@
+claim_id = "b095cc895d0145d2b85a87d42ab8f859"
+agent = "Claude 5fd48eeb-f686-416f-85b1-085a6741a604"
+role = "builder"
+base = "b989a132e6d10f126263951d76c10e1dfd06add0"
+branch = "claude/issue-892-throwaway-proof-of-seeded-approvals-for"
+scope = ["proof-889.txt"]
+opened_commit = "7a35482a7c50b6fbc2f3677d9a258bc9cd298d91"

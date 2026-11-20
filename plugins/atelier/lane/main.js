@@ -537,6 +537,9 @@ async function pushAndCheckScope(label, origin) {
   if (adoptedMerge) {
     history.push({ by: 'scope', adoptedMerge: head.out, from: tip })
     tip = head.out
+  } else {
+    // A builder may report a short sha; the verdicts and the record keep full ones, so the tip becomes git's full form once, here.
+    tip = remote.out
   }
   if (brief.code !== 0) return fail('scope', `aco brief ${A.item} --json exited ${brief.code}: ${brief.err}`)
   const paths = values.outside_claim

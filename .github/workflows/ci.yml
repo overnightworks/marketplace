@@ -67,10 +67,12 @@ jobs:
       # so a workflow that parses fine still cannot start.
       - name: Check that workflow meta is a pure literal
         run: node scripts/check_workflow_meta.mjs plugins/*/workflows/*.js
-      # The lcov report carries the JavaScript coverage the quality gate's Sonar scan reads.
+      # The lcov report carries the JavaScript coverage the quality gate's Sonar scan reads;
+      # the branch gate covers the scripts, as the pytest run below does for the Python ones.
       - name: Run workflow tests
         run: >-
           node --test --experimental-test-coverage
+          --test-coverage-include='scripts/*.mjs' --test-coverage-branches=100
           --test-reporter=spec --test-reporter-destination=stdout
           --test-reporter=lcov --test-reporter-destination=lcov.info
           tests/*.test.mjs

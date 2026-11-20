@@ -10,6 +10,7 @@ from pathlib import Path
 
 import pytest
 
+from hook_fixtures import install_fake
 from script_under_test import load_script
 
 
@@ -70,9 +71,7 @@ class Machine:
         monkeypatch.setenv("FAKE_PROVIDER_LOG", str(self.log))
 
     def install_provider(self, name: str, state: dict[str, object]) -> None:
-        executable = self.bin / name
-        executable.write_text(FAKE_PROVIDER)
-        executable.chmod(0o755)
+        install_fake(self.bin, name, FAKE_PROVIDER)
         self.state.setdefault(name, {}).update(state)
         self.state_file.write_text(json.dumps(self.state))
 

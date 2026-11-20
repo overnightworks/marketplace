@@ -5,7 +5,7 @@ import path from 'node:path'
 import { spawnSync } from 'node:child_process'
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { runLane, resumeTip, resumeFixedTip, partReplaced, runCommandLine, installFake, resumeArgs, resumeFix, mergeOnlyFix, mainMovedTip, defectWithoutDraft, roundTip, roundRed, roundFix, reviewedRoundFix, roundReviews, PASS, APPROVE, greenCi, tidy } from './lane_workflow_harness.mjs'
+import { runLane, FAKE_GH, resumeTip, resumeFixedTip, partReplaced, runCommandLine, installFake, resumeArgs, resumeFix, mergeOnlyFix, mainMovedTip, defectWithoutDraft, roundTip, roundRed, roundFix, reviewedRoundFix, roundReviews, PASS, APPROVE, greenCi, tidy } from './lane_workflow_harness.mjs'
 
 const tip = 'c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0'
 const lane = { item: 1, worktree: '/w', branch: 'b', contract: 'c', e2e: 'e', scratch: '/s', pr: 1, tip }
@@ -316,12 +316,15 @@ test('ci-shared-red: base runs spread over several pages are all searched for th
 
 const registrationLoopOf = (brief) => brief.match(/for i in \$\(seq 1 5\); do .*?; done/)[0]
 
-for (const [what, args, prefix] of [['without repo', lane, "cd '/w' && "], ['with repo', { ...lane, repo: 'o/n' }, '']]) {
+for (const [what, args] of [['without repo', lane], ['with repo', { ...lane, repo: 'o/n' }]]) {
   test(`ci-registration-wait: ${what} the registration wait stands after the conflicting-PR sentence and before the watch`, async () => {
     const { agentCalls } = await driveCi(ciAnswer([check(required, 'pass')]), args)
     const brief = agentCalls['ci-0'].prompt
-    const countCommand = `${prefix}for i in $(seq 1 5); do [ "$(gh pr checks 1${args.repo ? ' -R o/n' : ''} --json name --jq length 2>/dev/null)" -gt 0 ]`
-    const at = brief.indexOf(countCommand)
+    const at = brief.indexOf('for i in $(seq 1 5); do')
+    const loop = registrationLoopOf(brief)
+    assert.match(loop, /gh pr checks 1( -R o\/n)? --json name --jq length/)
+    assert.equal(loop.includes('-R o/n'), Boolean(args.repo))
+    if (!args.repo) assert.ok(brief.slice(0, at).endsWith("`cd '/w' && "), 'the loop runs in the worktree')
     assert.ok(at > brief.indexOf('CONFLICTING'), 'the wait follows the conflicting-PR sentence')
     assert.ok(at < brief.indexOf('--watch'), 'the wait precedes the watch')
     assert.match(brief, /no CI checks ran on the head commit/)
@@ -390,49 +393,42 @@ const verdictLink = 'https://github.com/o/n/actions/runs/11/job/22'
 const loosenLine = (text) => `verdict\tUNKNOWN STEP\t2026-11-08T04:00:00.0000000Z \u001b[31m${text}\u001b[0m`
 const loosened = [loosenLine('! red · only declared loosenings · only the operator merges it · 3s'), loosenLine('next: quality merge o/n#905')]
 const door = /merge door[\s\S]*quality merge o\/n#905/
-const fakeGhWithLog = (t, { logLines, logCode = 0 }) => {
+const harnessGhWithRunLog = (t, { logLines, logCode = 0 }) => {
   const bin = fs.mkdtempSync(path.join(os.tmpdir(), 'lane-ci-gh-'))
   t.after(() => fs.rmSync(bin, { recursive: true }))
-  const calls = path.join(bin, 'calls')
   fs.writeFileSync(path.join(bin, 'log'), logLines.join('\n'))
-  installFake(bin, 'gh', `#!/bin/sh
-echo "$*" >> '${calls}'
-case "$1 $2" in
-  "api "*/pulls/[0-9]) printf '{"baseRefName":"main","headRefOid":"%s"}' "$FAKE_PR_HEAD" ;;
-  "pr checks") printf '%s' "$FAKE_CHECKS" ;;
-  "run view") [ ${logCode} = 0 ] || { echo 'HTTP 410: logs expired' >&2; exit ${logCode}; }; cat '${path.join(bin, 'log')}' ;;
-  *) printf '[]' ;;
-esac
-`)
-  return { bin, calls }
+  installFake(bin, 'gh', FAKE_GH)
+  return { bin, calls: path.join(bin, 'gh.run-view'), logCode }
 }
-const printingWith = (bin, checks, head = tip) => (prompt) => ({
-  printed: runCommandLine(prompt.split('\n').at(-1).replace(/^cd '[^']*' && /, ''), { cwd: os.tmpdir(), env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, FAKE_PR_HEAD: head, FAKE_CHECKS: JSON.stringify(checks) } }),
+// The printer's other gh reads (rules, changed files, runs) answer an empty list.
+const emptyGhReads = { FAKE_RULES: '[]', FAKE_RULES_CODE: 0, FAKE_FILES: '[]', FAKE_CHANGED_CODE: 0, FAKE_RUNLIST: '[]', FAKE_RUNLIST_CODE: 0, FAKE_BASE_RUNS: '[]' }
+const printingWith = ({ bin, logCode = 0 }, checks, head = tip) => (prompt) => ({
+  printed: runCommandLine(prompt.split('\n').at(-1).replace(/^cd '[^']*' && /, ''), { cwd: os.tmpdir(), env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, FAKE_PR_HEAD: head, FAKE_VIEW_CODE: 0, FAKE_CHECKS: JSON.stringify(checks), FAKE_CHECKS_CODE: 0, ...emptyGhReads, FAKE_RUN_LOG: path.join(bin, 'log'), FAKE_RUN_VIEW_CODE: logCode } }),
 })
 const redVerdict = [{ name: required, bucket: 'fail', link: verdictLink }, { name: 'Python: tests', bucket: 'pass', link: 'https://github.com/o/n/actions/runs/11/job/23' }]
 const verdictFailing = [{ where: required, kind: 'defect', text: 'red', rule: 'CI check quality / verdict', evidence: 'red' }]
 const verdictRedCi = ciAnswer([], { green: false, failing: verdictFailing })
 
 test('ci-operator-door: a verdict red by declared loosenings alone ends the lane awaiting-head at ci with the quality merge command and no fixer', async (t) => {
-  const { bin, calls } = fakeGhWithLog(t, { logLines: loosened })
-  const { result, launchedAgents } = await driveCi(verdictRedCi, lane, printingWith(bin, redVerdict))
+  const gh = harnessGhWithRunLog(t, { logLines: loosened })
+  const { result, launchedAgents } = await driveCi(verdictRedCi, lane, printingWith(gh, redVerdict))
   assert.deepEqual([result.status, result.stage], ['awaiting-head', 'ci'])
   assert.match(result.reason, door)
   assert.ok(!launchedAgents.includes('fix-2'))
-  assert.match(fs.readFileSync(calls, 'utf8'), /run view --job 22 .*--log/)
+  assert.match(fs.readFileSync(gh.calls, 'utf8'), /run view --job 22 .*--log/)
 })
 
 test('ci-operator-door: the two log lines in the other order, with the next line first, end the same way', async (t) => {
-  const { bin } = fakeGhWithLog(t, { logLines: [...loosened].reverse() })
-  const { result } = await driveCi(verdictRedCi, lane, printingWith(bin, redVerdict))
+  const gh = harnessGhWithRunLog(t, { logLines: [...loosened].reverse() })
+  const { result } = await driveCi(verdictRedCi, lane, printingWith(gh, redVerdict))
   assert.deepEqual([result.status, result.stage], ['awaiting-head', 'ci'])
   assert.match(result.reason, door)
 })
 
 test('ci-operator-door: the relay line carries neither log text nor escape bytes', async (t) => {
-  const { bin } = fakeGhWithLog(t, { logLines: loosened })
-  const { agentCalls } = await driveCi(verdictRedCi, lane, printingWith(bin, redVerdict))
-  const line = printingWith(bin, redVerdict)(agentCalls['ci-read-0'].prompt).printed
+  const gh = harnessGhWithRunLog(t, { logLines: loosened })
+  const { agentCalls } = await driveCi(verdictRedCi, lane, printingWith(gh, redVerdict))
+  const line = printingWith(gh, redVerdict)(agentCalls['ci-read-0'].prompt).printed
   assert.doesNotMatch(line, /UNKNOWN STEP|u001b|declared/)
 })
 
@@ -444,26 +440,26 @@ const notTheDoor = [
   ['a merge line whose owner is shell text, not a command shape', { logLines: [loosened[0], loosenLine('next: quality merge o/r$(id);`x`#9')] }, redVerdict],
   ['a verdict that is red without a job link', { logLines: loosened }, [{ name: required, bucket: 'fail', link: '' }]],
 ]
-for (const [what, gh, checks] of notTheDoor) {
+for (const [what, log, checks] of notTheDoor) {
   test(`ci-operator-door: ${what} still goes to a fixer`, async (t) => {
-    const { bin } = fakeGhWithLog(t, gh)
-    const { launchedAgents } = await driveCi(verdictRedCi, lane, printingWith(bin, checks))
+    const gh = harnessGhWithRunLog(t, log)
+    const { launchedAgents } = await driveCi(verdictRedCi, lane, printingWith(gh, checks))
     assert.ok(launchedAgents.includes('fix-2'))
   })
 }
 
 test('ci-operator-door: a log that names the loosenings of another check than the verdict is never read', async (t) => {
-  const { bin, calls } = fakeGhWithLog(t, { logLines: loosened })
+  const gh = harnessGhWithRunLog(t, { logLines: loosened })
   const checks = [{ name: required, bucket: 'pass', link: verdictLink }, { name: 'Python: tests', bucket: 'fail', link: 'https://github.com/o/n/actions/runs/11/job/23' }]
-  const { launchedAgents } = await driveCi(ciAnswer([], { green: false, failing: verdictFailing }), lane, printingWith(bin, checks))
+  const { launchedAgents } = await driveCi(ciAnswer([], { green: false, failing: verdictFailing }), lane, printingWith(gh, checks))
   assert.ok(launchedAgents.includes('fix-2'))
-  assert.ok(!fs.existsSync(calls) || !/run view/.test(fs.readFileSync(calls, 'utf8')))
+  assert.ok(!fs.existsSync(gh.calls) || !/run view/.test(fs.readFileSync(gh.calls, 'utf8')))
 })
 
 test('ci-operator-door: a blocking end-to-end finding sends the lane to the fixer even when the only red is the operator door', async (t) => {
-  const { bin } = fakeGhWithLog(t, { logLines: loosened })
+  const gh = harnessGhWithRunLog(t, { logLines: loosened })
   const blocked = { verdict: 'FAIL', blocking: [{ where: 'x', text: 't', rule: 'r', evidence: 'e', kind: 'defect' }], followups: [], cells: [{ cell: 'c', result: 'failed', command: 'run', exit: '1' }] }
-  const { launchedAgents } = await runLane({ ...lane, foldIn: [tidy] }, { ...reachesCi, 'e2e-0': blocked, 'ci-0': verdictRedCi, 'ci-read-0': printingWith(bin, redVerdict) })
+  const { launchedAgents } = await runLane({ ...lane, foldIn: [tidy] }, { ...reachesCi, 'e2e-0': blocked, 'ci-0': verdictRedCi, 'ci-read-0': printingWith(gh, redVerdict) })
   assert.ok(launchedAgents.includes('fix-2'))
 })
 
@@ -751,13 +747,13 @@ test('ci-fixer-at-once: a follow-up of a tester that settles after a fix moved t
 })
 
 test('ci-operator-door: a tester PASS on an older production tip does not open the door before a tester ran on the current tip', tolerates, async (t) => {
-  const { bin } = fakeGhWithLog(t, { logLines: loosened })
+  const gh = harnessGhWithRunLog(t, { logLines: loosened })
   const tester = heldTester()
   const doorCi = (round) => ({ head: roundTip(round), green: false, failing: verdictFailing, checks: redVerdict })
   const answers = {
     'r0-review': APPROVE, 'e2e-0': tester.answer, 'e2e-1': PASS,
     'ci-0': roundRed(0), 'ci-1': () => { tester.resolve(PASS); return doorCi(1) }, 'ci-2': doorCi(1),
-    'ci-read-1': printingWith(bin, redVerdict, roundTip(1)), 'ci-read-2': printingWith(bin, redVerdict, roundTip(1)),
+    'ci-read-1': printingWith(gh, redVerdict, roundTip(1)), 'ci-read-2': printingWith(gh, redVerdict, roundTip(1)),
     'fix-1': { ...resumeFix, head: roundTip(1), files: ['src/x.py'], regression: [] }, 'r1-review': APPROVE,
   }
   const { result, launchedAgents } = await runLane(resumeArgs, answers)

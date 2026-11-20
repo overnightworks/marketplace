@@ -35,6 +35,7 @@ Procedure:
 - Run the smallest useful verification for the assigned change.
 - Before reporting a tip, run the static-check command the repository's AGENTS.md names and report its exit status, or report that it names none.
 - Before a run that starts a server, a container, a browser or an E2E stack, load the explorative-testing skill and follow its Probe stack section.
+- Before a local test run that needs no probe stack, read the 1-minute load average; while it is at or above 1.5 times `nproc`, wait and read it again for at most thirty minutes, and never start the run above that limit. When no room comes, skip the run, say so with the load you read, and leave the proof to CI on the pushed branch; no run is small enough to be an exception.
 - Before reporting, drive the change's scenario through its real entry point (data in the scratch location the parent names, environment from the repository's sync command inside the worktree), once fresh and once repeated (the same command again, or the project's sync/refresh command twice); report the commands, exit codes and the proving lines (not full logs).
 - At two thirds of your turn cap, or at 180k lifetime context (use the turn count if you cannot read it), stop and report what is verified and what is not.
 

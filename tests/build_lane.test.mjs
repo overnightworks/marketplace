@@ -1,9 +1,10 @@
 // Pins that the committed lane script is exactly what its generator builds from the sources.
 import fs from 'node:fs'
-import { test } from 'node:test'
+import { test, mock } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
+import { main } from '../scripts/build_lane.mjs'
 
 const bundle = new URL('../plugins/atelier/workflows/lane.js', import.meta.url)
 const generator = fileURLToPath(new URL('../scripts/build_lane.mjs', import.meta.url))
@@ -14,4 +15,36 @@ test('the lane script starts with a line that says it is generated and names the
 
 test('the generator check passes on the committed tree', () => {
   assert.equal(spawnSync(process.execPath, [generator, '--check'], { encoding: 'utf8' }).status, 0)
+})
+
+// The red path runs in this process: a copy of the generator in a temporary tree would escape the coverage gate on scripts/.
+function withBundleContent(content, body) {
+  const bundlePath = fileURLToPath(bundle)
+  const realRead = fs.readFileSync
+  const written = []
+  mock.method(fs, 'readFileSync', (file, ...rest) => String(file) === bundlePath ? content : realRead(file, ...rest))
+  mock.method(fs, 'writeFileSync', (file, data) => written.push([String(file), data]))
+  const errors = []
+  mock.method(console, 'error', (message) => errors.push(message))
+  try {
+    body({ written, errors, bundlePath })
+  } finally {
+    mock.restoreAll()
+    process.exitCode = undefined
+  }
+}
+
+test('the generator check fails and names the stale file when the lane script differs from its sources', () => {
+  withBundleContent('// stale\n', ({ errors, bundlePath }) => {
+    main(['--check'])
+    assert.equal(process.exitCode, 1)
+    assert.ok(errors[0].includes(bundlePath), errors[0])
+  })
+})
+
+test('the generator writes the committed lane script to the lane script file', () => {
+  withBundleContent('// stale\n', ({ written, bundlePath }) => {
+    main([])
+    assert.deepEqual(written, [[bundlePath, fs.readFileSync(bundle, 'utf8')]])
+  })
 })

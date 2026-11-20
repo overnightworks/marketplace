@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import io
 import json
 import os
 import shlex
@@ -10,21 +9,11 @@ from pathlib import Path
 
 import pytest
 
+from hook_fixtures import CONTRACT_MARKER, DELEGATED_LINE, contract_text, fire_hook
 from script_under_test import HOOKS_DIRECTORY, load_script
 
 
 contract_change = load_script("contract_change", HOOKS_DIRECTORY)
-
-DELEGATED_LINE = "Fixture brief opener: do only this brief."
-CONTRACT_MARKER = "secret-contract-marker"
-
-
-def contract_text(rule: str = "rule one") -> str:
-    return (
-        "# Contract\n\n## Head or helper\n\nWho is who.\n\n"
-        "> Fixture brief opener:\n> do only this brief.\n\n"
-        f"## Rules\n\n{CONTRACT_MARKER} {rule}\n"
-    )
 
 
 class Machine:
@@ -76,15 +65,7 @@ class Machine:
 
     def fire(self, event: str, session: str = "head-session", **fields: object) -> str:
         """Run the hook once as the host does and return the context it injected, or an empty string."""
-        payload = {"session_id": session, "hook_event_name": event, **fields}
-        self.monkeypatch.setattr("sys.stdin", io.StringIO(json.dumps(payload)))
-        contract_change.main()
-        printed = self.capsys.readouterr().out
-        if not printed:
-            return ""
-        output = json.loads(printed)["hookSpecificOutput"]
-        assert output["hookEventName"] == event
-        return output["additionalContext"]
+        return fire_hook(contract_change, self.monkeypatch, self.capsys, event, session, **fields)
 
     def start(self, session: str = "head-session", source: str = "startup") -> str:
         return self.fire("SessionStart", session, source=source)

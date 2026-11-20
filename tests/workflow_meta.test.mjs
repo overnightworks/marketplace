@@ -61,3 +61,12 @@ test('the guard names each workflow with a non-literal meta and fails the run', 
     fs.rmSync(dir, { recursive: true, force: true })
   }
 })
+
+test('the guard passes a run whose workflows all carry a pure literal meta', () => {
+  const guard = fileURLToPath(new URL('../scripts/check_workflow_meta.mjs', import.meta.url))
+  const workflows = fileURLToPath(new URL('../plugins/atelier/workflows/', import.meta.url))
+  const files = fs.readdirSync(workflows).filter(name => name.endsWith('.js')).map(name => path.join(workflows, name))
+  const run = spawnSync(process.execPath, [guard, ...files], { encoding: 'utf8' })
+  assert.equal(run.status, 0)
+  assert.equal(run.stderr, '')
+})

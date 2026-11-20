@@ -21,11 +21,12 @@ export function renderLane() {
   return [HEADER + read(META_MODULE), ...parts.map(name => read(name).replace(EXPORTED_FUNCTION, '$1')), read(MAIN_MODULE)].join('\n')
 }
 
-function main(argv) {
+export function main(argv) {
   const rendered = renderLane()
-  if (!argv.includes('--check')) return fs.writeFileSync(BUNDLE, rendered)
-  if (fs.readFileSync(BUNDLE, 'utf8') === rendered) return
-  console.error(`${fileURLToPath(BUNDLE)} differs from its sources; run \`${COMMAND}\` and commit the result`)
+  const bundle = fileURLToPath(BUNDLE)
+  if (!argv.includes('--check')) return fs.writeFileSync(bundle, rendered)
+  if (fs.readFileSync(bundle, 'utf8') === rendered) return
+  console.error(`${bundle} differs from its sources; run \`${COMMAND}\` and commit the result`)
   process.exitCode = 1
 }
 

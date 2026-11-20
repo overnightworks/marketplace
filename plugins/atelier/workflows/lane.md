@@ -149,6 +149,12 @@ gpt-6-astra/high.
   read the tip's check runs over REST and land with the record once every one is
   green. The printer reads the pull request over REST (`gh api`), which spends no
   GraphQL points; `gh pr checks` stays on GraphQL.
+- A CI answer that is not green and names no failing check, while the printed
+  listing shows no failed check but a pending one or a run of the head not
+  completed (the watcher's cap ended in a queue), ends the lane awaiting-head at
+  `ci`: no fixer starts, no fix round is spent, the history records the step as
+  `PENDING`, and the reason names the pending checks. Resume with `pr` and `tip`
+  once CI has finished.
 - A Claude agent of any stage (builder, reviewer, fixer, tester, CI reader or
   mechanical step) that fails with its account usage limit returns awaiting-head
   at its stage with `claudeLimit` (`resetsAt` when the error names a reset), the

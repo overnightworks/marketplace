@@ -35,7 +35,7 @@ if [ -n "$FAKE_NETWORK_ERROR" ] && { [ "$FAKE_NETWORK_FAILS" = always ] || [ "$c
 const FAKE_GH = `#!/bin/sh
 ${NETWORK_DOWN}fail() { printf '%s\\n' "$2" >&2; exit "$1"; }
 case "$1 $2" in
-  "run list") [ "$FAKE_RUNLIST_CODE" = 0 ] || fail "$FAKE_RUNLIST_CODE" "$FAKE_RUNLIST_ERROR"; printf '[]' ;;
+  "run list") [ "$FAKE_RUNLIST_CODE" = 0 ] || fail "$FAKE_RUNLIST_CODE" "$FAKE_RUNLIST_ERROR"; printf '%s' "$FAKE_RUNLIST" ;;
   "pr checks") [ "$FAKE_CHECKS_CODE" = 0 ] || fail "$FAKE_CHECKS_CODE" "$FAKE_CHECKS_ERROR"; printf '%s' "$FAKE_CHECKS" ;;
   "api -X") [ "$FAKE_PATCH_CODE" = 0 ] || fail "$FAKE_PATCH_CODE" "the title write was refused"; printf '%s\\n' "$6" >> "$0.patched" ;;
   "api repos/"*) [ "$4" != .title ] || { case "$2" in */pulls/*) printf '%s\\n' "$FAKE_PR_TITLE" ;; *) printf '%s\\n' "$FAKE_ITEM_TITLE" ;; esac; exit 0; }
@@ -108,7 +108,7 @@ export async function runLane(args, answers = {}, options = {}) {
     FAKE_RULES_CODE: scenario.rules_code ?? 0, FAKE_RULES_ERROR: scenario.rules_error ?? '',
     FAKE_FILES: JSON.stringify(Array.from({ length: Math.ceil((scenario.changed_files ?? []).length / 100) }, (_, page) => scenario.changed_files.slice(page * 100, page * 100 + 100).map(filename => ({ filename })))),
     FAKE_CHANGED_CODE: scenario.changed_code ?? 0, FAKE_CHANGED_ERROR: scenario.changed_error ?? '',
-    FAKE_RUNLIST_CODE: scenario.runlist_code ?? 0, FAKE_RUNLIST_ERROR: scenario.runlist_error ?? '',
+    FAKE_RUNLIST: JSON.stringify(scenario.head_runs ?? []), FAKE_RUNLIST_CODE: scenario.runlist_code ?? 0, FAKE_RUNLIST_ERROR: scenario.runlist_error ?? '',
     FAKE_BASE_RUNS: JSON.stringify((scenario.base_runs ?? []).map(run => ({ check_runs: [run] }))),
   })
   // A ci-read answer defaults to the world the same round's watcher answer describes with its head, checks, requiredChecks and baseChecks, which the lane must not read from the watcher.
@@ -157,7 +157,7 @@ export async function runLane(args, answers = {}, options = {}) {
     if (!isRelayed(label) || !answer) return answer
     const printed = printedBy(prompt, answer, reread, label)
     if (answer.head && !base.startsWith('scope-')) newestTip = answer.head
-    const { pr_title: _prTitle, item_title: _itemTitle, patch_code: _patchCode, pr_head: _prHead, checks: _checks, required: _required, base_runs: _baseRuns, changed_files: _changedFiles, changed_code: _changedCode, changed_error: _changedError, runlist_code: _runlistCode, runlist_error: _runlistError, head: _head, parents: _parents, head_code: _headCode, branch_code: _branchCode, main_code: _mainCode, touched_paths: _touchedPaths, nonce: _nonce, edit: _edit, typedCommand: _typedCommand, printerMode: _printerMode, push_error: _pushError, network_error: _networkError, network_fails: _networkFails, remote_tip: _remoteTip, brief_error: _briefError, outside_claim: _outsideClaim, printed: _printed, ...report } = answer
+    const { pr_title: _prTitle, item_title: _itemTitle, patch_code: _patchCode, pr_head: _prHead, checks: _checks, required: _required, base_runs: _baseRuns, changed_files: _changedFiles, changed_code: _changedCode, changed_error: _changedError, head_runs: _headRuns, runlist_code: _runlistCode, runlist_error: _runlistError, head: _head, parents: _parents, head_code: _headCode, branch_code: _branchCode, main_code: _mainCode, touched_paths: _touchedPaths, nonce: _nonce, edit: _edit, typedCommand: _typedCommand, printerMode: _printerMode, push_error: _pushError, network_error: _networkError, network_fails: _networkFails, remote_tip: _remoteTip, brief_error: _briefError, outside_claim: _outsideClaim, printed: _printed, ...report } = answer
     return reread ? { printed } : { ...report, printed }
   }
   // The worktree check runs before every lane and the record courier after every lane that leaves one, so the launch lists hold only the agents between them; agentCalls keeps both.

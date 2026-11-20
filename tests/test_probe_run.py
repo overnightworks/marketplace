@@ -9,6 +9,8 @@ from pathlib import Path
 
 import pytest
 
+from hook_fixtures import install_fake
+
 PROBE_RUN = Path(__file__).resolve().parents[1] / "scripts" / "probe_run.sh"
 CORES = int(subprocess.run(["nproc"], capture_output=True, text=True, check=True).stdout)
 LOAD_LIMIT = 1.5 * CORES
@@ -16,12 +18,6 @@ ARGUMENT_ECHO = '#!/bin/sh\nprintf "%s\\n" "$@"\n'
 MAXIMUM_TOTAL_SECONDS = 1830
 BAD_INPUT_STATUS = 2
 LOAD_TIMEOUT_STATUS = 75
-
-
-def install_fake(bin_directory: Path, name: str, script: str) -> None:
-    fake = bin_directory / name
-    fake.write_text(script)
-    fake.chmod(0o755)
 
 
 @pytest.fixture

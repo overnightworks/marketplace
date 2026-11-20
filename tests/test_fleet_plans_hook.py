@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import io
 import json
 import os
 import shutil
@@ -11,12 +10,12 @@ from pathlib import Path
 
 import pytest
 
+from hook_fixtures import DELEGATED_LINE, contract_text, fire_hook, install_fake
 from script_under_test import HOOKS_DIRECTORY, load_script
 
 
 fleet_plans = load_script("fleet_plans", HOOKS_DIRECTORY)
 
-DELEGATED_LINE = "Fixture brief opener: do only this brief."
 RENAME_PROMPT = "Please rename the repository."
 
 # The stand-in reads what it prints from files beside it, so a test arranges aco's answer by writing them.
@@ -62,13 +61,9 @@ class Machine:
         checkout.mkdir()
         self.bin.mkdir()
         (self.bin / "git").symlink_to(shutil.which("git"))
-        stand_in = self.bin / "aco"
-        stand_in.write_text(ACO_STAND_IN)
-        stand_in.chmod(0o755)
+        install_fake(self.bin, "aco", ACO_STAND_IN)
         subprocess.run(["git", "-C", str(checkout), "init", "-q"], check=True)
-        (checkout / "AGENTS.md").write_text(
-            "# Contract\n\n## Head or helper\n\nWho is who.\n\n> Fixture brief opener:\n> do only this brief.\n\n## Rules\n"
-        )
+        (checkout / "AGENTS.md").write_text(contract_text())
         (home / ".claude" / "CLAUDE.md").symlink_to(checkout / "AGENTS.md")
         monkeypatch.setenv("HOME", str(home))
         monkeypatch.setenv("CLAUDE_PLUGIN_DATA", str(self.data))
@@ -100,15 +95,7 @@ class Machine:
 
     def prompt(self, text: str = RENAME_PROMPT, session: str = "head-session", **fields: object) -> str:
         """Run the hook once as the host does and return the context it injected, or an empty string."""
-        payload = {"session_id": session, "hook_event_name": "UserPromptSubmit", "prompt": text, **fields}
-        self.monkeypatch.setattr("sys.stdin", io.StringIO(json.dumps(payload)))
-        fleet_plans.main()
-        printed = self.capsys.readouterr().out
-        if not printed:
-            return ""
-        output = json.loads(printed)["hookSpecificOutput"]
-        assert output["hookEventName"] == "UserPromptSubmit"
-        return output["additionalContext"]
+        return fire_hook(fleet_plans, self.monkeypatch, self.capsys, "UserPromptSubmit", session, prompt=text, **fields)
 
 
 @pytest.fixture

@@ -1,0 +1,8 @@
+claim_id = "817d6d94e91847418498e2a25d369558"
+agent = "Claude 57d5a480-511e-4e68-ac3e-58f0f400e3c5"
+role = "builder"
+base = "e446214f86521696d0917c2de846e58d1d452f98"
+branch = "claude/issue-859-a-lane-that-ends-on-a-spent-budget-names"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/lane/main.js", "plugins/atelier/workflows/lane.js", "plugins/atelier/workflows/lane.md", "tests/lane_workflow_ci.test.mjs", "tests/lane_workflow_harness.mjs"]
+opened_commit = "901ee31f17814ac22569df97aa5fe46affe5ba22"
+whole_reason = "The result, the refusal text, the regenerated bundle, the reference, the tests and the version files change together."

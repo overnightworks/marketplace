@@ -661,7 +661,7 @@ const findingPaths = (failing = []) => [...new Set(failing.map(finding => findin
 const provenOnTip = () => approvedOn(history, tip) && !testBlocking.length && lastTestedTip === tip
 const restCheckAction = () => `without a new run: read the check runs of ${tip} with \`gh api repos/${A.repo || '{owner}/{repo}'}/commits/${tip}/check-runs --paginate\` (REST, outside the GraphQL budget); once every one is completed and green, land with \`aco land ${pr} --head ${tip}\``
 async function watchCi(n, rerun) {
-  const watched = await runPart('lane-ci', laneCi, { delegatedLine: DELEGATED_LINE, pr, n, rerun, repo: A.repo, repoFlag: R, worktree: A.worktree, finding: FINDING, mechanical: MECHANICAL })
+  const watched = await runPart('lane-ci', laneCi, { delegatedLine: DELEGATED_LINE, pr, n, rerun, repo: A.repo, repoFlag: R, inRepo: IN_REPO, worktree: A.worktree, finding: FINDING, mechanical: MECHANICAL })
   if (!watched || watched.problem) return watched
   const nonce = `ci-${n}-${tip}`
   const sentPaths = findingPaths(watched.failing)

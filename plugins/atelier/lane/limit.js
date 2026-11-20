@@ -26,3 +26,6 @@ async function settledAgent(prompt, opts) {
     return { answer: null, error }
   }
 }
+
+// The answer of a settled agent call, null when it failed: the caller keeps its own verdict for an end without a result.
+const agentAnswer = async (prompt, opts) => (await settledAgent(prompt, opts)).answer

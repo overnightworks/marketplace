@@ -2,9 +2,7 @@
 export async function laneCi(A) {
   const { pr } = A
   const R = A.repoFlag
-  // An end without a result is a null the lane reports.
-  const agentOrNull = async (prompt, opts) => (await settledAgent(prompt, opts)).answer
-  const IN_REPO = A.repo ? ` in ${A.repo}` : ''
+  const { inRepo: IN_REPO } = A
 
   // A job qualifies for the one re-run only when the step it failed in is listed here; any other step, or none known, never does.
   const SETUP_STEPS = new Set(['Set up job'])
@@ -47,7 +45,7 @@ export async function laneCi(A) {
   function watchCi() {
     const inWorktree = A.repo ? '' : `cd '${A.worktree}' && `
     const rulesRepoPath = A.repo ? `repos/${A.repo}` : 'repos/{owner}/{repo}'
-    return agentOrNull(
+    return agentAnswer(
       `${A.delegatedLine}\nReport CI for pull request #${pr}${IN_REPO}; change nothing in the repository. ` +
       `If \`${inWorktree}gh pr view ${pr}${R} --json mergeable --jq .mergeable\` says CONFLICTING, return green false with one failing entry: where "mergeable", kind "defect", text "the pull request conflicts with main", ` +
       `rule "GitHub runs no CI on a conflicting pull request", evidence the mergeable value. Otherwise wait in the foreground — you cannot be woken later. First wait until CI has registered the head, because a just-pushed head lists no check yet: run \`${inWorktree}for i in $(seq 1 5); do [ "$(gh pr checks ${pr}${R} --json name --jq length 2>/dev/null)" -gt 0 ] 2>/dev/null && break; sleep 60; done\` (Bash timeout 600000 ms; it ends with status 0 after about 5 minutes even when no check registered, then go on). Then run \`${inWorktree}timeout 540 gh pr checks ${pr}${R} --watch --interval 90\` (Bash timeout 600000 ms) and repeat it until it exits on its own rather than by the timeout, at most 7 times; it exits when every check listed for head has finished, but the listing shows one entry per check name, so a finished run can hide a same-named job of a run still going. After every exit read the head's workflow runs with \`${inWorktree}gh run list --commit "$(gh pr view ${pr}${R} --json headRefOid --jq .headRefOid)" --json status,name --limit 100${R}\`: while any run is not completed, watch again, whatever the listing shows. Never re-run anything: the lane decides that from the facts you return. ` +
@@ -65,7 +63,7 @@ export async function laneCi(A) {
 
   function rerunJob(red, index) {
     const inWorktree = A.repo ? '' : `cd '${A.worktree}' && `
-    return agentOrNull(
+    return agentAnswer(
       `${A.delegatedLine}\nRe-run one job of pull request #${pr}${IN_REPO} once and report its check; change nothing in the repository. Wait in the foreground — you cannot be woken later. ` +
       `The job is check "${red.name}", run ${red.runId}, job ${red.jobId}. GitHub may refuse a job re-run while its run is still in progress: if \`${inWorktree}gh run view ${red.runId}${R} --json status --jq .status\` is not completed, wait with \`${inWorktree}gh run watch ${red.runId}${R} --exit-status\` (Bash timeout 600000 ms, repeat while the run is not completed, at most 3 times). ` +
       `Then run \`${inWorktree}gh run rerun ${red.runId}${R} --job ${red.jobId}\` once; never re-run anything else and never a second time. Then run \`${inWorktree}timeout 540 gh pr checks ${pr}${R} --watch --interval 90\` (Bash timeout 600000 ms) and repeat it until it exits on its own, at most 5 times. ` +

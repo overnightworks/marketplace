@@ -32,9 +32,7 @@ async function laneBuild(A) {
 async function laneCi(A) {
   const { pr } = A
   const R = A.repoFlag
-  // An end without a result is a null the lane reports.
-  const agentOrNull = async (prompt, opts) => (await settledAgent(prompt, opts)).answer
-  const IN_REPO = A.repo ? ` in ${A.repo}` : ''
+  const { inRepo: IN_REPO } = A
 
   // A job qualifies for the one re-run only when the step it failed in is listed here; any other step, or none known, never does.
   const SETUP_STEPS = new Set(['Set up job'])
@@ -77,7 +75,7 @@ async function laneCi(A) {
   function watchCi() {
     const inWorktree = A.repo ? '' : `cd '${A.worktree}' && `
     const rulesRepoPath = A.repo ? `repos/${A.repo}` : 'repos/{owner}/{repo}'
-    return agentOrNull(
+    return agentAnswer(
       `${A.delegatedLine}\nReport CI for pull request #${pr}${IN_REPO}; change nothing in the repository. ` +
       `If \`${inWorktree}gh pr view ${pr}${R} --json mergeable --jq .mergeable\` says CONFLICTING, return green false with one failing entry: where "mergeable", kind "defect", text "the pull request conflicts with main", ` +
       `rule "GitHub runs no CI on a conflicting pull request", evidence the mergeable value. Otherwise wait in the foreground — you cannot be woken later. First wait until CI has registered the head, because a just-pushed head lists no check yet: run \`${inWorktree}for i in $(seq 1 5); do [ "$(gh pr checks ${pr}${R} --json name --jq length 2>/dev/null)" -gt 0 ] 2>/dev/null && break; sleep 60; done\` (Bash timeout 600000 ms; it ends with status 0 after about 5 minutes even when no check registered, then go on). Then run \`${inWorktree}timeout 540 gh pr checks ${pr}${R} --watch --interval 90\` (Bash timeout 600000 ms) and repeat it until it exits on its own rather than by the timeout, at most 7 times; it exits when every check listed for head has finished, but the listing shows one entry per check name, so a finished run can hide a same-named job of a run still going. After every exit read the head's workflow runs with \`${inWorktree}gh run list --commit "$(gh pr view ${pr}${R} --json headRefOid --jq .headRefOid)" --json status,name --limit 100${R}\`: while any run is not completed, watch again, whatever the listing shows. Never re-run anything: the lane decides that from the facts you return. ` +
@@ -95,7 +93,7 @@ async function laneCi(A) {
 
   function rerunJob(red, index) {
     const inWorktree = A.repo ? '' : `cd '${A.worktree}' && `
-    return agentOrNull(
+    return agentAnswer(
       `${A.delegatedLine}\nRe-run one job of pull request #${pr}${IN_REPO} once and report its check; change nothing in the repository. Wait in the foreground — you cannot be woken later. ` +
       `The job is check "${red.name}", run ${red.runId}, job ${red.jobId}. GitHub may refuse a job re-run while its run is still in progress: if \`${inWorktree}gh run view ${red.runId}${R} --json status --jq .status\` is not completed, wait with \`${inWorktree}gh run watch ${red.runId}${R} --exit-status\` (Bash timeout 600000 ms, repeat while the run is not completed, at most 3 times). ` +
       `Then run \`${inWorktree}gh run rerun ${red.runId}${R} --job ${red.jobId}\` once; never re-run anything else and never a second time. Then run \`${inWorktree}timeout 540 gh pr checks ${pr}${R} --watch --interval 90\` (Bash timeout 600000 ms) and repeat it until it exits on its own, at most 5 times. ` +
@@ -161,6 +159,9 @@ async function settledAgent(prompt, opts) {
     return { answer: null, error }
   }
 }
+
+// The answer of a settled agent call, null when it failed: the caller keeps its own verdict for an end without a result.
+const agentAnswer = async (prompt, opts) => (await settledAgent(prompt, opts)).answer
 
 // Builds the lane record file that `aco lane-record add` stores on the claim and that a never-begun run hands `aco release --abandoned --record` (aco's specs/lane-record.spec.md owns the schema)
 // from the lane's own state, and the courier brief and command that bring it to disk. No model retypes the record.
@@ -397,9 +398,6 @@ function checkpointRenameProblem(relayed, item) {
 // Builds the briefs of the sync and fix steps and owns the schemas of their reports, runs one printer command through an agent and returns the answer of the agent together with the CRC-checked values of the line it relays; for the fix step it judges the fixer's answer against the findings and fold-ins it answered, and for the ci step it reads those values and splits the failing checks into own and shared.
 async function laneRelay(A) {
   const { label, phase: phaseName, step, relayArgs, nonce, requiredKeys, agentOptions, reread, before } = A
-
-  // An end without a result is a null the lane reports.
-  const safeAgent = async (prompt, opts) => (await settledAgent(prompt, opts)).answer
 
   // A value a command prints reaches a decision only through one line the PRINTER wrote: the agent runs it and relays the
   // line unchanged, and a retyped or edited line fails its CRC32. The printer holds no single quote, so the shell passes
@@ -818,7 +816,7 @@ async function laneRelay(A) {
     return { values: complete, commandFailed: gitCommandFailed(complete), unreachable: unreachableReason(complete), ...(step === 'ci' && complete.view.code === 0 && { ci: readCi(complete) }) }
   }
 
-  const answer = await safeAgent(`${A.delegatedLine}\n${brief} ${RELAY_ASK}\n${relayCommand(step, ...relayArgs)}`, {
+  const answer = await agentAnswer(`${A.delegatedLine}\n${brief} ${RELAY_ASK}\n${relayCommand(step, ...relayArgs)}`, {
     label, phase: phaseName,
     schema: { type: 'object', required: ['printed', ...(answerSchema.required || [])], properties: { printed: PRINTED, ...answerSchema.properties } },
     ...agentOptions,
@@ -831,7 +829,7 @@ async function laneRelay(A) {
 
   // An agent that copied the line badly is asked once more, by an agent that only runs the printer: the printer reads the state that is there now, and the CRC and the nonce still guard the second line.
   log(`${label} relayed an unreadable line (${read.problem}); reading it once more: ${String(answer.printed).slice(0, 300)}`)
-  const second = await safeAgent(`${A.delegatedLine}\n${RELAY_ASK}\n${relayCommand(step, ...relayArgs)}`, {
+  const second = await agentAnswer(`${A.delegatedLine}\n${RELAY_ASK}\n${relayCommand(step, ...relayArgs)}`, {
     label: `${label}-reread`, phase: phaseName,
     schema: { type: 'object', required: ['printed'], properties: { printed: PRINTED } },
     ...reread,
@@ -2064,7 +2062,7 @@ const findingPaths = (failing = []) => [...new Set(failing.map(finding => findin
 const provenOnTip = () => approvedOn(history, tip) && !testBlocking.length && lastTestedTip === tip
 const restCheckAction = () => `without a new run: read the check runs of ${tip} with \`gh api repos/${A.repo || '{owner}/{repo}'}/commits/${tip}/check-runs --paginate\` (REST, outside the GraphQL budget); once every one is completed and green, land with \`aco land ${pr} --head ${tip}\``
 async function watchCi(n, rerun) {
-  const watched = await runPart('lane-ci', laneCi, { delegatedLine: DELEGATED_LINE, pr, n, rerun, repo: A.repo, repoFlag: R, worktree: A.worktree, finding: FINDING, mechanical: MECHANICAL })
+  const watched = await runPart('lane-ci', laneCi, { delegatedLine: DELEGATED_LINE, pr, n, rerun, repo: A.repo, repoFlag: R, inRepo: IN_REPO, worktree: A.worktree, finding: FINDING, mechanical: MECHANICAL })
   if (!watched || watched.problem) return watched
   const nonce = `ci-${n}-${tip}`
   const sentPaths = findingPaths(watched.failing)

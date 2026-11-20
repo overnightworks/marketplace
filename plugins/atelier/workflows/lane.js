@@ -713,6 +713,7 @@ async function laneRelay(A) {
     const readError = [runsError && `the workflow runs of the pull request head could not be read: ${runsError}`, changedError && `the changed files of the pull request could not be listed: ${changedError}`, rulesError && `the required checks of the base branch could not be read: ${rulesError}`].find(Boolean)
     return {
       head, shared, operatorDoor, failing, ownRed, green, unproven, readError, pending, proven,
+      verdict: ciVerdict(proven, pending),
       sharedOnly: shared.length > 0 && ownRed.length === 0,
       state,
     }
@@ -788,6 +789,12 @@ function unreachableReason(complete) {
   if (!complete.unreachable?.length) return ''
   const limitedNote = complete.limited?.length ? ` GitHub's rate limit refused ${complete.limited.join(', ')} on every try.` : ''
   return `GitHub is unreachable: ${complete.unreachable.join(', ')} failed with a network error, or timed out, after the retries a network error gets (a timeout is not retried).${limitedNote}`
+}
+
+// The word the history keeps for one CI read.
+function ciVerdict(proven, pending) {
+  if (proven) return 'GREEN'
+  return pending ? 'PENDING' : 'RED'
 }
 
 // The printed values, not the watcher's word, decide whether CI counts as green; null means they prove it.
@@ -2013,16 +2020,12 @@ while (true) {
     return stop || await openResult('failed', 'ci', ci ? { reason: `the CI watcher ${ci.problem}` } : undefined)
   }
   if (!sameCommit(ci.head, tip)) return await openResult('failed', 'ci', { reason: `the pull request head ${ci.head} is not the lane tip ${tip}` })
-  function ciVerdict({ proven, pending }) {
-    if (proven) return 'GREEN'
-    return pending ? 'PENDING' : 'RED'
-  }
   const { shared, unproven, ownRed, sharedOnly } = ci
   if (pendingTest && (testSettled || ci.green || sharedOnly || ci.operatorDoor)) {
     const stop = await settleTest(ci, ci.green || sharedOnly || Boolean(ci.operatorDoor))
     if (stop) return stop
   }
-  history.push({ after: spent.total, by: `ci-${n - 1}`, verdict: ciVerdict(ci), blocking: (ci.failing || []).map(f => f.where), deterministic: (ci.failing || []).filter(f => f.deterministic === true).map(f => f.where) })
+  history.push({ after: spent.total, by: `ci-${n - 1}`, verdict: ci.verdict, blocking: (ci.failing || []).map(f => f.where), deterministic: (ci.failing || []).filter(f => f.deterministic === true).map(f => f.where) })
   if (ci.readError) return await openResult('failed', 'ci', { reason: ci.readError })
   if (ci.pending) return await openResult('awaiting-head', 'ci', { reason: `${ci.pending} Start a new run with pr ${pr} and tip ${tip} once CI has finished.` })
   if (unproven) return await openResult('failed', 'ci', { reason: `CI reported green, but the check listing does not prove it: ${unproven}` })

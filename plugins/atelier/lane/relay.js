@@ -404,6 +404,7 @@ export async function laneRelay(A) {
     const readError = [runsError && `the workflow runs of the pull request head could not be read: ${runsError}`, changedError && `the changed files of the pull request could not be listed: ${changedError}`, rulesError && `the required checks of the base branch could not be read: ${rulesError}`].find(Boolean)
     return {
       head, shared, operatorDoor, failing, ownRed, green, unproven, readError, pending, proven,
+      verdict: ciVerdict(proven, pending),
       sharedOnly: shared.length > 0 && ownRed.length === 0,
       state,
     }
@@ -479,6 +480,12 @@ function unreachableReason(complete) {
   if (!complete.unreachable?.length) return ''
   const limitedNote = complete.limited?.length ? ` GitHub's rate limit refused ${complete.limited.join(', ')} on every try.` : ''
   return `GitHub is unreachable: ${complete.unreachable.join(', ')} failed with a network error, or timed out, after the retries a network error gets (a timeout is not retried).${limitedNote}`
+}
+
+// The word the history keeps for one CI read.
+function ciVerdict(proven, pending) {
+  if (proven) return 'GREEN'
+  return pending ? 'PENDING' : 'RED'
 }
 
 // The printed values, not the watcher's word, decide whether CI counts as green; null means they prove it.

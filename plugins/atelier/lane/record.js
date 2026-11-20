@@ -1,4 +1,4 @@
-// Builds the lane record file aco reads with `aco land --record` and `aco release --abandoned --record` (aco's specs/lane-record.spec.md owns the schema)
+// Builds the lane record file that `aco lane-record add` stores on the claim and that a never-begun run hands `aco release --abandoned --record` (aco's specs/lane-record.spec.md owns the schema)
 // from the lane's own state, and the courier brief and command that bring it to disk. No model retypes the record.
 const RECORD_VERSION = 1
 const RECORD_STAGES = ['build', 'fix', 'review', 'test', 'gate', 'land']

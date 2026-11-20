@@ -346,6 +346,9 @@ export function answersWith(replay, { kind, mutation, testDraft = false, passesA
   return answers
 }
 
+// Zeroes the wait before a retry of an unreachable forge.
+export const noWait = { transform: (source) => source.replace(/const NETWORK_WAIT_SECONDS = \d+$/m, 'const NETWORK_WAIT_SECONDS = 0') }
+
 export const resumeTip = 'c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0'
 
 export const olderTip = 'b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2'

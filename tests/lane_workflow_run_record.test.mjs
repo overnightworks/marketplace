@@ -1,7 +1,7 @@
 // Each run stores its record on the claim: it begins right after its input checks and adds the record once at its end, through aco lane-record begin and add.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { runLane, resumedLane, built, resumeArgs, resumeTip, tidy, reachesTheEnd, APPROVE, satisfied, unchangedFix, PASS, greenCi } from './lane_workflow_harness.mjs'
+import { runLane, resumedLane, built, resumeArgs, resumeTip, tidy, reachesTheEnd, APPROVE, satisfied, unchangedFix, PASS, greenCi, noWait } from './lane_workflow_harness.mjs'
 
 const builtLane = { ...resumedLane, pr: undefined, tip: undefined, build: 'b' }
 const worktreeHead = 'ab'.repeat(20)
@@ -68,13 +68,13 @@ for (const [name, answers] of [
   })
 }
 
-test('run-record: a begun run names the stages it started and no stage whose slot in the record is none', async () => {
-  for (const [args, answers, expected] of [
-    [resumeArgs, readyAnswers, ['review', 'test']],
-    [{ ...resumeArgs, foldIn: [tidy] }, withFixer, ['review', 'fix', 'test']],
-    [{ ...resumeArgs, risk: 'material', productionPaths: ['src/'], routing: { gate: { model: 'opus', effort: 'high' } } }, { ...readyAnswers, 'r0-gate': APPROVE }, ['review', 'test', 'gate']],
-    [builtLane, { build: built, 'r0-review': APPROVE, 'e2e-0': PASS, 'ci-0': greenCi(resumeTip) }, ['build', 'review', 'test']],
-  ]) {
+for (const [name, args, answers, expected] of [
+  ['a review and the e2e test', resumeArgs, readyAnswers, ['review', 'test']],
+  ['a fixer', { ...resumeArgs, foldIn: [tidy] }, withFixer, ['review', 'fix', 'test']],
+  ['a gate review', { ...resumeArgs, risk: 'material', productionPaths: ['src/'], routing: { gate: { model: 'opus', effort: 'high' } } }, { ...readyAnswers, 'r0-gate': APPROVE }, ['review', 'test', 'gate']],
+  ['a builder', builtLane, { build: built, 'r0-review': APPROVE, 'e2e-0': PASS, 'ci-0': greenCi(resumeTip) }, ['build', 'review', 'test']],
+]) {
+  test(`run-record: a begun run with ${name} names the stages it started and no stage whose slot in the record is none`, async () => {
     const run = await runLane(args, answers)
     assert.equal(run.result.status, 'ready-to-land')
     const ran = optionValues(callOf(run.laneRecordCalls, 'add'), '--ran')
@@ -82,8 +82,8 @@ test('run-record: a begun run names the stages it started and no stage whose slo
     const record = JSON.parse(run.writtenRecords[0])
     assert.deepEqual(ran.filter(stage => record.stages[stage] === 'none'), [])
     assert.deepEqual(['fix', 'test', 'gate'].filter(stage => record.stages[stage] !== 'none'), expected.filter(stage => ['fix', 'test', 'gate'].includes(stage)))
-  }
-})
+  })
+}
 
 test('run-record: a run that started no stage stores nothing, since aco takes no empty --ran', async () => {
   const { result, laneRecordCalls } = await runLane(resumeArgs, { 'scope-resume': { brief_error: 'aco: no such item' } })
@@ -156,7 +156,6 @@ test('run-record: the abandon action of a begun run goes without --record', asyn
 
 test('run-record: the check-run action of a CI that cannot be read goes without --record', async () => {
   const unreachable = { network_error: 'gh: API rate limit exceeded for user ID 1. (HTTP 403)', network_fails: 'always' }
-  const noWait = { transform: (source) => source.replace(/const NETWORK_WAIT_SECONDS = \d+$/m, 'const NETWORK_WAIT_SECONDS = 0') }
   const { result } = await runLane(resumeArgs, { ...readyAnswers, 'e2e-0': PASS, 'ci-0': greenCi(resumeTip), 'ci-read-0': unreachable }, noWait)
   const action = result.requiredHeadActions.find(entry => entry.includes('check-runs'))
   assert.ok(action, JSON.stringify(result.requiredHeadActions))

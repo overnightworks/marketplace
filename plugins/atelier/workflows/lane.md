@@ -247,6 +247,6 @@ and a `build` run that ended without a tip passes the worktree's `HEAD`. A begin
 git cannot resolve, ends the run `awaiting-head` at `record`; the `reason` holds the refusal and, for an add, the status
 and reason the run would have ended with. Once a run is begun, landing and release go without `--record`, because aco
 computes the record from the stored runs and refuses the flag: the landing is `aco land <pr> --head <tip>` and an abandoned
-lane is released with `aco release <n> --abandoned REASON`; a run that never began (it ended at `sync`) keeps
+lane is released with `aco release <n> --abandoned REASON`; a run that never began (it ended at `sync`, or aco refused its begin) keeps
 `--record <path>` in the abandon action. The Routing line is still printed, and pasted beside the record until aco stops
 reading it.

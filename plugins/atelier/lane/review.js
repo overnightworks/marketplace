@@ -312,3 +312,24 @@ function utf8BytesOf(text) {
   }
   return bytes
 }
+
+const WHOLE_LANE = 'the whole lane: git diff origin/main...HEAD'
+
+// The range the first review round reads, and the commit it reviews from (none: the whole lane). Without a fixer's batch the head's
+// deltaFrom bounds it; with one the fixer's own range joins it. A fixer that changed nothing but answered in a body leaves no commit to
+// diff, so the re-check judges the whole tip against the bodies as they stand now.
+function firstReviewRange({ deltaFrom, answers, tip, item, pr, repoFlag, fix }) {
+  const delta = deltaFrom && `only this delta: git diff ${deltaFrom}..HEAD — fix commits made for earlier blocking findings that no reviewer has seen yet. They answer:\n${answers || '(see the commit messages in the range)'}`
+  if (!fix) return { range: delta || WHOLE_LANE, from: deltaFrom }
+  const asDelta = deltaFrom && !fix.checkpointMet  // without deltaFrom the round covers the whole lane
+  if (!asDelta) {
+    const wholeLane = fix.checkpointMet ? WHOLE_LANE : delta || WHOLE_LANE  // a complete checkpoint has no fix commits: review as a first build
+    return { from: undefined, range: fix.range
+      ? `${delta || WHOLE_LANE}. It includes the fixer's commits for the head's carried-over findings, described next as a delta to look at closely; review the whole lane, not only that delta:\n${fix.range}`
+      : `${wholeLane}${fix.foldInsText}` }
+  }
+  if (!fix.answeredOutside) return { from: fix.deltaFrom, range: `only this delta: git diff ${deltaFrom}..HEAD — fixes no reviewer has seen yet. They answer:\n${answers || ''}\n${fix.findingsText}${fix.proofNotes}${fix.foldInsText}` }
+  const unchanged = deltaFrom.startsWith(tip) || tip.startsWith(deltaFrom)
+  const what = unchanged ? 'the unchanged tip' : 'the tip'
+  return { from: fix.deltaFrom, range: `${unchanged ? 'no commit is new, so judge the whole tip: git diff origin/main...HEAD' : `only this delta: git diff ${deltaFrom}..HEAD`}. The head's answers:\n${answers || '(none)'}\n${fix.range}\nRead the item body and the pull request body live (gh issue view ${item}${repoFlag} --json body --jq .body; gh pr view ${pr}${repoFlag} --json body --jq .body); for each finding say whether it still holds, and whether ${what} does more or less than the changed body asks.` }
+}

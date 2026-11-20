@@ -441,7 +441,7 @@ async function laneRelay(A) {
         description: 'fold-ins you found already done: left in the worktree by an earlier fixer whose fix was not accepted, or already satisfied by the lane tip',
         items: { type: 'object', required: ['where', 'text', 'evidence'], properties: { where: { type: 'string' }, text: { type: 'string' }, evidence: { type: 'string', description: 'the test, probe cell or line that already satisfies it' } } },
       },
-      outside: { type: 'array', description: 'blocking findings and fold-ins you answered by editing the pull request body or posting an item comment, with no commit: a blocking finding by its number in the blocking list (finding), a fold-in by its where (foldIn), and the body section or comment URL', items: { type: 'object', required: ['where'], properties: { finding: { type: 'integer', minimum: 1 }, foldIn: { type: 'string' }, where: { type: 'string' } } } },
+      outside: { type: 'array', description: 'blocking findings and fold-ins you answered by editing the item body or the pull request body or posting an item comment, with no commit: a blocking finding by its number in the blocking list (finding), a fold-in by its where (foldIn), and the body section or comment URL', items: { type: 'object', required: ['where'], properties: { finding: { type: 'integer', minimum: 1 }, foldIn: { type: 'string' }, where: { type: 'string' } } } },
       regression: {
         type: 'array',
         description: "empty only when no blocking finding needs a proof; otherwise every test you add, strengthen or keep for a blocking finding, and every probe cell you run for it, under that finding's number in the blocking list you were given",
@@ -498,7 +498,7 @@ async function laneRelay(A) {
     const foldInBrief = foldIns
       ? `\n\nAlso fold in these follow-ups, only because each sits in a file this lane already changed and cannot change behaviour; one commit for all of them. ` +
       `One that is already done — left in the worktree by an earlier fixer, or already satisfied by the lane tip — you do not redo; list it in resolved with its evidence (the test, probe cell or line that satisfies it). ` +
-      `One that the pull request body or an item comment answers goes in outside with foldIn set to its where; commit nothing for it. When that leaves you nothing to change, change nothing:\n${foldIns}`
+      `One that the item body, the pull request body or an item comment answers goes in outside with foldIn set to its where; commit nothing for it. When that leaves you nothing to change, change nothing:\n${foldIns}`
       : ''
     return (
       `${facts}\nYou are a fresh fixer for PR #${pr} (lane tip ${tip}). Merge origin/main if it moved, before or after your fixes (a merge commit; ` +
@@ -507,7 +507,7 @@ async function laneRelay(A) {
       `do not change code for it: list it in disputed with your counter-evidence. Report every test you add, strengthen or keep for a blocking finding, and every probe cell you run for it, in regression under that finding's number in the list above; the number counts only for the blocking list, a probe you saw fail and then acted on is reported before the entry that passes, and the last entry per finding is its proof; a follow-up needs no regression entry. Run the mutation you name, do not reason about it. ` +
       `A defect's test fails before your fix and passes after it; a defect with a test draft needs one. A defect in test code (hygiene) needs no regression test: the diff is its proof. A test you could not run on this machine is reported with notRun, the reason, and passesAfter false is kept for a test you ran and saw fail; the delta re-check judges a not-run test from its text and CI on the pushed tip runs it. A test-gap finding means a behaviour has no test, the code is already right, and it always needs a test: it passes before and after, ` +
       `so name in the mutation field (not inside test) the production change, made and reverted, under which the test fails; a test that fails on the pre-fix code counts as such a mutation (failedBefore true). When a finding is answered by deleting dead code or a test that pins no behaviour (a test-gap's vacuous cell, an unreachable guard), no test is needed: report resolution removed and commit the removal: the lane reads its diff from your commits, so do not copy it. No failing-first or passing-after bar applies. A fix that changes behaviour is no removal and keeps its test. A docs finding needs no test. When the only finding is that the pull request conflicts with main, the merge is the whole fix. ` +
-      `Otherwise one commit per finding. Push, patch the PR body where it became false or where a finding is about it (REST PATCH with --input, never gh pr edit --body-file); a finding the body or an item comment answers goes in outside under its number in finding, and commit nothing for it; run \`aco check ${pr}\` from the worktree. ` +
+      `Otherwise one commit per finding. Push, patch the PR body where it became false or where a finding is about it (REST PATCH with --input, never gh pr edit --body-file); a finding the item body, the pull request body or an item comment answers goes in outside under its number in finding, and commit nothing for it; run \`aco check ${pr}\` from the worktree. ` +
       `Return files: the output of \`${git} log --name-only --format= --first-parent --remerge-diff ${tip}..HEAD\` (of \`${git} diff --name-only ${tip}..HEAD\` when mergeResolvedLaneConflict is true). Last, whatever happened,`
     )
   }
@@ -1129,6 +1129,27 @@ function utf8BytesOf(text) {
   return bytes
 }
 
+const WHOLE_LANE = 'the whole lane: git diff origin/main...HEAD'
+
+// The range the first review round reads, and the commit it reviews from (none: the whole lane). Without a fixer's batch the head's
+// deltaFrom bounds it; with one the fixer's own range joins it. A fixer that changed nothing but answered in a body leaves no commit to
+// diff, so the re-check judges the whole tip against the bodies as they stand now.
+function firstReviewRange({ deltaFrom, answers, tip, item, pr, repoFlag, fix }) {
+  const delta = deltaFrom && `only this delta: git diff ${deltaFrom}..HEAD — fix commits made for earlier blocking findings that no reviewer has seen yet. They answer:\n${answers || '(see the commit messages in the range)'}`
+  if (!fix) return { range: delta || WHOLE_LANE, from: deltaFrom }
+  const asDelta = deltaFrom && !fix.checkpointMet  // without deltaFrom the round covers the whole lane
+  if (!asDelta) {
+    const wholeLane = fix.checkpointMet ? WHOLE_LANE : delta || WHOLE_LANE  // a complete checkpoint has no fix commits: review as a first build
+    return { from: undefined, range: fix.range
+      ? `${delta || WHOLE_LANE}. It includes the fixer's commits for the head's carried-over findings, described next as a delta to look at closely; review the whole lane, not only that delta:\n${fix.range}`
+      : `${wholeLane}${fix.foldInsText}` }
+  }
+  if (!fix.answeredOutside) return { from: fix.deltaFrom, range: `only this delta: git diff ${deltaFrom}..HEAD — fixes no reviewer has seen yet. They answer:\n${answers || ''}\n${fix.findingsText}${fix.proofNotes}${fix.foldInsText}` }
+  const unchanged = deltaFrom.startsWith(tip) || tip.startsWith(deltaFrom)
+  const what = unchanged ? 'the unchanged tip' : 'the tip'
+  return { from: fix.deltaFrom, range: `${unchanged ? 'no commit is new, so judge the whole tip: git diff origin/main...HEAD' : `only this delta: git diff ${deltaFrom}..HEAD`}. The head's answers:\n${answers || '(none)'}\n${fix.range}\nRead the item body and the pull request body live (gh issue view ${item}${repoFlag} --json body --jq .body; gh pr view ${pr}${repoFlag} --json body --jq .body); for each finding say whether it still holds, and whether ${what} does more or less than the changed body asks.` }
+}
+
 // Prints the one Routing line of a lane from its routing table, its history and its fix rounds, and starts no agent.
 async function laneRouting(A) {
   // The Routing line aco reads (aco's specs/lane-record.spec.md owns the grammar), built from what the lane used; the head pastes it as is.
@@ -1544,9 +1565,10 @@ async function routingLine() {
   return typeof line === 'string' ? line : `Routing: not printed (${String(line?.problem ?? JSON.stringify(line)).replace(/\s+/g, ' ').slice(0, 200)})`
 }
 // The head resumes after the reset with the arguments the stage's other awaiting-head stops use; the role never moves to another model or provider.
+// A blocked fixer's resume carries no tip: its answer reads none, so the head passes the branch's current head.
 const claudeLimitResume = (stage, extra) => stage === 'build' && !pr
   ? { build: A.build }
-  : { pr, tip, ...(extra.lastBlocking?.length && { fixFirst: extra.lastBlocking }) }
+  : { pr, ...(!extra.withoutTip && { tip }), ...(extra.lastBlocking?.length && { fixFirst: extra.lastBlocking }) }
 const claudeLimitResetText = () => claudeLimit.resetsAt ? 'The account resets ' + claudeLimit.resetsAt + '.' : 'The error names no reset time.'
 const claudeLimitReason = (stage) =>
   `a Claude agent hit its usage limit at stage ${stage}; the lane never moves a role to another model or provider. ${claudeLimitResetText()} After the reset`
@@ -1735,11 +1757,11 @@ async function acceptFix(fixed, blocking, foldIn) {
   }
   const edited = fixed.answeredOutside ? fixed.outside.map(o => (o.foldIn ? 'fold-in ' + o.foldIn : 'finding ' + o.finding) + ': ' + o.where).join('; ') : ''
   let delta = `only this delta, the fixer's own commits: git log -p --first-parent --remerge-diff ${fixed.heldTip}..${fixed.tip} (main's clean changes are not shown; a lane edit inside a merge of main is)`
-  if (fixed.answeredOutside) delta = `no commit changed: read live what the fixer edited outside the tree (${edited}), the pull request body with gh pr view ${pr}${R} --json body and an item comment with gh issue view ${A.item}${R} --comments`
+  if (fixed.answeredOutside) delta = `no commit changed: read live what the fixer edited outside the tree (${edited}), the item body with gh issue view ${A.item}${R} --json body --jq .body, the pull request body with gh pr view ${pr}${R} --json body and an item comment with gh issue view ${A.item}${R} --comments`
   else if (fixed.mergeResolvedLaneConflict) delta = `only this delta: git diff ${fixed.heldTip}..${fixed.tip} (it includes a merge of main whose conflicts in this lane's files were resolved by hand)`
   const range = `${delta}. It answers these findings:\n${listFindings(blocking)}${fixed.proofNotes}${foldInsInRange(foldIn)}`
   log(`fix ${spent.total}: ${fixed.heldTip.slice(0, 7)}..${tip.slice(0, 7)}`)
-  return { range, proofNotes: fixed.proofNotes, gateAgain: MATERIAL && fixed.touchesProduction, touchesProduction: fixed.touchesProduction }
+  return { range, answeredOutside: fixed.answeredOutside, proofNotes: fixed.proofNotes, gateAgain: MATERIAL && fixed.touchesProduction, touchesProduction: fixed.touchesProduction }
 }
 
 // Only a docs finding is provably behaviour-neutral; the third fix round on is rework (fixRound counts the running round in spent.total before it asks).
@@ -1773,7 +1795,7 @@ async function fixRound(blocking, source, budgetKey, carried, stage = budgetKey)
   // What the fixer says it found already done is only reported to the head: an unaccepted fix folds nothing in.
   const unaccepted = (result) => ({ stop: (answered.resolved || []).length ? { ...result, resolved: answered.resolved } : result })
   // A blocked fixer may have run out of turns before the relay line, and the blocked answer reads no tip.
-  if (answered.blocked) return unaccepted(await openResult('escalated', 'fix', { reason: answered.blockedReason }))
+  if (answered.blocked) return unaccepted(await openResult('escalated', 'fix', { reason: `${answered.blockedReason} Start a new run with the arguments in resume and the branch's current head as tip: a blocked answer reads no tip.`, resume: { ...claudeLimitResume('fix', { lastBlocking: blocking, withoutTip: true }), deltaFrom: tipBeforeFix } }))
   if (answered.problem || answered.commandFailed) return { stop: await openResult('failed', 'fix', { reason: `the fixer's relay line ${answered.problem || 'reports a failed git command'}${printedLine(answered)}` }) }
   if (answered.outcome === 'flake') return { flakes: answered.flakes, fixed: answered }
   if (answered.outcome === 'disputed') return unaccepted(await awaitHeadOnDispute(answered, blocking))
@@ -1926,30 +1948,19 @@ if (!carriesBatch && A.build) {
 }
 if (firstScopeCheck?.stop) return firstScopeCheck.stop
 // Re-entry after the head settled an awaiting-head result: review only the fix commits no reviewer has seen yet.
-const WHOLE_LANE = 'the whole lane: git diff origin/main...HEAD'
-const firstRange = A.deltaFrom
-  ? `only this delta: git diff ${A.deltaFrom}..HEAD — fix commits made for earlier blocking findings that no reviewer has seen yet. They answer:\n${A.answers || '(see the commit messages in the range)'}`
-  : WHOLE_LANE
 // Re-entry at the fix: the head hands over blocking findings from an earlier run (for example the tester's), and
 // in-place follow-ups to fold in. The delta the fixer makes is reviewed before the test and CI run again.
+let firstReview
 if (carriesBatch) {
   followups.push(...(A.foldIn || []))
   const f = await fixRound(carriedOver, 'the head (carried over from the previous run)', 'test', true)
   if (f.stop) return f.stop
-  const asDelta = A.deltaFrom && !f.checkpointMet  // without deltaFrom the round covers the whole lane
-  const withoutFixRange = f.checkpointMet ? WHOLE_LANE : firstRange  // a complete checkpoint has no fix commits: review as a first build
-  const wholeLane = f.range
-    ? `${firstRange}. It includes the fixer's commits for the head's carried-over findings, described next as a delta to look at closely; review the whole lane, not only that delta:\n${f.range}`
-    : `${withoutFixRange}${foldInsInRange(f.foldIn)}`
-  const range = asDelta
-    ? `only this delta: git diff ${A.deltaFrom}..HEAD — fixes no reviewer has seen yet. They answer:\n${A.answers || ''}\n${listFindings(carriedOver)}${f.proofNotes}${foldInsInRange(f.foldIn)}`
-    : wholeLane
-  const stop = await reviewUntilClean(ALL, range, asDelta ? f.deltaFrom : undefined)
-  if (stop) return stop
+  firstReview = firstReviewRange({ deltaFrom: A.deltaFrom, answers: A.answers, tip, item: A.item, pr, repoFlag: R, fix: { ...f, findingsText: listFindings(carriedOver), foldInsText: foldInsInRange(f.foldIn) } })
 } else {
-  const first = await reviewUntilClean(ALL, firstRange, A.deltaFrom)
-  if (first) return first
+  firstReview = firstReviewRange({ deltaFrom: A.deltaFrom, answers: A.answers })
 }
+const firstStop = await reviewUntilClean(ALL, firstReview.range, firstReview.from)
+if (firstStop) return firstStop
 
 // ---------------------------- end-to-end test and CI side by side
 // laneTest returns the tester's answer, null when both agents ended without a result, or a problem the lane stops on.

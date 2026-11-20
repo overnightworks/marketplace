@@ -81,7 +81,17 @@ The lane needs a repository that coordinates with aco, after the head ran
   `pr`, `tip`, `deltaFrom` = `tip` and `fixFirst` or `foldIn`, whose review covers
   only the fixer's commits. Otherwise drop it for a full review, or name the commit
   before the commits no reviewer has seen.
-- `answers`: none. What those commits answer.
+  A head that settled a blocking finding in the item body or the pull request body,
+  with the tip unchanged, starts a new run with `pr`, `tip`, `deltaFrom` = `tip`,
+  `fixFirst` holding the finding and `answers` holding its sentence: the fixer
+  names the body in `outside` and commits nothing, and every reviewer of the round
+  re-checks the whole unchanged tip against both bodies, read live. A run
+  `escalated` at `fix` from a blocked fixer carries this as `resume` (`pr`,
+  `deltaFrom`, `fixFirst`) and asks for the branch's current head as `tip`. Drop
+  `deltaFrom` for a full review when the first review stopped early (limit,
+  failure, architectural) or the body change adds requirements.
+- `answers`: none. What those commits answer, or the head's sentence on a finding
+  settled in a body.
 - `fixFirst`: none. `Finding[]`, blocking findings a fresh fixer answers before
   anything else. A `Finding` is `{ where, kind, text, rule, evidence }`, all
   strings: `where` starts with the path of the file (then `:LINE`, a comma, a
@@ -89,6 +99,9 @@ The lane needs a repository that coordinates with aco, after the head ran
   such as a CI check name, is judged by the fixer's whole commit range), `kind`
   is `defect`, `test-gap` or `docs`, `rule` the rule it breaks, `text` and
   `evidence` what is wrong and how it shows; `testDraft` (a path) is optional.
+  A finding the item body or the pull request body answers, settled by the head,
+  is passed here with `deltaFrom` = `tip` and `answers`; the fixer names the body
+  in `outside` and commits nothing.
 - `foldIn`: none. `Followup[]`, follow-ups for that fixer, each handed over
   whatever its owner or wording; given alone it still starts the fixer. A
   `Followup` is `{ where, text, owner }`, all non-empty strings: `where` the

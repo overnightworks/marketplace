@@ -628,6 +628,9 @@ const outsideEntries = [
   ['with deltaFrom equal to the tip', { deltaFrom: resumeTip, answers: settledByTheHead }],
 ]
 
+const settledRun = (extraArgs, outsideAnswers = [{ finding: 1, where: 'PR body' }]) => runLane({ ...resumeArgs, ...extraArgs, fixFirst: [docsFinding] }, { 'fix-1': { ...unchangedFix, outside: outsideAnswers }, ...reachesTheEnd })
+const settledArgs = { deltaFrom: resumeTip, answers: settledByTheHead }
+
 for (const [what, where] of answeredOutsideTheTree) {
   for (const [entry, extraArgs] of outsideEntries) {
     test(`AC-outside-answer-reaches-recheck: a docs finding answered by ${what} at an unchanged tip ${entry} reaches the raiser's re-check, which reads it live`, async () => {
@@ -636,17 +639,35 @@ for (const [what, where] of answeredOutsideTheTree) {
       const prompt = agentCalls['r1-review'].prompt
       assert.match(prompt, /read live what the fixer edited outside the tree/)
       assert.ok(prompt.includes(where))
-      if (!extraArgs.deltaFrom) return
-      assert.ok(prompt.includes(settledByTheHead))
-      assert.ok(prompt.includes(docsFinding.text) && prompt.includes(docsFinding.evidence))
-      assert.match(prompt, /item body[^.]*pull request body[^.]*live|live[^.]*item body[^.]*pull request body/)
-      assert.match(prompt, /whether the unchanged tip does more or less than the changed body asks/)
-      assert.doesNotMatch(prompt, new RegExp(`git diff ${resumeTip}\\.\\.HEAD`))
-      assert.deepEqual(result.history.filter(entry => entry.by === 'review').at(-1), { ...result.history.filter(entry => entry.by === 'review').at(-1), verdict: 'APPROVE', tip: resumeTip })
-      assert.equal(result.history.at(-1).verdict, 'GREEN')
     })
   }
 }
+
+test('AC-outside-answer-brief: a body-settled finding at an unchanged tip is re-checked with the answers of the head, the finding verbatim, both bodies read live and the whole tip as the range', async () => {
+  const { agentCalls } = await settledRun(settledArgs)
+  const prompt = agentCalls['r1-review'].prompt
+  assert.ok(prompt.includes(settledByTheHead))
+  assert.ok(prompt.includes(docsFinding.text) && prompt.includes(docsFinding.evidence))
+  assert.match(prompt, /item body[^.]*pull request body[^.]*live|live[^.]*item body[^.]*pull request body/)
+  assert.match(prompt, /whether the unchanged tip does more or less than the changed body asks/)
+  assert.doesNotMatch(prompt, new RegExp(`git diff ${resumeTip}\\.\\.HEAD`))
+})
+
+test('AC-outside-answer-delta-kept: a body-settled finding with a deltaFrom older than the tip keeps the delta range and does not call the tip unchanged', async () => {
+  const { result, agentCalls } = await settledRun({ ...settledArgs, deltaFrom: olderTip })
+  assert.equal(result.status, 'ready-to-land')
+  const prompt = agentCalls['r1-review'].prompt
+  assert.match(prompt, new RegExp(`only this delta: git diff ${olderTip}\\.\\.HEAD`))
+  assert.doesNotMatch(prompt, /unchanged tip|judge the whole tip/)
+})
+
+test('AC-outside-answer-record: a body-settled finding at an unchanged tip ends with an approving review at that tip and a green record', async () => {
+  const { result } = await settledRun(settledArgs)
+  const lastReview = result.history.filter(entry => entry.by === 'review').at(-1)
+  assert.equal(lastReview.verdict, 'APPROVE')
+  assert.equal(lastReview.tip, resumeTip)
+  assert.equal(result.history.at(-1).verdict, 'GREEN')
+})
 
 test('AC-outside-answer-resume: a blocked fixer ends escalated with the resume of the carried batch, and a new run with it plus a tip is accepted', async () => {
   const batch = [docsFinding]

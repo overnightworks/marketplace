@@ -1,0 +1,8 @@
+claim_id = "435578cde8c84b378bd22b5cfcfce7be"
+agent = "Claude 57d5a480-511e-4e68-ac3e-58f0f400e3c5"
+role = "builder"
+base = "c73c6c4e61344ab40205ff8e92042dcbce9c0de6"
+branch = "claude/issue-867-the-first-reviewer-knows-what-the-tester"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/lane/main.js", "plugins/atelier/lane/review.js", "plugins/atelier/workflows/lane.js", "plugins/atelier/workflows/lane.md", "tests/lane_workflow_harness.mjs", "tests/lane_workflow_review.test.mjs"]
+opened_commit = "e5170934f39ef542b9bec7730fbc3462abe2463e"
+whole_reason = "The brief, the regenerated bundle, the reference, the tests and the version files change together."

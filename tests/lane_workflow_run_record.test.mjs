@@ -120,7 +120,7 @@ test('run-record: a build run that ends at the scope check adds --ran build', as
   assert.deepEqual(optionValues(callOf(laneRecordCalls, 'add'), '--ran'), ['build'])
 })
 
-test('run-record: a refused begin ends the run awaiting-head at record with aco\'s refusal and starts no agent', async () => {
+test('run-record: a refused begin ends the run awaiting-head at record with aco\'s refusal and starts no agent after its input checks', async () => {
   const refusal = 'run r was added already; it cannot be begun again'
   const { result, launchedAgents, laneRecordCalls } = await runLane(resumeArgs, { begin: { begin_error: refusal } })
   assert.deepEqual([result.status, result.stage], ['awaiting-head', 'record'])

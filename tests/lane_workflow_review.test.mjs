@@ -60,6 +60,32 @@ test('reuse-absent: a run started with pr and tip tells the reviewer no build ra
   assert.match(agentCalls['r0-review'].prompt, /No build ran in this run/)
 })
 
+const testerParagraph = [
+  [/a tester drives the change through its real entry point after this review/, 'names the tester stage'],
+  [/a proof only that drive produces[^.]*is not a finding at review[^.]*left to the tester/i, 'leaves a drive-only proof to the tester'],
+  [/a line neither the diff nor that drive proves stays blocking/i, 'keeps an unproven line blocking'],
+]
+
+test('tester-named: the first review quotes the e2e argument and says what is left to the tester', async () => {
+  const { agentCalls } = await runLane({ ...bodyLane, e2e: 'drive the login page' }, { 'r0-review': APPROVE })
+  const prompt = agentCalls['r0-review'].prompt
+  assert.ok(prompt.includes('drive the login page'))
+  for (const [pattern, what] of testerParagraph) assert.match(prompt, pattern, what)
+})
+
+test('tester-bounded: a long e2e argument is quoted cut with a note', async () => {
+  const { agentCalls } = await runLane({ ...bodyLane, e2e: `${'x'.repeat(3000)}TAILMARK` }, { 'r0-review': APPROVE })
+  const prompt = agentCalls['r0-review'].prompt
+  assert.ok(!prompt.includes('TAILMARK'))
+  assert.match(prompt, /cut here/)
+})
+
+test('tester-once: a later review round does not repeat the tester paragraph', async () => {
+  const { agentCalls } = await runLane({ ...resumeArgs, fixFirst: [reviewFinding] }, { 'fix-1': resumeFix, 'r1-review': APPROVE, 'e2e-0': PASS, 'ci-0': greenCi(resumeFixedTip) })
+  const prompt = agentCalls['r1-review'].prompt
+  for (const [pattern] of testerParagraph) assert.doesNotMatch(prompt, pattern)
+})
+
 test('test-volume: the Claude reviewer brief carries the ratio rule naming D1 and D3', async () => {
   const { agentCalls } = await runLane(bodyLane, { 'r0-review': APPROVE })
   const prompt = agentCalls['r0-review'].prompt

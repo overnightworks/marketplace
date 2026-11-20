@@ -755,8 +755,8 @@ for (const [what, batch, outside] of unansweredBatches) {
 }
 
 
-test('a failed lane result names the abandon release command with the record path', async () => {
-  const { result } = await runLane(resumeArgs, { 'scope-resume': { brief_error: 'aco: no such item' } })
+test('a failed lane result that never began names the abandon release command with the record path', async () => {
+  const { result } = await runLane(resumeArgs, { sync: { head_code: 128 } })
   assert.equal(result.status, 'failed')
   assert.ok(result.requiredHeadActions.some(action => /aco release 1 --abandoned REASON --record \/s\/lane-record\.json/.test(action)))
 })

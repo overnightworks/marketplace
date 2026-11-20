@@ -115,18 +115,6 @@ const FOLLOWUP = {
     stage: { type: 'string', enum: FINDING_STAGE_NAMES, description: 'the stage that raised it; the lane sets it on every follow-up it reports' },
   },
 }
-// An entry of the wrong shape (a bare string, a missing field) would reach the fixer as "undefined" fields, so the input check names it first.
-// A finding of a run that predates kinds lacks kind, which kindOf defaults.
-const requiredFields = (schema) => schema.required.filter(field => field !== 'kind')
-const missingFields = (entry, schema) => entry === null || typeof entry !== 'object' || Array.isArray(entry)
-  ? 'is not an object'
-  : `lacks ${requiredFields(schema).filter(field => typeof entry[field] !== 'string' || !entry[field].trim()).join(', ')}`
-const badEntry = (name, entries, schema) => {
-  if (!Array.isArray(entries)) return entries === undefined ? null : `${name} must be a list`
-  const index = entries.findIndex(entry => missingFields(entry, schema) !== 'lacks ')
-  if (index >= 0) return `${name}[${index}] ${missingFields(entries[index], schema)}: each entry needs ${requiredFields(schema).join(', ')} as non-empty strings`
-  return name === 'foldIn' ? unstagedProblem(name, entries) : null
-}
 const entryProblem = badEntry('fixFirst', A.fixFirst, FINDING) || badEntry('foldIn', A.foldIn, FOLLOWUP)
 if (entryProblem) return { status: 'failed', stage: 'input', reason: entryProblem }
 // A part that throws is a problem naming it, which its caller stops on at the stage of its own step.
@@ -147,22 +135,10 @@ const findingPath = (where) => {
   const isPath = word.includes('/') || /\.\w+(?=:|$)/.test(word)
   return isPath ? word.split(':', 1)[0].toWellFormed() : ''
 }
-// The paths as one argument of unreserved characters only, so no quoting a copier applies to the command can change it: each path percent-encoded, joined by commas, with the slash kept.
-const pathsArgument = (paths) => paths.map(path => encodeURIComponent(path).replace(/[!'()*]/g, char => '%' + char.codePointAt(0).toString(16).toUpperCase()).replaceAll('%2F', '/')).join(',')
 // A value a command prints reaches a decision only through the line laneRelay reads back and checks.
 const relay = (request) => runPart('lane-relay', laneRelay, { delegatedLine: DELEGATED_LINE, worktree: A.worktree, agentOptions: MECHANICAL, reread: COPY, findingPath, ...request })
 // The failure reasons name the printed line only when the command printed one.
 const printedLine = (relayed) => relayed.printed === undefined ? '' : `; the printed line: ${relayed.printed}`
-// Language models copy a 40-character hash unreliably (a sync step once dropped one character). A commit is
-// accepted as 7 to 40 hex characters — git resolves an unambiguous prefix, and fixers often answer with the short form.
-const SHA = /^[0-9a-f]{7,40}$/
-// Two spellings name the same commit when the shorter is a prefix of the longer (git's own abbreviation rule).
-const sameCommit = (a, b) => SHA.test(a || '') && SHA.test(b || '') && (a.startsWith(b) || b.startsWith(a))
-// Whether the relayed HEAD is a merge whose first parent is base.
-function mergedOnto(values, base) {
-  const [firstParent, mergedIn] = values.parents.out.split('\n')
-  return Boolean(mergedIn) && sameCommit(firstParent, base)
-}
 // ------------------------------------------------------ shared sentences
 const generatedCommands = GENERATED.map(([path, command]) => `${path}: ${command}`).join('; ')
 const laneFacts =
@@ -220,6 +196,11 @@ let tip = A.tip || null
 let buildReuse = null
 const spent = { review: 0, test: 0, ci: 0, total: 0 }
 const fixRolesRun = []  // the role of each fixer that ran, in order
+let syncedTip = null  // the head the sync read: the start tip of a pr/tip run's begin
+let runId = null  // minted by the branch relay step: the id this run has on the claim in aco lane-record begin and add
+let began = false  // aco lane-record begin ran for this run, so its record goes to the claim and landing or release takes no --record
+let addAttempted = false  // aco lane-record add runs once per run
+let [builderRan, reviewStarted] = [false, false]
 const fixRoundsByStage = { review: 0, gate: 0, ci: 0, test: 0 }  // the stage whose findings each fix round answered
 const seen = new Map()  // finding key -> how often it came back after a fix
 let productionSinceTest = false  // any fix since the last end-to-end test touched production
@@ -265,17 +246,33 @@ async function writeRecord() {
   const relayed = await relay({ label, phase: 'Record', step: 'record', relayArgs: [fileArgument, `'${nonce}'`], nonce, requiredKeys: ['check'], brief, before })
   if (!relayed || relayed.problem) return { problem: `the record courier ${relayed?.problem ?? 'ended without a result'}${relayed ? printedLine(relayed) : ''}` }
   const { code, err } = relayed.values.check
-  return code === 0 ? { file } : { problem: `aco lane-record check exited ${code}: ${err}` }
+  return code === 0 ? { file, fileArgument } : { problem: `aco lane-record check exited ${code}: ${err}` }
+}
+// A run marks its begin right after its input checks (the branch check, or the sync and, unless it starts at a fixer, the scope check); a refused begin ends it, since nothing is stored for it.
+async function beginRun(startTip) {
+  const problem = storeProblem('begin', await relay(beginRequest({ item: A.item, runId, startTip, facts: laneFacts })), printedLine)
+  if (problem) return await openResult('awaiting-head', 'record', { reason: `aco did not begin this run on the claim, so the run did none of its work: ${problem}` })
+  began = true
+  return null
+}
+// The run's record goes to the claim once, at its end, with the stages it started; aco takes no empty --ran, so a begun run that started no stage stores nothing.
+async function addRecord(written) {
+  if (!began || addAttempted || !written?.file) return null
+  const ran = stagesRan({ history, fixRole: fixRolesRun.at(-1) ?? null, builderRan, reviewStarted })
+  if (!ran.length) return null
+  addAttempted = true
+  return storeProblem('add', await relay(addRequest({ item: A.item, runId, fileArgument: written.fileArgument, tip, ran, facts: laneFacts })), printedLine)
 }
 const openResult = async (status, stage, extra = {}) => {
   if (status === 'failed' && claudeLimit) return openResult('awaiting-head', stage, { ...extra, claudeLimit, resume: claudeLimitResume(stage, extra), reason: `${claudeLimitReason(stage)} start a new run with the arguments in resume.${claudeLimitOwnReason(extra)}` })
   const line = await routingLine()
   const written = claudeLimit || stage === 'input' ? null : await writeRecord()
+  const refusedAdd = await addRecord(written)
+  const { status: endStatus, stage: endStage, extra: endExtra } = openEnd({ status, stage, extra, refusedAdd, abandon: abandonActions(A.item, written, began) })
   const open = openFollowups()
   return {
-    status, stage, pr, tip, spent, routing: ROUTING, routingLine: line, ...recordView(written), history,
-    followups: open, raisedBeforeTip: raisedBeforeTip(open), folded: [...folded.values()], disputed, ...gateUnseenView(), ...extra,
-    ...(abandonActions(A.item, written).length ? { requiredHeadActions: [...(extra.requiredHeadActions ?? []), ...abandonActions(A.item, written)] } : {}),
+    status: endStatus, stage: endStage, pr, tip, spent, routing: ROUTING, routingLine: line, ...recordView(written), history,
+    followups: open, raisedBeforeTip: raisedBeforeTip(open), folded: [...folded.values()], disputed, ...gateUnseenView(), ...endExtra,
   }
 }
 
@@ -317,17 +314,22 @@ async function checkpointOrFail(stage, startRef, failure, fixer) {
 // ------------------------------------------------------- worktree and branch
 // A worktree that is missing or holds another branch costs a whole builder run before the scope step notices, so the relay reads it first.
 phase('Worktree')
-const checkedBranch = await relay({ label: 'branch', phase: 'Worktree', step: 'branch', relayArgs: ["'branch'"], nonce: 'branch', requiredKeys: ['branch'], brief: `${laneFacts}\nChange nothing in the files;` })
+const checkedBranch = await relay({ label: 'branch', phase: 'Worktree', step: 'branch', relayArgs: ["'branch'"], nonce: 'branch', requiredKeys: ['branch', 'run'], brief: `${laneFacts}\nChange nothing in the files;` })
 const branchRead = checkedBranch?.values?.branch
 let foundBranch = branchRead?.out
 if (!checkedBranch) foundBranch = 'no answer from the check'
 else if (checkedBranch.problem) foundBranch = `no readable line (the check ${checkedBranch.problem}${printedLine(checkedBranch)})`
 else if (branchRead.code !== 0) foundBranch = `git exited ${branchRead.code}: ${branchRead.err}`
+else if (!RUN_ID.test(checkedBranch.values.run.out ?? '')) foundBranch = 'no run id in the check'
 if (foundBranch !== A.branch) return await openResult('failed', 'input', { reason: `worktree ${A.worktree} must exist with branch ${A.branch} checked out; found ${foundBranch}` })
+runId = checkedBranch.values.run.out
 
 // ---------------------------------------------------------------- build
 if (A.build) {
+  const beginStop = await beginRun()
+  if (beginStop) return beginStop
   phase('Build')
+  builderRan = true
   const built = await runPart('lane-build', laneBuild, { delegatedLine: DELEGATED_LINE, laneFacts, driveFacts, rescopeFacts, localCheckFacts: `${localCheckFacts} ${turnFacts('build')}`, build: A.build, routing: claudeRole('build') })
   if (built?.problem && !claudeLimit) return await openResult('failed', 'build', { reason: `the builder step ${built.problem}` })
   if (!built || built.problem) return await checkpointOrFail('build', 'origin/main', { reason: `the builder returned no result; inspect ${A.worktree} for uncommitted work, checkpoint it, and hand it to a fresh finisher` })
@@ -345,6 +347,12 @@ if (A.build) {
   if (values.main.code === 1) return await openResult('escalated', 'sync', { reason: synced.note || `the lane tip ${values.head.out} does not contain origin/main, and the sync named no cause` })
   if (!sameCommit(values.head.out, tip) && !mergedOnto(values, tip)) history.push({ after: 0, by: 'sync', from: tip, tip: values.head.out })
   tip = values.head.out
+  syncedTip = tip
+  // A run that starts at a fixer has no scope check before its work, so it begins here; every other run begins after the scope check below.
+  if (carriesBatch) {
+    const beginStop = await beginRun(syncedTip)
+    if (beginStop) return beginStop
+  }
 }
 
 // ------------------------------------------------------- review / fix
@@ -357,6 +365,7 @@ function unfitRoundAnswer(answer, expectedResults) {
 }
 // from is the tip where the round's delta starts (none for a whole-lane round); a limited round hands it back for the resume.
 async function reviewRound(which, range, from) {
+  reviewStarted = true
   const reviewers = which.map(r => ({ key: r.key, provider: r.provider, role: r.role, isGate: r === GATE, routing: claudeRole(r === GATE ? 'gate' : 'review') }))
   const answer = await runPart('lane-review', laneReview, { item: A.item, pr, repo: A.repo, after: spent.total, tip, delegatedLine: DELEGATED_LINE, worktree: A.worktree, branch: A.branch, scratch: A.scratch, tag: TAG, label: `r${spent.total}`, range, reuse: buildReuse, e2e: A.e2e, contract: A.contract, blockingLine: BLOCKING_LINE, reviewers, findingKinds: FINDING_KINDS, finding: FINDING, followup: FOLLOWUP, mechanical: MECHANICAL })
   const unfit = unfitRoundAnswer(answer, which.length)
@@ -627,6 +636,8 @@ if (!carriesBatch && A.build) {
   firstScopeCheck = await pushAndCheckScope('scope-resume', { note: 'The commits came from an earlier run.' })
 }
 if (firstScopeCheck?.stop) return firstScopeCheck.stop
+const synchronizedBeginStop = syncedTip && !carriesBatch ? await beginRun(syncedTip) : null
+if (synchronizedBeginStop) return synchronizedBeginStop
 // Re-entry after the head settled an awaiting-head result: review only the fix commits no reviewer has seen yet.
 // Re-entry at the fix: the head hands over blocking findings from an earlier run (for example the tester's), and
 // in-place follow-ups to fold in. The delta the fixer makes is reviewed before the test and CI run again.
@@ -649,7 +660,7 @@ const explore = (n, fixRange) => runPart('lane-test', laneTest, { fixRange, dele
 const findingPaths = (failing = []) => [...new Set(failing.map(finding => findingPath(finding.where)).filter(Boolean))]
 // Review and tester both passed on the tip, so a CI read that stays refused leaves only the check runs for the head to read.
 const provenOnTip = () => approvedOn(history, tip) && !testBlocking.length && lastTestedTip === tip
-const restCheckAction = () => `without a new run: read the check runs of ${tip} with \`gh api repos/${A.repo || '{owner}/{repo}'}/commits/${tip}/check-runs --paginate\` (REST, outside the GraphQL budget); once every one is completed and green, land with \`aco land ${pr} --head ${tip} --record <the record path of this result>\``
+const restCheckAction = () => `without a new run: read the check runs of ${tip} with \`gh api repos/${A.repo || '{owner}/{repo}'}/commits/${tip}/check-runs --paginate\` (REST, outside the GraphQL budget); once every one is completed and green, land with \`aco land ${pr} --head ${tip}\``
 async function watchCi(n, rerun) {
   const watched = await runPart('lane-ci', laneCi, { delegatedLine: DELEGATED_LINE, pr, n, rerun, repo: A.repo, worktree: A.worktree, finding: FINDING, mechanical: MECHANICAL })
   if (!watched || watched.problem) return watched
@@ -761,8 +772,6 @@ async function checkpointRenameActions() {
   return problem ? [`rename pull request #${pr} to the title of item #${A.item} (gh api -X PATCH repos/${A.repo || '{owner}/{repo}'}/pulls/${pr} -f title=...): it still carries the checkpoint title and the lane's write failed: ${problem}`] : []
 }
 
-const escapedQuote = String.raw`'\''`
-const shellQuoted = path => "'" + path.replaceAll("'", escapedQuote) + "'"
 const rescopeCommand = 'aco rescope ' + A.item + ' ' + passedOutsidePaths.map(path => '--add ' + shellQuoted(path)).join(' ')
 const stillOpen = openFollowups()
 // A clean merge of main moves the tip without a verdict, and aco refuses a landing whose head the record's last verdict did not judge.
@@ -772,13 +781,15 @@ const finalRoutingLine = await routingLine()
 const finalRecord = await writeRecord()
 // The landing needs the file aco accepts, so a record that fails its check leaves the lane for the head.
 if (finalRecord.problem) return await openResult('awaiting-head', 'record', { reason: `${finalRecord.problem}. Start a new run with pr ${pr} and tip ${tip}.` })
+const refusedAdd = await addRecord(finalRecord)
+if (refusedAdd) return await openResult('awaiting-head', 'record', { reason: refusedAddReason(refusedAdd, 'ready-to-land') })
 return {
   status: 'ready-to-land', pr, tip, spent, routing: ROUTING, routingLine: finalRoutingLine, ...recordView(finalRecord), history, followups: stillOpen, raisedBeforeTip: raisedBeforeTip(stillOpen), folded: [...folded.values()], disputed,
   ...gateUnseenView(), pathsOutsideClaim: passedOutsidePaths,
   requiredHeadActions: [
     ...(passedOutsidePaths.length ? [`write these paths into the scope of item #${A.item}'s body (and a one-sentence whole there when the combined scope is wide), then run \`${rescopeCommand}\` from ${A.worktree} before landing: these paths are outside the claim and passed the scope check`] : []),
     ...await checkpointRenameActions(),
-    `land with \`aco land ${pr} --head ${tip} --record ${finalRecord.file}\` only while the pull request head is still ${tip}`,
+    `land with \`aco land ${pr} --head ${tip}\` only while the pull request head is still ${tip}`,
     ...(MATERIAL && isGateStandIn('gate', ROUTING.gate.model, ROUTING.gate.effort) ? [`name the Opus 5.5 stand-in as the final gate in the body of pull request #${pr}: the lane ran no Codex gate`] : []),
     ...(gateUnseen ? [`name ${gateUnseen.seenTip}..${tip} in the body of pull request #${pr}: the final gate, at its usage limit, did not see that range`] : []),
     ...(raisedBeforeTip(stillOpen).length ? ['re-check the follow-ups in raisedBeforeTip against the returned tip before routing them'] : []),

@@ -378,3 +378,10 @@ export const delegatedLineOfContract = () => {
   const quoted = section.split('\n').filter((row) => row.startsWith('>')).map((row) => row.slice(1).trim())
   return quoted.join(' ')
 }
+
+export const roundTip = (round) => String(round).repeat(40)
+export const roundRed = (round, extra = () => {}) => () => { extra(); return { head: roundTip(round), green: false, failing: [{ ...defectWithoutDraft, where: `t.py:${round}` }] } }
+export const roundFix = (round) => ({ ...mergeOnlyFix, head: roundTip(round), parents: [round === 1 ? resumeArgs.tip : roundTip(round - 1), mainMovedTip] })
+// A fix that changes a lane file outside production moves the tip to a commit a review judges, so the record's last verdict names it.
+export const reviewedRoundFix = (round) => ({ ...resumeFix, head: roundTip(round), parents: [round === 1 ? resumeArgs.tip : roundTip(round - 1)], files: ['x.py'], regression: [] })
+export const roundReviews = Object.fromEntries([1, 2, 3, 4].map(round => [`r${round}-review`, APPROVE]))

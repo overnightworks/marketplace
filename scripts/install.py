@@ -31,23 +31,38 @@ SHIPPED_SETTINGS = REPO_ROOT / "settings" / "claude-managed.json"
 MANAGED_SETTINGS_COPY = Path(".local") / "share" / "marketplace" / "claude-managed.json"
 USER_SETTINGS = Path(".claude") / "settings.json"
 MANAGED_DROP_IN = Path("/etc/claude-code/managed-settings.d/50-marketplace.json")
-# The settings marketplace owns: a top-level key maps to the nested keys it owns,
-# or to None when the whole key is owned. The shipped file may hold nothing else,
-# and the install removes exactly these from the user file.
-OWNED_SETTINGS: dict[str, tuple[str, ...] | None] = {
-    "env": ("PYTEST_XDIST_AUTO_NUM_WORKERS",),
-    "autoMode": ("allow",),
-    "autoCompactEnabled": None,
-    "autoCompactWindow": None,
-}
 
-# The value type of each owned setting, by dotted path, with the check that holds it.
-OWNED_SETTING_TYPES: dict[str, tuple[str, Callable[[object], bool]]] = {
-    "env.PYTEST_XDIST_AUTO_NUM_WORKERS": ("a string", lambda value: isinstance(value, str)),
-    "autoMode.allow": ("a list of strings", lambda value: isinstance(value, list) and all(isinstance(item, str) for item in value)),
-    "autoCompactEnabled": ("a boolean", lambda value: isinstance(value, bool)),
-    "autoCompactWindow": ("an integer", lambda value: isinstance(value, int) and not isinstance(value, bool)),
-}
+
+@dataclass(frozen=True)
+class OwnedSetting:
+    """A setting marketplace owns: its path of keys, and the value type with the check that holds it."""
+
+    path: tuple[str, ...]
+    description: str
+    holds: Callable[[object], bool]
+
+
+# The shipped file may hold nothing else, and the install removes exactly these from the user file.
+OWNED = (
+    OwnedSetting(("env", "PYTEST_XDIST_AUTO_NUM_WORKERS"), "a string", lambda value: isinstance(value, str)),
+    OwnedSetting(
+        ("autoMode", "allow"), "a list of strings", lambda value: isinstance(value, list) and all(isinstance(item, str) for item in value)
+    ),
+    OwnedSetting(("autoCompactEnabled",), "a boolean", lambda value: isinstance(value, bool)),
+    OwnedSetting(("autoCompactWindow",), "an integer", lambda value: isinstance(value, int) and not isinstance(value, bool)),
+)
+
+
+def owned_keys_by_top_level_key() -> dict[str, tuple[str, ...] | None]:
+    """Map each owned top-level key to the nested keys it owns, or to None when the whole key is owned."""
+    owned: dict[str, tuple[str, ...] | None] = {}
+    for setting in OWNED:
+        key, *nested = setting.path
+        owned[key] = (*(owned.get(key) or ()), *nested) if nested else None
+    return owned
+
+
+OWNED_SETTINGS = owned_keys_by_top_level_key()
 
 LOCAL_BIN = Path(".local") / "bin"
 NEW_FILE_MODE = 0o644
@@ -154,12 +169,12 @@ def find_unowned_settings(settings: dict) -> list[str]:
 def find_mistyped_settings(settings: dict) -> list[str]:
     """Name every owned shipped value whose type is wrong; only paths that hold a value count."""
     mistyped = []
-    for path, (description, holds) in OWNED_SETTING_TYPES.items():
+    for setting in OWNED:
         value = settings
-        for part in path.split("."):
+        for part in setting.path:
             value = value.get(part, ABSENT) if isinstance(value, dict) else ABSENT
-        if value is not ABSENT and not holds(value):
-            mistyped.append(f"{path} must be {description}")
+        if value is not ABSENT and not setting.holds(value):
+            mistyped.append(f"{'.'.join(setting.path)} must be {setting.description}")
     return mistyped
 
 

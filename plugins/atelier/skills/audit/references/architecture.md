@@ -9,7 +9,7 @@ single reviewer inherits the system's own story.
 Hand-offs: depth.md.
 
 Standing audit: after every ~100 trunk landings or weekly, whichever comes
-first. Standing-item subject: architecture (layers, boundaries, owner modules).
+first.
 
 ## Lenses
 

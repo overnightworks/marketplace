@@ -27,6 +27,9 @@ claimed, reviewed and landed; this says *how*.
    (`specs/ahead-of-caller.spec.md`). A red line in `aco next` names an entry
    whose item is no longer open: delete that code, or, where an open item now
    calls it, point the entry at that item.
+   An audit that `aco next` names as due (`audit_due`) is dispatched before the
+   item it names and before the head waits, as a delegated run of the `audit`
+   skill with the entry's `run` text.
 3. `aco board --json` reads the whole board, read-only (bare `aco board` refuses);
    the browser view for deciding expectation lines is `aco serve` (`specs/serve.spec.md`).
 

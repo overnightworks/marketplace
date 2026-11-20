@@ -8,7 +8,7 @@ reports "not reached" and decides nothing. The skill holds no list of laws: a
 list rots, so instruments are found each run through primary indexes.
 
 Standing audit: every 90 days, and when a questionnaire fact changes or an
-application date in the register has passed. Standing-item subject: standards.
+application date in the register has passed.
 
 Hand-offs: platform.md (a duty that is an operational area), security.md.
 

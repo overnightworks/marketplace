@@ -6,7 +6,7 @@ lands its predecessor leaves in the same stroke. This lens produces the
 deletion list; it never executes it.
 
 Standing audit: every ~25 trunk landings until two clean passes, then every
-~50 or weekly. Standing-item subject: dead weight, ballast.
+~50 or weekly.
 
 Hand-offs: tests.md (Test size; test ballast and near-duplicate test
 parametrization go there).

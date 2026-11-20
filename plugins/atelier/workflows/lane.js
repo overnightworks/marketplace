@@ -378,6 +378,8 @@ async function laneRelay(A) {
     'contexts=None if rules is None else [c["context"] for r in rules if r["type"]=="required_status_checks" for c in r["parameters"]["required_status_checks"]]',
     'unmet={c:buckets.get(c,"missing") for c in contexts or [] if buckets.get(c,"missing")!="pass"}',
     'values.update({n:{**values[n],**x} for n,x in(("checks",None if listing is None else dict(count=len(listing),open=[dict(name=c["name"],bucket=c["bucket"]) for c in listing if c["bucket"] not in("pass","skipping")])),("rules",None if contexts is None else dict(required=unmet) if unmet else {})) if x is not None})',
+    'unfinished=sorted({r["name"] for r in parsed("headruns") or [] if r["status"]!="completed"})',
+    'values.update(**({"headruns":{**values["headruns"],"open":unfinished}} if unfinished else {}))',
     'values.update(**(dict(head=view["headRefOid"],changed_index=[i for i,p in enumerate(received) if p in {f["filename"] for page in parsed("changed") or [] for f in page}],shared=[c["name"] for c in listing or [] if c["bucket"]=="fail" and c["name"] in failed_on_base]) if view else {}))',
     String.raw`values.update(**({"log":{**values["log"],"loosenings":any("only declared loosenings \u00b7 only the operator merges it" in l for l in ran["log"].stdout.splitlines()),"merge":next((m[1] for l in ran["log"].stderr.splitlines()+ran["log"].stdout.splitlines() if "next:" in l and (m:=re.search("(quality merge [A-Za-z0-9._-]+/[A-Za-z0-9._-]+#[0-9]+)",l))),"")}} if "log" in ran else {}))`,
     'values.update(nonce=nonce,**({"unreachable":sorted(n for n,p in ran.items() if getattr(p,"down",0))} if any(getattr(p,"down",0) for p in ran.values()) else {}),**({"limited":sorted(n for n,p in ran.items() if getattr(p,"down",0) and limit.search(p.stderr))} if any(getattr(p,"down",0) and limit.search(p.stderr) for p in ran.values()) else {}),**(dict(outside_claim=claim[:50] if isinstance(claim,list) else claim,count=len(claim) if isinstance(claim,list) else None) if "brief" in ran else {}))',
@@ -699,8 +701,12 @@ async function laneRelay(A) {
     let state = 'not green'
     if (proven) state = 'green'
     else if (names) state = `red (${names})`
+    const waiting = [...open.filter(c => c.bucket === 'pending').map(c => c.name), ...(headruns.open || [])]
+    const stillRunning = green || failing.length || open.some(c => c.bucket === 'fail') ? [] : [...new Set(waiting)]
+    const pending = stillRunning.length ? `CI has not finished and the watcher's budget ended: ${stillRunning.map(name => `"${name}"`).join(', ')} still pending.` : null
+    const readError = [runsError && `the workflow runs of the pull request head could not be read: ${runsError}`, changedError && `the changed files of the pull request could not be listed: ${changedError}`, rulesError && `the required checks of the base branch could not be read: ${rulesError}`].find(Boolean)
     return {
-      head, shared, operatorDoor, failing, ownRed, green, unproven, rulesError, runsError, changedError, proven,
+      head, shared, operatorDoor, failing, ownRed, green, unproven, readError, pending, proven,
       sharedOnly: shared.length > 0 && ownRed.length === 0,
       state,
     }
@@ -2006,10 +2012,9 @@ while (true) {
     const stop = await settleTest(ci, ci.green || sharedOnly || Boolean(ci.operatorDoor))
     if (stop) return stop
   }
-  history.push({ after: spent.total, by: `ci-${n - 1}`, verdict: ci.proven ? 'GREEN' : 'RED', blocking: (ci.failing || []).map(f => f.where), deterministic: (ci.failing || []).filter(f => f.deterministic === true).map(f => f.where) })
-  if (ci.runsError) return await openResult('failed', 'ci', { reason: `the workflow runs of the pull request head could not be read: ${ci.runsError}` })
-  if (ci.changedError) return await openResult('failed', 'ci', { reason: `the changed files of the pull request could not be listed: ${ci.changedError}` })
-  if (ci.rulesError) return await openResult('failed', 'ci', { reason: `the required checks of the base branch could not be read: ${ci.rulesError}` })
+  history.push({ after: spent.total, by: `ci-${n - 1}`, verdict: ci.proven ? 'GREEN' : ci.pending ? 'PENDING' : 'RED', blocking: (ci.failing || []).map(f => f.where), deterministic: (ci.failing || []).filter(f => f.deterministic === true).map(f => f.where) })
+  if (ci.readError) return await openResult('failed', 'ci', { reason: ci.readError })
+  if (ci.pending) return await openResult('awaiting-head', 'ci', { reason: `${ci.pending} Start a new run with pr ${pr} and tip ${tip} once CI has finished.` })
   if (unproven) return await openResult('failed', 'ci', { reason: `CI reported green, but the check listing does not prove it: ${unproven}` })
   // The one re-run of a disputed flake came back red (a red shared with main aside): the disagreement between the fixer and CI is the head's.
   if (rerunBatch && !ci.green && !sharedOnly) return await awaitHeadOnDispute(rerunBatch.fixed, rerunBatch.blocking)

@@ -177,6 +177,11 @@ gpt-6-astra/high.
   limit, and no role moves to another model or provider.
 - A fixer that answers its whole batch in the pull request body or an item
   comment and commits nothing is no failure.
+  The fix brief tells it to report such an answer in `outside`, never as
+  `removed`, and hands it the run's `answers`. A finding it lists in `outside`
+  and also reports as `removed` counts as the outside answer on an unchanged
+  tip; a `removed` proof with no diff and no outside answer fails at `fix`, and
+  its reason names `outside`.
 - A fixer answers a finding as removed (dead code or a test that pins nothing)
   without copying a diff: the lane measures the diff of the finding's path in
   the fixer's commits (start tip to its tip, first-parent only, so a merge of

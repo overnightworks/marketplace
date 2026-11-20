@@ -33,10 +33,12 @@ esac
 const NETWORK_DOWN = `calls=$(( $(cat "$0.calls" 2>/dev/null || echo 0) + 1 )); echo "$calls" > "$0.calls"
 if [ -n "$FAKE_NETWORK_ERROR" ] && { [ "$FAKE_NETWORK_FAILS" = always ] || [ "$calls" -le "$FAKE_NETWORK_FAILS" ]; }; then [ -z "$FAKE_NETWORK_STDOUT" ] || printf '%s\\n' "$FAKE_NETWORK_STDOUT"; printf '%s\\n' "$FAKE_NETWORK_ERROR" >&2; exit 1; fi
 `
-const FAKE_GH = `#!/bin/sh
+// run view logs its arguments in a file beside the fake and prints the file FAKE_RUN_LOG, or fails with FAKE_RUN_VIEW_CODE.
+export const FAKE_GH = `#!/bin/sh
 ${NETWORK_DOWN}fail() { printf '%s\\n' "$2" >&2; exit "$1"; }
 case "$1 $2" in
   "run list") [ "$FAKE_RUNLIST_CODE" = 0 ] || fail "$FAKE_RUNLIST_CODE" "$FAKE_RUNLIST_ERROR"; printf '%s' "$FAKE_RUNLIST" ;;
+  "run view") printf '%s\\n' "$*" >> "$0.run-view"; [ "$FAKE_RUN_VIEW_CODE" = 0 ] || fail "$FAKE_RUN_VIEW_CODE" "HTTP 410: logs expired"; cat "$FAKE_RUN_LOG" ;;
   "pr checks") [ "$FAKE_CHECKS_CODE" = 0 ] || fail "$FAKE_CHECKS_CODE" "$FAKE_CHECKS_ERROR"; printf '%s' "$FAKE_CHECKS" ;;
   "api -X") [ "$FAKE_PATCH_CODE" = 0 ] || fail "$FAKE_PATCH_CODE" "the title write was refused"; printf '%s\\n' "$6" >> "$0.patched" ;;
   "api repos/"*) [ "$4" != .title ] || { case "$2" in */pulls/*) printf '%s\\n' "$FAKE_PR_TITLE" ;; *) printf '%s\\n' "$FAKE_ITEM_TITLE" ;; esac; exit 0; }

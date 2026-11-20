@@ -230,7 +230,13 @@ state: per stage the model and effort, the fix rounds and blocking findings by s
 the misses by stage (never above the blocking findings: a gate, CI or test finding raised after a
 review approved the range counts, except a gate finding of the approving review's own round and a CI finding
 whose check the CI reader marks `deterministic` and whose fix the fixer reports in `noBehaviourChange`; the
-review stage counts none), and each review and gate verdict with the full sha it judged, the approving one last. No model retypes it: a
+review stage counts none). The misses also see the earlier runs' approvals: right after its begin a run reads
+`aco lane-record show <n> --json` through its relay, which reports only the exit code and error, the run's own
+`follows` and the shas of the stored review verdicts `approve` of the other runs. When the run follows, an
+approval of an earlier run counts as one of this run, with both exemptions kept: a gate finding on a sha an
+earlier review approved is no miss either. A run that does not follow counts only its own approvals (aco shows
+the lane's misses as unknown then). When the read fails, the record leaves `misses` out, aco shows the lane's
+misses as unknown, and the result names the gap in `missesGap`; the status stays. The record also holds each review and gate verdict with the full sha it judged, the approving one last. No model retypes it: a
 courier cuts it out of its own transcript into the file, compares its CRC32 with the script's, and only
 then runs `aco lane-record check`, whose exit comes back on a CRC-signed printer line. Every status
 a release can follow carries `record`. A record that fails the check turns `ready-to-land` into

@@ -1,7 +1,0 @@
-claim_id = "a1ca11fd4d52412ab39d43937b9701d2"
-agent = "Claude 5fd48eeb-f686-416f-85b1-085a6741a604"
-role = "builder"
-base = "1688a49e2cce5f6fbc19844ac149225b21aef8a2"
-branch = "claude/issue-885-throwaway-proof-of-stored-lane-runs-for"
-scope = ["proof-877.txt"]
-opened_commit = "ce8b37f6e70bedc685600c49afd3d2a489bd9125"

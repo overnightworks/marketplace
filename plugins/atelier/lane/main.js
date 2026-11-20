@@ -198,7 +198,7 @@ const spent = { review: 0, test: 0, ci: 0, total: 0 }
 const fixRolesRun = []  // the role of each fixer that ran, in order
 let syncedTip = null  // the head the sync read: the start tip of a pr/tip run's begin
 let runId = null  // minted by the branch relay step: the id this run has on the claim in aco lane-record begin and add
-let began = false  // aco lane-record begin ran for this run, so its record goes to the claim and landing or release takes no --record
+let began = null  // set once aco lane-record begin ran for this run, so its record goes to the claim and landing or release takes no --record: what its read of the stored runs found, for the misses of the record
 let addAttempted = false  // aco lane-record add runs once per run
 let [builderRan, reviewStarted] = [false, false]
 const fixRoundsByStage = { review: 0, gate: 0, ci: 0, test: 0 }  // the stage whose findings each fix round answered
@@ -239,7 +239,7 @@ const claudeLimitOwnReason = (extra) => extra.reason ? ' The stage\'s own reason
 let recordsWritten = 0
 async function writeRecord() {
   const file = `${A.scratch}/lane-record.json`
-  const record = laneRecord({ routing: ROUTING, history, fixRole: fixRolesRun.at(-1) ?? null, fixRounds: fixRoundsByStage, risk: MATERIAL ? 'material' : 'normal', experiment: A.experiment })
+  const record = laneRecord({ routing: ROUTING, history, fixRole: fixRolesRun.at(-1) ?? null, fixRounds: fixRoundsByStage, risk: MATERIAL ? 'material' : 'normal', experiment: A.experiment, earlier: began })
   const label = `record-${++recordsWritten}`
   const nonce = label
   const { brief, before, fileArgument } = recordCourier({ record, file, scratch: A.scratch, label })
@@ -250,9 +250,9 @@ async function writeRecord() {
 }
 // A run marks its begin right after its input checks (the branch check, or the sync and, unless it starts at a fixer, the scope check); a refused begin ends it, since nothing is stored for it.
 async function beginRun(startTip) {
-  const problem = storeProblem('begin', await relay(beginRequest({ item: A.item, runId, startTip, facts: laneFacts })), printedLine)
-  if (problem) return await openResult('awaiting-head', 'record', { reason: `aco did not begin this run on the claim, so the run did none of its work: ${problem}` })
-  began = true
+  const begun = beganRun(await relay(beginRequest({ item: A.item, runId, startTip, facts: laneFacts })), printedLine)
+  if (begun.problem) return await openResult('awaiting-head', 'record', { reason: `aco did not begin this run on the claim, so the run did none of its work: ${begun.problem}` })
+  began = begun.read
   return null
 }
 // The run's record goes to the claim once, at its end, with the stages it started; aco takes no empty --ran, so a begun run that started no stage stores nothing.
@@ -271,7 +271,7 @@ const openResult = async (status, stage, extra = {}) => {
   const { status: endStatus, stage: endStage, extra: endExtra } = openEnd({ status, stage, extra, refusedAdd, abandon: abandonActions(A.item, written, began) })
   const open = openFollowups()
   return {
-    status: endStatus, stage: endStage, pr, tip, spent, routing: ROUTING, routingLine: line, ...recordView(written), history,
+    status: endStatus, stage: endStage, pr, tip, spent, routing: ROUTING, routingLine: line, ...recordView(written, began), history,
     followups: open, raisedBeforeTip: raisedBeforeTip(open), folded: [...folded.values()], disputed, ...gateUnseenView(), ...endExtra,
   }
 }
@@ -784,7 +784,7 @@ if (finalRecord.problem) return await openResult('awaiting-head', 'record', { re
 const refusedAdd = await addRecord(finalRecord)
 if (refusedAdd) return await openResult('awaiting-head', 'record', { reason: refusedAddReason(refusedAdd, 'ready-to-land') })
 return {
-  status: 'ready-to-land', pr, tip, spent, routing: ROUTING, routingLine: finalRoutingLine, ...recordView(finalRecord), history, followups: stillOpen, raisedBeforeTip: raisedBeforeTip(stillOpen), folded: [...folded.values()], disputed,
+  status: 'ready-to-land', pr, tip, spent, routing: ROUTING, routingLine: finalRoutingLine, ...recordView(finalRecord, began), history, followups: stillOpen, raisedBeforeTip: raisedBeforeTip(stillOpen), folded: [...folded.values()], disputed,
   ...gateUnseenView(), pathsOutsideClaim: passedOutsidePaths,
   requiredHeadActions: [
     ...(passedOutsidePaths.length ? [`write these paths into the scope of item #${A.item}'s body (and a one-sentence whole there when the combined scope is wide), then run \`${rescopeCommand}\` from ${A.worktree} before landing: these paths are outside the claim and passed the scope check`] : []),

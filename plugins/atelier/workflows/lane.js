@@ -895,9 +895,18 @@ async function laneReview(A) {
     return `The builder reports its reuse search:\n${A.reuse}\nJudge it: new code that repeats existing code the search should have found is a blocking finding.\n\n`
   }
 
+  // Only the first round names the tester: later rounds judge a delta the first review already framed.
+  function testerParagraph() {
+    if (A.after !== 0) return ''
+    const drive = A.e2e.length > 1500 ? `${A.e2e.slice(0, 1500)}\n[cut here: the lane's e2e argument is longer]` : A.e2e
+    return `This is the first review: a tester drives the change through its real entry point after this review; the lane asks it to drive:\n${drive}\n` +
+      `A proof only that drive produces (a browser proof, a live run, a screenshot) is not a finding at review: name that line as "left to the tester" in your report. ` +
+      `A line neither the diff nor that drive proves stays blocking.\n\n`
+  }
+
   function reviewerBrief(role, range) {
     return `You are the ${role} for work item #${A.item}: a fresh, independent reviewer who did not write this change. ` +
-      `Contract:\n${A.contract}\n\nReview ${range}.\n\n${reuseParagraph()}${A.blockingLine}\n\n${STOPGAP_LINE}\n\n${TEST_VOLUME_LINE}\n\n` +
+      `Contract:\n${A.contract}\n\nReview ${range}.\n\n${reuseParagraph()}${testerParagraph()}${A.blockingLine}\n\n${STOPGAP_LINE}\n\n${TEST_VOLUME_LINE}\n\n` +
       `verdict is APPROVE with no blocking findings, REVISE with at least one, or architectural when the cut itself is wrong.`
   }
 
@@ -1684,7 +1693,7 @@ function unfitRoundAnswer(answer, expectedResults) {
 // from is the tip where the round's delta starts (none for a whole-lane round); a limited round hands it back for the resume.
 async function reviewRound(which, range, from) {
   const reviewers = which.map(r => ({ key: r.key, provider: r.provider, role: r.role, isGate: r === GATE, routing: claudeRole(r === GATE ? 'gate' : 'review') }))
-  const answer = await runPart('lane-review', laneReview, { item: A.item, pr, repo: A.repo, after: spent.total, tip, delegatedLine: DELEGATED_LINE, worktree: A.worktree, branch: A.branch, scratch: A.scratch, tag: TAG, label: `r${spent.total}`, range, reuse: buildReuse, contract: A.contract, blockingLine: BLOCKING_LINE, reviewers, findingKinds: FINDING_KINDS, finding: FINDING, followup: FOLLOWUP, mechanical: MECHANICAL })
+  const answer = await runPart('lane-review', laneReview, { item: A.item, pr, repo: A.repo, after: spent.total, tip, delegatedLine: DELEGATED_LINE, worktree: A.worktree, branch: A.branch, scratch: A.scratch, tag: TAG, label: `r${spent.total}`, range, reuse: buildReuse, e2e: A.e2e, contract: A.contract, blockingLine: BLOCKING_LINE, reviewers, findingKinds: FINDING_KINDS, finding: FINDING, followup: FOLLOWUP, mechanical: MECHANICAL })
   const unfit = unfitRoundAnswer(answer, which.length)
   if (unfit) {
     // The reviewers that finished before a usage limit keep their records, so the resume carries their findings.

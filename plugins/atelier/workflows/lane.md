@@ -15,7 +15,11 @@ lists `requiredHeadActions`.
    material lane). A material lane adds a Codex gpt-6-astra final gate, or an
    Opus gate at high effort through `routing.gate`. A Claude reviewer that fails
    is started once more; only a second failure ends the round, with both texts
-   in the reason.
+   in the reason. The first review is told that a tester drives the lane's `e2e`
+   text (quoted, cut at 1500 characters) after it: a proof only that drive
+   produces is not a finding at review and is named "left to the tester", and a
+   line neither the diff nor that drive proves stays blocking. Every lane has a
+   tester, so the brief has no tester-less variant; later rounds do not repeat it.
 3. Fix: fresh fixers answer evidence-bearing findings; whoever raised a finding
    re-checks the delta.
 4. Test and CI run side by side: the explorative end-to-end test and the CI of
@@ -23,7 +27,8 @@ lists `requiredHeadActions`.
    round after a fix is a delta re-check: it gets the fix range and the findings it
    raised, still drives the real flow in full, and reports a new finding in a part
    the fix left unchanged as a follow-up unless it touches security, data or a
-   failing check.
+   failing check. The order is review, tester, CI: the review proves what the
+   diff shows, the tester proves what only the drive shows, CI proves the checks.
 
 The builder and every fixer run the targeted tests of their change and the fast
 static checks the repository names after the last merge of the default branch;

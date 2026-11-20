@@ -1,0 +1,8 @@
+claim_id = "483abcfc40364244a2545edb99581d8c"
+agent = "Claude 57d5a480-511e-4e68-ac3e-58f0f400e3c5"
+role = "builder"
+base = "aec5e6276426dc130aa0b7d1ffc56bbd8cff354a"
+branch = "claude/issue-861-a-lane-agent-waits-for-the-load-before-a"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/.codex/agents/code-fixer.toml", "plugins/atelier/.codex/agents/code-worker.toml", "plugins/atelier/.codex/agents/explorative-tester.toml", "plugins/atelier/agents/code-fixer.md", "plugins/atelier/agents/code-worker.md", "plugins/atelier/agents/explorative-tester.md"]
+opened_commit = "7818aca1815d5a8bff79c906d247e903153bacf3"
+whole_reason = "The three definitions, their generated copies and the version files change together."

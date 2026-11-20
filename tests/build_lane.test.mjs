@@ -20,6 +20,7 @@ test('the generator check passes on the committed tree', () => {
 // The red path runs in this process: a copy of the generator in a temporary tree would escape the coverage gate on scripts/.
 function withBundleContent(content, body) {
   const bundlePath = fileURLToPath(bundle)
+  const committed = fs.readFileSync(bundle, 'utf8')
   const realRead = fs.readFileSync
   const written = []
   mock.method(fs, 'readFileSync', (file, ...rest) => String(file) === bundlePath ? content : realRead(file, ...rest))
@@ -27,7 +28,7 @@ function withBundleContent(content, body) {
   const errors = []
   mock.method(console, 'error', (message) => errors.push(message))
   try {
-    body({ written, errors, bundlePath })
+    body({ written, errors, bundlePath, committed })
   } finally {
     mock.restoreAll()
     process.exitCode = undefined
@@ -43,8 +44,8 @@ test('the generator check fails and names the stale file when the lane script di
 })
 
 test('the generator writes the committed lane script to the lane script file', () => {
-  withBundleContent('// stale\n', ({ written, bundlePath }) => {
+  withBundleContent('// stale\n', ({ written, bundlePath, committed }) => {
     main([])
-    assert.deepEqual(written, [[bundlePath, fs.readFileSync(bundle, 'utf8')]])
+    assert.deepEqual(written, [[bundlePath, committed]])
   })
 })

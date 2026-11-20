@@ -153,21 +153,24 @@ async function runStartCommand({ failingProgram, contract = 'c', fileFromBrief =
   }
 }
 
-test('courier-start-command: the start command gives Codex a brief holding both bodies', async () => {
-  const { ran, stdinOfCodex, scratch } = await runStartCommand({})
-  assert.equal(ran.status, 0)
+// The detached Codex stub leaves an exit marker in the scratch directory when it ends; the start command does not wait for it.
+async function codexLeftItsExitMarker(scratch) {
   const exitMarker = () => fs.readdirSync(scratch).find(name => name.endsWith('.exit'))
   for (let waited = 0; !exitMarker() && waited < 100; waited++) await new Promise(resolve => setTimeout(resolve, 50))
   assert.ok(exitMarker(), 'codex ran and left its exit marker')
+}
+
+test('courier-start-command: the start command gives Codex a brief holding both bodies', async () => {
+  const { ran, stdinOfCodex, scratch } = await runStartCommand({})
+  assert.equal(ran.status, 0)
+  await codexLeftItsExitMarker(scratch)
   assert.match(stdinOfCodex(), /Read-only sandbox[\s\S]*ITEM BODY[\s\S]*PR BODY/)
 })
 
 test('courier-writes-schema: Codex finds the schema already written, byte for byte as the workflow holds it, when it starts', async () => {
   const { ran, scratch, schemaInLine, schemaSeenByCodex } = await runStartCommand({})
   assert.equal(ran.status, 0)
-  const exitMarker = () => fs.readdirSync(scratch).find(name => name.endsWith('.exit'))
-  for (let waited = 0; !exitMarker() && waited < 100; waited++) await new Promise(resolve => setTimeout(resolve, 50))
-  assert.ok(exitMarker(), 'codex ran and left its exit marker')
+  await codexLeftItsExitMarker(scratch)
   assert.equal(schemaSeenByCodex(), schemaInLine)
 })
 
@@ -206,9 +209,7 @@ for (const [name, options] of [
   test(`courier-brief-check: a brief with ${name} starts Codex`, async () => {
     const { ran, scratch } = await runStartCommand(options)
     assert.equal(ran.status, 0)
-    const exitMarker = () => fs.readdirSync(scratch).find(name => name.endsWith('.exit'))
-    for (let waited = 0; !exitMarker() && waited < 100; waited++) await new Promise(resolve => setTimeout(resolve, 50))
-    assert.ok(exitMarker(), 'codex ran and left its exit marker')
+    await codexLeftItsExitMarker(scratch)
   })
 }
 

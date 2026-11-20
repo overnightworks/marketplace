@@ -8,8 +8,12 @@ const acoMarker = 'error connecting to api.github.com\ncheck your internet conne
 const acoDown = { network_stdout: JSON.stringify({ reason: 'unreachable' }), network_error: 'aco: forge unreachable' }
 const ghDown = 'Could not resolve host: github.com'
 const throughCi = { 'r0-review': APPROVE, 'e2e-0': PASS, 'ci-0': greenCi(resumeTip) }
-// The title step reads the pull request title and the item title before the lane is ready to land.
-const TITLE_READS = 2
+// A retried read adds exactly the one failed attempt to the gh calls of a clean run.
+const RETRIED_READS = 1
+async function cleanRunGhCalls() {
+  const { calls } = await runLane(resumeArgs, throughCi, noWait)
+  return calls.gh
+}
 
 test('AC-network-retry: a scope call that fails once with a network error is retried and the lane goes on', async () => {
   const { result, calls } = await runLane(resumeArgs, { 'scope-resume': { ...acoDown, network_fails: 1 }, ...throughCi }, noWait)
@@ -28,7 +32,7 @@ test('AC-network-retry: a scope call that fails every time ends the lane awaitin
 test('AC-network-retry: a ci read whose first gh call fails with a network error is retried and the lane goes on', async () => {
   const { result, calls } = await runLane(resumeArgs, { 'ci-read-0': { network_error: ghDown, network_fails: 1 }, ...throughCi }, noWait)
   assert.equal(result.status, 'ready-to-land', result.reason)
-  assert.equal(calls.gh, 7 + TITLE_READS)
+  assert.equal(calls.gh, await cleanRunGhCalls() + RETRIED_READS)
 })
 
 test('AC-network-retry: a ci read that stays unreachable ends the lane awaiting-head at ci and the pending tester is settled first', async () => {
@@ -63,7 +67,7 @@ for (const message of rateLimitMessages) {
   test(`AC-rate-limit-retry: a ci read that GitHub's rate limit refuses once is retried and the lane goes on (${message.slice(0, 30)})`, async () => {
     const { result, calls } = await runLane(resumeArgs, { 'ci-read-0': { network_error: message, network_fails: 1 }, ...throughCi }, noWait)
     assert.equal(result.status, 'ready-to-land', result.reason)
-    assert.equal(calls.gh, 7 + TITLE_READS)
+    assert.equal(calls.gh, await cleanRunGhCalls() + RETRIED_READS)
   })
 
   test(`AC-rate-limit-retry: a ci read refused on every try ends awaiting-head at ci with the REST head action (${message.slice(0, 30)})`, async () => {

@@ -1147,7 +1147,8 @@ function firstReviewRange({ deltaFrom, answers, tip, item, pr, repoFlag, fix }) 
   if (!fix.answeredOutside) return { from: fix.deltaFrom, range: `only this delta: git diff ${deltaFrom}..HEAD — fixes no reviewer has seen yet. They answer:\n${answers || ''}\n${fix.findingsText}${fix.proofNotes}${fix.foldInsText}` }
   const unchanged = sameCommit(deltaFrom, tip)
   const what = unchanged ? 'the unchanged tip' : 'the tip'
-  return { from: fix.deltaFrom, range: `${unchanged ? 'no commit is new, so judge the whole tip: git diff origin/main...HEAD' : `only this delta: git diff ${deltaFrom}..HEAD`}. The head's answers:\n${answers || '(none)'}\n${fix.range}\nRead the item body and the pull request body live (gh issue view ${item}${repoFlag} --json body --jq .body; gh pr view ${pr}${repoFlag} --json body --jq .body); for each finding say whether it still holds, and whether ${what} does more or less than the changed body asks.` }
+  const scope = unchanged ? 'no commit is new, so judge the whole tip: git diff origin/main...HEAD' : 'only this delta: git diff ' + deltaFrom + '..HEAD'
+  return { from: fix.deltaFrom, range: `${scope}. The head's answers:\n${answers || '(none)'}\n${fix.range}\nRead the item body and the pull request body live (gh issue view ${item}${repoFlag} --json body --jq .body; gh pr view ${pr}${repoFlag} --json body --jq .body); for each finding say whether it still holds, and whether ${what} does more or less than the changed body asks.` }
 }
 
 // Prints the one Routing line of a lane from its routing table, its history and its fix rounds, and starts no agent.

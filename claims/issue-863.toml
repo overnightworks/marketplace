@@ -1,8 +1,0 @@
-claim_id = "9ba6136efb5243409354b34e6f0290b2"
-agent = "Claude 57d5a480-511e-4e68-ac3e-58f0f400e3c5"
-role = "builder"
-base = "606eff550467ee602d8ee5781522632e8a2c65be"
-branch = "claude/issue-863-a-lane-re-enters-on-the-same-tip-after-t"
-scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/lane/main.js", "plugins/atelier/lane/relay.js", "plugins/atelier/lane/review.js", "plugins/atelier/workflows/lane.js", "plugins/atelier/workflows/lane.md", "tests/lane_workflow_fix.test.mjs", "tests/lane_workflow_harness.mjs"]
-opened_commit = "15346a0c80ed488fb8b05d2c7d3489db80cfadc4"
-whole_reason = "The brief, the range, the result, the regenerated bundle, the reference, the tests and the version files change together."

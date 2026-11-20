@@ -1,0 +1,8 @@
+claim_id = "d8b18483e86546279b28e3c5556f5c54"
+agent = "Claude 5fd48eeb-f686-416f-85b1-085a6741a604"
+role = "builder"
+base = "3962ac71dd6af91f3dcff0cd7a50d818fd7fb6dd"
+branch = "claude/issue-889-a-lane-run-s-misses-see-the-review-appro"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/lane", "plugins/atelier/workflows/lane.js", "plugins/atelier/workflows/lane.md", "tests"]
+opened_commit = "18dcb0f3ddfb50ddfd174e332f3806b06462f9cb"
+whole_reason = "The miss rule, its read of the earlier runs, the regenerated bundle, the reference, the tests and the version files change together."

@@ -5,8 +5,7 @@ Audit tests against the code policy's "Tests" section (guidance lookup in
 whether the suite proves behavior clearly, deterministically and at the right
 altitude; passing is not enough.
 
-Standing audit: every ~50 trunk landings or weekly. Standing-item subject:
-tests. It judges D1, D3, D4 and D5 of marketplace#576 (labelled in the
+It judges D1, D3, D4 and D5 of marketplace#576 (labelled in the
 checklist) per repository. #576 struck D2, so a flow test running in every browser and
 viewport its app has set up is no finding.
 

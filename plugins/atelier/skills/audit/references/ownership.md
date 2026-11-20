@@ -6,9 +6,6 @@ copies; a model rewrites. Token clone detectors see near-identical text
 question in different words (type-3/4 clones), which only reading catches.
 Layer and boundary ownership is `architecture.md`'s question.
 
-Standing audit: every ~25 trunk landings until two clean passes, then every
-~50 or weekly. Standing-item subject: ownership, one decider per decision.
-
 ## Procedure
 
 1. Scope the run to the packages or landing window the parent names. Build the
@@ -36,5 +33,5 @@ List exempted patterns with the reason. End with the tracked metric
 **deciders per decision**: all deciders found (counted once per concept)
 divided by all concepts examined, flagged or not, as counts and ratio.
 The concept and exemption lists go in the report for the head to store in
-the standing item beside the anchor; a later run reuses them, appending new
+the newest labelled distributor; a later run reuses them, appending new
 concepts and never renumbering.

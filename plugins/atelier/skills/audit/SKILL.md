@@ -18,7 +18,7 @@ item or executes a cut.** Pick the goal, run its lenses, return one report.
 | Change audit: hygiene and tests on a diff | `hygiene`, `tests` |
 | Platform: how far each operational area reaches across the operator's repositories | `platform` |
 | Standards: which laws and standards apply, and where each requirement stands | `standards`, run as two passes: applicability, then the map |
-| Scheduled standing audit | `architecture`, `deadweight`, `tests`, `ownership`, `platform` or `standards`, each on its own cadence |
+| Scheduled standing audit | `architecture`, `deadweight`, `tests`, `ownership`, `platform` or `standards`, each as its repository's `[[audit]]` entry declares |
 
 ## Dispatch
 
@@ -148,18 +148,24 @@ names the call and its reason.
   `gh issue list -R <that repository> --state all --limit 1 --search 'in:title "Distributor:" <goal> sort:created-desc'`,
   which prints the newest created one, open or closed, and the report says
   new, resolved and unchanged.
-- **Standing audit.** Only the scheduled standing audit uses this anchor and
-  cadence. The standing board item owns due-ness: its body holds a line naming
-  the last run's commit (`last run at commit X`). Find the one whose title
-  names the audit's subject with
-  `gh issue list --state open --search "Standing-Audit in:title"`. Count
-  landings since X as merged pull requests: read X's date with
-  `gh api repos/<owner>/<repo>/commits/X --jq .commit.committer.date`, then
-  `gh pr list -R <owner>/<repo> --state merged --base <default> --search "merged:>=<date>" --limit 500 --json number --jq length`,
-  or count the days. With no item, say it is the first run and tell the head to
-  open the standing item. One item covering two audits shares its anchor: a
-  run of either resets it, so the report names which ran. The head writes the
-  new anchor; each lens gives its interval and subject.
+- **Standing audit.** A recurring audit is declared as an `[[audit]]` entry in
+  the repository's `.aco/board.toml`, and `aco next` names it when due (grammar
+  and due rule: aco's `specs/storage-pin.spec.md` and `specs/next.spec.md`). The
+  run opens its distributor issue at its start, with the entry's label and a
+  line of its own `audited through <full sha of the trunk tip it reads>`; a run
+  that finds nothing closes that issue at once, so the anchor stays. The
+  `tests` and `ownership` lenses run together as one audit; these starting
+  numbers are stated here once, and the other lenses' references give the
+  numbers a repository puts into its own entry:
+
+  ```toml
+  [[audit]]
+  name = "tests-and-ownership"
+  label = "audit-tests-ownership"
+  landings = 50
+  days = 7
+  run = "Run the atelier audit skill with the tests and ownership lenses."
+  ```
 - **Prevention check.** A lens whose reference names one closes its report
   with it: a gap in a guard is routed as a fix (flag, never edit), because an
   unguarded gap is how the defect class is born.
@@ -213,7 +219,8 @@ ranked list of cuts and never executes them.
    `references/tests.md`.
 4. **Report** the distributor text. The head finds the goal's latest
    `Distributor:` item, open or closed, as the delta rule above says, or the
-   standing-audit anchor item; if none exists it opens a new distributor. Shape:
+   newest issue with the audit's label; if none exists it opens the labelled
+   distributor. Shape:
 
    ```text
    Measurements: <counts, counting rule, commands, growth per area>

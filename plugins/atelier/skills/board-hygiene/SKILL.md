@@ -33,9 +33,6 @@ applies what is clear under the coordination contract.
    blocker). An owner is `closingIssuesReferences`:
    `gh pr list --json number,title,body,author,closingIssuesReferences,mergeStateStatus,statusCheckRollup`.
    A bot pull request without an item is invisible to `aco next`.
-7. A standing audit item whose "last run at commit X" anchor is more than its
-   cadence behind (count the `landings` entries whose `committed_at` is later
-   than X's commit date, `git show -s --format=%cI X`) gets a due line.
 
 ## Pass 2: sense
 

@@ -9,7 +9,7 @@ otherwise their facts are `unverified (host)` questions. A listing that
 contradicts a repository claim wins: the host fact stands, and the contradicted
 claim is itself a finding (the repository says what is not true).
 
-Standing audit: every 90 days. Standing-item subject: platform.
+Standing audit: every 90 days.
 
 Hand-offs: security.md (a lead on an exposed boundary), runtime.md.
 

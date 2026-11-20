@@ -240,16 +240,15 @@ may end without a record, since the record courier is a Claude agent (no code gu
 Each run stores its record on the claim. Its first relay step, the branch check, mints a run id. A `build` run runs
 `aco lane-record begin <n> --run <id>` right after that check; a run started with `pr` and `tip` runs it right after its
 sync and its scope check have passed, with the synced head as `--start-tip` (a run that starts at a fixer, with `fixFirst`
-or `foldIn`, has its scope check after the fix, which begins it), and a run that ends at `sync` or at the scope check is
-never begun. At every end that
+or `foldIn`, right after the sync, since its scope check follows the fix), and a run that ends at `sync` or at its scope
+check before any fixer is never begun. At every end that
 writes a record, a begun run adds it once with `aco lane-record add <n> <path> --run <id> --end-tip <sha> --ran <stages>`,
 the stages being those it started (`build`, `review`, `fix`, `test`, `gate`; a begun run that started none stores nothing,
 since aco takes no empty `--ran`). Every tip aco receives is the 40-digit sha `git rev-parse` resolves in the worktree,
 and a `build` run that ended without a tip passes the worktree's `HEAD`. A begin or an add that aco refuses, or whose tip
 git cannot resolve, ends the run `awaiting-head` at `record`; the `reason` holds the refusal and, for an add, the status
-and reason the run would have ended with (for a begin, that the run did none of its work, or, after a fix, that its fix
-commits are on the branch). Once a run is begun, landing and release go without `--record`, because aco
+and reason the run would have ended with. Once a run is begun, landing and release go without `--record`, because aco
 computes the record from the stored runs and refuses the flag: the landing is `aco land <pr> --head <tip>` and an abandoned
-lane is released with `aco release <n> --abandoned REASON`; a run that never began (it ended at `sync` or at the scope check, or aco refused its begin) keeps
+lane is released with `aco release <n> --abandoned REASON`; a run that never began (it ended at `sync` or at its scope check before any fixer, or aco refused its begin) keeps
 `--record <path>` in the abandon action. The Routing line is still printed, and pasted beside the record until aco stops
 reading it.

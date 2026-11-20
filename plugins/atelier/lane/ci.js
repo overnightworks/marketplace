@@ -1,7 +1,9 @@
 // Watches the CI of one pull request and returns whether it went green with the failing checks quoted; the lane reads the listing itself.
 export async function laneCi(A) {
   const { pr } = A
-  const R = A.repo ? ` -R ${A.repo}` : ''
+  const R = A.repoFlag
+  // An end without a result is a null the lane reports.
+  const agentOrNull = async (prompt, opts) => (await settledAgent(prompt, opts)).answer
   const IN_REPO = A.repo ? ` in ${A.repo}` : ''
 
   // A job qualifies for the one re-run only when the step it failed in is listed here; any other step, or none known, never does.
@@ -92,17 +94,6 @@ export async function laneCi(A) {
   }
 
   return await ciFindings()
-}
-
-// agent() with a schema throws when the subagent ends without a result; an end without one is a null the lane reports.
-async function agentOrNull(prompt, opts) {
-  try {
-    return await agent(prompt, opts)
-  } catch (error) {
-    rethrowClaudeUsageLimit(error)
-    log(`${opts.label} ended without a result: ${String(error).slice(0, 160)}`)
-    return null
-  }
 }
 
 // The first finding stands unless the re-run reached the check, which shows as another link.

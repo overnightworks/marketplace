@@ -18,16 +18,8 @@ function checkpointRenameProblem(relayed, item) {
 export async function laneRelay(A) {
   const { label, phase: phaseName, step, relayArgs, nonce, requiredKeys, agentOptions, reread, before } = A
 
-  // agent() with a schema throws when the subagent ends without a result; an end without one is a null the lane reports.
-  async function safeAgent(prompt, opts) {
-    try {
-      return await agent(prompt, opts)
-    } catch (error) {
-      rethrowClaudeUsageLimit(error)
-      log(`${opts?.label || 'agent'} ended without a result: ${String(error).slice(0, 160)}`)
-      return null
-    }
-  }
+  // An end without a result is a null the lane reports.
+  const safeAgent = async (prompt, opts) => (await settledAgent(prompt, opts)).answer
 
   // A value a command prints reaches a decision only through one line the PRINTER wrote: the agent runs it and relays the
   // line unchanged, and a retyped or edited line fails its CRC32. The printer holds no single quote, so the shell passes

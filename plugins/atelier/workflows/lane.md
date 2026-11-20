@@ -65,17 +65,15 @@ The lane needs a repository that coordinates with aco, after the head ran
   an unreadable copy).
 - `repo`: none by default; every `gh` call then targets the worktree's own
   repository. Pass `owner/name` when the head runs elsewhere.
-- `productionPaths`: `["src/", "pyproject.toml", "uv.lock"]`, a default that fits
-  a src-layout Python repository. Path prefixes whose change re-opens the gate on
+- `productionPaths`: `PRODUCTION` in `lane/main.js` is the default. Path prefixes whose change re-opens the gate on
   a material lane and re-runs the end-to-end test; passing it also lets a fresh
   reviewer stand in for a gate at its usage limit on a delta that touched none of
   them.
-- `ledgers`: `[]`, a default that fits a repository without append-only ledgers.
-  Files whose merge conflicts keep both sides, main's lines first.
+- `ledgers`: none by default. Files whose merge conflicts keep both sides, main's lines first.
 - `generated`: `{}`. A map from a generated file's path to the command that
   regenerates it; a merge conflict confined to such files and ledgers is resolved
   by running the command on the merged tree, not escalated.
-- `budgets`: `{review: 5, test: 2, ci: 3, total: 8}`, the fix rounds per phase and
+- `budgets`: `B` in `lane/main.js` holds the defaults, the fix rounds per phase and
   in total; a partial object overrides single keys.
 - `deltaFrom`: none. A sha; review only the commits since it, after the head
   settled an awaiting-head result. Without it, a new run with `pr` and `tip` and
@@ -120,10 +118,7 @@ The lane needs a repository that coordinates with aco, after the head ran
 
 ## Routing defaults
 
-On a normal lane: `mechanical` haiku/low, `copy` sonnet/low, `build` and `fix`
-sonnet/medium, `test` sonnet/medium, `review` sonnet/high. On a material lane:
-`build` and `fix` sonnet/high, `test` sonnet/high, `review` opus/medium, `gate`
-gpt-6-astra/high.
+`DEFAULT_ROUTING` in `lane/main.js` is the table, by the lane's risk.
 
 - The fixer runs as `rework` (sonnet/high) from the third fix round of a run on,
   counted over review, test and ci rounds together. A continued run counts its

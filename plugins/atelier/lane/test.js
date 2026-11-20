@@ -3,7 +3,7 @@ export async function laneTest(A) {
   const { pr, tip } = A
 
   // An end without a result is a null the lane reports.
-  const agentOrNull = async (prompt, opts) => (await settledAgent(`${A.delegatedLine}\n${prompt}`, opts)).answer
+  const agentOrNull = (prompt, opts) => agentAnswer(`${A.delegatedLine}\n${prompt}`, opts)
 
   const E2E = {
     type: 'object',

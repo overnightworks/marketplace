@@ -1,8 +1,0 @@
-claim_id = "ea247bfdac084ce1abcbb30d1b1adb72"
-agent = "Claude 5fd48eeb-f686-416f-85b1-085a6741a604"
-role = "builder"
-base = "3962ac71dd6af91f3dcff0cd7a50d818fd7fb6dd"
-branch = "claude/issue-882-ownership-lens-private-names"
-scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/skills/audit/references/ownership.md"]
-opened_commit = "9e66dddcdfb7b6d8f8beb682c3457c5c2e43f781"
-whole_reason = "The lens text and the three version files change together."

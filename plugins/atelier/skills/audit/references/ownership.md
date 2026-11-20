@@ -12,10 +12,15 @@ Layer and boundary ownership is `architecture.md`'s question.
    concept list: domain types and fields, plus deciding verbs from function
    names and docstrings (resolve, decide, select, effective, winner, applies,
    owner, and their synonyms in this codebase).
-2. Per concept, list every function that SETS or INTERPRETS it, not one that
+2. List the private names (not exported, or underscore-prefixed) defined in
+   more than one production module and read each group. A group is a lead,
+   never a finding by itself: it becomes one only when reading shows the same
+   decision or the same job. Such copies sit below a token clone detector's
+   floor, and about one group in five is a real copy (quality#910).
+3. Per concept, list every function that SETS or INTERPRETS it, not one that
    merely reads it: grep the name family (the noun and its deciding verbs) and
    read each candidate to confirm it decides rather than relays.
-3. Grade each concept: one decider is fine. More than one is a finding: name
+4. Grade each concept: one decider is fine. More than one is a finding: name
    the proposed owner (the clearest contract, or the one with the most
    callers) and what to delete or fold into it. First name and exempt accepted
    patterns, from the repository guidance, the previous report's exemption

@@ -3,6 +3,6 @@ agent = "Claude 57d5a480-511e-4e68-ac3e-58f0f400e3c5"
 role = "builder"
 base = "23327d7a1a3c9bec5bdbc0cf2c04300a734da864"
 branch = "claude/issue-857-the-lane-reads-a-ci-run-that-is-still-qu"
-scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/lane/ci.js", "plugins/atelier/lane/main.js", "plugins/atelier/lane/relay.js", "plugins/atelier/workflows/lane.js", "plugins/atelier/workflows/lane.md", "tests/lane_workflow_ci.test.mjs", "tests/lane_workflow_harness.mjs"]
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/lane/ci.js", "plugins/atelier/lane/main.js", "plugins/atelier/lane/relay.js", "plugins/atelier/workflows/lane.js", "plugins/atelier/workflows/lane.md", "tests/lane_workflow_ci.test.mjs", "tests/lane_workflow_ci_pending.test.mjs", "tests/lane_workflow_harness.mjs"]
 opened_commit = "3c5ea7d32fe82482a029557883b492963f2f78ba"
 whole_reason = "The outcome, its branch, the regenerated bundle, the reference, the tests and the version files change together."

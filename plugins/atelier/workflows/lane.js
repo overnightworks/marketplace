@@ -678,6 +678,13 @@ async function laneRelay(A) {
     return failing.filter(entry => inChangedFile(entry) || (!sharedEntries.has(JSON.stringify(entry)) && ![entry.where, String(entry.rule).replace(/^CI check /, '')].some(name => shared.includes(name))))
   }
 
+  const readFailure = (read, command) => read.code === 0 ? null : `${command} exited ${read.code}: ${read.err ?? ''}`
+
+  function pendingReason(waiting) {
+    const names = [...new Set(waiting)].map(name => `"${name}"`)
+    return names.length ? `CI has not finished and the watcher's budget ended: ${names.join(', ')} still pending.` : null
+  }
+
   // What the lane reads from the ci step: the head, the checks red on the base branch too, the red a fixer may not remove, why the listing does not prove green,
   // and the watcher's verdict corrected by the printed listing: green, proven, the state in words, the failing checks split into own and shared.
   function readCi({ checks, rules, headruns, changed, head, shared, files, log: jobLog }) {
@@ -693,17 +700,16 @@ async function laneRelay(A) {
     const ownRed = ownFailing({ shared, red: watched.red, failing, files })
     const green = watched.green && !sharedRerun
     const unproven = green ? listed : null
-    const rulesError = rules.code === 0 ? null : `gh api exited ${rules.code}: ${rules.err ?? ''}`
-    const runsError = headruns.code === 0 ? null : `gh run list exited ${headruns.code}: ${headruns.err ?? ''}`
-    const changedError = changed.code === 0 ? null : `gh api exited ${changed.code}: ${changed.err ?? ''}`
+    const rulesError = readFailure(rules, 'gh api')
+    const runsError = readFailure(headruns, 'gh run list')
+    const changedError = readFailure(changed, 'gh api')
     const proven = green && !unproven && !rulesError && !runsError && !changedError
     const names = (failing || []).map(f => `"${f.where}"`).join(', ')
     let state = 'not green'
     if (proven) state = 'green'
     else if (names) state = `red (${names})`
-    const waiting = [...open.filter(c => c.bucket === 'pending').map(c => c.name), ...(headruns.open || [])]
-    const stillRunning = green || failing.length || open.some(c => c.bucket === 'fail') ? [] : [...new Set(waiting)]
-    const pending = stillRunning.length ? `CI has not finished and the watcher's budget ended: ${stillRunning.map(name => `"${name}"`).join(', ')} still pending.` : null
+    const settled = green || failing.length || open.some(c => c.bucket === 'fail')
+    const pending = settled ? null : pendingReason([...open.filter(c => c.bucket === 'pending').map(c => c.name), ...(headruns.open || [])])
     const readError = [runsError && `the workflow runs of the pull request head could not be read: ${runsError}`, changedError && `the changed files of the pull request could not be listed: ${changedError}`, rulesError && `the required checks of the base branch could not be read: ${rulesError}`].find(Boolean)
     return {
       head, shared, operatorDoor, failing, ownRed, green, unproven, readError, pending, proven,
@@ -2007,12 +2013,16 @@ while (true) {
     return stop || await openResult('failed', 'ci', ci ? { reason: `the CI watcher ${ci.problem}` } : undefined)
   }
   if (!sameCommit(ci.head, tip)) return await openResult('failed', 'ci', { reason: `the pull request head ${ci.head} is not the lane tip ${tip}` })
+  function ciVerdict({ proven, pending }) {
+    if (proven) return 'GREEN'
+    return pending ? 'PENDING' : 'RED'
+  }
   const { shared, unproven, ownRed, sharedOnly } = ci
   if (pendingTest && (testSettled || ci.green || sharedOnly || ci.operatorDoor)) {
     const stop = await settleTest(ci, ci.green || sharedOnly || Boolean(ci.operatorDoor))
     if (stop) return stop
   }
-  history.push({ after: spent.total, by: `ci-${n - 1}`, verdict: ci.proven ? 'GREEN' : ci.pending ? 'PENDING' : 'RED', blocking: (ci.failing || []).map(f => f.where), deterministic: (ci.failing || []).filter(f => f.deterministic === true).map(f => f.where) })
+  history.push({ after: spent.total, by: `ci-${n - 1}`, verdict: ciVerdict(ci), blocking: (ci.failing || []).map(f => f.where), deterministic: (ci.failing || []).filter(f => f.deterministic === true).map(f => f.where) })
   if (ci.readError) return await openResult('failed', 'ci', { reason: ci.readError })
   if (ci.pending) return await openResult('awaiting-head', 'ci', { reason: `${ci.pending} Start a new run with pr ${pr} and tip ${tip} once CI has finished.` })
   if (unproven) return await openResult('failed', 'ci', { reason: `CI reported green, but the check listing does not prove it: ${unproven}` })

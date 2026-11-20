@@ -1,0 +1,7 @@
+claim_id = "8ff0243f9bab47f2bc241ce8fe7b77c6"
+agent = "Claude 57d5a480-511e-4e68-ac3e-58f0f400e3c5"
+role = "builder"
+base = "28ac810a5993b24c330962e297550193e6e32873"
+branch = "claude/issue-870-probe-run-starts-its-command-untied-when"
+scope = ["scripts/probe_run.sh", "tests/test_probe_run.py"]
+opened_commit = "3afc97d563c2e0e0b3dd62c6d67391fb3df2d990"

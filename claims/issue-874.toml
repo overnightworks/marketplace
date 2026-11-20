@@ -1,0 +1,8 @@
+claim_id = "610fee62c487404ba0c2b3eda170a7e6"
+agent = "Claude 5fd48eeb-f686-416f-85b1-085a6741a604"
+role = "builder"
+base = "80357603bacdd2e487b8d61514015f2152d5e00b"
+branch = "claude/issue-874-the-aco-skill-names-where-a-recurring-au"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/skills/aco/SKILL.md"]
+opened_commit = "3697706cee68c6c5666a651f2dd51639d089e028"
+whole_reason = "The skill text and the three version files change together."

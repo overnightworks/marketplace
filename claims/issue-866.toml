@@ -1,0 +1,8 @@
+claim_id = "1f1530014b7d4d43bb0dbb2b99891633"
+agent = "Claude 57d5a480-511e-4e68-ac3e-58f0f400e3c5"
+role = "builder"
+base = "d690d6d4df2b0598ad1f74b3a9bbb918a4c9281c"
+branch = "claude/issue-866-a-body-answer-the-fixer-calls-removed-do"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/lane/relay.js", "plugins/atelier/workflows/lane.js", "plugins/atelier/workflows/lane.md", "tests/lane_workflow_fix.test.mjs", "tests/lane_workflow_harness.mjs"]
+opened_commit = "1af8a56a6abfa792e8782f5e1ac910b906acdc90"
+whole_reason = "The brief, the proof check, the regenerated bundle, the reference, the tests and the version files change together."

@@ -26,6 +26,10 @@ entry = "plugins/"
 reason = "the plugin payload both catalogs point at"
 
 [[root.allow]]
+entry = "proof-889.txt"
+reason = "throwaway proof file for #889; the item never lands"
+
+[[root.allow]]
 entry = "settings/"
 reason = "the Claude Code settings the install copies to each machine"
 

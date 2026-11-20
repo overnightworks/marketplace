@@ -29,10 +29,6 @@ reason = "the plugin payload both catalogs point at"
 entry = "settings/"
 reason = "the Claude Code settings the install copies to each machine"
 
-[[root.allow]]
-entry = "proof-889.txt"
-reason = "the throwaway proof file of the #889 lane proof"
-
 [[layout.allow]]
 path = "scripts/install.py"
 rule = "script-name"

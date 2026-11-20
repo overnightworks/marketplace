@@ -680,11 +680,6 @@ async function laneRelay(A) {
 
   const readFailure = (read, command) => read.code === 0 ? null : `${command} exited ${read.code}: ${read.err ?? ''}`
 
-  function pendingReason(waiting) {
-    const names = [...new Set(waiting)].map(name => `"${name}"`)
-    return names.length ? `CI has not finished and the watcher's budget ended: ${names.join(', ')} still pending.` : null
-  }
-
   // What the lane reads from the ci step: the head, the checks red on the base branch too, the red a fixer may not remove, why the listing does not prove green,
   // and the watcher's verdict corrected by the printed listing: green, proven, the state in words, the failing checks split into own and shared.
   function readCi({ checks, rules, headruns, changed, head, shared, files, log: jobLog }) {
@@ -789,6 +784,12 @@ function unreachableReason(complete) {
   if (!complete.unreachable?.length) return ''
   const limitedNote = complete.limited?.length ? ` GitHub's rate limit refused ${complete.limited.join(', ')} on every try.` : ''
   return `GitHub is unreachable: ${complete.unreachable.join(', ')} failed with a network error, or timed out, after the retries a network error gets (a timeout is not retried).${limitedNote}`
+}
+
+// Why the CI read is pending: the names still waiting, or null when none waits.
+function pendingReason(waiting) {
+  const names = [...new Set(waiting)].map(name => `"${name}"`)
+  return names.length ? `CI has not finished and the watcher's budget ended: ${names.join(', ')} still pending.` : null
 }
 
 // The word the history keeps for one CI read.

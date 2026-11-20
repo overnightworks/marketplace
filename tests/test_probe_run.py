@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import ctypes
 import os
+import shutil
 import subprocess
 import time
 from pathlib import Path
@@ -41,6 +43,12 @@ def set_load(machine: dict[str, str], load: float) -> None:
     Path(machine["PROBE_RUN_LOADAVG_FILE"]).write_text(f"{load:.2f} 0.50 0.50 1/100 1\n")
 
 
+def timeout_arguments(result: subprocess.CompletedProcess[str]) -> list[str]:
+    """What the fake setpriv was asked to run, from the timeout on."""
+    tokens = result.stdout.split()
+    return tokens[tokens.index("timeout") + 1 :]
+
+
 def probe_run(machine: dict[str, str], *arguments: str) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         [str(PROBE_RUN), *arguments], env=machine, capture_output=True, text=True, timeout=30, check=False
@@ -52,10 +60,11 @@ def test_starts_the_command_capped_within_the_total_limit_when_the_load_is_below
 
     result = probe_run(machine, "my-stack", "--flag")
 
-    *timeout_arguments, command, flag = result.stdout.split()
     assert result.returncode == 0
-    assert timeout_arguments[:4] == ["--pdeathsig", "TERM", "timeout", "-k"]
-    kill_after, cap = (int(seconds) for seconds in timeout_arguments[4:])
+    assert result.stdout.split()[:2] == ["--pdeathsig", "TERM"]
+    dash_k, kill_after, cap, command, flag = timeout_arguments(result)
+    assert dash_k == "-k"
+    kill_after, cap = int(kill_after), int(cap)
     assert kill_after > 0
     assert cap > 0
     assert cap + kill_after <= MAXIMUM_TOTAL_SECONDS
@@ -67,7 +76,7 @@ def test_starts_the_command_with_the_given_kill_after_and_cap(machine):
 
     result = probe_run(machine, "-k", "60", "1700", "--", "my-stack")
 
-    assert result.stdout.split()[3:] == ["-k", "60", "1700", "my-stack"]
+    assert timeout_arguments(result) == ["-k", "60", "1700", "my-stack"]
 
 
 def test_ends_without_starting_when_the_load_stays_at_the_limit(machine):
@@ -221,6 +230,52 @@ def test_ends_a_wait_without_starting_once_the_process_that_started_it_is_gone(m
     assert not is_running(orphan)
     assert "ended during the wait" in output.read_text()
     assert "my-stack" not in output.read_text().splitlines()
+
+
+ENDS_ITS_STARTER_BEFORE_ARMING = """#!/bin/sh
+starter=$PPID
+kill -9 "$starter"
+while [ -e "/proc/$starter" ] && ! grep -q '^State:.Z' "/proc/$starter/status"; do /bin/sleep 0.01; done
+exec {real_setpriv} "$@"
+"""
+PR_SET_CHILD_SUBREAPER = 36
+
+
+def test_ends_without_starting_when_the_starter_ends_before_the_signal_is_armed(machine, tmp_path):
+    set_load(machine, 0.0)
+    install_fake(
+        Path(machine["PATH"].split(":")[0]),
+        "setpriv",
+        ENDS_ITS_STARTER_BEFORE_ARMING.format(real_setpriv=shutil.which("setpriv")),
+    )
+    output, marker = tmp_path / "orphan.out", tmp_path / "command-ran"
+    libc = ctypes.CDLL(None, use_errno=True)
+    libc.prctl(PR_SET_CHILD_SUBREAPER, 1)
+    try:
+        starter = subprocess.Popen(
+            ["sh", "-c", f'{PROBE_RUN} sh -c "touch {marker}" > {output} 2>&1 & echo $!; wait'],
+            env=machine, stdout=subprocess.PIPE, text=True,
+        )
+        orphan = int(starter.stdout.readline())
+        starter.wait(timeout=30)
+        _, status = os.waitpid(orphan, 0)
+    finally:
+        libc.prctl(PR_SET_CHILD_SUBREAPER, 0)
+
+    assert os.waitstatus_to_exitcode(status) == 4
+    assert "ended during the wait" in output.read_text()
+    assert not marker.exists()
+
+
+def test_runs_the_command_under_timeout_while_the_starter_lives(machine, tmp_path):
+    set_load(machine, 0.0)
+    (Path(machine["PATH"].split(":")[0]) / "setpriv").unlink()
+    marker = tmp_path / "command-ran"
+
+    result = probe_run(machine, "sh", "-c", f"touch {marker}")
+
+    assert result.returncode == 0
+    assert marker.exists()
 
 
 def is_running(pid: int) -> bool:

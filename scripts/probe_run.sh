@@ -10,11 +10,13 @@
 # it may run (default 1800); CAP + K stays within 1830.
 #
 # While it waits it watches the process that started it and ends without starting the
-# command once that process is gone.
+# command once that process is gone. It checks once more after setpriv has armed the signal,
+# since a starter gone before that is never signalled, and then execs timeout.
 #
 # Exit status while waiting: 2 bad arguments or an unreadable load, 75 the load stayed at or
 # above the limit for the whole wait (no command was started), 4 the starting process died
-# during the wait (no command was started). After the start the status is the command's.
+# during the wait or before the signal was armed (no command was started). After the start the
+# status is the command's.
 #
 # The tests inject PROBE_RUN_LOADAVG_FILE (the load source, default /proc/loadavg),
 # PROBE_RUN_POLL_SECONDS (default 5) and PROBE_RUN_WAIT_SECONDS (default 3600); both
@@ -30,6 +32,7 @@ readonly EXIT_PARENT_GONE=4
 kill_after=30
 cap=1800
 starter=$PPID
+starter_ended_message="the process that started probe-run ended during the wait; no probe stack was started"
 
 fail() {
   echo "probe-run: $1" >&2
@@ -93,7 +96,7 @@ starter_is_alive() {
 
 waited=0
 while true; do
-  starter_is_alive || fail "the process that started probe-run ended during the wait; no probe stack was started" "$EXIT_PARENT_GONE"
+  starter_is_alive || fail "$starter_ended_message" "$EXIT_PARENT_GONE"
   load_is_below_limit && break
   if ((waited >= wait_seconds)); then
     fail "the 1-minute load stayed at or above $limit_text x $cores cores for ${wait_seconds}s; no probe stack was started" "$EXIT_LOAD_TIMEOUT"
@@ -102,4 +105,8 @@ while true; do
   waited=$((waited + poll_seconds))
 done
 
-exec setpriv --pdeathsig TERM timeout -k "$kill_after" "$cap" "$@"
+# The signal survives the exec into the guard and on into timeout; a starter that ended since
+# the last check has left this process a new parent, which the guard sees.
+readonly PARENT_GUARD='[[ $PPID == "$1" ]] || { echo "probe-run: $3" >&2; exit "$2"; }; shift 3; exec "$@"'
+exec setpriv --pdeathsig TERM bash -c "$PARENT_GUARD" probe-run \
+  "$starter" "$EXIT_PARENT_GONE" "$starter_ended_message" timeout -k "$kill_after" "$cap" "$@"

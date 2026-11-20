@@ -20,24 +20,19 @@ async function laneBuild(A) {
     properties: { pr: { type: 'number' }, tip: { type: 'string', pattern: '^[0-9a-f]{7,40}$', description: 'a commit sha from git rev-parse, nothing else' }, summary: { type: 'string' }, reuse: { type: 'string', description: 'the owner you extended (module and function), or the search you ran and why nothing found fits' }, blocked: { type: 'boolean' }, blockedReason: { type: 'string' } },
   }
 
-  // agent() with a schema throws when the subagent ends without a result; an end without one is a null the lane reports.
-  try {
-    return await agent(
-      `${A.delegatedLine}\n${A.laneFacts} ${A.driveFacts} ${A.rescopeFacts} ${A.localCheckFacts}\nYou are the builder. ${A.build}\nCommit each goal as soon as its targeted tests pass — never hold more than one goal uncommitted. Merge origin/main into the lane before pushing (a merge commit). ` +
-      `Open the pull request as the build RULES say, run \`aco check <pr>\`, and return pr, tip, summary and reuse: the owner you extended (module and function), or the search you ran and why nothing found fits.`,
-      { label: 'build', phase: 'Build', schema: BUILD, agentType: 'atelier:code-worker', ...A.routing })
-  } catch (error) {
-    rethrowClaudeUsageLimit(error)
-    log(`build ended without a result: ${String(error).slice(0, 160)}`)
-    return null
-  }
+  // An end without a result is a null the lane reports.
+  const { answer } = await settledAgent(
+    `${A.delegatedLine}\n${A.laneFacts} ${A.driveFacts} ${A.rescopeFacts} ${A.localCheckFacts}\nYou are the builder. ${A.build}\nCommit each goal as soon as its targeted tests pass — never hold more than one goal uncommitted. Merge origin/main into the lane before pushing (a merge commit). ` +
+    `Open the pull request as the build RULES say, run \`aco check <pr>\`, and return pr, tip, summary and reuse: the owner you extended (module and function), or the search you ran and why nothing found fits.`,
+    { label: 'build', phase: 'Build', schema: BUILD, agentType: 'atelier:code-worker', ...A.routing })
+  return answer
 }
 
 // Watches the CI of one pull request and returns whether it went green with the failing checks quoted; the lane reads the listing itself.
 async function laneCi(A) {
   const { pr } = A
-  const R = A.repo ? ` -R ${A.repo}` : ''
-  const IN_REPO = A.repo ? ` in ${A.repo}` : ''
+  const R = A.repoFlag
+  const { inRepo: IN_REPO } = A
 
   // A job qualifies for the one re-run only when the step it failed in is listed here; any other step, or none known, never does.
   const SETUP_STEPS = new Set(['Set up job'])
@@ -80,7 +75,7 @@ async function laneCi(A) {
   function watchCi() {
     const inWorktree = A.repo ? '' : `cd '${A.worktree}' && `
     const rulesRepoPath = A.repo ? `repos/${A.repo}` : 'repos/{owner}/{repo}'
-    return agentOrNull(
+    return agentAnswer(
       `${A.delegatedLine}\nReport CI for pull request #${pr}${IN_REPO}; change nothing in the repository. ` +
       `If \`${inWorktree}gh pr view ${pr}${R} --json mergeable --jq .mergeable\` says CONFLICTING, return green false with one failing entry: where "mergeable", kind "defect", text "the pull request conflicts with main", ` +
       `rule "GitHub runs no CI on a conflicting pull request", evidence the mergeable value. Otherwise wait in the foreground — you cannot be woken later. First wait until CI has registered the head, because a just-pushed head lists no check yet: run \`${inWorktree}for i in $(seq 1 5); do [ "$(gh pr checks ${pr}${R} --json name --jq length 2>/dev/null)" -gt 0 ] 2>/dev/null && break; sleep 60; done\` (Bash timeout 600000 ms; it ends with status 0 after about 5 minutes even when no check registered, then go on). Then run \`${inWorktree}timeout 540 gh pr checks ${pr}${R} --watch --interval 90\` (Bash timeout 600000 ms) and repeat it until it exits on its own rather than by the timeout, at most 7 times; it exits when every check listed for head has finished, but the listing shows one entry per check name, so a finished run can hide a same-named job of a run still going. After every exit read the head's workflow runs with \`${inWorktree}gh run list --commit "$(gh pr view ${pr}${R} --json headRefOid --jq .headRefOid)" --json status,name --limit 100${R}\`: while any run is not completed, watch again, whatever the listing shows. Never re-run anything: the lane decides that from the facts you return. ` +
@@ -98,7 +93,7 @@ async function laneCi(A) {
 
   function rerunJob(red, index) {
     const inWorktree = A.repo ? '' : `cd '${A.worktree}' && `
-    return agentOrNull(
+    return agentAnswer(
       `${A.delegatedLine}\nRe-run one job of pull request #${pr}${IN_REPO} once and report its check; change nothing in the repository. Wait in the foreground — you cannot be woken later. ` +
       `The job is check "${red.name}", run ${red.runId}, job ${red.jobId}. GitHub may refuse a job re-run while its run is still in progress: if \`${inWorktree}gh run view ${red.runId}${R} --json status --jq .status\` is not completed, wait with \`${inWorktree}gh run watch ${red.runId}${R} --exit-status\` (Bash timeout 600000 ms, repeat while the run is not completed, at most 3 times). ` +
       `Then run \`${inWorktree}gh run rerun ${red.runId}${R} --job ${red.jobId}\` once; never re-run anything else and never a second time. Then run \`${inWorktree}timeout 540 gh pr checks ${pr}${R} --watch --interval 90\` (Bash timeout 600000 ms) and repeat it until it exits on its own, at most 5 times. ` +
@@ -129,17 +124,6 @@ async function laneCi(A) {
   return await ciFindings()
 }
 
-// agent() with a schema throws when the subagent ends without a result; an end without one is a null the lane reports.
-async function agentOrNull(prompt, opts) {
-  try {
-    return await agent(prompt, opts)
-  } catch (error) {
-    rethrowClaudeUsageLimit(error)
-    log(`${opts.label} ended without a result: ${String(error).slice(0, 160)}`)
-    return null
-  }
-}
-
 // The first finding stands unless the re-run reached the check, which shows as another link.
 function afterRerun(red, rerun) {
   if (!rerun || rerun.link === red.link) return red.findings
@@ -147,8 +131,8 @@ function afterRerun(red, rerun) {
   return rerun.findings.length ? rerun.findings : red.findings
 }
 
-// The one decision whether a failed Claude agent hit its account usage limit. Every agent call of the lane passes its error through
-// rethrowClaudeUsageLimit, so a limit reaches the lane's runPart instead of being retried or counted as an ordinary failure.
+// The one decision whether an agent call failed, and whether a failed Claude agent hit its account usage limit. Every agent call of the lane
+// goes through settledAgent, so a limit reaches the lane's runPart instead of being retried or counted as an ordinary failure.
 const CLAUDE_USAGE_LIMIT = /\b(?:(?:usage|weekly|session|5-hour|opus|sonnet)\s+limit|hit\s+your\s+limit)\b/i
 const CLAUDE_LIMIT_RESET = /\bresets?\s+(?:at\s+)?([^\n·.]+)/i
 
@@ -163,6 +147,21 @@ function claudeUsageLimitOf(error) {
 function rethrowClaudeUsageLimit(error) {
   if (claudeUsageLimitOf(error)) throw error
 }
+
+// agent() with a schema throws when the subagent ends without a result. The answer is null when the call failed, with the error it threw when it threw one;
+// the caller keeps its own verdict for a failed call. A usage limit is rethrown.
+async function settledAgent(prompt, opts) {
+  try {
+    return { answer: await agent(prompt, opts), error: null }
+  } catch (error) {
+    rethrowClaudeUsageLimit(error)
+    log(`${opts?.label || 'agent'} ended without a result: ${String(error).slice(0, 160)}`)
+    return { answer: null, error }
+  }
+}
+
+// The answer of a settled agent call, null when it failed: the caller keeps its own verdict for an end without a result.
+const agentAnswer = async (prompt, opts) => (await settledAgent(prompt, opts)).answer
 
 // Builds the lane record file that `aco lane-record add` stores on the claim and that a never-begun run hands `aco release --abandoned --record` (aco's specs/lane-record.spec.md owns the schema)
 // from the lane's own state, and the courier brief and command that bring it to disk. No model retypes the record.
@@ -399,17 +398,6 @@ function checkpointRenameProblem(relayed, item) {
 // Builds the briefs of the sync and fix steps and owns the schemas of their reports, runs one printer command through an agent and returns the answer of the agent together with the CRC-checked values of the line it relays; for the fix step it judges the fixer's answer against the findings and fold-ins it answered, and for the ci step it reads those values and splits the failing checks into own and shared.
 async function laneRelay(A) {
   const { label, phase: phaseName, step, relayArgs, nonce, requiredKeys, agentOptions, reread, before } = A
-
-  // agent() with a schema throws when the subagent ends without a result; an end without one is a null the lane reports.
-  async function safeAgent(prompt, opts) {
-    try {
-      return await agent(prompt, opts)
-    } catch (error) {
-      rethrowClaudeUsageLimit(error)
-      log(`${opts?.label || 'agent'} ended without a result: ${String(error).slice(0, 160)}`)
-      return null
-    }
-  }
 
   // A value a command prints reaches a decision only through one line the PRINTER wrote: the agent runs it and relays the
   // line unchanged, and a retyped or edited line fails its CRC32. The printer holds no single quote, so the shell passes
@@ -828,7 +816,7 @@ async function laneRelay(A) {
     return { values: complete, commandFailed: gitCommandFailed(complete), unreachable: unreachableReason(complete), ...(step === 'ci' && complete.view.code === 0 && { ci: readCi(complete) }) }
   }
 
-  const answer = await safeAgent(`${A.delegatedLine}\n${brief} ${RELAY_ASK}\n${relayCommand(step, ...relayArgs)}`, {
+  const answer = await agentAnswer(`${A.delegatedLine}\n${brief} ${RELAY_ASK}\n${relayCommand(step, ...relayArgs)}`, {
     label, phase: phaseName,
     schema: { type: 'object', required: ['printed', ...(answerSchema.required || [])], properties: { printed: PRINTED, ...answerSchema.properties } },
     ...agentOptions,
@@ -841,7 +829,7 @@ async function laneRelay(A) {
 
   // An agent that copied the line badly is asked once more, by an agent that only runs the printer: the printer reads the state that is there now, and the CRC and the nonce still guard the second line.
   log(`${label} relayed an unreadable line (${read.problem}); reading it once more: ${String(answer.printed).slice(0, 300)}`)
-  const second = await safeAgent(`${A.delegatedLine}\n${RELAY_ASK}\n${relayCommand(step, ...relayArgs)}`, {
+  const second = await agentAnswer(`${A.delegatedLine}\n${RELAY_ASK}\n${relayCommand(step, ...relayArgs)}`, {
     label: `${label}-reread`, phase: phaseName,
     schema: { type: 'object', required: ['printed'], properties: { printed: PRINTED } },
     ...reread,
@@ -912,18 +900,15 @@ const pathsArgument = (paths) => paths.map(path => encodeURIComponent(path).repl
 async function laneReview(A) {
   const MECHANICAL = A.mechanical
   const FINDING_KINDS = A.findingKinds
-  const R = A.repo ? ` -R ${A.repo}` : ''
+  const R = A.repoFlag
 
-  // agent() with a schema throws when the subagent ends without a result; an end without a usable answer is a failed verdict that carries the error, so the lane reports why.
+  // An end without a usable answer is a failed verdict that carries the error, so the lane reports why.
   const failedVerdict = (note) => ({ verdict: 'failed', blocking: [], followups: [], note })
   async function safeAgent(prompt, opts) {
-    try {
-      return (await agent(prompt, opts)) ?? failedVerdict(`${opts?.label || 'agent'} ended without a usable answer`)
-    } catch (error) {
-      rethrowClaudeUsageLimit(error)
-      log(`${opts?.label || 'agent'} ended without a result: ${String(error).slice(0, 160)}`)
-      return failedVerdict(`${opts?.label || 'agent'} threw: ${String(error).slice(0, 300)}`)
-    }
+    const { answer, error } = await settledAgent(prompt, opts)
+    if (answer) return answer
+    const label = opts?.label || 'agent'
+    return failedVerdict(error ? `${label} threw: ${String(error).slice(0, 300)}` : `${label} ended without a usable answer`)
   }
 
   const VERDICT = {
@@ -1322,16 +1307,8 @@ async function laneRouting(A) {
 async function laneTest(A) {
   const { pr, tip } = A
 
-  // agent() with a schema throws when the subagent ends without a result; an end without one is a null the lane reports.
-  async function agentOrNull(prompt, opts) {
-    try {
-      return await agent(`${A.delegatedLine}\n${prompt}`, opts)
-    } catch (error) {
-      rethrowClaudeUsageLimit(error)
-      log(`${opts.label} ended without a result: ${String(error).slice(0, 160)}`)
-      return null
-    }
-  }
+  // An end without a result is a null the lane reports.
+  const agentOrNull = (prompt, opts) => agentAnswer(`${A.delegatedLine}\n${prompt}`, opts)
 
   const E2E = {
     type: 'object',
@@ -1360,7 +1337,7 @@ async function laneTest(A) {
       `First create your own directory with \`mktemp -d ${A.scratch}/${A.tag}-e2e-${A.n}-XXXXXX\` and write only there, besides the environment the repository's own sync command creates in ${A.worktree}. For any server, browser or E2E run load the atelier:explorative-testing skill and follow its Probe stack section; use a free port above 8790 and keep your pid files in your directory. ` +
       `Never touch another session's server. ` +
       `Drive only the cells no named CI test proves; for every cell you skip, name the CI test that proves it, judge that test against the cell and mark the cell held or failed on that reading. ` +
-      `Prepare and check everything that needs no server or browser first (build the page, install dependencies, start a throwaway database), because a setup that fails inside probe-run spends your turn; wrap only the drive in \`probe-run\`, which waits up to 3600 seconds until the 1-minute load is below 1.5 × cores. ` +
+      `Prepare and check everything that needs no server or browser first (build the page, install dependencies, start a throwaway database), because a setup that fails inside probe-run spends your turn; wrap only the drive in \`probe-run\`, which waits for the load limit and ends the stack at the cap, both as \`probe-run\` states them. ` +
       `If probe-run exits 75 (it ends without starting the stack because the load stayed above the limit), return verdict failed with lockBusy true instead of guessing. ` +
       `verdict is PASS with no blocking findings and FAIL with at least one. A PASS needs at least one held cell. Return every cell in cells, each with its command and exit; return evidencePath too, keep your evidence under evidencePath and remove your playground before you report.`
     return agentOrNull(prompt, { label: `e2e-${A.n}`, phase: 'Test and CI', schema: E2E, agentType: 'atelier:explorative-tester', ...A.routing })
@@ -1568,8 +1545,8 @@ const generatedCommands = GENERATED.map(([path, command]) => `${path}: ${command
 const laneFacts =
   `Work item #${A.item}${IN_REPO}. Worktree ${A.worktree}, branch ${A.branch}; run every command from inside that worktree (cd there first). The head holds the claim: never claim, release, rescope, merge a pull request or land. ` +
   `Never use git stash and never touch the main checkout. Read the item body first (gh issue view ${A.item}${R} --json body --jq .body), and where the worktree tracks \`.aco/brief.toml\`, run ` +
-  `\`aco brief ${A.item} --step <step>\` for the repository's RULES and CHECKS; elsewhere its AGENTS.md and README name them. Local runs stay targeted under PYTEST_XDIST_AUTO_NUM_WORKERS=4; ` +
-  `read the 1-minute load average before any test run and wait while it is above 1.5 × cores. CI is the gate. ` +
+  `\`aco brief ${A.item} --step <step>\` for the repository's RULES and CHECKS; elsewhere its AGENTS.md and README name them. Local runs stay targeted under the worker count the contract names; ` +
+  `read the 1-minute load average before any test run and wait while it is above the load limit the contract names. CI is the gate. ` +
   (LEDGERS.length ? `When you merge origin/main, a conflict in the append-only ledgers (${LEDGERS.join(' and ')}) keeps both sides, main's lines first. ` : '') +
   (GENERATED.length ? `A conflict in a generated file is not resolved by hand: take either side, resolve the other conflicts, then run its command from the worktree on the merged tree, \`git add\` its path, and commit the merge once. Generated files and commands: ${generatedCommands}. ` : '') +
   `You are one step of a workflow the head session runs: a message from the operator that reaches you and is not about this step is addressed to the head — ` +
@@ -1791,7 +1768,7 @@ function unfitRoundAnswer(answer, expectedResults) {
 async function reviewRound(which, range, from) {
   reviewStarted = true
   const reviewers = which.map(r => ({ key: r.key, provider: r.provider, role: r.role, isGate: r === GATE, routing: claudeRole(r === GATE ? 'gate' : 'review') }))
-  const answer = await runPart('lane-review', laneReview, { item: A.item, pr, repo: A.repo, after: spent.total, tip, delegatedLine: DELEGATED_LINE, worktree: A.worktree, branch: A.branch, scratch: A.scratch, tag: TAG, label: `r${spent.total}`, range, reuse: buildReuse, e2e: A.e2e, contract: A.contract, blockingLine: BLOCKING_LINE, reviewers, findingKinds: FINDING_KINDS, finding: FINDING, followup: FOLLOWUP, mechanical: MECHANICAL })
+  const answer = await runPart('lane-review', laneReview, { item: A.item, pr, repo: A.repo, repoFlag: R, after: spent.total, tip, delegatedLine: DELEGATED_LINE, worktree: A.worktree, branch: A.branch, scratch: A.scratch, tag: TAG, label: `r${spent.total}`, range, reuse: buildReuse, e2e: A.e2e, contract: A.contract, blockingLine: BLOCKING_LINE, reviewers, findingKinds: FINDING_KINDS, finding: FINDING, followup: FOLLOWUP, mechanical: MECHANICAL })
   const unfit = unfitRoundAnswer(answer, which.length)
   if (unfit) {
     // The reviewers that finished before a usage limit keep their records, so the resume carries their findings.
@@ -1958,10 +1935,9 @@ async function pushAndCheckScope(label, origin) {
   if (push.code !== 0 || !(adoptedMerge || sameCommit(remote.out, tip))) {
     return fail('push', `the remote branch ${A.branch} does not carry the lane tip ${tip}: git push exited ${push.code} (${push.err}), origin/${A.branch} is ${remote.out}, HEAD is ${head.out}`)
   }
-  if (adoptedMerge) {
-    history.push({ by: 'scope', adoptedMerge: head.out, from: tip })
-    tip = head.out
-  }
+  if (adoptedMerge) history.push({ by: 'scope', adoptedMerge: head.out, from: tip })
+  // A builder may report a short sha; the verdicts and the record keep full ones, so the tip becomes git's full form once, here.
+  tip = adoptedMerge ? head.out : remote.out
   if (brief.code !== 0) return fail('scope', `aco brief ${A.item} --json exited ${brief.code}: ${brief.err}`)
   const paths = values.outside_claim
   if (paths === null) return fail('scope', 'the lane holds no live claim (outside_claim is null); a lane without a claim does not reach review')
@@ -2086,7 +2062,7 @@ const findingPaths = (failing = []) => [...new Set(failing.map(finding => findin
 const provenOnTip = () => approvedOn(history, tip) && !testBlocking.length && lastTestedTip === tip
 const restCheckAction = () => `without a new run: read the check runs of ${tip} with \`gh api repos/${A.repo || '{owner}/{repo}'}/commits/${tip}/check-runs --paginate\` (REST, outside the GraphQL budget); once every one is completed and green, land with \`aco land ${pr} --head ${tip}\``
 async function watchCi(n, rerun) {
-  const watched = await runPart('lane-ci', laneCi, { delegatedLine: DELEGATED_LINE, pr, n, rerun, repo: A.repo, worktree: A.worktree, finding: FINDING, mechanical: MECHANICAL })
+  const watched = await runPart('lane-ci', laneCi, { delegatedLine: DELEGATED_LINE, pr, n, rerun, repo: A.repo, repoFlag: R, inRepo: IN_REPO, worktree: A.worktree, finding: FINDING, mechanical: MECHANICAL })
   if (!watched || watched.problem) return watched
   const nonce = `ci-${n}-${tip}`
   const sentPaths = findingPaths(watched.failing)

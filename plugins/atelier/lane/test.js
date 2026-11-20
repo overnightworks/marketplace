@@ -2,16 +2,8 @@
 export async function laneTest(A) {
   const { pr, tip } = A
 
-  // agent() with a schema throws when the subagent ends without a result; an end without one is a null the lane reports.
-  async function agentOrNull(prompt, opts) {
-    try {
-      return await agent(`${A.delegatedLine}\n${prompt}`, opts)
-    } catch (error) {
-      rethrowClaudeUsageLimit(error)
-      log(`${opts.label} ended without a result: ${String(error).slice(0, 160)}`)
-      return null
-    }
-  }
+  // An end without a result is a null the lane reports.
+  const agentOrNull = (prompt, opts) => agentAnswer(`${A.delegatedLine}\n${prompt}`, opts)
 
   const E2E = {
     type: 'object',
@@ -40,7 +32,7 @@ export async function laneTest(A) {
       `First create your own directory with \`mktemp -d ${A.scratch}/${A.tag}-e2e-${A.n}-XXXXXX\` and write only there, besides the environment the repository's own sync command creates in ${A.worktree}. For any server, browser or E2E run load the atelier:explorative-testing skill and follow its Probe stack section; use a free port above 8790 and keep your pid files in your directory. ` +
       `Never touch another session's server. ` +
       `Drive only the cells no named CI test proves; for every cell you skip, name the CI test that proves it, judge that test against the cell and mark the cell held or failed on that reading. ` +
-      `Prepare and check everything that needs no server or browser first (build the page, install dependencies, start a throwaway database), because a setup that fails inside probe-run spends your turn; wrap only the drive in \`probe-run\`, which waits up to 3600 seconds until the 1-minute load is below 1.5 × cores. ` +
+      `Prepare and check everything that needs no server or browser first (build the page, install dependencies, start a throwaway database), because a setup that fails inside probe-run spends your turn; wrap only the drive in \`probe-run\`, which waits for the load limit and ends the stack at the cap, both as \`probe-run\` states them. ` +
       `If probe-run exits 75 (it ends without starting the stack because the load stayed above the limit), return verdict failed with lockBusy true instead of guessing. ` +
       `verdict is PASS with no blocking findings and FAIL with at least one. A PASS needs at least one held cell. Return every cell in cells, each with its command and exit; return evidencePath too, keep your evidence under evidencePath and remove your playground before you report.`
     return agentOrNull(prompt, { label: `e2e-${A.n}`, phase: 'Test and CI', schema: E2E, agentType: 'atelier:explorative-tester', ...A.routing })

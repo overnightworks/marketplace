@@ -2,18 +2,15 @@
 export async function laneReview(A) {
   const MECHANICAL = A.mechanical
   const FINDING_KINDS = A.findingKinds
-  const R = A.repo ? ` -R ${A.repo}` : ''
+  const R = A.repoFlag
 
-  // agent() with a schema throws when the subagent ends without a result; an end without a usable answer is a failed verdict that carries the error, so the lane reports why.
+  // An end without a usable answer is a failed verdict that carries the error, so the lane reports why.
   const failedVerdict = (note) => ({ verdict: 'failed', blocking: [], followups: [], note })
   async function safeAgent(prompt, opts) {
-    try {
-      return (await agent(prompt, opts)) ?? failedVerdict(`${opts?.label || 'agent'} ended without a usable answer`)
-    } catch (error) {
-      rethrowClaudeUsageLimit(error)
-      log(`${opts?.label || 'agent'} ended without a result: ${String(error).slice(0, 160)}`)
-      return failedVerdict(`${opts?.label || 'agent'} threw: ${String(error).slice(0, 300)}`)
-    }
+    const { answer, error } = await settledAgent(prompt, opts)
+    if (answer) return answer
+    const label = opts?.label || 'agent'
+    return failedVerdict(error ? `${label} threw: ${String(error).slice(0, 300)}` : `${label} ended without a usable answer`)
   }
 
   const VERDICT = {

@@ -18,17 +18,6 @@ function checkpointRenameProblem(relayed, item) {
 export async function laneRelay(A) {
   const { label, phase: phaseName, step, relayArgs, nonce, requiredKeys, agentOptions, reread, before } = A
 
-  // agent() with a schema throws when the subagent ends without a result; an end without one is a null the lane reports.
-  async function safeAgent(prompt, opts) {
-    try {
-      return await agent(prompt, opts)
-    } catch (error) {
-      rethrowClaudeUsageLimit(error)
-      log(`${opts?.label || 'agent'} ended without a result: ${String(error).slice(0, 160)}`)
-      return null
-    }
-  }
-
   // A value a command prints reaches a decision only through one line the PRINTER wrote: the agent runs it and relays the
   // line unchanged, and a retyped or edited line fails its CRC32. The printer holds no single quote, so the shell passes
   // it as one argument. Its first argument names the step whose commands it runs; the branch step reports the branch the worktree has checked out and mints the run id the begin and add steps pass to aco, the begin step runs `aco lane-record begin` and the add step `aco lane-record add`, each with the tip resolved by `git rev-parse` to 40 digits and each reporting its exit code and error output; after a begin that exited 0, the begin step runs `aco lane-record show --json` and reports only its exit code and error output, this run's own `follows`, and the shas of the earlier runs' stored review verdicts `approve` (the stored runs other than this run's id), the scope step never forces a push,
@@ -446,7 +435,7 @@ export async function laneRelay(A) {
     return { values: complete, commandFailed: gitCommandFailed(complete), unreachable: unreachableReason(complete), ...(step === 'ci' && complete.view.code === 0 && { ci: readCi(complete) }) }
   }
 
-  const answer = await safeAgent(`${A.delegatedLine}\n${brief} ${RELAY_ASK}\n${relayCommand(step, ...relayArgs)}`, {
+  const answer = await agentAnswer(`${A.delegatedLine}\n${brief} ${RELAY_ASK}\n${relayCommand(step, ...relayArgs)}`, {
     label, phase: phaseName,
     schema: { type: 'object', required: ['printed', ...(answerSchema.required || [])], properties: { printed: PRINTED, ...answerSchema.properties } },
     ...agentOptions,
@@ -459,7 +448,7 @@ export async function laneRelay(A) {
 
   // An agent that copied the line badly is asked once more, by an agent that only runs the printer: the printer reads the state that is there now, and the CRC and the nonce still guard the second line.
   log(`${label} relayed an unreadable line (${read.problem}); reading it once more: ${String(answer.printed).slice(0, 300)}`)
-  const second = await safeAgent(`${A.delegatedLine}\n${RELAY_ASK}\n${relayCommand(step, ...relayArgs)}`, {
+  const second = await agentAnswer(`${A.delegatedLine}\n${RELAY_ASK}\n${relayCommand(step, ...relayArgs)}`, {
     label: `${label}-reread`, phase: phaseName,
     schema: { type: 'object', required: ['printed'], properties: { printed: PRINTED } },
     ...reread,

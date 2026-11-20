@@ -1,0 +1,7 @@
+claim_id = "3f2b2c5599ed42699f1982183b2f0203"
+agent = "Claude 57d5a480-511e-4e68-ac3e-58f0f400e3c5"
+role = "builder"
+base = "bbd7f659dd2eaefef6478426b40e799a7128b500"
+branch = "claude/issue-872-marketplace-declares-its-recurring-tests"
+scope = [".aco/board.toml"]
+opened_commit = "9e8fec718cd848643ccaf22d4eac4fdf66ee290e"

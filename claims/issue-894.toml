@@ -1,8 +1,0 @@
-claim_id = "89dedc54409d48cb9d1e2474d68e0b14"
-agent = "Claude 5fd48eeb-f686-416f-85b1-085a6741a604"
-role = "builder"
-base = "5f69bcf3739cfb68096f9cbfdc678bfa9373b8b2"
-branch = "claude/issue-894-lane-tips-and-agent-failure"
-scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/lane", "plugins/atelier/workflows/lane.js", "plugins/atelier/workflows/lane.md", "tests"]
-opened_commit = "a4000dd150e5c6294e8f1f4d4f323a68c71d0172"
-whole_reason = "The lane's tip and failure deciders, the regenerated bundle, its reference, the tests and the version files change together."

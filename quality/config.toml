@@ -45,3 +45,7 @@ job = "Sync check and tests"
 item = "#713"
 date = 2026-11-14
 reason = "the lane script bundled from plugins/atelier/lane/ by node scripts/build_lane.mjs, whose --check step is the regeneration gate"
+
+[[root.allow]]
+entry = "proof-877.txt"
+reason = "the throwaway proof file of an item that is never landed"

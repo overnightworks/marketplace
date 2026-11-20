@@ -500,6 +500,7 @@ async function laneRelay(A) {
       `One that is already done — left in the worktree by an earlier fixer, or already satisfied by the lane tip — you do not redo; list it in resolved with its evidence (the test, probe cell or line that satisfies it). ` +
       `One that the item body, the pull request body or an item comment answers goes in outside with foldIn set to its where; commit nothing for it. When that leaves you nothing to change, change nothing:\n${foldIns}`
       : ''
+    const answersBrief = A.answers ? `The head's answers on findings it settled, to read before you answer one of them:\n${A.answers}\n` : ''
     return (
       `${facts}\nYou are a fresh fixer for PR #${pr} (lane tip ${tip}). Merge origin/main if it moved, before or after your fixes (a merge commit; ` +
       `resolve conflicts so both sides' behaviour holds, and set mergeResolvedLaneConflict true when files this lane changed needed resolution). If the worktree already carries commits or uncommitted changes past that tip from an earlier fixer that ran out of turns, judge them, keep what is right, and continue from there. Commit each finding as soon as it is green. List in noBehaviourChange the number of each blocking finding whose fix changes no behaviour of the code, and only those. Then commit what is green and return what is left in blockedReason with blocked true. ${task}${foldInBrief}\n\n` +
@@ -507,7 +508,8 @@ async function laneRelay(A) {
       `do not change code for it: list it in disputed with your counter-evidence. Report every test you add, strengthen or keep for a blocking finding, and every probe cell you run for it, in regression under that finding's number in the list above; the number counts only for the blocking list, a probe you saw fail and then acted on is reported before the entry that passes, and the last entry per finding is its proof; a follow-up needs no regression entry. Run the mutation you name, do not reason about it. ` +
       `A defect's test fails before your fix and passes after it; a defect with a test draft needs one. A defect in test code (hygiene) needs no regression test: the diff is its proof. A test you could not run on this machine is reported with notRun, the reason, and passesAfter false is kept for a test you ran and saw fail; the delta re-check judges a not-run test from its text and CI on the pushed tip runs it. A test-gap finding means a behaviour has no test, the code is already right, and it always needs a test: it passes before and after, ` +
       `so name in the mutation field (not inside test) the production change, made and reverted, under which the test fails; a test that fails on the pre-fix code counts as such a mutation (failedBefore true). When a finding is answered by deleting dead code or a test that pins no behaviour (a test-gap's vacuous cell, an unreachable guard), no test is needed: report resolution removed and commit the removal: the lane reads its diff from your commits, so do not copy it. No failing-first or passing-after bar applies. A fix that changes behaviour is no removal and keeps its test. A docs finding needs no test. When the only finding is that the pull request conflicts with main, the merge is the whole fix. ` +
-      `Otherwise one commit per finding. Push, patch the PR body where it became false or where a finding is about it (REST PATCH with --input, never gh pr edit --body-file); a finding the item body, the pull request body or an item comment answers goes in outside under its number in finding, and commit nothing for it; run \`aco check ${pr}\` from the worktree. ` +
+      `Otherwise one commit per finding. Push, patch the PR body where it became false or where a finding is about it (REST PATCH with --input, never gh pr edit --body-file); a finding the item body, the pull request body or an item comment answers goes in outside under its number in finding, and commit nothing for it. A finding answered by editing the item body or the pull request body is reported in outside, never as removed; removed is only for code or a test deleted in your commits. Run \`aco check ${pr}\` from the worktree. ` +
+      answersBrief +
       `Return files: the output of \`${git} log --name-only --format= --first-parent --remerge-diff ${tip}..HEAD\` (of \`${git} diff --name-only ${tip}..HEAD\` when mergeResolvedLaneConflict is true). Last, whatever happened,`
     )
   }
@@ -515,9 +517,9 @@ async function laneRelay(A) {
   // What a proof still has to show for the finding it names, or null when it shows it. A test-gap's code was already
   // right, so its test passes after the fix and pins the behaviour when a mutation, or the pre-fix code, makes it fail.
   // Dead code or a test that pins nothing may be removed instead, for a finding of any kind, with the size of the diff of its path (of the whole range when the finding names no path or its path carries no diff) in the fixer's commits as the proof.
-  function proofGap(proof, finding) {
+  function proofGap(proof, finding, outsideAnswered) {
     const kind = finding.kind
-    if (proof.resolution === 'removed') return proof.removal?.size > 0 ? null : `the removal for ${finding.where} carried no diff`
+    if (proof.resolution === 'removed') return outsideAnswered || proof.removal?.size > 0 ? null : `the removal for ${finding.where} carried no diff; an answer written into the item body or the pull request body belongs in outside, never in removed`
     if (kind === 'docs') return null
     if (isNotRun(proof)) return null  // reaches the delta re-check as a note, see notRunNote
     if (kind === 'test-gap') return testGapProofGap(proof, finding)
@@ -536,7 +538,7 @@ async function laneRelay(A) {
   // Each proof paired with the blocking finding it names and what it still lacks. A finding another proof covers
   // without a gap counts as proven, so a proof with a gap beside it is only supporting evidence.
   function judgedProofs(fixed, blocking) {
-    const judged = (fixed.regression || []).flatMap(proof => blocking.map((finding, index) => ({ proof, finding, index })).filter(({ index }) => proves(proof, index)).map(({ finding, index }) => ({ proof, finding, index, gap: proofGap(proof, finding) })))
+    const judged = (fixed.regression || []).flatMap(proof => blocking.map((finding, index) => ({ proof, finding, index })).filter(({ index }) => proves(proof, index)).map(({ finding, index }) => ({ proof, finding, index, gap: proofGap(proof, finding, answeredOutsideFinding(fixed, index)) })))
     const provenIndexes = new Set(judged.filter(({ gap }) => !gap).map(({ index }) => index))
     return judged.map((entry, position) => ({ ...entry, proven: provenIndexes.has(entry.index), actedOn: judged.slice(position + 1).some(later => later.index === entry.index && !later.gap) }))
   }
@@ -562,7 +564,7 @@ async function laneRelay(A) {
   const proofNotes = (fixed, blocking) => judgedProofs(fixed, blocking).map(entry => {
     if (!entry.gap && !isNotRun(entry.proof) && entry.proof.resolution !== 'removed' && namesNoMutationField(entry.proof, entry.finding)) return misplacedMutationNote(entry)
     if (isNotRun(entry.proof) && needsProof(entry.finding)) return notRunNote(entry)
-    if (entry.proof.resolution === 'removed' && !entry.gap) return removalNote(entry)
+    if (entry.proof.resolution === 'removed' && !entry.gap && entry.proof.removal?.size > 0) return removalNote(entry)
     return entry.gap && entry.proven ? supportingNote(entry) : ''
   }).join('')
 
@@ -590,8 +592,11 @@ async function laneRelay(A) {
   const everyFoldInSatisfied = (fixed, blocking, foldIn) => !blocking.length && foldIn.length > 0 && foldIn.every(f => satisfiedEvidence(fixed, f))
   // An unchanged tip is a fix too when every blocking finding is answered in the pull request body or an item comment and every fold-in
   // is answered there or proven already satisfied; at least one answer outside the tree is what the re-check then reads.
+  const outsideAnswers = (fixed) => (fixed.outside || []).filter(o => (o.where || '').trim())
+  // A removal the same answer also lists in outside, on an unchanged tip, is that outside answer.
+  const answeredOutsideFinding = (fixed, index) => fixed.unchanged && outsideAnswers(fixed).some(o => o.finding === index + 1)
   const answeredOutside = (fixed, blocking, foldIn) => {
-    const answers = (fixed.outside || []).filter(o => (o.where || '').trim())
+    const answers = outsideAnswers(fixed)
     const blockingAnswered = blocking.every((_, index) => answers.some(o => o.finding === index + 1))
     const foldInAnswered = foldIn.every(f => answers.some(o => o.foldIn === f.where) || satisfiedEvidence(fixed, f))
     const anyAnswer = blocking.length > 0 || foldIn.some(f => answers.some(o => o.foldIn === f.where))
@@ -1791,7 +1796,7 @@ async function fixRound(blocking, source, budgetKey, carried, stage = budgetKey)
   const nonce = `fix-${spent.total}-${tipBeforeFix}`
   const answeredPaths = [...new Set(blocking.map(f => findingPath(f.where)).filter(Boolean))]
   const answered = await relay({ label: `fix-${spent.total}`, phase: 'Fix', step: 'fix', relayArgs: [`'${tipBeforeFix}'`, `'${pathsArgument(answeredPaths)}'`, `'${nonce}'`], sentPaths: answeredPaths, nonce, requiredKeys: ['head', 'parents', 'main'], answerKind: 'fix', agentOptions: { agentType: 'atelier:code-fixer', ...claudeRole(role) },
-    facts: `${laneFacts} ${driveFacts} ${rescopeFacts} ${localCheckFacts} ${turnFacts('fix')}`, pr, tip, source, blocking: listFindings(blocking), findings: blocking.map(f => ({ ...f, kind: kindOf(f) })), foldIns: listFoldIns(foldIn), foldInEntries: foldIn, productionPaths: PRODUCTION, flakeRerunUsed })
+    facts: `${laneFacts} ${driveFacts} ${rescopeFacts} ${localCheckFacts} ${turnFacts('fix')}`, pr, tip, source, blocking: listFindings(blocking), findings: blocking.map(f => ({ ...f, kind: kindOf(f) })), foldIns: listFoldIns(foldIn), foldInEntries: foldIn, productionPaths: PRODUCTION, flakeRerunUsed, answers: A.answers })
   if (!answered || (claudeLimit && answered.problem)) return { stop: await checkpointOrFail('fix', tipBeforeFix, { reason: `the fixer returned no result; inspect ${A.worktree} for commits past ${tip} and uncommitted work, then start a new run with pr and tip (and fixFirst for what is left)`, lastBlocking: blocking }, { blocking, carried, tipBeforeFix }) }
   // What the fixer says it found already done is only reported to the head: an unaccepted fix folds nothing in.
   const unaccepted = (result) => ({ stop: (answered.resolved || []).length ? { ...result, resolved: answered.resolved } : result })

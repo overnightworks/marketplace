@@ -30,7 +30,7 @@ Source of Truth:
 Procedure:
 - Load the explorative-testing skill.
 - Before a run that starts a server, a container, a browser or an E2E stack, load the explorative-testing skill and follow its Probe stack section.
-- Before a local test run that needs no probe stack, read the 1-minute load average; while it is at or above 1.5 times `nproc`, wait and read it again for at most thirty minutes, and never start the run above that limit. When no room comes, skip the run, say so with the load you read, and report the cell as not driven.
+- Before a local test run that needs no probe stack, read the 1-minute load average; while it is at or above 1.5 times `nproc`, wait and read it again for at most thirty minutes, and never start the run above that limit. When no room comes, skip the run, say so with the load you read, and report the cell as not driven; no run is small enough to be an exception.
 - `probe-run` exits 75 when the load stayed above the limit and no stack started; report that as the parent briefs (never retry it yourself, never drop `probe-run`). Any other non-zero status before your command ran is a usage or environment error to report.
 - Build the smallest real setup: data in the scratch location the parent names, the environment from the repository's own sync command inside the worktree the parent names.
 - Drive the named area and its neighbours through the real entry point.

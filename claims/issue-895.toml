@@ -1,8 +1,0 @@
-claim_id = "9b8c6146805d49ce9e3ee2a9637f6764"
-agent = "Claude 5fd48eeb-f686-416f-85b1-085a6741a604"
-role = "builder"
-base = "5f69bcf3739cfb68096f9cbfdc678bfa9373b8b2"
-branch = "claude/issue-895-lane-tests-brittle-pins"
-scope = [".github/workflows/ci.yml", "tests"]
-opened_commit = "ec9e769af80229907863771bbb67de0d74d8aca8"
-whole_reason = "Test-only clean-up of the lane test modules with the CI Node pin they rely on."

@@ -249,9 +249,9 @@ async function writeRecord() {
   return code === 0 ? { file, fileArgument } : { problem: `aco lane-record check exited ${code}: ${err}` }
 }
 // A run marks its begin right after its input checks (the branch check, or the sync and the scope check); a refused begin ends it, since nothing is stored for it.
-async function beginRun(startTip) {
+async function beginRun(startTip, fixerRan = false) {
   const problem = storeProblem('begin', await relay(beginRequest({ item: A.item, runId, startTip, facts: laneFacts })), printedLine)
-  if (problem) return await openResult('awaiting-head', 'record', { reason: `aco did not begin this run on the claim, so the run did none of its work: ${problem}` })
+  if (problem) return await openResult('awaiting-head', 'record', { reason: `aco did not begin this run on the claim, so ${fixerRan ? 'its fix commits are on the branch but no record of the run is stored' : 'the run did none of its work'}: ${problem}` })
   began = true
   return null
 }
@@ -350,11 +350,6 @@ if (A.build) {
   if (!sameCommit(values.head.out, tip) && !mergedOnto(values, tip)) history.push({ after: 0, by: 'sync', from: tip, tip: values.head.out })
   tip = values.head.out
   syncedTip = tip
-  // A run that starts at a fixer has no scope check before its work, so it begins here; every other run begins after the scope check below.
-  if (carriesBatch) {
-    const beginStop = await beginRun(syncedTip)
-    if (beginStop) return beginStop
-  }
 }
 
 // ------------------------------------------------------- review / fix
@@ -497,6 +492,11 @@ async function fixRound(blocking, source, budgetKey, carried, stage = budgetKey)
   const { deltaFrom, note } = scopeOrigin(carried, tipBeforeFix)
   const scopeStop = await pushAndCheckScope(`scope-${spent.total}`, { note, deltaFrom })
   if (scopeStop) return unaccepted(scopeStop.stop)
+  // A run that starts at a fixer has no scope check before its work, so the check after its first fix is the one that begins it.
+  if (syncedTip && !began) {
+    const beginStop = await beginRun(syncedTip, true)
+    if (beginStop) return unaccepted(beginStop)
+  }
   // A clean merge of main alone carries no lane change, so it cannot carry a fold-in either; an unchanged tip carries
   // them only when the fixer proved each already satisfied. A scope stop folds nothing in.
   if (accepted.range || answered.satisfied) {

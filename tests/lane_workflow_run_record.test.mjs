@@ -45,10 +45,25 @@ test('run-record: a run started with pr and tip begins after its sync and its sc
   assert.deepEqual(Object.keys(agentCalls).slice(0, 4), ['branch', 'sync', 'scope-resume', 'begin'])
 })
 
-test('run-record: a run that starts at a fixer begins right after its sync, before the fixer', async () => {
+test('run-record: a run that starts at a fixer begins only after the scope check that follows its fix passed', async () => {
   const { laneRecordCalls, agentCalls } = await runLane({ ...resumeArgs, foldIn: [tidy] }, withFixer)
   assert.deepEqual(optionValues(callOf(laneRecordCalls, 'begin'), '--start-tip'), [resumeTip])
-  assert.deepEqual(Object.keys(agentCalls).slice(0, 4), ['branch', 'sync', 'begin', 'fix-1'])
+  assert.deepEqual(Object.keys(agentCalls).slice(0, 5), ['branch', 'sync', 'fix-1', 'scope-1', 'begin'])
+})
+
+test('run-record: a run that starts at a fixer and stops at the scope check after its fix is never begun', async () => {
+  const { result, laneRecordCalls } = await runLane({ ...resumeArgs, foldIn: [tidy] }, { ...withFixer, 'scope-1': { brief_error: 'aco: no such item' } })
+  assert.equal(result.stage, 'scope')
+  assert.deepEqual(laneRecordCalls, [])
+})
+
+test('run-record: a refused begin after a fix says the fix commits are on the branch and stores nothing', async () => {
+  const refusal = 'run r was added already; it cannot be begun again'
+  const { result, laneRecordCalls } = await runLane({ ...resumeArgs, foldIn: [tidy] }, { ...withFixer, begin: { begin_error: refusal } })
+  assert.deepEqual([result.status, result.stage], ['awaiting-head', 'record'])
+  assert.ok(result.reason.includes(refusal))
+  assert.match(result.reason, /fix commits are on the branch/)
+  assert.deepEqual(laneRecordCalls.map(call => call[1]), ['begin'])
 })
 
 test('run-record: a short tip reaches aco as the 40 digits git resolves', async () => {

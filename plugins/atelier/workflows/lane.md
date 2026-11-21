@@ -158,7 +158,8 @@ The lane needs a repository that coordinates with aco, after the head ran
   (primary or secondary) is retried twice after 30 seconds; a
   call the rate limit still refuses makes the relay wait for the reset
   `gh api rate_limit` names (an agent step, at most an hour in total) and run
-  the step once more; a call that stays unreachable, or whose reset is unreadable,
+  the step again (a rerun the rate limit refuses again may wait again, within the
+  same hour and at most 16 waits in total); a call that stays unreachable, or whose reset is unreadable,
   absent or more than an hour away, ends the lane awaiting-head at `scope` (resume
   with a new run with `pr` and `tip`, and `deltaFrom` where the stop names it) or
   at `ci` (resume with `pr` and `tip`; a resume from `ci` runs scope and the

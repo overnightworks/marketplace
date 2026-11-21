@@ -440,10 +440,10 @@ async function waitForRateLimitReset(A, spentBefore, callsBefore) {
     if (!waited || waited.problem || waited.unreachable || waited.values.rate.code !== 0) return { stop: "Its rate limit could not be read with `gh api rate_limit`, so no reset is known." }
     const { exhausted, now, reset, slept } = waited.values
     spent += slept
-    if (!exhausted.length) return waitCalls === firstOfRound + 1 ? { stop: '`gh api rate_limit` shows no exhausted quota and names no reset (a secondary limit).' } : { spent, waitCalls }
+    if (!exhausted.length) return waitCalls === firstOfRound + 1 ? { stop: '`gh api rate_limit` shows nothing exhausted any more, yet the call is still refused.' } : { spent, waitCalls }
     if (reset - now > RATE_LIMIT_WAIT_BOUND_SECONDS + RATE_LIMIT_RESET_SKEW_SECONDS) return { stop: `The reset ${exhausted.join(', ')} names is more than an hour away.` }
-    if (spent > RATE_LIMIT_WAIT_BOUND_SECONDS) return { stop: `The refusal held after waiting ${spent} seconds for the reset.` }
     if (now + slept >= reset) return { spent, waitCalls }
+    if (spent > RATE_LIMIT_WAIT_BOUND_SECONDS) return { stop: `The refusal held after waiting ${spent} seconds for the reset.` }
   }
   return { stop: 'The refusal held after the most waits the lane makes for the reset.' }
 }

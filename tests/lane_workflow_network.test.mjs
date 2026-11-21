@@ -148,7 +148,7 @@ const SECOND_ROUND_FIRST_WAIT_CALL = 3
 test('AC-rate-limit-wait: a rerun refused again whose rate limit then shows no exhausted quota ends the lane awaiting-head', async () => {
   const { result } = await runLane(resumeArgs, { 'scope-resume': { ...refusedTwice, rate_exhausted_calls: 1, rate_reset_in: WITHIN_THE_HOUR } }, noWait)
   assert.deepEqual([result.status, result.stage], ['awaiting-head', 'scope'])
-  assert.match(result.reason, /no exhausted quota/)
+  assert.match(result.reason, /nothing exhausted any more/)
 })
 
 // One second of sleep per wait, a one-second total bound and a skew that keeps the reset within it make the total reachable inside a test.

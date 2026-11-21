@@ -1,0 +1,8 @@
+claim_id = "768a2398ae3a4ac7b570104f691e03bf"
+agent = "Claude db9b3568-102f-443a-8291-ba9e64e0946c"
+role = "builder"
+base = "11dc0579bc297c9e76f269dfeb4a6c6f45c6f05c"
+branch = "claude/issue-907-the-flake-re-run-did-not-fire-for-a-disp"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/lane/relay.js", "plugins/atelier/workflows/lane.js", "plugins/atelier/workflows/lane.md", "tests/lane_workflow_ci.test.mjs", "tests/lane_workflow_fix.test.mjs", "tests/lane_workflow_harness.mjs"]
+opened_commit = "a19b4bd1aaf6e8ecb1c77d05a683708a6b80cf78"
+whole_reason = "One rule, a fixer's dispute or resolution names its blocking finding by number, across the fixer's answer schema and brief, the flake and fix judgements that match it, its generated workflow, its doc, its tests and the version manifests the plugin rule requires."

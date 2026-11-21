@@ -361,6 +361,9 @@ HUNG_UP_STATUS = 129
 CAP_EXPIRED_STATUS = 124
 KILLED_STATUS = 137
 SHORT_KILL_AFTER, SHORT_CAP = "2", "20"
+# A cap far beyond DEATH_SIGNAL_WINDOW, so that only a death signal can end the stack inside it.
+LONG_CAP = "120"
+DEATH_SIGNAL_WINDOW = 10
 
 
 class Stack:
@@ -481,7 +484,7 @@ def test_tears_the_stack_down_once_the_process_that_started_probe_run_is_gone(re
     stack = Stack(tmp_path, TEARS_DOWN_ON_EXIT_AND_TERM)
     pid_file = tmp_path / "probe-run.pid"
     starter = subprocess.Popen(
-        ["sh", "-c", f"{PROBE_RUN} -k {SHORT_KILL_AFTER} {SHORT_CAP} {stack.script} & echo $! > {pid_file}; wait"],
+        ["sh", "-c", f"{PROBE_RUN} -k {SHORT_KILL_AFTER} {LONG_CAP} {stack.script} & echo $! > {pid_file}; wait"],
         env=real_machine,
     )
     probe_run_pid = None
@@ -490,8 +493,8 @@ def test_tears_the_stack_down_once_the_process_that_started_probe_run_is_gone(re
         probe_run_pid = int(pid_file.read_text())
         starter.kill()
         starter.wait(timeout=10)
-        wait_for(stack.torn_down.exists)
-        wait_for(lambda: not is_running(probe_run_pid))
+        wait_for(stack.torn_down.exists, DEATH_SIGNAL_WINDOW)
+        wait_for(lambda: not is_running(probe_run_pid), DEATH_SIGNAL_WINDOW)
     finally:
         if starter.poll() is None:
             starter.kill()
@@ -505,13 +508,13 @@ def test_tears_the_stack_down_once_the_process_that_started_probe_run_is_gone(re
 
 def test_a_killed_probe_run_tears_the_stack_down_and_leaves_nothing_of_its_own_running(real_machine, tmp_path):
     stack = Stack(tmp_path, TEARS_DOWN_ON_EXIT_AND_TERM)
-    probe = start_stack_under_probe_run(real_machine, stack)
+    probe = start_stack_under_probe_run(real_machine, stack, SHORT_KILL_AFTER, LONG_CAP)
 
     try:
         probe.kill()
         probe.wait(timeout=10)
-        wait_for(stack.torn_down.exists)
-        wait_for(lambda: not live_session_members(probe.pid))
+        wait_for(stack.torn_down.exists, DEATH_SIGNAL_WINDOW)
+        wait_for(lambda: not live_session_members(probe.pid), DEATH_SIGNAL_WINDOW)
         remaining = live_session_members(probe.pid)
     finally:
         end_probe_run(probe)

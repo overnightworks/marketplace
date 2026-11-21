@@ -1,8 +1,0 @@
-claim_id = "27e3d0b16d614fc9be854dc0dfc357e7"
-agent = "Claude 6f734bfc-08d4-4565-9fdb-8eac1c73f4b4"
-role = "builder"
-base = "a22d3835e1804e8df9ebcfc0af1c906dd6460ca7"
-branch = "claude/issue-921-the-lane-stores-its-verdict-on-the-claim"
-scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/lane", "plugins/atelier/skills/aco/SKILL.md", "plugins/atelier/workflows/lane.js", "plugins/atelier/workflows/lane.md", "tests/lane_workflow.test.mjs", "tests/lane_workflow_ci.test.mjs", "tests/lane_workflow_harness.mjs", "tests/lane_workflow_run_misses.test.mjs", "tests/lane_workflow_run_record.test.mjs"]
-opened_commit = "e4511f012fa93fe1551e0a225dda3086814b8aec"
-whole_reason = "One rule, the lane stores its verdict on the claim at each proven point, across the lane's record and run code, its generated workflow, its doc, the aco skill's sentence on stored runs, its harness tests and the version manifests the plugin rule requires."

@@ -1,8 +1,0 @@
-claim_id = "4a2cbe2a4274468ea4ef842ce9fdd42e"
-agent = "Claude db9b3568-102f-443a-8291-ba9e64e0946c"
-role = "builder"
-base = "31c0a946d05a06ad0627e5a80656a6ef7c37f05c"
-branch = "claude/issue-906-a-fixfirst-run-on-a-tip-that-already-car"
-scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/lane/main.js", "plugins/atelier/lane/relay.js", "plugins/atelier/lane/review.js", "plugins/atelier/workflows/lane.js", "plugins/atelier/workflows/lane.md", "tests/lane_workflow.test.mjs", "tests/lane_workflow_fix.test.mjs", "tests/lane_workflow_fix_outside.test.mjs", "tests/lane_workflow_harness.mjs"]
-opened_commit = "160193218a6269e6454f585a9bb51eb8dc83f651"
-whole_reason = "One behaviour, a fixer that proves every carried finding already resolved on an unchanged tip hands the round to the re-check, across the fix judgement, its generated workflow, its doc, its test and the version manifests the plugin rule requires."

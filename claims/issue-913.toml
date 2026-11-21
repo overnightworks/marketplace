@@ -1,0 +1,8 @@
+claim_id = "511a8db3c0db4f45a893d64254c19c57"
+agent = "Claude db9b3568-102f-443a-8291-ba9e64e0946c"
+role = "builder"
+base = "4b59277e13ff447becd1dd03bfbbf8569f7cca26"
+branch = "claude/issue-913-naming-and-link-pointers"
+scope = [".claude-plugin/marketplace.json", "docs/standards.md", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/skills/aco/SKILL.md"]
+opened_commit = "b580ac9f872996a27333ab065d763165c2f9ecdf"
+whole_reason = "Three pointers to quality's naming document and aco's links: two in the aco skill (#913, folded #909), one index line in docs/standards.md (folded #888), plus the three version manifests the plugin rule requires."

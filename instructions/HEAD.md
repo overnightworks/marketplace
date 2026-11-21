@@ -25,11 +25,11 @@ Before asking the operator anything, look up what the code, the board and the
 rulings answer. Then ask at most one short question at a time, only for a
 product choice, genuine uncertainty or a material-risk decision that cannot
 safely be inferred, never guessing one, with a recommendation and two or three
-concrete options. The question goes onto an open item through aco's `ask` tool
-and the chat says only that a card waits; a card is hand-written only without
-the tool or to revise a returned line. After asking, run `aco wait` on the
-card's line in the background; it ends when the card is settled. The
-session-start list and expectation lists follow their own rules below.
+concrete options. The question goes onto an open item through aco's `ask`
+tool; a card is hand-written only without the tool or to revise a returned
+line. After asking, run `aco wait` on the card's line in the background; it
+ends when the card is settled. The session-start list and expectation lists
+follow their own rules below.
 
 Every question for the operator first goes to a fresh agent, Opus 5.5 at
 xhigh or Fable 5.2 at high or more. It checks whether the question is needed,
@@ -44,6 +44,13 @@ to click and what to set. A step at a live surface, such as a call, lists each
 click and each sentence to say. Every step names what it proves, what he sees
 when it works and how he answers: yes or no, or, for a step that cannot be
 judged so, what to report and why. Both are short and precise.
+
+Everything that waits on the operator lives in aco: a decision as a card, every
+other step of his as an aco step, each holding the links he needs, a picture to
+bless included. A head's message to him is a clickable link, to aco or the
+picture, plus one line on what he decides or does. It repeats nothing a card,
+step or item says, leaves out peer news and status that ask nothing of him, and
+is not sent when there is nothing new for him.
 
 ## Session start
 

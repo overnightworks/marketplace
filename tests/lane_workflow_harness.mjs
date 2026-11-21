@@ -433,3 +433,6 @@ export const roundFix = (round) => ({ ...mergeOnlyFix, head: roundTip(round), pa
 // A fix that changes a lane file outside production moves the tip to a commit a review judges, so the record's last verdict names it.
 export const reviewedRoundFix = (round) => ({ ...resumeFix, head: roundTip(round), parents: [round === 1 ? resumeArgs.tip : roundTip(round - 1)], files: ['x.py'], regression: [] })
 export const roundReviews = Object.fromEntries([1, 2, 3, 4].map(round => [`r${round}-review`, APPROVE]))
+
+// A tester whose answer the test releases: the lane starts it and goes on with the CI side until `resolve` gives its verdict.
+export const heldTester = () => { let resolve; const promise = new Promise(done => { resolve = done }); return { promise, resolve, answer: () => promise } }

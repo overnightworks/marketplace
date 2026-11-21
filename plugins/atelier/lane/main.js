@@ -584,6 +584,11 @@ async function reviseAfter(rr) {
       'The final gate returned REVISE three times in a row; no fixer was started. Re-ask the pull question against gateRevisions first, ' +
       'then start a new run with pr and tip and fixFirst, or re-cut the item.' })
   }
+  // A reviewer that approved the tip has proven it, whichever other reviewer revises it; its verdict goes to the claim before the fixer can die.
+  if (rr.results.some(v => v?.verdict === 'APPROVE' && !(v.blocking || []).length)) {
+    const stored = await storeProvenPoint()
+    if (stored) return stored
+  }
   const f = await fixRound(blocking, 'the review', 'review', false, raised.some(r => r === GATE || r === STANDIN) ? 'gate' : 'review')
   if (f.stop) return f.stop
   if (!f.range) return openResult('failed', 'review', { reason: 'a review finding was answered by a merge alone', lastBlocking: blocking })
@@ -702,6 +707,9 @@ while (true) {
     if (stop) return stop
   }
   history.push({ after: spent.total, by: `ci-${n - 1}`, verdict: ci.verdict, blocking: (ci.failing || []).map(f => f.where), deterministic: (ci.failing || []).filter(f => f.deterministic === true).map(f => f.where) })
+  // A CI finding read after a proven point opens the next segment, so a stop without a fixer still stores it.
+  const afterCiStop = (ci.failing || []).length ? await beginRun() : null
+  if (afterCiStop) return afterCiStop
   if (ci.readError) return await openResult('failed', 'ci', { reason: ci.readError })
   if (ci.pending) return await openResult('awaiting-head', 'ci', { reason: `${ci.pending} Start a new run with pr ${pr} and tip ${tip} once CI has finished.` })
   if (unproven) return await openResult('failed', 'ci', { reason: `CI reported green, but the check listing does not prove it: ${unproven}` })

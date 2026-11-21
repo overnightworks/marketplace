@@ -1,7 +1,7 @@
 // Each run stores its record on the claim as segments through aco lane-record begin and add: the first begins right after the run's input checks, each segment is added at a proven point or at the run's end, and the next begins right before its first stage.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { runLane, partReplaced, resumedLane, built, resumeArgs, resumeTip, tidy, reachesTheEnd, APPROVE, satisfied, unchangedFix, PASS, greenCi, noWait, resumeFix, roundTip, storedLane } from './lane_workflow_harness.mjs'
+import { runLane, partReplaced, resumedLane, built, resumeArgs, resumeTip, tidy, reachesTheEnd, APPROVE, satisfied, unchangedFix, PASS, greenCi, noWait, resumeFix, roundTip, roundRed, reviewedRoundFix, roundReviews, heldTester, defectWithoutDraft, storedLane } from './lane_workflow_harness.mjs'
 
 const builtLane = { ...resumedLane, pr: undefined, tip: undefined, build: 'b' }
 const worktreeHead = 'ab'.repeat(20)
@@ -20,6 +20,11 @@ const optionValues = (call, option) => {
 }
 const callOf = (calls, verb) => calls.find(call => call[1] === verb)
 const callsOf = (calls, verb) => calls.filter(call => call[1] === verb)
+// The record as one unsplit run states it, read through the lane's own record function over the run's whole history.
+const unsplitProbe = 'return JSON.stringify(laneRecord({ routing: ROUTING, history: A.history, fixRole: A.fixRole, fixRounds: fixRoundsByStage, risk: \'normal\', earlier: { follows: true, approved: [] } }))'
+const unsplitOf = (run) => JSON.parse(run.result.routingLine)
+const probed = { transform: partReplaced('laneRouting', unsplitProbe) }
+
 // The stages every stored run of a lane run names, in the order the runs were added.
 const ranOfRuns = (calls) => callsOf(calls, 'add').flatMap(add => optionValues(add, '--ran'))
 
@@ -230,13 +235,11 @@ const segmentedAnswers = {
 }
 
 test('run-record: the stored runs of a segmented lane sum to the totals and the verdicts of one unsplit run', async () => {
-  const unsplitProbe = 'return JSON.stringify(laneRecord({ routing: ROUTING, history: A.history, fixRole: A.fixRole, fixRounds: fixRoundsByStage, risk: \'normal\', earlier: { follows: true, approved: [] } }))'
-  const run = await runLane(resumeArgs, segmentedAnswers, { transform: partReplaced('laneRouting', unsplitProbe) })
+  const run = await runLane(resumeArgs, segmentedAnswers, probed)
   assert.equal(run.result.status, 'ready-to-land', run.result.reason)
   assert.equal(callsOf(run.laneRecordCalls, 'add').length, 3)
   const stored = storedLane(run)
-  const unsplit = JSON.parse(run.result.routingLine)
-  for (const kind of ['fix_rounds', 'blocking', 'misses', 'verdicts']) assert.deepEqual(stored[kind], unsplit[kind])
+  for (const kind of ['fix_rounds', 'blocking', 'misses', 'verdicts']) assert.deepEqual(stored[kind], unsplitOf(run)[kind])
   assert.deepEqual(stored.verdicts.map(verdict => verdict.sha), [resumeTip, fixedTip])
   assert.deepEqual(stored.misses, { review: 0, gate: 0, ci: 0, test: 1 })
 })
@@ -260,4 +263,60 @@ test('run-record: a segment that started no stage since the last proven point st
   assert.equal(result.status, 'ready-to-land')
   assert.deepEqual(laneRecordCalls.map(call => call[1]), ['begin', 'add', 'begin', 'add'])
   assert.equal(result.record, '/s/lane-record.json')
+})
+
+test('run-record: a run killed after a proven point while the tester runs leaves a begun run that counts the tester\'s stage once it answers', async () => {
+  const tester = heldTester()
+  const answers = { 'r0-review': APPROVE, 'e2e-0': tester.answer, 'ci-0': roundRed(0), 'fix-1': reviewedRoundFix(1), 'r1-review': APPROVE }
+  const run = await runLane(resumeArgs, answers, { killAt: 'ci-1' })
+  assert.equal(run.killed, true)
+  assert.deepEqual(run.laneRecordCalls.map(call => call[1]), ['begin', 'add', 'begin', 'add', 'begin'])
+  assert.deepEqual(callsOf(run.laneRecordCalls, 'add').map(add => optionValues(add, '--ran')), [['review'], ['review', 'fix']])
+})
+
+test('run-record: the tester\'s findings and the CI findings that come after a proven point reach the stored runs when the run ends without another stage', async () => {
+  const tester = heldTester()
+  const late = { where: 'flow.py:9', kind: 'defect', text: 'the flow loses data', rule: 'no data loss', evidence: 'repro' }
+  const answers = { ...roundReviews, 'r0-review': APPROVE, 'e2e-0': tester.answer, 'ci-0': roundRed(0), 'ci-1': roundRed(1, () => tester.resolve({ verdict: 'FAIL', blocking: [late], followups: [] })), 'fix-1': reviewedRoundFix(1) }
+  const run = await runLane({ ...resumeArgs, budgets: { ci: 1 } }, answers, probed)
+  assert.equal(run.result.status, 'ci-red', run.result.reason)
+  const stored = storedLane(run)
+  assert.deepEqual(stored.blocking, { review: 0, gate: 0, ci: 2, test: 1 })
+  for (const kind of ['fix_rounds', 'blocking', 'misses', 'verdicts']) assert.deepEqual(stored[kind], unsplitOf(run)[kind])
+})
+
+test('run-record: a CI finding read after a proven point reaches the stored runs when the run then ends without a fixer', async () => {
+  const answers = { ...roundReviews, 'r0-review': APPROVE, 'e2e-0': PASS, 'ci-0': roundRed(0), 'ci-1': roundRed(1), 'fix-1': reviewedRoundFix(1) }
+  const run = await runLane({ ...resumeArgs, budgets: { ci: 1 } }, answers, probed)
+  assert.equal(run.result.status, 'ci-red', run.result.reason)
+  assert.equal(storedLane(run).blocking.ci, 2)
+  for (const kind of ['fix_rounds', 'blocking', 'misses', 'verdicts']) assert.deepEqual(storedLane(run)[kind], unsplitOf(run)[kind])
+})
+
+test('run-record: a finding that comes back after a proven point counts once in the stored runs, as in one unsplit run', async () => {
+  const secondTip = roundTip(4)
+  const answers = {
+    ...segmentedAnswers, 'e2e-1': { verdict: 'FAIL', blocking: [{ ...testerFinding, text: 'the flow still loses data' }], followups: [] },
+    'fix-2': { ...resumeFix, head: secondTip, parents: [fixedTip], files: ['flow.py'], regression: [{ finding: 1, test: 't.py::t', failedBefore: true, passesAfter: true }] },
+    'r2-review': APPROVE, 'e2e-2': PASS, 'ci-1': greenCi(fixedTip), 'ci-2': greenCi(secondTip),
+  }
+  const run = await runLane(resumeArgs, answers, probed)
+  assert.equal(run.result.status, 'ready-to-land', run.result.reason)
+  assert.equal(storedLane(run).blocking.test, 1)
+  for (const kind of ['fix_rounds', 'blocking', 'misses', 'verdicts']) assert.deepEqual(storedLane(run)[kind], unsplitOf(run)[kind])
+})
+
+test('run-record: a review approval beside a gate revision on a material lane is stored before the fixer starts', async () => {
+  const answers = { 'r0-review': APPROVE, 'r0-gate': { verdict: 'REVISE', blocking: [defectWithoutDraft], followups: [] } }
+  const run = await runLane(materialArgs, answers, { killAt: 'fix-1' })
+  assert.equal(run.killed, true)
+  assert.deepEqual(run.laneRecordCalls.map(call => call[1]), ['begin', 'add', 'begin'])
+  assert.deepEqual(recordAdded(run, 0).verdicts, [approvalAt('review', resumeTip), { stage: 'gate', verdict: 'revise', sha: resumeTip }])
+})
+
+test('run-record: the CI findings read with the tester\'s pass reach the stored runs when the run then ends without a fixer', async () => {
+  const run = await runLane({ ...resumeArgs, budgets: { ci: 0 } }, { 'r0-review': APPROVE, 'e2e-0': PASS, 'ci-0': roundRed(0) }, probed)
+  assert.equal(run.result.status, 'ci-red', run.result.reason)
+  assert.equal(storedLane(run).blocking.ci, 1)
+  assert.deepEqual(storedLane(run).blocking, unsplitOf(run).blocking)
 })

@@ -109,22 +109,35 @@ const approvedOn = (history, sha) => { const last = recordedVerdicts(history).at
 // The shas of earlier runs' review approvals count for this run's misses only when the run follows them (aco marks the lane's misses unknown otherwise).
 const approvedBeforeRun = (earlier) => earlier?.follows ? earlier.approved : []
 
-// The record leaves misses out when the read of the stored runs failed: aco then shows the lane's misses as unknown instead of a low count.
-function laneRecord({ routing, history, fixRole, testStarted = false, fixRounds, risk, experiment, earlier }) {
-  const stages = stageChoices({ routing, history, fixRole, testStarted })
-  const blocking = Object.fromEntries(FINDING_STAGE_NAMES.map(stage => [stage, 0]))
-  const misses = Object.fromEntries(FINDING_STAGE_NAMES.map(stage => [stage, 0]))
-  blockingStages(history, approvedBeforeRun(earlier)).forEach(finding => {
-    blocking[finding.stage] = Math.min(RECORD_COUNT_LIMIT, blocking[finding.stage] + finding.count)
-    misses[finding.stage] = Math.min(RECORD_COUNT_LIMIT, misses[finding.stage] + finding.misses)
+const zeroCounts = () => Object.fromEntries(FINDING_STAGE_NAMES.map(stage => [stage, 0]))
+
+// The blocking findings and misses per stage of a history, each as blockingStages counts them over it.
+function findingCounts(history, approvedBefore) {
+  const [blocking, misses] = [zeroCounts(), zeroCounts()]
+  blockingStages(history, approvedBefore).forEach(finding => {
+    blocking[finding.stage] += finding.count
+    misses[finding.stage] += finding.misses
   })
+  return { blocking, misses }
+}
+
+// The record leaves misses out when the read of the stored runs failed: aco then shows the lane's misses as unknown instead of a low count.
+// `history` is the run's up to the end of this record and `since` where this record's own slice starts: stages and verdicts come from the slice, the counts are the run's figures minus those up to `since`,
+// so the records of a segmented run sum to the figures of one unsplit run. A miss a later fix proof takes back stays counted in the record it was stored in.
+function laneRecord({ routing, history, since = 0, fixRole, testStarted = false, fixRounds, risk, experiment, earlier }) {
+  const slice = history.slice(since)
+  const stages = stageChoices({ routing, history: slice, fixRole, testStarted })
+  const approvedBefore = approvedBeforeRun(earlier)
+  const [total, before] = [findingCounts(history, approvedBefore), findingCounts(history.slice(0, since), approvedBefore)]
+  const delta = (kind) => Object.fromEntries(FINDING_STAGE_NAMES.map(stage => [stage, Math.min(RECORD_COUNT_LIMIT, Math.max(0, total[kind][stage] - before[kind][stage]))]))
+  const [blocking, misses] = [delta('blocking'), delta('misses')]
   return {
     version: RECORD_VERSION,
     stages: Object.fromEntries(RECORD_STAGES.map(stage => [stage, stages[stage]])),
     fix_rounds: Object.fromEntries(FINDING_STAGE_NAMES.map(stage => [stage, Math.min(RECORD_COUNT_LIMIT, fixRounds[stage])])),
     blocking,
     ...(earlier?.gap ? {} : { misses }),
-    verdicts: recordedVerdicts(history),
+    verdicts: recordedVerdicts(slice),
     risk,
     ...(experiment && { experiment }),
   }

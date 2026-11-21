@@ -286,22 +286,35 @@ const approvedOn = (history, sha) => { const last = recordedVerdicts(history).at
 // The shas of earlier runs' review approvals count for this run's misses only when the run follows them (aco marks the lane's misses unknown otherwise).
 const approvedBeforeRun = (earlier) => earlier?.follows ? earlier.approved : []
 
-// The record leaves misses out when the read of the stored runs failed: aco then shows the lane's misses as unknown instead of a low count.
-function laneRecord({ routing, history, fixRole, testStarted = false, fixRounds, risk, experiment, earlier }) {
-  const stages = stageChoices({ routing, history, fixRole, testStarted })
-  const blocking = Object.fromEntries(FINDING_STAGE_NAMES.map(stage => [stage, 0]))
-  const misses = Object.fromEntries(FINDING_STAGE_NAMES.map(stage => [stage, 0]))
-  blockingStages(history, approvedBeforeRun(earlier)).forEach(finding => {
-    blocking[finding.stage] = Math.min(RECORD_COUNT_LIMIT, blocking[finding.stage] + finding.count)
-    misses[finding.stage] = Math.min(RECORD_COUNT_LIMIT, misses[finding.stage] + finding.misses)
+const zeroCounts = () => Object.fromEntries(FINDING_STAGE_NAMES.map(stage => [stage, 0]))
+
+// The blocking findings and misses per stage of a history, each as blockingStages counts them over it.
+function findingCounts(history, approvedBefore) {
+  const [blocking, misses] = [zeroCounts(), zeroCounts()]
+  blockingStages(history, approvedBefore).forEach(finding => {
+    blocking[finding.stage] += finding.count
+    misses[finding.stage] += finding.misses
   })
+  return { blocking, misses }
+}
+
+// The record leaves misses out when the read of the stored runs failed: aco then shows the lane's misses as unknown instead of a low count.
+// `history` is the run's up to the end of this record and `since` where this record's own slice starts: stages and verdicts come from the slice, the counts are the run's figures minus those up to `since`,
+// so the records of a segmented run sum to the figures of one unsplit run. A miss a later fix proof takes back stays counted in the record it was stored in.
+function laneRecord({ routing, history, since = 0, fixRole, testStarted = false, fixRounds, risk, experiment, earlier }) {
+  const slice = history.slice(since)
+  const stages = stageChoices({ routing, history: slice, fixRole, testStarted })
+  const approvedBefore = approvedBeforeRun(earlier)
+  const [total, before] = [findingCounts(history, approvedBefore), findingCounts(history.slice(0, since), approvedBefore)]
+  const delta = (kind) => Object.fromEntries(FINDING_STAGE_NAMES.map(stage => [stage, Math.min(RECORD_COUNT_LIMIT, Math.max(0, total[kind][stage] - before[kind][stage]))]))
+  const [blocking, misses] = [delta('blocking'), delta('misses')]
   return {
     version: RECORD_VERSION,
     stages: Object.fromEntries(RECORD_STAGES.map(stage => [stage, stages[stage]])),
     fix_rounds: Object.fromEntries(FINDING_STAGE_NAMES.map(stage => [stage, Math.min(RECORD_COUNT_LIMIT, fixRounds[stage])])),
     blocking,
     ...(earlier?.gap ? {} : { misses }),
-    verdicts: recordedVerdicts(history),
+    verdicts: recordedVerdicts(slice),
     risk,
     ...(experiment && { experiment }),
   }
@@ -1324,9 +1337,10 @@ async function laneRouting(A) {
 }
 
 // A run stores its stages on the claim as segments: a segment is one aco run, the span of the run's stages between two proven points (a review that approves the tip, a gate that approves it on a material lane, the tester's pass).
-// aco sums the counts and joins the verdicts over the stored runs, so each segment's record holds only its own slice of the history and its own --ran stages; the approvals of the earlier segments reach a later one through its begin's read of the stored runs.
-// The first segment begins with the run. A later one begins right before its first stage, so a run that stops at a proven point leaves no begun run without a record, and a run killed in the middle of a segment leaves one, which aco counts as lost.
-let began = null  // set once aco lane-record begin ran for a segment, so the records go to the claim and landing or release takes no --record: what its read of the stored runs found, for the misses of the record
+// aco sums the counts and joins the verdicts over the stored runs, so each segment's record holds only its own slice of the history for the verdicts and the --ran stages, and the run's counts since the segment's start; the approvals of the earlier segments stay in the history.
+// The first segment begins with the run. A later one begins right before its first stage, or at once when a tester still runs or a CI finding was read, so a run that stops at a proven point leaves no begun run without a record, and a run killed in the middle of a segment leaves one, which aco counts as lost.
+let began = null  // set once aco lane-record begin ran for a segment, so the records go to the claim and landing or release takes no --record: what its read of the stored runs found
+let firstBegan = null  // the read of the run's first begin: the earlier runs' approvals and the gap the misses of every segment's record are judged by, never the later reads that hold this run's own approvals
 let [builderRan, reviewStarted, testStarted] = [false, false, false]  // the stages the open segment started that the history does not show yet
 let segmentNumber = 1
 let segmentBegun = false  // the open segment has begun on the claim and is not added yet
@@ -1336,14 +1350,21 @@ let addAttempted = false  // aco lane-record add runs once per segment
 let recordsWritten = 0
 
 const segmentRunIdNow = () => segmentRunId(runId, segmentNumber)
-const segmentSlice = () => ({ history: history.slice(segmentFrom.history), fixRole: fixRolesRun.slice(segmentFrom.fixRoles).at(-1) ?? null, testStarted })
-const stagesStarted = () => stagesRan({ ...segmentSlice(), builderRan, reviewStarted })
+// A tester that has not answered belongs to the segment its answer lands in, so it counts as started only once it is judged.
+const segmentSlice = () => ({ history: history.slice(segmentFrom.history), fixRole: fixRolesRun.slice(segmentFrom.fixRoles).at(-1) ?? null, testStarted: testStarted && !pendingTest })
+// A CI finding read after a proven point, in a segment no stage started, still stores: aco takes no empty --ran, and the review slot of a record is never none.
+function stagesStarted() {
+  const slice = segmentSlice()
+  const ran = stagesRan({ ...slice, builderRan, reviewStarted })
+  return ran.length || !slice.history.some(entry => stageOf(entry.by) === 'ci' && entry.blocking?.length) ? ran : ['review']
+}
 
 // The lane record reaches <scratch>/lane-record.json through a courier that cuts it out of its own transcript; the printer then runs aco lane-record check on it and a CRC-signed line brings the exit back.
 // A lane stopped by the Claude usage limit writes none, since the courier is a Claude agent too, and neither does a run refused at input, which has no lane state yet.
 async function writeRecord() {
   const file = `${A.scratch}/lane-record.json`
-  const record = laneRecord({ routing: ROUTING, ...segmentSlice(), fixRounds: fixRoundsSince(fixRoundsByStage, segmentFrom.fixRounds), risk: MATERIAL ? 'material' : 'normal', experiment: A.experiment, earlier: began })
+  // The counts are the run's up to now minus its up to the segment's start, so the segments sum to the unsplit run's figures.
+  const record = laneRecord({ routing: ROUTING, ...segmentSlice(), history, since: segmentFrom.history, fixRounds: fixRoundsSince(fixRoundsByStage, segmentFrom.fixRounds), risk: MATERIAL ? 'material' : 'normal', experiment: A.experiment, earlier: firstBegan })
   const label = `record-${++recordsWritten}`
   const nonce = label
   const { brief, before, fileArgument } = recordCourier({ record, file, scratch: A.scratch, label })
@@ -1359,6 +1380,7 @@ async function beginRun(startTip = segmentStartTip) {
   const unstored = segmentNumber === 1 ? 'this run on the claim, so the run did none of its work' : 'the next stored run of this lane run on the claim, so the run stopped before its next stage'
   if (begun.problem) return await openResult('awaiting-head', 'record', { reason: `aco did not begin ${unstored}: ${begun.problem}` })
   began = begun.read
+  firstBegan ??= begun.read
   segmentBegun = true
   return null
 }
@@ -1382,8 +1404,9 @@ async function storeProvenPoint() {
   addAttempted = false
   segmentStartTip = tip
   segmentFrom = { history: history.length, fixRoles: fixRolesRun.length, fixRounds: { ...fixRoundsByStage } }
-  ;[builderRan, reviewStarted, testStarted] = [false, false, false]
-  return null
+  ;[builderRan, reviewStarted, testStarted] = [false, false, Boolean(pendingTest)]
+  // A tester still running is work to come: its answer needs a begun segment, and a run killed meanwhile must leave one with no record.
+  return pendingTest ? await beginRun() : null
 }
 
 // Runs the explorative end-to-end tester of one pull request tip, with a fallback agent, and returns its answer with the history entry, the follow-ups at the tested tip and the reason an empty verdict is unusable; the lane judges the rest itself.
@@ -2091,6 +2114,11 @@ async function reviseAfter(rr) {
       'The final gate returned REVISE three times in a row; no fixer was started. Re-ask the pull question against gateRevisions first, ' +
       'then start a new run with pr and tip and fixFirst, or re-cut the item.' })
   }
+  // A reviewer that approved the tip has proven it, whichever other reviewer revises it; its verdict goes to the claim before the fixer can die.
+  if (rr.results.some(v => v?.verdict === 'APPROVE' && !(v.blocking || []).length)) {
+    const stored = await storeProvenPoint()
+    if (stored) return stored
+  }
   const f = await fixRound(blocking, 'the review', 'review', false, raised.some(r => r === GATE || r === STANDIN) ? 'gate' : 'review')
   if (f.stop) return f.stop
   if (!f.range) return openResult('failed', 'review', { reason: 'a review finding was answered by a merge alone', lastBlocking: blocking })
@@ -2209,6 +2237,9 @@ while (true) {
     if (stop) return stop
   }
   history.push({ after: spent.total, by: `ci-${n - 1}`, verdict: ci.verdict, blocking: (ci.failing || []).map(f => f.where), deterministic: (ci.failing || []).filter(f => f.deterministic === true).map(f => f.where) })
+  // A CI finding read after a proven point opens the next segment, so a stop without a fixer still stores it.
+  const afterCiStop = (ci.failing || []).length ? await beginRun() : null
+  if (afterCiStop) return afterCiStop
   if (ci.readError) return await openResult('failed', 'ci', { reason: ci.readError })
   if (ci.pending) return await openResult('awaiting-head', 'ci', { reason: `${ci.pending} Start a new run with pr ${pr} and tip ${tip} once CI has finished.` })
   if (unproven) return await openResult('failed', 'ci', { reason: `CI reported green, but the check listing does not prove it: ${unproven}` })

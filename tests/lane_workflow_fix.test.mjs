@@ -161,6 +161,27 @@ for (const [what, shape, goesOn] of satisfiedAcrossMovedMain) {
   })
 }
 
+test('a fixer that changes nothing and shows every carried finding resolved with evidence reaches the review of the earlier commits', async () => {
+  const { result, launchedAgents } = await runLane({ ...resumeArgs, fixFirst: [defectWithoutDraft] }, { 'fix-1': { ...unchangedFix, resolved: [satisfied(defectWithoutDraft)] }, ...reachesTheEnd })
+  assert.equal(result.status, 'ready-to-land', result.reason)
+  assert.ok(launchedAgents.includes('r1-review'))
+})
+
+test('an unchanged tip with every finding resolved and deltaFrom at the tip reviews the whole lane, never an empty range', async () => {
+  const { result, agentCalls } = await runLane({ ...resumeArgs, deltaFrom: resumeTip, fixFirst: [defectWithoutDraft] }, { 'fix-1': { ...unchangedFix, resolved: [satisfied(defectWithoutDraft)] }, ...reachesTheEnd })
+  assert.equal(result.status, 'ready-to-land', result.reason)
+  assert.match(agentCalls['r1-review'].prompt, /git diff origin\/main\.\.\.HEAD/)
+  assert.doesNotMatch(agentCalls['r1-review'].prompt, new RegExp(`git diff ${resumeTip}\\.\\.HEAD`))
+})
+
+for (const [what, evidence] of [['without evidence', ''], ['with blank evidence', '  ']]) {
+  test(`a blocking finding claimed resolved ${what} at an unchanged tip still stops with the fixer changed nothing`, async () => {
+    const { result } = await runLane({ ...resumeArgs, fixFirst: [defectWithoutDraft] }, { 'fix-1': { ...unchangedFix, resolved: [satisfied(defectWithoutDraft, evidence)] } })
+    assert.deepEqual([result.status, result.stage], ['failed', 'fix'])
+    assert.match(result.reason, /the fixer changed nothing/)
+  })
+}
+
 const stopsDespiteResolved = [
   ['a fold-in the fixer leaves out of resolved', { foldIn: [tidy, alsoTidy] }, [satisfied(tidy)]],
   ['nothing listed in resolved', { foldIn: [tidy] }, []],

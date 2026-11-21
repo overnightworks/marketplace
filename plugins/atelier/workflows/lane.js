@@ -578,7 +578,7 @@ async function laneRelay(A) {
     const answersBrief = A.answers ? `The head's answers on findings it settled, to read before you answer one of them:\n${A.answers}\n` : ''
     return (
       `${facts}\nYou are a fresh fixer for PR #${pr} (lane tip ${tip}). Merge origin/main if it moved, before or after your fixes (a merge commit; ` +
-      `resolve conflicts so both sides' behaviour holds, and set mergeResolvedLaneConflict true when files this lane changed needed resolution). If the worktree already carries commits or uncommitted changes past that tip from an earlier fixer that ran out of turns, judge them, keep what is right, and continue from there. Commit each finding as soon as it is green. List in noBehaviourChange the number of each blocking finding whose fix changes no behaviour of the code, and only those. Then commit what is green and return what is left in blockedReason with blocked true. ${task}${foldInBrief}\n\n` +
+      `resolve conflicts so both sides' behaviour holds, and set mergeResolvedLaneConflict true when files this lane changed needed resolution). If the worktree already carries commits or uncommitted changes past that tip from an earlier fixer that ran out of turns, judge them, keep what is right, and continue from there. Commit each finding as soon as it is green. A blocking finding the lane tip already meets (for example by an earlier fixer's commit) is not redone: list it in resolved with its evidence. List in noBehaviourChange the number of each blocking finding whose fix changes no behaviour of the code, and only those. Then commit what is green and return what is left in blockedReason with blocked true. ${task}${foldInBrief}\n\n` +
       `Each finding names the rule it breaks and its evidence. A scanner finding whose message covers the whole file (for example "in this file") is fixed at every occurrence in that file, not only at the reported line. Check the evidence yourself first. If it does not hold — the rule is not broken, or the evidence is wrong — ` +
       `do not change code for it: list it in disputed with your counter-evidence. Report every test you add, strengthen or keep for a blocking finding, and every probe cell you run for it, in regression under that finding's number in the list above; the number counts only for the blocking list, a probe you saw fail and then acted on is reported before the entry that passes, and the last entry per finding is its proof; a follow-up needs no regression entry. Run the mutation you name, do not reason about it. ` +
       `A defect's test fails before your fix and passes after it; a defect with a test draft needs one. A defect in test code (hygiene) needs no regression test: the diff is its proof. A test you could not run on this machine is reported with notRun, the reason, and passesAfter false is kept for a test you ran and saw fail; the delta re-check judges a not-run test from its text and CI on the pushed tip runs it. A test-gap finding means a behaviour has no test, the code is already right, and it always needs a test: it passes before and after, ` +
@@ -677,13 +677,15 @@ async function laneRelay(A) {
     const anyAnswer = blocking.length > 0 || foldIn.some(f => answers.some(o => o.foldIn === f.where))
     return anyAnswer && blockingAnswered && foldInAnswered
   }
+  // An unchanged tip is a fix too when the fixer proves every blocking finding already met by the lane tip (an earlier fixer's commits).
+  const everyBlockingResolved = (fixed, blocking) => blocking.length > 0 && blocking.every(f => satisfiedEvidence(fixed, f))
   // Why a fixer's answer does not count as a fix, or null when it does.
   function fixRejection(fixed, blocking, foldIn) {
     const { findingNumbers, ...rejection } = fixed.proofRejection ?? {}
     if (findingNumbers) return { ...rejection, lastBlocking: findingNumbers.map(number => blocking[number - 1]) }
     // Satisfied fold-ins leave the lane at the held tip, or at a merge of main onto it: anything past that is unasked work.
     const foldInsOnly = everyFoldInSatisfied(fixed, blocking, foldIn)
-    if (fixed.unchanged) return (foldInsOnly && fixed.containsMain) || answeredOutside(fixed, blocking, foldIn) || checkpointMet(fixed, blocking) ? null : { reason: 'the fixer changed nothing', lastBlocking: blocking }
+    if (fixed.unchanged) return (foldInsOnly && fixed.containsMain) || answeredOutside(fixed, blocking, foldIn) || everyBlockingResolved(fixed, blocking) || checkpointMet(fixed, blocking) ? null : { reason: 'the fixer changed nothing', lastBlocking: blocking }
     const mergeWasTheFinding = A.source === 'CI' || (blocking.length === 1 && blocking[0].where === 'mergeable')
     if (fixed.mergeOnly && !mergeWasTheFinding && !foldInsOnly) return { reason: 'the fixer only merged main and fixed nothing', lastBlocking: blocking }
     return null
@@ -1237,9 +1239,10 @@ const WHOLE_LANE = 'the whole lane: git diff origin/main...HEAD'
 function firstReviewRange({ deltaFrom, answers, tip, item, pr, repoFlag, fix }) {
   const delta = deltaFrom && `only this delta: git diff ${deltaFrom}..HEAD — fix commits made for earlier blocking findings that no reviewer has seen yet. They answer:\n${answers || '(see the commit messages in the range)'}`
   if (!fix) return { range: delta || WHOLE_LANE, from: deltaFrom }
-  const asDelta = deltaFrom && !fix.checkpointMet  // without deltaFrom the round covers the whole lane
+  const nothingNewSinceDelta = !fix.range && !fix.answeredOutside && sameCommit(deltaFrom, tip)  // an unchanged tip at deltaFrom leaves an empty delta
+  const asDelta = deltaFrom && !fix.checkpointMet && !nothingNewSinceDelta  // without deltaFrom the round covers the whole lane
   if (!asDelta) {
-    const wholeLane = fix.checkpointMet ? WHOLE_LANE : delta || WHOLE_LANE  // a complete checkpoint has no fix commits: review as a first build
+    const wholeLane = fix.checkpointMet || nothingNewSinceDelta ? WHOLE_LANE : delta || WHOLE_LANE  // a complete checkpoint has no fix commits: review as a first build
     return { from: undefined, range: fix.range
       ? `${delta || WHOLE_LANE}. It includes the fixer's commits for the head's carried-over findings, described next as a delta to look at closely; review the whole lane, not only that delta:\n${fix.range}`
       : `${wholeLane}${fix.foldInsText}` }

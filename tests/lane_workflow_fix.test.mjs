@@ -88,7 +88,6 @@ test('a stopped fix reports the fold-ins its fixer found already done, and leave
   assert.ok(result.followups.some(f => f.where === resolved[0].where))
 })
 
-
 const fixBatchRouting = [
   ['only docs findings', { fixFirst: [docsFinding] }, 'haiku', 'low'],
   ['docs findings plus a defect', { fixFirst: [docsFinding, defectWithoutDraft] }, 'sonnet', 'medium'],
@@ -288,7 +287,6 @@ test('a follow-up carries the tip it was raised at, and the result lists those r
 // A resumed run whose fixer answers findings handed over by the head: what each proof must show for its own finding.
 
 const defectWithDraft = { ...finding('t.py:1', 'the code breaks the rule'), kind: 'defect', testDraft: '/s/draft_test.py' }
-
 
 const rejectedForNoProof = /test-gap finding or a defect with a test draft got no regression test/
 

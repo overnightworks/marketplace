@@ -81,7 +81,8 @@ The lane needs a repository that coordinates with aco, after the head ran
   settled an awaiting-head result. Without it, a new run with `pr` and `tip` and
   `fixFirst` or `foldIn` reviews the whole lane, with the gate on a material lane.
   A `deltaFrom` equal to `tip` fails at stage `input` before any agent runs, unless
-  `fixFirst` or `foldIn` is given: then the review reads only the fixer's commits.
+  `fixFirst` or `foldIn` is given: then the review reads only the fixer's commits,
+  or the whole lane when the fixer commits nothing.
   Follow-ups after a ready-to-land run are fixed cheaply this way: a new run with
   `pr`, `tip`, `deltaFrom` = `tip` and `fixFirst` or `foldIn`, whose review covers
   only the fixer's commits. Otherwise drop it for a full review, or name the commit
@@ -188,7 +189,8 @@ The lane needs a repository that coordinates with aco, after the head ran
 - A fixer that changes nothing because the tip already meets every carried
   blocking finding (an earlier fixer's commits) lists each in `resolved` with
   its evidence and disputes none: the round goes on to the re-check of the
-  commits since `deltaFrom`, or the whole lane without one. A finding in
+  commits since `deltaFrom`, or the whole lane without one or when `deltaFrom`
+  equals the tip and the fixer commits nothing. A finding in
   `resolved` without evidence still fails at `fix` with "the fixer changed
   nothing".
 - A fixer answers a finding as removed (dead code or a test that pins nothing)

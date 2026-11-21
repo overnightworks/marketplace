@@ -44,6 +44,11 @@ for (const [name, answer] of [['pr 0', { ...built, pr: 0 }], ['no pr', { tip: bu
   })
 }
 
+test('a blocked builder answer without a pull request ends escalated at build with its reason', async () => {
+  const { result } = await runLane(builtLane, { build: { blocked: true, blockedReason: 'the brief is contradictory' } })
+  assert.deepEqual([result.status, result.stage, result.reason], ['escalated', 'build', 'the brief is contradictory'])
+})
+
 test('a builder without a result and with a clean worktree keeps the failed result', async () => {
   const { result } = await runLane(builtLane, { build: null, 'checkpoint-build': { work: false } })
   assert.deepEqual([result.status, result.stage], ['failed', 'build'])

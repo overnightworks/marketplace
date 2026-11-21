@@ -97,7 +97,7 @@ test('AC-resume-with-findings-reviews-the-whole-lane: resuming with carried find
 test('AC-sync-in-worktree: every git command the sync agent is handed carries the worktree', async () => {
   const { agentCalls } = await runLane(resumeArgs)
   const prompt = agentCalls.sync.prompt.slice(agentCalls.sync.prompt.indexOf('Bring the lane up to date'))
-  for (const command of ['git fetch origin', 'git merge-base --is-ancestor origin/main HEAD', 'git merge origin/main', 'git push', 'git merge --abort', 'git status --porcelain']) {
+  for (const command of ['git fetch origin', 'git merge-base --is-ancestor origin/main HEAD', 'git merge origin/main', "git push origin 'b'", 'git merge --abort', 'git status --porcelain']) {
     assert.ok(prompt.includes(command.replace('git ', "git -C '/w' ")), `${command}: ${prompt}`)
   }
   assert.doesNotMatch(prompt, /\bgit (?!-C '\/w' )/)
@@ -106,7 +106,7 @@ test('AC-sync-in-worktree: every git command the sync agent is handed carries th
 test('AC-sync-in-worktree: the ledger conflict path pushes from the worktree too', async () => {
   const { agentCalls } = await runLane({ ...resumeArgs, ledgers: ['LEDGER.md'] })
   const ledgerSentence = agentCalls.sync.prompt.match(/Conflicts only in the append-only ledgers:[^.]*\./)[0]
-  assert.ok(ledgerSentence.includes("git -C '/w' push"), ledgerSentence)
+  assert.ok(ledgerSentence.includes("git -C '/w' push origin 'b'"), ledgerSentence)
 })
 
 test('AC-watcher-in-repo: the CI watcher enters the worktree when repo is unset and names the repo when it is set', async () => {

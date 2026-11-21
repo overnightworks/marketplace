@@ -1,0 +1,7 @@
+claim_id = "bb1b8a2e303847f5a0f1c02b7e8f203d"
+agent = "Claude 5fd48eeb-f686-416f-85b1-085a6741a604"
+role = "builder"
+base = "5f18fd1f78e84d3984466f40b5acba5e4e299592"
+branch = "claude/issue-900-head-writes-operator-link"
+scope = ["instructions/HEAD.md"]
+opened_commit = "60d9e6077fb4306b90f0e8d4b12c312b16415e6b"

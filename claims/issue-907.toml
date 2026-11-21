@@ -1,5 +1,5 @@
 claim_id = "768a2398ae3a4ac7b570104f691e03bf"
-agent = "Claude db9b3568-102f-443a-8291-ba9e64e0946c"
+agent = "Claude 6f734bfc-08d4-4565-9fdb-8eac1c73f4b4"
 role = "builder"
 base = "11dc0579bc297c9e76f269dfeb4a6c6f45c6f05c"
 branch = "claude/issue-907-the-flake-re-run-did-not-fire-for-a-disp"

@@ -139,6 +139,8 @@ The lane needs a repository that coordinates with aco, after the head ran
 
 ## Awaiting-head results
 
+A head that finds a run stopped awaiting-head, or lost, reads `aco lane-record show <n> --json`. The lane is approved at a tip when its stored runs hold an approving verdict at that sha for every stage its risk requires: review, and the gate on a material lane. Land with `aco land <pr> --head <sha>` only when the lane is approved at the pull request's head, a stored run that ran `test` ends at that tip with `blocking.test` 0, and CI is green there. Otherwise start a new run: with `pr`, `tip` and `deltaFrom` the last approved tip when it is an ancestor of the head; with `pr` and `tip` and no `deltaFrom` when the head itself is approved but its gate, test segment or CI is missing (the lane refuses a `deltaFrom` equal to `tip`; the repeated review is the cost of that rarer case). Known case: a CI finding read after the tester's pass begins a segment before it is known whether a fixer follows, so a run that ends ci-red there leaves a begun run without a record; the path above still holds, since CI is not green and the new run fixes it.
+
 - A Codex courier that wrote a different brief than the script composed is
   started once more. A second mismatch returns awaiting-head at stage `review`
   with the resume arguments of the usage limit (`pr`, `tip`, and on a delta round

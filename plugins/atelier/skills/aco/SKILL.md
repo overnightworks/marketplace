@@ -49,8 +49,7 @@ claimed, reviewed and landed; this says *how*.
   the trace-before-claim step named); when it lacks `whole` and the scope names a
   directory or more than three paths, write a one-sentence `whole = "..."` too,
   because aco refuses the claim without it.
-  `start` has no `--json`. `specs/start.spec.md`. Push the branch by name
-  (`git push origin <branch>`), not with a bare `git push`: its upstream can be `origin/main`.
+  `start` has no `--json`. `specs/start.spec.md`.
 - A `malformed ... blocked-by list` refusal has so far been GitHub's issue listing
   still showing the blocker count from before a dependency was added or removed; it
   clears on a retry a minute later. Never answer it with `--out-of-order`. One that
@@ -233,7 +232,7 @@ becomes its own item first (`aco cut`).
 
 ## Land
 
-Gates are green and you hold the tip the reviewers saw. After a merge of the default branch into a ready-to-land lane the tip changed, so the head re-runs the lane with `pr`, the new `tip` and `deltaFrom` the judged tip, which yields a fresh stored record; a lane that stored its record lands without `--record`, which aco refuses on a claim with stored runs. Landing is delegated as a
+Gates are green and you hold the tip the reviewers saw. After a merge of the default branch into a ready-to-land lane the tip changed, so the head re-runs the lane with `pr`, the new `tip` and `deltaFrom` the judged tip, which yields a fresh stored record; a lane that stored its record lands without `--record`, which aco refuses on a claim with stored runs. A run that stopped awaiting-head or was lost may already be approved at the head: the landing path is in `workflows/lane.md`, Awaiting-head results. Landing is delegated as a
 named task, but the precondition is aco's. The landing task runs under the claim's
 identity. A subagent of the claiming head's own provider inherits it and passes neither
 `ACO_AGENT` nor `--agent`; an agent started through another provider's CLI (`grok`,

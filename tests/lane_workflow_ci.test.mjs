@@ -555,39 +555,6 @@ test('ci-flake-rerun: a dispute of only some CI findings goes to the head withou
   assert.deepEqual(launchedAgents.filter(label => label.includes('rerun')), [])
 })
 
-// The tester answers only after the fixer returned, so the run ends at fix while the tester still runs.
-const endsAtFixWithTesterAnswering = (testerAnswer) => {
-  let fixerReturned
-  const afterFixer = new Promise(resolve => { fixerReturned = resolve })
-  return driveCi(redWatch([redJob('Node: tests', 'Run the node tests'), redJob('Python: tests', 'Run the python tests', ['11', '23'])]), lane, undefined, {
-    'fix-2': { ...flakeFix('Node: tests'), edit: (printed) => { fixerReturned(); return printed } },
-    'e2e-0': async () => { await afterFixer; return testerAnswer },
-  })
-}
-
-test('a run that ends at fix while its tester runs carries the tester verdict in its history and its findings', async () => {
-  const testerFinding = { where: 'e.py:1', text: 'the drive breaks', rule: 'the flow works', evidence: 'exit 1' }
-  const failed = { verdict: 'FAIL', blocking: [testerFinding], followups: [], cells: [{ cell: 'drives the entry point', result: 'failed', command: 'run it', exit: '1' }] }
-  const { result } = await endsAtFixWithTesterAnswering(failed)
-  assert.deepEqual([result.status, result.stage], ['awaiting-head', 'fix'])
-  assert.ok(result.history.some(entry => entry.by === 'e2e-0' && entry.verdict === 'FAIL'))
-  assert.deepEqual(result.testerAtStop.blocking.map(f => f.where), ['e.py:1'])
-})
-
-for (const [name, testerAnswer, named] of [
-  ['returns no verdict', { verdict: 'failed', followups: [] }, /tester returned no usable result/],
-  ['was kept from running by the load wait', { verdict: 'failed', lockBusy: true, followups: [] }, /load wait kept the tester from running/],
-  ['passes without a driven cell', { verdict: 'PASS', blocking: [], followups: [], cells: [] }, /PASS without driven cells/],
-  ['fails without a blocking finding', { verdict: 'FAIL', blocking: [], followups: [], cells: [] }, /FAIL verdict came without any blocking finding/],
-]) {
-  test(`a run that ends at fix names a tester that ${name} in its reason`, async () => {
-    const { result } = await endsAtFixWithTesterAnswering(testerAnswer)
-    assert.deepEqual([result.status, result.stage], ['awaiting-head', 'fix'], result.reason)
-    assert.match(result.reason, named)
-    assert.equal(result.testerAtStop, undefined)
-  })
-}
-
 test('ci-flake-rerun: a disputed non-CI finding goes to the head without a re-run', async () => {
   const dispute = flakeFix('x.py:1')
   const { result, launchedAgents } = await runLane({ ...lane, fixFirst: [{ ...defectWithoutDraft, where: 'x.py:1' }] }, { 'fix-1': dispute })

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import ctypes
 import os
 import shutil
@@ -369,12 +370,11 @@ def wait_for(condition, seconds: float = 20) -> None:
         time.sleep(0.05)
 
 
-def start_stack_under_probe_run(
-    real_machine: dict[str, str], stack: Stack, *times: str, **popen_options
-) -> subprocess.Popen[str]:
+def start_stack_under_probe_run(real_machine: dict[str, str], stack: Stack, *times: str) -> subprocess.Popen[str]:
+    """Starts probe-run as the leader of its own session, so that ending it ends every process it owns."""
     probe = subprocess.Popen(
         [str(PROBE_RUN), "-k", *(times or (SHORT_KILL_AFTER, SHORT_CAP)), "--", str(stack.script)],
-        env=real_machine, text=True, stderr=subprocess.PIPE, **popen_options,
+        env=real_machine, text=True, stderr=subprocess.PIPE, start_new_session=True,
     )
     try:
         stack.wait_until_ready()
@@ -385,9 +385,12 @@ def start_stack_under_probe_run(
 
 
 def end_probe_run(probe: subprocess.Popen[str]) -> None:
-    """Kills probe-run, which TERMs the stack through its death signal, and reaps it."""
-    if probe.poll() is None:
-        probe.kill()
+    """Kills probe-run's whole process group, which includes its starter watcher, and reaps it.
+
+    The stack is TERMed through probe-run's death signal.
+    """
+    with contextlib.suppress(ProcessLookupError):
+        os.killpg(probe.pid, signal.SIGKILL)
     probe.communicate(timeout=30)
 
 
@@ -399,7 +402,7 @@ def test_tears_the_stack_down_on_an_interrupt_or_hangup_and_reports_it(
     real_machine, tmp_path, signal_number, status, to_process_group
 ):
     stack = Stack(tmp_path, TEARS_DOWN_ON_EXIT_AND_TERM)
-    probe = start_stack_under_probe_run(real_machine, stack, start_new_session=True)
+    probe = start_stack_under_probe_run(real_machine, stack)
 
     try:
         if to_process_group:

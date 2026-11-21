@@ -273,7 +273,7 @@ def test_ends_without_starting_when_the_starter_ends_before_the_signal_is_armed(
         libc.prctl(PR_SET_CHILD_SUBREAPER, 0)
 
     assert os.waitstatus_to_exitcode(status) == 4
-    assert "the process that started probe-run ended" in output.read_text()
+    assert "ended before the command started" in output.read_text()
     assert not marker.exists()
 
 

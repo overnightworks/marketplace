@@ -46,6 +46,7 @@ kill_after=30
 cap=1800
 starter=$PPID
 starter_ended_message="the process that started probe-run ended during the wait; no probe stack was started"
+guard_refused_message="probe-run or the process that started it ended before the command started; no probe stack was started"
 
 fail() {
   echo "probe-run: $1" >&2
@@ -102,9 +103,13 @@ load_is_below_limit() {
   ((${fraction:0:1} < 5))
 }
 
-# setpriv --pdeathsig applies only from the exec, so the wait watches the starter itself.
-starter_is_alive() {
-  [[ -d /proc/$starter ]]
+# setpriv --pdeathsig applies only from the exec, so the wait watches the starter itself. A
+# starter that ended has left probe-run a new parent, which also holds against pid reuse.
+starter_has_ended() {
+  local key value
+  while read -r key value; do
+    [[ $key != PPid: ]] || { [[ $value != "$starter" ]]; return; }
+  done <"/proc/$$/status"
 }
 
 # Bash runs a trap only between commands, so the wait sleeps in the background and waits on it.
@@ -118,7 +123,7 @@ trap end_wait_on_interrupt INT
 
 waited=0
 while true; do
-  starter_is_alive || fail "$starter_ended_message" "$EXIT_PARENT_GONE"
+  ! starter_has_ended || fail "$starter_ended_message" "$EXIT_PARENT_GONE"
   load_is_below_limit && break
   if ((waited >= wait_seconds)); then
     fail "the 1-minute load stayed at or above $limit_text x $cores cores for ${wait_seconds}s; no probe stack was started" "$EXIT_LOAD_TIMEOUT"
@@ -161,19 +166,12 @@ trap stop_stack TERM
 # An async list in a script gets /dev/null as stdin and ignored INT and QUIT, so the command
 # gets probe-run's stdin back and the default dispositions.
 setpriv --pdeathsig TERM env --default-signal=INT,QUIT bash -c "$PARENT_GUARD" probe-run \
-  "$$" "$starter" "$EXIT_PARENT_GONE" "$starter_ended_message" timeout -k "$kill_after" "$cap" "$@" <&0 &
+  "$$" "$starter" "$EXIT_PARENT_GONE" "$guard_refused_message" timeout -k "$kill_after" "$cap" "$@" <&0 &
 child=$!
 [[ -z $stop_requested ]] || send_term_once
 
-# A signal to probe-run's process group can end the watcher too, so its end alone proves nothing:
-# a starter that ended has left probe-run a new parent.
-starter_has_ended() {
-  local key value
-  while read -r key value; do
-    [[ $key != PPid: ]] || { [[ $value != "$starter" ]]; return; }
-  done <"/proc/$$/status"
-}
-
+# A signal to probe-run's process group can end the watcher too, so its end alone proves
+# nothing: starter_has_ended decides.
 # Waiting on the starter's pid directly is impossible, since it is not this process's child.
 tail --pid="$starter" -f /dev/null &
 starter_watcher=$!

@@ -355,7 +355,8 @@ const wholeLaneRounds = [
 for (const [what, args, answers] of wholeLaneRounds) {
   for (const [risk, deltaFrom] of [['normal'], ['material'], ['normal', olderTip], ['material', olderTip], ['normal', resumeTip], ['material', resumeTip], ['normal', resumeTip.slice(0, 7)], ['material', resumeTip.slice(0, 7)]]) {
     const gated = risk === 'material'
-    const diffCommand = deltaFrom ? `git diff ${deltaFrom}..HEAD` : 'git diff origin/main...HEAD'
+    const emptyDelta = answers['fix-1'].head === resumeTip && deltaFrom && resumeTip.startsWith(deltaFrom)  // an unchanged tip at deltaFrom leaves no delta to read
+    const diffCommand = deltaFrom && !emptyDelta ? `git diff ${deltaFrom}..HEAD` : 'git diff origin/main...HEAD'
     test(`resume round (${risk}, ${what}${deltaFrom ? ', deltaFrom' : ''}) reviews ${gated ? 'and gates ' : ''}on ${diffCommand}`, async () => {
       const gateAnswer = { 'r1-gate': { ...APPROVE, codexExit: 0 } }
       const { launchedAgents, agentCalls } = await runLane({ ...resumeArgs, ...args, risk, deltaFrom }, { ...gateAnswer, ...reachesTheEnd, ...answers })

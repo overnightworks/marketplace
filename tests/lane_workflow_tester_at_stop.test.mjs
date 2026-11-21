@@ -12,7 +12,7 @@ const redOn = (name, ids) => {
 }
 const redJobs = [redOn('Node: tests', ['11', '22']), redOn('Python: tests', ['11', '23'])]
 const redCi = { ...greenCi(tip), green: false, failing: redJobs.flatMap(job => job.findings), checks: [{ name: 'quality / verdict', bucket: 'pass' }, ...redJobs.map(job => ({ name: job.name, bucket: 'fail' }))], red: redJobs }
-const disputed = { head: tip, mergeResolvedLaneConflict: false, files: [], regression: [], blocked: false, disputed: [{ where: 'Node: tests', text: 'Node: tests fails', counterEvidence: 'the same job passes on main; the failing test is not in the diff' }] }
+const disputed = { head: tip, mergeResolvedLaneConflict: false, files: [], regression: [], blocked: false, disputed: [{ finding: 1, where: 'Node: tests', text: 'Node: tests fails', counterEvidence: 'the same job passes on main; the failing test is not in the diff' }] }
 
 // The tester answers only after the fixer returned, so the run ends at fix while the tester still runs.
 const endsAtFixWithTesterAnswering = (testerAnswer) => {

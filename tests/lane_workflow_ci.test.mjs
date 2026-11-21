@@ -516,7 +516,7 @@ test('ci-setup-failure: a re-run agent that ends without a result keeps the firs
   assert.match(agentCalls['fix-2'].prompt, /Node: tests fails/)
 })
 
-const flakeFix = (...wheres) => ({ head: tip, mergeResolvedLaneConflict: false, files: [], regression: [], blocked: false, disputed: wheres.map(where => ({ where, text: `${where} fails`, counterEvidence: 'the same job passes on main; the failing test is not in the diff' })) })
+const flakeFix = (...wheres) => ({ head: tip, mergeResolvedLaneConflict: false, files: [], regression: [], blocked: false, disputed: wheres.map((where, index) => ({ finding: index + 1, where, text: `${where} fails`, counterEvidence: 'the same job passes on main; the failing test is not in the diff' })) })
 const reranPass = { link: 'https://github.com/o/n/actions/runs/11/job/99', bucket: 'pass', findings: [] }
 
 test('ci-flake-rerun: every CI finding disputed with nothing committed re-runs the job, goes on when it passes and keeps the flake in the follow-ups', async () => {
@@ -526,6 +526,15 @@ test('ci-flake-rerun: every CI finding disputed with nothing committed re-runs t
   assert.ok(!launchedAgents.includes('ci-1'))
   assert.deepEqual(result.disputed, [])
   assert.match(result.followups.map(f => f.text).join('\n'), /Node: tests fails[\s\S]*the same job passes on main/)
+})
+
+test('ci-flake-rerun: a dispute names its finding by number, so a where worded differently still re-runs the job', async () => {
+  const sonar = redJob('quality / sonar', 'Run sonar')
+  sonar.findings[0].where = 'scripts/card_drive.py (line not printed in the sonar listing)'
+  const dispute = flakeFix('scripts/card_drive.py (python:S7492, Unpack this comprehension expression)')
+  const { result, agentCalls } = await driveCi(redWatch([sonar]), lane, undefined, { 'fix-2': dispute, 'ci-1-rerun-1': reranPass, 'ci-read-1': { checks: [check(required, 'pass'), check('quality / sonar', 'pass')] } })
+  assert.equal(result.status, 'ready-to-land', result.reason)
+  assert.match(agentCalls['ci-1-rerun-1'].prompt, /gh run rerun 11 --job 22/)
 })
 
 test('ci-flake-rerun: a red after the re-run goes to the head', async () => {

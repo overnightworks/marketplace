@@ -367,6 +367,10 @@ export const tidy = followup('x.py:1', 'tidy the import order', 'follow-up (fix 
 
 export const defectWithoutDraft = { ...finding('t.py:1', 'the code breaks the rule'), kind: 'defect' }
 
+export const proofOf = (finding, overrides) => ({ finding, test: 't.py [case]', failedBefore: false, passesAfter: true, ...overrides })
+
+export const docsFinding = { ...finding('README.md:1', 'a wrong word'), kind: 'docs' }
+
 export const resumeFix = { head: resumeFixedTip, mergeResolvedLaneConflict: false, files: ['x.py'], disputed: [], blocked: false }
 
 export const resumeArgs = { ...resumedLane, tip: resumeTip }

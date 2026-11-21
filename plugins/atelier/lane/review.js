@@ -327,9 +327,10 @@ const WHOLE_LANE = 'the whole lane: git diff origin/main...HEAD'
 function firstReviewRange({ deltaFrom, answers, tip, item, pr, repoFlag, fix }) {
   const delta = deltaFrom && `only this delta: git diff ${deltaFrom}..HEAD — fix commits made for earlier blocking findings that no reviewer has seen yet. They answer:\n${answers || '(see the commit messages in the range)'}`
   if (!fix) return { range: delta || WHOLE_LANE, from: deltaFrom }
-  const asDelta = deltaFrom && !fix.checkpointMet  // without deltaFrom the round covers the whole lane
+  const nothingNewSinceDelta = !fix.range && !fix.answeredOutside && sameCommit(deltaFrom, tip)  // an unchanged tip at deltaFrom leaves an empty delta
+  const asDelta = deltaFrom && !fix.checkpointMet && !nothingNewSinceDelta  // without deltaFrom the round covers the whole lane
   if (!asDelta) {
-    const wholeLane = fix.checkpointMet ? WHOLE_LANE : delta || WHOLE_LANE  // a complete checkpoint has no fix commits: review as a first build
+    const wholeLane = fix.checkpointMet || nothingNewSinceDelta ? WHOLE_LANE : delta || WHOLE_LANE  // a complete checkpoint has no fix commits: review as a first build
     return { from: undefined, range: fix.range
       ? `${delta || WHOLE_LANE}. It includes the fixer's commits for the head's carried-over findings, described next as a delta to look at closely; review the whole lane, not only that delta:\n${fix.range}`
       : `${wholeLane}${fix.foldInsText}` }

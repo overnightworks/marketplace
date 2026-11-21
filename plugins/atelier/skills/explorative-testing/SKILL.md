@@ -57,7 +57,7 @@ real user experiences.
 
 ## Probe stack
 
-A run that starts a server, a container, a browser or an E2E stack drives only under `probe-run`, which waits for room on the machine by load alone (no lock, no fixed number of stacks). Prepare everything that needs no server or browser first: build the page, install dependencies, start a throwaway database. `probe-run` wraps only the drive. A test run that starts none of them, or only its own throwaway database container, does not use `probe-run`; that container still runs under `setpriv --pdeathsig TERM timeout` with a trapped teardown.
+A run that starts a server, a container, a browser or an E2E stack drives only under `probe-run`, which waits for room on the machine by load alone (no lock, no fixed number of stacks). Prepare everything that needs no server or browser first: build the page, install dependencies, start a throwaway database. `probe-run` wraps only the drive. A test run that starts none of them, or only its own throwaway database container, is not wrapped in `probe-run` (only `probe-run --wait-only` runs before it); that container still runs under `setpriv --pdeathsig TERM timeout` with a trapped teardown.
 
 - Before a test run that starts no probe stack, run `probe-run --wait-only`; it returns once the machine has room. A probe stack, a coverage job or an image build waits for the same room.
 - Run only the command or tests that prove a cell (named modules or `-k`), never a full suite or a repeated full run; CI runs the full suite.

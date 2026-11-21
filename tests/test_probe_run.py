@@ -159,7 +159,7 @@ def test_reads_a_load_with_a_leading_zero_as_decimal(machine):
 
 
 def test_wait_only_returns_at_once_for_a_load_below_the_limit_under_a_german_locale(machine):
-    set_load(machine, 5.0)
+    set_load(machine, LOAD_LIMIT / 3)
     machine["LANG"] = "de_DE.UTF-8"
 
     result = probe_run(machine, "--wait-only")

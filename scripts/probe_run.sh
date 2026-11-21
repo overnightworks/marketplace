@@ -48,7 +48,7 @@ kill_after=30
 cap=1800
 readonly SUPERVISE_MARKER=--supervise
 starter=$PPID
-starter_ended_message="the process that started probe-run ended during the wait; no probe stack was started"
+starter_ended_message="the process that started probe-run ended during the wait"
 guard_refused_message="probe-run or the process that started it ended before the command started; no probe stack was started"
 
 fail() {
@@ -123,9 +123,11 @@ if [[ ${1:-} == -h || ${1:-} == --help ]]; then
 fi
 readonly WAIT_ONLY_FLAG=--wait-only
 wait_only=""
+no_stack_note="; no probe stack was started"
 if [[ ${1:-} == "$WAIT_ONLY_FLAG" ]]; then
   [[ $# -eq 1 ]] || fail "$WAIT_ONLY_FLAG takes no command and no other argument"
   wait_only=1
+  no_stack_note=""
 elif [[ ${1:-} == -k ]]; then
   [[ $# -ge 3 ]] || fail "-k needs K and CAP"
   kill_after=$2
@@ -177,17 +179,17 @@ starter_has_ended() {
 sleeper=""
 end_wait_on_interrupt() {
   [[ -z $sleeper ]] || kill "$sleeper" 2>/dev/null || true
-  echo "probe-run: interrupted during the wait; no probe stack was started" >&2
+  echo "probe-run: interrupted during the wait$no_stack_note" >&2
   exit "$EXIT_INTERRUPTED"
 }
 trap end_wait_on_interrupt INT
 
 waited=0
 while true; do
-  ! starter_has_ended || fail "$starter_ended_message" "$EXIT_PARENT_GONE"
+  ! starter_has_ended || fail "$starter_ended_message$no_stack_note" "$EXIT_PARENT_GONE"
   load_is_below_limit && break
   if ((waited >= wait_seconds)); then
-    fail "the 1-minute load stayed at or above $limit_text x $cores cores for ${wait_seconds}s; no probe stack was started" "$EXIT_LOAD_TIMEOUT"
+    fail "the 1-minute load stayed at or above $limit_text x $cores cores for ${wait_seconds}s$no_stack_note" "$EXIT_LOAD_TIMEOUT"
   fi
   sleep "$poll_seconds" &
   sleeper=$!

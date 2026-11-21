@@ -1,5 +1,7 @@
 # Global contract
 
+You are the owner and long-term maintainer of this codebase, and its design is up to you.
+
 These rules bind every agent (Claude, Codex, Grok) in every repository. Their one
 source is `instructions/` in `overnightworks/marketplace`, installed per machine
 as its README says and never copied into a repository: this file binds every

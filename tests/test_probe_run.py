@@ -6,7 +6,6 @@ import os
 import shutil
 import signal
 import subprocess
-import sys
 import time
 from pathlib import Path
 
@@ -17,7 +16,12 @@ from hook_fixtures import install_fake
 PROBE_RUN = Path(__file__).resolve().parents[1] / "scripts" / "probe_run.sh"
 CORES = int(subprocess.run(["nproc"], capture_output=True, text=True, check=True).stdout)
 LOAD_LIMIT = 1.5 * CORES
-ARGUMENT_ECHO = '#!/bin/sh\nprintf "%s\\n" "$@"\n'
+ARGUMENT_ECHO_FOR_TIMEOUT = """#!/bin/sh
+case " $* " in
+  *" timeout "*) printf "%s\\n" "$@" ;;
+  *) shift 2; exec "$@" ;;
+esac
+"""
 MAXIMUM_TOTAL_SECONDS = 1830
 BAD_INPUT_STATUS = 2
 LOAD_TIMEOUT_STATUS = 75
@@ -38,10 +42,10 @@ def real_machine(tmp_path: Path) -> dict[str, str]:
 
 @pytest.fixture
 def machine(tmp_path: Path, real_machine: dict[str, str]) -> dict[str, str]:
-    """An environment whose setpriv prints its arguments and whose load is a file."""
+    """An environment whose setpriv prints what it is asked to run under timeout and whose load is a file."""
     bin_directory = tmp_path / "bin"
     bin_directory.mkdir()
-    install_fake(bin_directory, "setpriv", ARGUMENT_ECHO)
+    install_fake(bin_directory, "setpriv", ARGUMENT_ECHO_FOR_TIMEOUT)
     install_fake(bin_directory, "sleep", "#!/bin/sh\n")
     return {**real_machine, "PATH": f"{bin_directory}:{real_machine['PATH']}"}
 
@@ -253,7 +257,7 @@ def test_ends_a_wait_without_starting_once_the_process_that_started_it_is_gone(m
 SLEEPS_AFTER_ANNOUNCING = "#!/bin/sh\ntouch {announcement}\nexec /bin/sleep 30\n"
 INTERRUPTED_STATUS = 130
 ENDS_ITS_STARTER_BEFORE_ARMING = """#!/bin/sh
-starter=$(sed -n 's/^PPid:[[:space:]]*//p' "/proc/$PPID/status")
+starter=$PPID
 kill -9 "$starter"
 while [ -e "/proc/$starter" ] && ! grep -q '^State:.Z' "/proc/$starter/status"; do /bin/sleep 0.01; done
 exec {real_setpriv} "$@"
@@ -323,20 +327,6 @@ def test_runs_the_command_under_timeout_while_the_starter_lives(machine, tmp_pat
 
     assert result.returncode == 0
     assert marker.exists()
-
-
-def test_a_probe_run_that_hangs_past_the_timeout_leaves_no_starter_watcher_behind(real_machine, monkeypatch):
-    monkeypatch.setattr(sys.modules[__name__], "PROBE_RUN_TIMEOUT_SECONDS", 1)
-
-    with pytest.raises(subprocess.TimeoutExpired):
-        probe_run(real_machine, "sleep", "600")
-
-    processes = subprocess.run(["ps", "-eo", "comm,args"], capture_output=True, text=True, check=True)
-    watching_this_test = f"--pid={os.getpid()}"
-    watchers = [
-        line for line in processes.stdout.splitlines() if line.startswith("tail ") and watching_this_test in line
-    ]
-    assert watchers == []
 
 
 def test_hands_its_stdin_to_the_command(real_machine):
@@ -409,9 +399,9 @@ def start_stack_under_probe_run(real_machine: dict[str, str], stack: Stack, *tim
 
 
 def end_probe_run(probe: subprocess.Popen[str]) -> None:
-    """Kills probe-run's whole process group, which includes its starter watcher, and reaps it.
+    """Kills probe-run's whole process group and reaps it.
 
-    The stack is TERMed through probe-run's death signal.
+    The stack is TERMed through the death signal of the process that ran it.
     """
     with contextlib.suppress(ProcessLookupError):
         os.killpg(probe.pid, signal.SIGKILL)
@@ -514,8 +504,32 @@ def test_tears_the_stack_down_once_the_process_that_started_probe_run_is_gone(re
     assert not is_running(probe_run_pid)
 
 
+def test_a_killed_probe_run_tears_the_stack_down_and_leaves_nothing_of_its_own_running(real_machine, tmp_path):
+    stack = Stack(tmp_path, TEARS_DOWN_ON_EXIT_AND_TERM)
+    probe = start_stack_under_probe_run(real_machine, stack)
+
+    try:
+        probe.kill()
+        probe.wait(timeout=10)
+        wait_for(stack.torn_down.exists)
+        wait_for(lambda: not live_session_members(probe.pid))
+        remaining = live_session_members(probe.pid)
+    finally:
+        end_probe_run(probe)
+
+    assert stack.torn_down.exists()
+    assert remaining == []
+
+
 def is_running(pid: int) -> bool:
     try:
         return Path(f"/proc/{pid}/stat").read_text().rsplit(")", 1)[1].split()[0] != "Z"
     except FileNotFoundError:
         return False
+
+
+def live_session_members(session: int) -> list[str]:
+    listing = subprocess.run(
+        ["ps", "-s", str(session), "-o", "stat=,args="], capture_output=True, text=True, check=False
+    )
+    return [line for line in listing.stdout.splitlines() if not line.startswith("Z")]

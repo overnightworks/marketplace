@@ -405,9 +405,8 @@ before the work is called done.
 - Test code meets these rules: shared arrangement in fixtures and builders,
   cases that differ only in data as one parametrized test. A suite several
   times the size of its code is almost always duplication.
-- Agent and provider behaviour is verified for repeatability, perturbation
-  tolerance, failure handling and safety bounds; one good transcript is no
-  proof.
+- Our handling of agent and provider output is tested for failures and safety
+  bounds; the model's answers are the provider's and are not tested.
 
 ## Documentation
 

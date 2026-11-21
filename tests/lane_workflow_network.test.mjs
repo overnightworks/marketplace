@@ -1,9 +1,8 @@
 // A network failure of a relayed printer call is retried; a call that stays unreachable ends the lane awaiting-head, any other error still ends it failed.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { runLane, resumeArgs, resumeTip, APPROVE, PASS, greenCi, defectWithoutDraft, mergeOnlyFix, mergedOnlyTip } from './lane_workflow_harness.mjs'
+import { runLane, resumeArgs, resumeTip, APPROVE, PASS, greenCi, defectWithoutDraft, mergeOnlyFix, mergedOnlyTip, noWait } from './lane_workflow_harness.mjs'
 
-const noWait = { transform: (source) => source.replace(/const NETWORK_WAIT_SECONDS = \d+$/m, 'const NETWORK_WAIT_SECONDS = 0') }
 const acoMarker = 'error connecting to api.github.com\ncheck your internet connection or https://githubstatus.com'
 const acoDown = { network_stdout: JSON.stringify({ reason: 'unreachable' }), network_error: 'aco: forge unreachable' }
 const ghDown = 'Could not resolve host: github.com'
@@ -101,4 +100,63 @@ test('AC-rate-limit-retry: a pull request read that fails with another error end
   const { result, calls } = await runLane(resumeArgs, { 'ci-read-0': { view_code: 1, view_error: 'gh: HTTP 500' }, ...throughCi }, noWait)
   assert.deepEqual([result.status, result.stage], ['failed', 'ci'])
   assert.equal(calls.gh, 1)
+})
+
+// A read refused on each of the printer's three tries, then the rate limit shows its quota at zero for the first RATE_EXHAUSTED_CALLS waits and refilled after.
+const refused = { network_error: rateLimitMessages[0], network_fails: 3 }
+const RATE_EXHAUSTED_CALLS = 2
+const WITHIN_THE_HOUR = 1800
+const OVER_THE_HOUR = 7200
+
+test('AC-rate-limit-wait: a scope read refused on every in-printer try waits for the reset and the lane reaches ready-to-land', async () => {
+  const { result, launchedAgents } = await runLane(resumeArgs, { 'scope-resume': { ...refused, rate_exhausted_calls: RATE_EXHAUSTED_CALLS, rate_reset_in: WITHIN_THE_HOUR }, ...throughCi }, noWait)
+  assert.equal(result.status, 'ready-to-land', result.reason)
+  assert.ok(launchedAgents.some(label => label.startsWith('scope-resume-wait')))
+})
+
+test('AC-rate-limit-wait: a ci read refused on every in-printer try waits for the reset and the lane reaches ready-to-land', async () => {
+  const { result, launchedAgents } = await runLane(resumeArgs, { 'ci-read-0': { ...refused, rate_exhausted_calls: RATE_EXHAUSTED_CALLS, rate_reset_in: WITHIN_THE_HOUR }, ...throughCi }, noWait)
+  assert.equal(result.status, 'ready-to-land', result.reason)
+  assert.ok(launchedAgents.some(label => label.startsWith('ci-read-0-wait')))
+})
+
+test('AC-rate-limit-wait: a reset more than an hour ahead ends the lane awaiting-head at scope after one wait', async () => {
+  const { result, launchedAgents } = await runLane(resumeArgs, { 'scope-resume': { ...refused, rate_exhausted_calls: RATE_EXHAUSTED_CALLS, rate_reset_in: OVER_THE_HOUR } }, noWait)
+  assert.deepEqual([result.status, result.stage], ['awaiting-head', 'scope'])
+  assert.match(result.reason, /GitHub is unreachable[\s\S]*rate limit refused[\s\S]*more than an hour/)
+  assert.equal(launchedAgents.filter(label => label.startsWith('scope-resume-wait')).length, 1)
+})
+
+for (const [name, scenario] of [['unreadable', { rate_error: 'gh: HTTP 500' }], ['naming no reset', { rate_exhausted_calls: 0 }]]) {
+  test(`AC-rate-limit-wait: a rate_limit read ${name} ends the lane awaiting-head at scope as without a wait`, async () => {
+    const { result } = await runLane(resumeArgs, { 'scope-resume': { ...refused, ...scenario } }, noWait)
+    assert.deepEqual([result.status, result.stage], ['awaiting-head', 'scope'])
+    assert.match(result.reason, /GitHub is unreachable[\s\S]*rate limit refused/)
+  })
+}
+
+test('AC-rate-limit-wait: a quota that stays at zero ends the lane awaiting-head after the hard cap of waits', async () => {
+  const { result, launchedAgents } = await runLane(resumeArgs, { 'scope-resume': { ...refused, rate_exhausted_calls: 1000, rate_reset_in: WITHIN_THE_HOUR } }, noWait)
+  assert.deepEqual([result.status, result.stage], ['awaiting-head', 'scope'])
+  assert.ok(launchedAgents.filter(label => label.startsWith('scope-resume-wait')).length <= 16)
+})
+
+// A rerun the limit refuses again waits a second round: the quota shows zero on the first wait call, refilled on the second, and again on the third.
+const refusedTwice = { ...refused, network_fails: 6 }
+const SECOND_ROUND_FIRST_WAIT_CALL = 3
+
+test('AC-rate-limit-wait: a rerun refused again whose rate limit then shows no exhausted quota ends the lane awaiting-head', async () => {
+  const { result } = await runLane(resumeArgs, { 'scope-resume': { ...refusedTwice, rate_exhausted_calls: 1, rate_reset_in: WITHIN_THE_HOUR } }, noWait)
+  assert.deepEqual([result.status, result.stage], ['awaiting-head', 'scope'])
+  assert.match(result.reason, /nothing exhausted any more/)
+})
+
+// One second of sleep per wait, a one-second total bound and a skew that keeps the reset within it make the total reachable inside a test.
+const tinyBound = { transform: (source) => noWait.transform(source).replace(/const RATE_LIMIT_SLEEP_SECONDS = \d+$/m, 'const RATE_LIMIT_SLEEP_SECONDS = 1').replace(/const RATE_LIMIT_WAIT_BOUND_SECONDS = \d+$/m, 'const RATE_LIMIT_WAIT_BOUND_SECONDS = 1').replace(/const RATE_LIMIT_RESET_SKEW_SECONDS = \d+$/m, 'const RATE_LIMIT_RESET_SKEW_SECONDS = 3600') }
+
+test('AC-rate-limit-wait: the seconds slept add up across rerun rounds and end the lane awaiting-head past the total bound', async () => {
+  const { result, launchedAgents } = await runLane(resumeArgs, { 'scope-resume': { ...refusedTwice, rate_exhausted_calls: 1, rate_exhausted_again_at: SECOND_ROUND_FIRST_WAIT_CALL, rate_reset_in: WITHIN_THE_HOUR } }, tinyBound)
+  assert.deepEqual([result.status, result.stage], ['awaiting-head', 'scope'])
+  assert.match(result.reason, /held after waiting 2 seconds/)
+  assert.equal(launchedAgents.filter(label => label.startsWith('scope-resume-wait')).length, SECOND_ROUND_FIRST_WAIT_CALL)
 })

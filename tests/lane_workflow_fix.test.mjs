@@ -160,13 +160,13 @@ for (const [what, shape, goesOn] of satisfiedAcrossMovedMain) {
 }
 
 test('a fixer that changes nothing and shows every carried finding resolved with evidence reaches the review of the earlier commits', async () => {
-  const { result, launchedAgents } = await runLane({ ...resumeArgs, fixFirst: [defectWithoutDraft] }, { 'fix-1': { ...unchangedFix, resolved: [satisfied(defectWithoutDraft)] }, ...reachesTheEnd })
+  const { result, launchedAgents } = await runLane({ ...resumeArgs, fixFirst: [defectWithoutDraft] }, { 'fix-1': { ...unchangedFix, resolved: [satisfied(defectWithoutDraft, undefined, 1)] }, ...reachesTheEnd })
   assert.equal(result.status, 'ready-to-land', result.reason)
   assert.ok(launchedAgents.includes('r1-review'))
 })
 
 test('an unchanged tip with every finding resolved and deltaFrom at the tip reviews the whole lane, never an empty range', async () => {
-  const { result, agentCalls } = await runLane({ ...resumeArgs, deltaFrom: resumeTip, fixFirst: [defectWithoutDraft] }, { 'fix-1': { ...unchangedFix, resolved: [satisfied(defectWithoutDraft)] }, ...reachesTheEnd })
+  const { result, agentCalls } = await runLane({ ...resumeArgs, deltaFrom: resumeTip, fixFirst: [defectWithoutDraft] }, { 'fix-1': { ...unchangedFix, resolved: [satisfied(defectWithoutDraft, undefined, 1)] }, ...reachesTheEnd })
   assert.equal(result.status, 'ready-to-land', result.reason)
   assert.match(agentCalls['r1-review'].prompt, /git diff origin\/main\.\.\.HEAD/)
   assert.doesNotMatch(agentCalls['r1-review'].prompt, new RegExp(`git diff ${resumeTip}\\.\\.HEAD`))
@@ -174,24 +174,26 @@ test('an unchanged tip with every finding resolved and deltaFrom at the tip revi
 
 for (const [what, evidence] of [['without evidence', ''], ['with blank evidence', '  ']]) {
   test(`a blocking finding claimed resolved ${what} at an unchanged tip still stops with the fixer changed nothing`, async () => {
-    const { result } = await runLane({ ...resumeArgs, fixFirst: [defectWithoutDraft] }, { 'fix-1': { ...unchangedFix, resolved: [satisfied(defectWithoutDraft, evidence)] } })
+    const { result } = await runLane({ ...resumeArgs, fixFirst: [defectWithoutDraft] }, { 'fix-1': { ...unchangedFix, resolved: [satisfied(defectWithoutDraft, evidence, 1)] } })
     assert.deepEqual([result.status, result.stage], ['failed', 'fix'])
     assert.match(result.reason, /the fixer changed nothing/)
   })
 }
 
 const alsoDefect = { ...finding('u.py:2', 'the code breaks another rule'), kind: 'defect' }
-const dispute = (item) => ({ where: item.where, text: item.text, counterEvidence: 'the rule is not broken' })
+const dispute = (item, finding) => ({ finding, where: item.where, text: item.text, counterEvidence: 'the rule is not broken' })
 
+const sharedWhere = { ...alsoDefect, where: defectWithoutDraft.where }
 const twoCarriedFindings = [
-  ['one finding resolved and the other left out of resolved', [satisfied(defectWithoutDraft)], [], 'failed', /the fixer changed nothing/],
-  ['one finding resolved and the other resolved without evidence', [satisfied(defectWithoutDraft), satisfied(alsoDefect, '')], [], 'failed', /the fixer changed nothing/],
-  ['both resolved with evidence and one also disputed', [satisfied(defectWithoutDraft), satisfied(alsoDefect)], [dispute(alsoDefect)], 'awaiting-head', /./],
+  ['one finding resolved and the other left out of resolved', [satisfied(defectWithoutDraft, undefined, 1)], [], 'failed', /the fixer changed nothing/],
+  ['one finding resolved and the other resolved without evidence', [satisfied(defectWithoutDraft, undefined, 1), satisfied(alsoDefect, '', 2)], [], 'failed', /the fixer changed nothing/],
+  ['both resolved with evidence and one also disputed', [satisfied(defectWithoutDraft, undefined, 1), satisfied(alsoDefect, undefined, 2)], [dispute(alsoDefect, 2)], 'awaiting-head', /./],
+  ['one entry answering only the first of two findings that share a where', [satisfied(defectWithoutDraft, undefined, 1)], [], 'failed', /the fixer changed nothing/, [defectWithoutDraft, sharedWhere]],
 ]
 
-for (const [what, resolved, disputed, status, reason] of twoCarriedFindings) {
+for (const [what, resolved, disputed, status, reason, findings = [defectWithoutDraft, alsoDefect]] of twoCarriedFindings) {
   test(`two carried findings with ${what} are not accepted as a fix at an unchanged tip`, async () => {
-    const { result, launchedAgents } = await runLane({ ...resumeArgs, fixFirst: [defectWithoutDraft, alsoDefect] }, { 'fix-1': { ...unchangedFix, resolved, disputed } })
+    const { result, launchedAgents } = await runLane({ ...resumeArgs, fixFirst: findings }, { 'fix-1': { ...unchangedFix, resolved, disputed } })
     assert.equal(result.status, status)
     assert.match(result.reason, reason)
     assert.ok(!launchedAgents.includes('r1-review'))
@@ -199,16 +201,16 @@ for (const [what, resolved, disputed, status, reason] of twoCarriedFindings) {
 }
 
 test('a fixer that changes nothing and shows a review finding resolved with evidence stops with the fixer changed nothing', async () => {
-  const answers = { 'r0-review': { verdict: 'REVISE', blocking: [defectWithoutDraft], followups: [] }, 'fix-1': { ...unchangedFix, resolved: [satisfied(defectWithoutDraft)] } }
+  const answers = { 'r0-review': { verdict: 'REVISE', blocking: [defectWithoutDraft], followups: [] }, 'fix-1': { ...unchangedFix, resolved: [satisfied(defectWithoutDraft, undefined, 1)] } }
   const { result } = await runLane(resumeArgs, answers)
   assert.deepEqual([result.status, result.stage], ['failed', 'fix'])
   assert.match(result.reason, /the fixer changed nothing/)
-  assert.deepEqual(result.resolved, [satisfied(defectWithoutDraft)])
+  assert.deepEqual(result.resolved, [satisfied(defectWithoutDraft, undefined, 1)])
 })
 
 test('a fixer that changes nothing and shows a CI finding resolved with evidence stops with the fixer changed nothing', async () => {
   const ci = finding('ci: lint', 'ruff fails')
-  const answers = { 'r0-review': APPROVE, 'e2e-0': PASS, 'ci-0': { ...greenCi(resumeTip), green: false, failing: [ci] }, 'fix-1': { ...unchangedFix, resolved: [satisfied(ci)] } }
+  const answers = { 'r0-review': APPROVE, 'e2e-0': PASS, 'ci-0': { ...greenCi(resumeTip), green: false, failing: [ci] }, 'fix-1': { ...unchangedFix, resolved: [satisfied(ci, undefined, 1)] } }
   const { result, launchedAgents } = await runLane(resumeArgs, answers)
   assert.deepEqual([result.status, result.stage], ['failed', 'fix'])
   assert.match(result.reason, /the fixer changed nothing/)

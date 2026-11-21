@@ -190,8 +190,8 @@ The lane needs a repository that coordinates with aco, after the head ran
   tip; a `removed` proof with no diff and no outside answer fails at `fix`, and
   its reason names `outside`.
 - A fixer that changes nothing because the tip already meets every carried
-  blocking finding (an earlier fixer's commits) lists each in `resolved` with
-  its evidence and disputes none: the round goes on to the re-check of the
+  blocking finding (an earlier fixer's commits) lists each in `resolved` under its
+  finding number with its evidence and disputes none: the round goes on to the re-check of the
   commits since `deltaFrom`, or the whole lane without one or when `deltaFrom`
   equals the tip and the fixer commits nothing. A finding in
   `resolved` without evidence still fails at `fix` with "the fixer changed

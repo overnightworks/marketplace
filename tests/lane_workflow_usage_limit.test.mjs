@@ -90,3 +90,38 @@ test('a lane stopped by the usage limit writes no record', async () => {
   assert.equal(result.record, undefined)
   assert.deepEqual(Object.keys(agentCalls).filter(label => label.startsWith('record-')), [])
 })
+
+// The Workflow runtime does not throw at a usage limit too far out to wait for: agent() returns null and the runtime's own log names the limit, so an account that cannot start a probe agent either is the limit.
+const runtimeEnds = (...labels) => Object.fromEntries(labels.flatMap(label => [[label, null], [`limit-probe-${label}`, null]]))
+const runtimeStages = [
+  ['fix', { 'r0-review': REVISE, ...runtimeEnds('fix-1') }, { fixFirst: [blocking] }],
+  ['ci', { 'r0-review': APPROVE, 'e2e-0': PASS, 'ci-0': greenCi(resumedLane.tip), ...runtimeEnds('ci-read-0') }, {}],
+]
+
+for (const [stage, answers, resumeExtra] of runtimeStages) {
+  test(`an agent the runtime ends with null at the ${stage} stage while the account cannot start another returns awaiting-head with the resume arguments`, async () => {
+    const { result } = await runLane(resumedLane, answers)
+    assert.deepEqual([result.status, result.stage], ['awaiting-head', stage])
+    assert.deepEqual(result.claudeLimit.resetsAt, null)
+    assert.deepEqual(result.resume, { pr: resumedLane.pr, tip: resumedLane.tip, ...resumeExtra })
+  })
+}
+
+test('an agent that ends with null while another agent of its model starts stays failed', async () => {
+  const { result } = await runLane(resumedLane, { 'r0-review': REVISE, 'fix-1': null })
+  assert.equal(result.status, 'failed')
+  assert.equal(result.claudeLimit, undefined)
+})
+
+const probeErrors = [
+  ['names the usage limit with a reset time', weeklyLimit, 'awaiting-head', 'Nov 20'],
+  ['is an unrelated error', 'socket hang up', 'failed', undefined],
+]
+
+for (const [name, message, status, resetsAt] of probeErrors) {
+  test(`a probe agent whose own call ${name} ends the lane ${status}`, async () => {
+    const { result } = await runLane(resumedLane, { 'r0-review': REVISE, 'fix-1': null, 'limit-probe-fix-1': failing(message) })
+    assert.equal(result.status, status)
+    assert.equal(result.claudeLimit?.resetsAt, resetsAt)
+  })
+}

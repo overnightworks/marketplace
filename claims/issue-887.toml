@@ -1,7 +1,0 @@
-claim_id = "304e83aa4adb4ed3882b3d685f2e8c96"
-agent = "Claude 5fd48eeb-f686-416f-85b1-085a6741a604"
-role = "builder"
-base = "1718f4bf6d2b5ccbcb67979e42e581406699a8c1"
-branch = "claude/issue-887-probe-run-sigint-in-load-wait"
-scope = ["scripts/probe_run.sh", "tests/test_probe_run.py"]
-opened_commit = "2b565aa2eef424a30d5bd290f5e46d20cf894884"

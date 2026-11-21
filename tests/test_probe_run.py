@@ -25,7 +25,6 @@ esac
 MAXIMUM_TOTAL_SECONDS = 1830
 BAD_INPUT_STATUS = 2
 LOAD_TIMEOUT_STATUS = 75
-PROBE_RUN_TIMEOUT_SECONDS = 30
 
 
 @pytest.fixture
@@ -70,7 +69,7 @@ def probe_run(
         text=True, start_new_session=True,
     )
     try:
-        stdout, stderr = probe.communicate(input=input, timeout=PROBE_RUN_TIMEOUT_SECONDS)
+        stdout, stderr = probe.communicate(input=input, timeout=30)
     except BaseException:
         end_probe_run(probe)
         raise

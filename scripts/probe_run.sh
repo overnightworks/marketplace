@@ -13,10 +13,13 @@
 # command once that process is gone. It checks once more after setpriv has armed the signal,
 # since a starter gone before that is never signalled, and then execs timeout.
 #
+# SIGINT during the wait ends the script at once, without starting the command. The handler
+# is set only for the wait; the guard and the command keep their own signal handling.
+#
 # Exit status while waiting: 2 bad arguments or an unreadable load, 75 the load stayed at or
 # above the limit for the whole wait (no command was started), 4 the starting process died
-# during the wait or before the signal was armed (no command was started). After the start the
-# status is the command's.
+# during the wait or before the signal was armed (no command was started), 130 interrupted
+# during the wait (no command was started). After the start the status is the command's.
 #
 # The tests inject PROBE_RUN_LOADAVG_FILE (the load source, default /proc/loadavg),
 # PROBE_RUN_POLL_SECONDS (default 5) and PROBE_RUN_WAIT_SECONDS (default 3600); both
@@ -29,6 +32,7 @@ readonly MAXIMUM_TOTAL_SECONDS=1830
 readonly EXIT_BAD_INPUT=2
 readonly EXIT_LOAD_TIMEOUT=75
 readonly EXIT_PARENT_GONE=4
+readonly EXIT_INTERRUPTED=130
 kill_after=30
 cap=1800
 starter=$PPID
@@ -94,6 +98,15 @@ starter_is_alive() {
   [[ -d /proc/$starter ]]
 }
 
+# Bash runs a trap only between commands, so the wait sleeps in the background and waits on it.
+sleeper=""
+end_wait_on_interrupt() {
+  [[ -z $sleeper ]] || kill "$sleeper" 2>/dev/null || true
+  echo "probe-run: interrupted during the wait; no probe stack was started" >&2
+  exit "$EXIT_INTERRUPTED"
+}
+trap end_wait_on_interrupt INT
+
 waited=0
 while true; do
   starter_is_alive || fail "$starter_ended_message" "$EXIT_PARENT_GONE"
@@ -101,9 +114,14 @@ while true; do
   if ((waited >= wait_seconds)); then
     fail "the 1-minute load stayed at or above $limit_text x $cores cores for ${wait_seconds}s; no probe stack was started" "$EXIT_LOAD_TIMEOUT"
   fi
-  sleep "$poll_seconds"
+  sleep "$poll_seconds" &
+  sleeper=$!
+  wait "$sleeper"
+  sleeper=""
   waited=$((waited + poll_seconds))
 done
+
+trap - INT
 
 # The signal survives the exec into the guard and on into timeout; a starter that ended since
 # the last check has left this process a new parent, which the guard sees.

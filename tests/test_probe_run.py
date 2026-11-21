@@ -401,12 +401,15 @@ def start_stack_under_probe_run(real_machine: dict[str, str], stack: Stack, *tim
 
 
 def end_probe_run(probe: subprocess.Popen[str]) -> None:
-    """Kills probe-run's whole process group and reaps it.
+    """Kills every process of probe-run's session and reaps it.
 
-    The stack is TERMed through the death signal of the process that ran it.
+    timeout and the stack run in a process group of their own, so only the session reaches them.
     """
     with contextlib.suppress(ProcessLookupError):
         os.killpg(probe.pid, signal.SIGKILL)
+    for member in live_session_members(probe.pid):
+        with contextlib.suppress(ProcessLookupError):
+            os.kill(member, signal.SIGKILL)
     probe.communicate(timeout=30)
 
 
@@ -530,8 +533,9 @@ def is_running(pid: int) -> bool:
         return False
 
 
-def live_session_members(session: int) -> list[str]:
+def live_session_members(session: int) -> list[int]:
     listing = subprocess.run(
-        ["ps", "-s", str(session), "-o", "stat=,args="], capture_output=True, text=True, check=False
+        ["ps", "-s", str(session), "-o", "pid=,stat="], capture_output=True, text=True, check=False
     )
-    return [line for line in listing.stdout.splitlines() if not line.startswith("Z")]
+    members = (line.split() for line in listing.stdout.splitlines())
+    return [int(pid) for pid, status in members if not status.startswith("Z")]

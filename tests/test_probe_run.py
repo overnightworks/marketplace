@@ -158,6 +158,43 @@ def test_reads_a_load_with_a_leading_zero_as_decimal(machine):
     assert result.returncode == LOAD_TIMEOUT_STATUS
 
 
+def test_wait_only_returns_at_once_for_a_load_below_the_limit_under_a_german_locale(machine):
+    set_load(machine, 5.0)
+    machine["LANG"] = "de_DE.UTF-8"
+
+    result = probe_run(machine, "--wait-only")
+
+    assert result.returncode == 0
+    assert result.stdout == ""
+
+
+def test_wait_only_ends_with_the_load_timeout_status_when_the_load_stays_at_the_limit(machine):
+    set_load(machine, LOAD_LIMIT)
+
+    result = probe_run(machine, "--wait-only")
+
+    assert result.returncode == LOAD_TIMEOUT_STATUS
+    assert result.stdout == ""
+
+
+def test_wait_only_fails_loud_on_an_unreadable_load(machine):
+    Path(machine["PROBE_RUN_LOADAVG_FILE"]).write_text("")
+
+    result = probe_run(machine, "--wait-only")
+
+    assert result.returncode == BAD_INPUT_STATUS
+
+
+def test_wait_only_with_a_command_is_a_usage_error(machine):
+    set_load(machine, 0.0)
+
+    result = probe_run(machine, "--wait-only", "my-stack")
+
+    assert result.returncode == BAD_INPUT_STATUS
+    assert "--wait-only" in result.stderr
+    assert result.stdout == ""
+
+
 @pytest.mark.parametrize("content", ["", "\n", "not-a-number 1 2 3/4 5\n", "-1.0 0 0 1/1 1\n"])
 def test_fails_loud_without_starting_when_the_load_reading_is_not_a_number(machine, content):
     Path(machine["PROBE_RUN_LOADAVG_FILE"]).write_text(content)

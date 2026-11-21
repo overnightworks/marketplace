@@ -2,10 +2,12 @@
 # Run a probe stack's drive once the machine has room, capped and tied to this process.
 #
 # usage: probe-run [-k K CAP] [--] COMMAND [ARGUMENT...]
+#        probe-run --wait-only
 #        probe-run -h | --help
 #
 # Waits (up to an hour) until the 1-minute load average is below 1.5 x cores, then runs
 # setpriv --pdeathsig TERM timeout -k K CAP COMMAND... as its child and waits for it.
+# --wait-only takes no command: it runs the same wait alone and exits 0 once the load has room.
 # K is the seconds a stack gets to tear down after TERM (default 30), CAP the seconds
 # it may run (default 1800); CAP + K stays within 1830.
 #
@@ -23,7 +25,7 @@
 # group) reach the command as one TERM through timeout, so its teardown runs and KILL follows
 # only after K. timeout itself would KILL the command at once on a received INT or HUP.
 #
-# Exit status: 2 bad arguments or an unreadable load, 75 the load stayed at or
+# Exit status: 0 with --wait-only once the load has room, 2 bad arguments or an unreadable load, 75 the load stayed at or
 # above the limit for the whole wait (no command was started), 4 the starting process died
 # before the command started, 130 interrupted during the wait (no command was started). After
 # the start the status is the command's, except 130 after a SIGINT and 129 after a SIGHUP to
@@ -119,18 +121,25 @@ if [[ ${1:-} == -h || ${1:-} == --help ]]; then
   print_usage
   exit 0
 fi
-if [[ ${1:-} == -k ]]; then
+readonly WAIT_ONLY_FLAG=--wait-only
+wait_only=""
+if [[ ${1:-} == "$WAIT_ONLY_FLAG" ]]; then
+  [[ $# -eq 1 ]] || fail "$WAIT_ONLY_FLAG takes no command and no other argument"
+  wait_only=1
+elif [[ ${1:-} == -k ]]; then
   [[ $# -ge 3 ]] || fail "-k needs K and CAP"
   kill_after=$2
   cap=$3
   shift 3
 fi
-[[ ${1:-} != -- ]] || shift
-[[ $# -ge 1 ]] || fail "no command given; usage: probe-run [-k K CAP] [--] COMMAND [ARGUMENT...]"
-is_positive_integer "$kill_after" || fail "K must be a positive integer of at most 4 digits, got '$kill_after'"
-is_positive_integer "$cap" || fail "CAP must be a positive integer of at most 4 digits, got '$cap'"
-((cap + kill_after <= MAXIMUM_TOTAL_SECONDS)) ||
-  fail "CAP + K must be at most $MAXIMUM_TOTAL_SECONDS, got $((cap + kill_after))"
+if [[ -z $wait_only ]]; then
+  [[ ${1:-} != -- ]] || shift
+  [[ $# -ge 1 ]] || fail "no command given; usage: probe-run [-k K CAP] [--] COMMAND [ARGUMENT...] | --wait-only"
+  is_positive_integer "$kill_after" || fail "K must be a positive integer of at most 4 digits, got '$kill_after'"
+  is_positive_integer "$cap" || fail "CAP must be a positive integer of at most 4 digits, got '$cap'"
+  ((cap + kill_after <= MAXIMUM_TOTAL_SECONDS)) ||
+    fail "CAP + K must be at most $MAXIMUM_TOTAL_SECONDS, got $((cap + kill_after))"
+fi
 
 loadavg_file=${PROBE_RUN_LOADAVG_FILE:-/proc/loadavg}
 poll_seconds=${PROBE_RUN_POLL_SECONDS-5}
@@ -186,6 +195,8 @@ while true; do
   sleeper=""
   waited=$((waited + poll_seconds))
 done
+
+[[ -z $wait_only ]] || exit 0
 
 exec setpriv --pdeathsig TERM bash -c "$PARENT_GUARD" probe-run \
   "$starter" "$EXIT_PARENT_GONE" "$guard_refused_message" "${BASH_SOURCE[0]}" "$SUPERVISE_MARKER" "$kill_after" "$cap" "$@"

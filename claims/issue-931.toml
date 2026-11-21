@@ -1,0 +1,7 @@
+claim_id = "e9a474630ec644a2930fa0d7bd48040c"
+agent = "Claude 6f734bfc-08d4-4565-9fdb-8eac1c73f4b4"
+role = "builder"
+base = "b514fa879d2b4a2324cd1353afceb0dd7c3916b9"
+branch = "claude/issue-931-contract-opens-with-ownership"
+scope = ["instructions/AGENTS.md"]
+opened_commit = "025650dfe6e74b79035de7a86d5a96d9ad7f943d"

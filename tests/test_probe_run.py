@@ -6,6 +6,7 @@ import os
 import shutil
 import signal
 import subprocess
+import sys
 import time
 from pathlib import Path
 
@@ -20,6 +21,7 @@ ARGUMENT_ECHO = '#!/bin/sh\nprintf "%s\\n" "$@"\n'
 MAXIMUM_TOTAL_SECONDS = 1830
 BAD_INPUT_STATUS = 2
 LOAD_TIMEOUT_STATUS = 75
+PROBE_RUN_TIMEOUT_SECONDS = 30
 
 
 @pytest.fixture
@@ -57,10 +59,18 @@ def timeout_arguments(result: subprocess.CompletedProcess[str]) -> list[str]:
 def probe_run(
     machine: dict[str, str], *arguments: str, input: str | None = None
 ) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
+    """Runs probe-run as the leader of its own session, so that a failure ends every process it owns."""
+    probe = subprocess.Popen(
         [str(PROBE_RUN), *arguments],
-        env=machine, input=input, capture_output=True, text=True, timeout=30, check=False,
+        env=machine, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+        text=True, start_new_session=True,
     )
+    try:
+        stdout, stderr = probe.communicate(input=input, timeout=PROBE_RUN_TIMEOUT_SECONDS)
+    except BaseException:
+        end_probe_run(probe)
+        raise
+    return subprocess.CompletedProcess(probe.args, probe.returncode, stdout, stderr)
 
 
 def test_starts_the_command_capped_within_the_total_limit_when_the_load_is_below_the_limit(machine):
@@ -313,6 +323,20 @@ def test_runs_the_command_under_timeout_while_the_starter_lives(machine, tmp_pat
 
     assert result.returncode == 0
     assert marker.exists()
+
+
+def test_a_probe_run_that_hangs_past_the_timeout_leaves_no_starter_watcher_behind(real_machine, monkeypatch):
+    monkeypatch.setattr(sys.modules[__name__], "PROBE_RUN_TIMEOUT_SECONDS", 1)
+
+    with pytest.raises(subprocess.TimeoutExpired):
+        probe_run(real_machine, "sleep", "600")
+
+    processes = subprocess.run(["ps", "-eo", "comm,args"], capture_output=True, text=True, check=True)
+    watching_this_test = f"--pid={os.getpid()}"
+    watchers = [
+        line for line in processes.stdout.splitlines() if line.startswith("tail ") and watching_this_test in line
+    ]
+    assert watchers == []
 
 
 def test_hands_its_stdin_to_the_command(real_machine):

@@ -112,3 +112,16 @@ test('an agent that ends with null while another agent of its model starts stays
   assert.equal(result.status, 'failed')
   assert.equal(result.claudeLimit, undefined)
 })
+
+const probeErrors = [
+  ['names the usage limit with a reset time', weeklyLimit, 'awaiting-head', 'Nov 20'],
+  ['is an unrelated error', 'socket hang up', 'failed', undefined],
+]
+
+for (const [name, message, status, resetsAt] of probeErrors) {
+  test(`a probe agent whose own call ${name} ends the lane ${status}`, async () => {
+    const { result } = await runLane(resumedLane, { 'r0-review': REVISE, 'fix-1': null, 'limit-probe-fix-1': failing(message) })
+    assert.equal(result.status, status)
+    assert.equal(result.claudeLimit?.resetsAt, resetsAt)
+  })
+}

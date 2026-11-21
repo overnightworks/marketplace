@@ -170,12 +170,14 @@ The lane needs a repository that coordinates with aco, after the head ran
   `PENDING`, and the reason names the pending checks. Resume with `pr` and `tip`
   once CI has finished.
 - A Claude agent of any stage (builder, reviewer, fixer, tester, CI reader or
-  mechanical step) that fails with its account usage limit, or that the runtime ends with null while a probe agent of the same model ends with null too, returns awaiting-head
+  mechanical step) that fails with its account usage limit returns awaiting-head
   at its stage with `claudeLimit` (`resetsAt` when the error names a reset), the
   `history` so far and the resume arguments of that stage (`pr`, `tip`, and
   `fixFirst` or, on a review round, `deltaFrom` and `answers`; `build` before a
   pull request exists), never failed. A Claude reviewer is not retried on a
-  limit, and no role moves to another model or provider.
+  limit, and no role moves to another model or provider. The same holds for an
+  agent the runtime ends with null while a probe agent of the same model ends
+  with null too.
 - A fixer that answers its whole batch in the pull request body or an item
   comment and commits nothing is no failure.
   The fix brief tells it to report such an answer in `outside`, never as

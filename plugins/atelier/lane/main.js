@@ -708,7 +708,7 @@ while (true) {
     if (stop) return stop
   }
   history.push({ after: spent.total, by: `ci-${n - 1}`, verdict: ci.verdict, blocking: (ci.failing || []).map(f => f.where), deterministic: (ci.failing || []).filter(f => f.deterministic === true).map(f => f.where) })
-  // A CI finding read after a proven point opens the next segment, so a stop without a fixer still stores it.
+  // A CI finding read after a proven point opens the next segment; a stop without a fixer stores no stage-less segment, so aco counts the lane's findings unknown instead of the run dropping this one unseen.
   const afterCiStop = (ci.failing || []).length ? await beginRun() : null
   if (afterCiStop) return afterCiStop
   if (ci.readError) return await openResult('failed', 'ci', { reason: ci.readError })

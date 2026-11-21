@@ -273,8 +273,10 @@ run's counts up to now minus those up to the segment's start, judged by the firs
 stored runs sum to the figures of one unsplit run, a finding that comes back counting once; a miss that a later fix proof takes
 back stays counted in the record it was stored in. aco sums the counts and joins the verdicts over the stored runs; the
 approvals of the earlier segments reach a later one through the history. At every end that writes a record, the open
-segment is added once the same way (one that started no stage stores nothing, since aco takes no empty `--ran`; one that
-holds only CI findings is added with `--ran review`). Every tip
+segment is added once the same way (one that started no stage stores nothing, since aco takes no empty `--ran` and the lane
+claims no stage that did not run; a CI finding read in such a segment stays unstored and its begun run makes the lane's counts
+unknown). A review or gate approval that follows another reviewer's revision of the same tip is not stored before the fixer
+starts, since aco lands the last stored verdict. Every tip
 aco receives is the 40-digit sha `git rev-parse` resolves in the worktree,
 and a `build` run that ended without a tip passes the worktree's `HEAD`. A begin or an add that aco refuses, or whose tip
 git cannot resolve, ends the run `awaiting-head` at `record`; the `reason` holds the refusal and, for an add, the status

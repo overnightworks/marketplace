@@ -285,14 +285,6 @@ test('run-record: the tester\'s findings and the CI findings that come after a p
   for (const kind of ['fix_rounds', 'blocking', 'misses', 'verdicts']) assert.deepEqual(stored[kind], unsplitOf(run)[kind])
 })
 
-test('run-record: a CI finding read after a proven point reaches the stored runs when the run then ends without a fixer', async () => {
-  const answers = { ...roundReviews, 'r0-review': APPROVE, 'e2e-0': PASS, 'ci-0': roundRed(0), 'ci-1': roundRed(1), 'fix-1': reviewedRoundFix(1) }
-  const run = await runLane({ ...resumeArgs, budgets: { ci: 1 } }, answers, probed)
-  assert.equal(run.result.status, 'ci-red', run.result.reason)
-  assert.equal(storedLane(run).blocking.ci, 2)
-  for (const kind of ['fix_rounds', 'blocking', 'misses', 'verdicts']) assert.deepEqual(storedLane(run)[kind], unsplitOf(run)[kind])
-})
-
 test('run-record: a finding that comes back after a proven point counts once in the stored runs, as in one unsplit run', async () => {
   const secondTip = roundTip(4)
   const answers = {
@@ -322,9 +314,14 @@ test('run-record: a review revision beside a gate approval on a material lane is
   assert.deepEqual(run.writtenRecords, [])
 })
 
-test('run-record: the CI findings read with the tester\'s pass reach the stored runs when the run then ends without a fixer', async () => {
-  const run = await runLane({ ...resumeArgs, budgets: { ci: 0 } }, { 'r0-review': APPROVE, 'e2e-0': PASS, 'ci-0': roundRed(0) }, probed)
-  assert.equal(run.result.status, 'ci-red', run.result.reason)
-  assert.equal(storedLane(run).blocking.ci, 1)
-  assert.deepEqual(storedLane(run).blocking, unsplitOf(run).blocking)
-})
+for (const [name, budget, answers, storedRan] of [
+  ['the tester\'s pass', 0, { 'r0-review': APPROVE, 'e2e-0': PASS, 'ci-0': roundRed(0) }, ['review', 'test']],
+  ['a reviewed fix', 1, { ...roundReviews, 'r0-review': APPROVE, 'e2e-0': PASS, 'ci-0': roundRed(0), 'ci-1': roundRed(1), 'fix-1': reviewedRoundFix(1) }, ['review', 'test', 'review', 'fix']],
+]) {
+  test(`run-record: a CI finding read after ${name}, when the run then ends without a fixer, stores no stage that did not run and leaves its run begun`, async () => {
+    const run = await runLane({ ...resumeArgs, budgets: { ci: budget } }, answers, probed)
+    assert.equal(run.result.status, 'ci-red', run.result.reason)
+    assert.deepEqual(ranOfRuns(run.laneRecordCalls), storedRan)
+    assert.equal(run.laneRecordCalls.at(-1)[1], 'begin')
+  })
+}

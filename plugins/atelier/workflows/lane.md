@@ -10,7 +10,9 @@ lists `requiredHeadActions`.
    string: the owner it extended (module and function), or the search it ran and
    why nothing found fits. The first review receives that text with the
    instruction to judge it; a run started with `pr` and `tip` has none and says
-   so to the reviewer.
+   so to the reviewer. The builder opens the pull request as its brief's RULES
+   say, so a head's build brief never forbids it; an answer without an open pull
+   request ends like a builder without a result (checkpoint, below).
 2. Review: a fresh Claude reviewer (model and effort from `DEFAULT_ROUTING`). A
    material lane adds a Codex final gate, or a Claude gate through `routing.gate`. A Claude reviewer that fails
    is started once more; only a second failure ends the round, with both texts

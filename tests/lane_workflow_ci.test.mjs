@@ -516,7 +516,7 @@ test('ci-setup-failure: a re-run agent that ends without a result keeps the firs
   assert.match(agentCalls['fix-2'].prompt, /Node: tests fails/)
 })
 
-const flakeFix = (...wheres) => ({ head: tip, mergeResolvedLaneConflict: false, files: [], regression: [], blocked: false, disputed: wheres.map(where => ({ where, text: `${where} fails`, counterEvidence: 'the same job passes on main; the failing test is not in the diff' })) })
+const flakeFix = (...wheres) => ({ head: tip, mergeResolvedLaneConflict: false, files: [], regression: [], blocked: false, disputed: wheres.map((where, index) => ({ finding: index + 1, where, text: `${where} fails`, counterEvidence: 'the same job passes on main; the failing test is not in the diff' })) })
 const reranPass = { link: 'https://github.com/o/n/actions/runs/11/job/99', bucket: 'pass', findings: [] }
 
 test('ci-flake-rerun: every CI finding disputed with nothing committed re-runs the job, goes on when it passes and keeps the flake in the follow-ups', async () => {
@@ -526,6 +526,15 @@ test('ci-flake-rerun: every CI finding disputed with nothing committed re-runs t
   assert.ok(!launchedAgents.includes('ci-1'))
   assert.deepEqual(result.disputed, [])
   assert.match(result.followups.map(f => f.text).join('\n'), /Node: tests fails[\s\S]*the same job passes on main/)
+})
+
+test('ci-flake-rerun: a dispute names its finding by number, so a where worded differently still re-runs the job', async () => {
+  const sonar = redJob('quality / sonar', 'Run sonar')
+  sonar.findings[0].where = 'scripts/card_drive.py (line not printed in the sonar listing)'
+  const dispute = flakeFix('scripts/card_drive.py (python:S7492, Unpack this comprehension expression)')
+  const { result, agentCalls } = await driveCi(redWatch([sonar]), lane, undefined, { 'fix-2': dispute, 'ci-1-rerun-1': reranPass, 'ci-read-1': { checks: [check(required, 'pass'), check('quality / sonar', 'pass')] } })
+  assert.equal(result.status, 'ready-to-land', result.reason)
+  assert.match(agentCalls['ci-1-rerun-1'].prompt, /gh run rerun 11 --job 22/)
 })
 
 test('ci-flake-rerun: a red after the re-run goes to the head', async () => {
@@ -551,6 +560,14 @@ test('ci-flake-rerun: a disputed own flake next to a shared red re-runs only the
 
 test('ci-flake-rerun: a dispute of only some CI findings goes to the head without a re-run', async () => {
   const { result, launchedAgents } = await driveCi(redWatch([redJob('Node: tests', 'Run the node tests'), redJob('Python: tests', 'Run the python tests', ['11', '23'])]), lane, undefined, { 'fix-2': flakeFix('Node: tests') })
+  assert.deepEqual([result.status, result.stage], ['awaiting-head', 'fix'])
+  assert.deepEqual(launchedAgents.filter(label => label.includes('rerun')), [])
+})
+
+test('ci-flake-rerun: a dispute numbered for one of two CI findings that share a where goes to the head without a re-run', async () => {
+  const job = redJob('Node: tests', 'Run the node tests')
+  job.findings.push({ ...job.findings[0], text: 'Node: tests fails a second way' })
+  const { result, launchedAgents } = await driveCi(redWatch([job]), lane, undefined, { 'fix-2': flakeFix('Node: tests') })
   assert.deepEqual([result.status, result.stage], ['awaiting-head', 'fix'])
   assert.deepEqual(launchedAgents.filter(label => label.includes('rerun')), [])
 })

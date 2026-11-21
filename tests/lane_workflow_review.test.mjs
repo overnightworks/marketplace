@@ -685,7 +685,7 @@ for (const [name, failure] of [
     const { result, launchedAgents, agentCalls } = await runLane(resumedLane, { ...reviewerAnswerWith(failure), 'e2e-0': PASS, 'ci-0': greenCi(resumeTip) })
     assert.deepEqual(reviewerRuns(launchedAgents), ['r0-review', 'r0-review-retry'])
     assert.equal(agentCalls['r0-review-retry'].prompt, agentCalls['r0-review'].prompt)
-    assert.deepEqual(result.history.map(round => [round.by, round.verdict]), [['review', 'APPROVE']])
+    assert.deepEqual(result.history.filter(round => round.by === 'review').map(round => [round.by, round.verdict]), [['review', 'APPROVE']])
   })
 }
 

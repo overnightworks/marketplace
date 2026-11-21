@@ -1,0 +1,8 @@
+claim_id = "b38221e8210d4370865e2f4dab7a93e8"
+agent = "Claude 6f734bfc-08d4-4565-9fdb-8eac1c73f4b4"
+role = "builder"
+base = "f9d6d82ac5046af6b35ae616c7640ac0a26c189d"
+branch = "claude/issue-928-lane-pushes-by-name"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/lane/relay.js", "plugins/atelier/workflows/lane.js", "tests/lane_workflow_relay.test.mjs"]
+opened_commit = "dd330996edad850ba9ea961c0d0903e0d2242aaa"
+whole_reason = "One brief fix: the hand-written relay, its generated lane.js, one test file and the three version manifests the plugin rule requires."

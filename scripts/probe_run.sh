@@ -16,6 +16,8 @@
 # After the start the starter is watched on: once it ends, the command gets TERM and the
 # status is 4.
 #
+# The command gets probe-run's stdin and the default INT and QUIT handling.
+#
 # SIGINT during the wait ends the script at once, without starting the command. After the
 # start, SIGINT, SIGHUP and SIGTERM to probe-run (to its pid or, as Ctrl-C, to its process
 # group) reach the command as one TERM through timeout, so its teardown runs and KILL follows
@@ -148,8 +150,10 @@ trap 'stop_stack "$EXIT_INTERRUPTED"' INT
 trap 'stop_stack "$EXIT_HANGUP"' HUP
 trap stop_stack TERM
 
-setpriv --pdeathsig TERM bash -c "$PARENT_GUARD" probe-run \
-  "$$" "$starter" "$EXIT_PARENT_GONE" "$starter_ended_message" timeout -k "$kill_after" "$cap" "$@" &
+# An async list in a script gets /dev/null as stdin and ignored INT and QUIT, so the command
+# gets probe-run's stdin back and the default dispositions.
+setpriv --pdeathsig TERM env --default-signal=INT,QUIT bash -c "$PARENT_GUARD" probe-run \
+  "$$" "$starter" "$EXIT_PARENT_GONE" "$starter_ended_message" timeout -k "$kill_after" "$cap" "$@" <&0 &
 child=$!
 [[ -z $stop_requested ]] || kill -TERM "$child" 2>/dev/null || true
 

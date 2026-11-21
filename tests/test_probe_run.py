@@ -53,9 +53,12 @@ def timeout_arguments(result: subprocess.CompletedProcess[str]) -> list[str]:
     return tokens[tokens.index("timeout") + 1 :]
 
 
-def probe_run(machine: dict[str, str], *arguments: str) -> subprocess.CompletedProcess[str]:
+def probe_run(
+    machine: dict[str, str], *arguments: str, input: str | None = None
+) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
-        [str(PROBE_RUN), *arguments], env=machine, capture_output=True, text=True, timeout=30, check=False
+        [str(PROBE_RUN), *arguments],
+        env=machine, input=input, capture_output=True, text=True, timeout=30, check=False,
     )
 
 
@@ -309,6 +312,20 @@ def test_runs_the_command_under_timeout_while_the_starter_lives(machine, tmp_pat
 
     assert result.returncode == 0
     assert marker.exists()
+
+
+def test_hands_its_stdin_to_the_command(real_machine):
+    result = probe_run(real_machine, "cat", input="a piped scenario\n")
+
+    assert result.returncode == 0
+    assert result.stdout == "a piped scenario\n"
+
+
+def test_starts_the_command_with_interrupt_and_quit_handled_by_default(real_machine):
+    result = probe_run(real_machine, "grep", "^SigIgn:", "/proc/self/status")
+
+    ignored = int(result.stdout.split()[1], 16)
+    assert ignored & ((1 << (signal.SIGINT - 1)) | (1 << (signal.SIGQUIT - 1))) == 0
 
 
 TEARS_DOWN_ON_EXIT_AND_TERM = """#!/bin/sh

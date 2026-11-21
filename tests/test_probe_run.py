@@ -280,8 +280,13 @@ def test_ends_a_wait_at_once_on_sigint_without_starting_the_command(machine, tmp
     while not announcement.exists() and time.monotonic() < deadline:
         time.sleep(0.05)
 
-    probe.send_signal(signal.SIGINT)
-    _, stderr = probe.communicate(timeout=10)
+    try:
+        probe.send_signal(signal.SIGINT)
+        _, stderr = probe.communicate(timeout=10)
+    finally:
+        if probe.poll() is None:
+            probe.kill()
+            probe.wait()
 
     assert probe.returncode == INTERRUPTED_STATUS
     assert "no probe stack was started" in stderr

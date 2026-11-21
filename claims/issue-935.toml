@@ -1,0 +1,8 @@
+claim_id = "373a3cf4d4dc4b52b3847aff0f6943df"
+agent = "Claude 6f734bfc-08d4-4565-9fdb-8eac1c73f4b4"
+role = "builder"
+base = "fab93595353971c77503bb5dd41e006c92236f1c"
+branch = "claude/issue-935-head-lands-stopped-lane"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/skills/aco/SKILL.md", "plugins/atelier/workflows/lane.md"]
+opened_commit = "ab40a722b4eee592e71a1f8dd68c6aa42c3857e0"
+whole_reason = "One documentation slice: the landing path in lane.md and the aco skill, plus the three version manifests the plugin rule requires."

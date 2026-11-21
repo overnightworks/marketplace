@@ -333,6 +333,11 @@ trap 'touch {torn_down}; exit 0' EXIT TERM
 touch {ready}
 while true; do /bin/sleep 0.05; done
 """
+COUNTS_TERM_FOR_TWO_SECONDS = """#!/bin/sh
+trap 'echo term >> {terms}' TERM
+touch {ready}
+for _ in $(seq 40); do /bin/sleep 0.05; done
+"""
 IGNORES_TERM = """#!/bin/sh
 trap '' TERM
 touch {ready}
@@ -349,8 +354,9 @@ class Stack:
 
     def __init__(self, tmp_path: Path, script: str) -> None:
         self.ready, self.torn_down = tmp_path / "ready", tmp_path / "torn-down"
+        self.terms = tmp_path / "terms"
         self.script = tmp_path / "stack.sh"
-        self.script.write_text(script.format(ready=self.ready, torn_down=self.torn_down))
+        self.script.write_text(script.format(ready=self.ready, torn_down=self.torn_down, terms=self.terms))
         self.script.chmod(0o755)
 
     def wait_until_ready(self) -> None:
@@ -406,6 +412,25 @@ def test_tears_the_stack_down_on_an_interrupt_or_hangup_and_reports_it(
 
     assert probe.returncode == status
     assert stack.torn_down.exists()
+
+
+def test_sends_one_term_however_many_stop_signals_arrive(real_machine, tmp_path):
+    """A timeout forwards every TERM it gets, so the one it is sent must stay one."""
+    stack = Stack(tmp_path, COUNTS_TERM_FOR_TWO_SECONDS)
+    bin_directory = tmp_path / "bin"
+    bin_directory.mkdir()
+    install_fake(bin_directory, "timeout", stack.script.read_text())
+    probe = start_stack_under_probe_run({**real_machine, "PATH": f"{bin_directory}:{real_machine['PATH']}"}, stack)
+
+    try:
+        probe.send_signal(signal.SIGINT)
+        wait_for(stack.terms.exists)
+        probe.send_signal(signal.SIGHUP)
+        probe.communicate(timeout=20)
+    finally:
+        end_probe_run(probe)
+
+    assert stack.terms.read_text().splitlines() == ["term"]
 
 
 def test_tears_the_stack_down_and_ends_it_when_the_cap_expires(real_machine, tmp_path):

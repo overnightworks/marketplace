@@ -141,10 +141,18 @@ readonly PARENT_GUARD='starter_now=$(sed -n "s/^PPid:[[:space:]]*//p" "/proc/$1/
 child=""
 requested_status=""
 stop_requested=""
+term_sent=""
+# A stop is translated into one TERM: timeout forwards each TERM it gets, so every further one
+# would reach the command as another.
+send_term_once() {
+  [[ -n $child && -z $term_sent ]] || return 0
+  term_sent=1
+  kill -TERM "$child" 2>/dev/null || true
+}
 stop_stack() {
   [[ -z ${1:-} ]] || requested_status=$1
   stop_requested=1
-  [[ -z $child ]] || kill -TERM "$child" 2>/dev/null || true
+  send_term_once
 }
 trap 'stop_stack "$EXIT_INTERRUPTED"' INT
 trap 'stop_stack "$EXIT_HANGUP"' HUP
@@ -155,7 +163,7 @@ trap stop_stack TERM
 setpriv --pdeathsig TERM env --default-signal=INT,QUIT bash -c "$PARENT_GUARD" probe-run \
   "$$" "$starter" "$EXIT_PARENT_GONE" "$starter_ended_message" timeout -k "$kill_after" "$cap" "$@" <&0 &
 child=$!
-[[ -z $stop_requested ]] || kill -TERM "$child" 2>/dev/null || true
+[[ -z $stop_requested ]] || send_term_once
 
 # A signal to probe-run's process group can end the watcher too, so its end alone proves nothing:
 # a starter that ended has left probe-run a new parent.

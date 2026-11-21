@@ -91,9 +91,10 @@ export async function runLane(args, answers = {}, options = {}) {
   const agentCalls = {}
   const isFixer = (label) => label.startsWith('fix-')
   const REREAD = '-reread'
+  const LIMIT_PROBE = 'limit-probe-'
   const baseLabel = (label) => label.endsWith(REREAD) ? label.slice(0, -REREAD.length) : label
   const isRelayed = (label) => /^(branch|begin|add|sync|scope-|ci-read-|fix-|checkpoint-|record-|retitle)/.test(baseLabel(label))
-  const defaultAnswerFor = (label) => isRelayed(label) && !isFixer(label) ? {} : null
+  const defaultAnswerFor = (label) => label.startsWith(LIMIT_PROBE) ? 'ok' : isRelayed(label) && !isFixer(label) ? {} : null
   // The branch carries the newest tip a builder, fixer or sync returned. A scope, sync or fixer answer says what the fake
   // git and aco print (scope: push_error, remote_tip, brief_error, outside_claim; sync and fixer: head, parents, head_code,
   // main_code; a fixer's answer also holds its own report, which is returned with the printed line) and how the agent mishandled the printed line (nonce, edit, printed, printerMode: the printer mode it ran instead); the line itself always comes from
@@ -172,7 +173,7 @@ export async function runLane(args, answers = {}, options = {}) {
     return reread ? { printed } : { ...report, printed }
   }
   // The worktree check and the begin of the run come before every lane's work and the add and the record courier after every lane that leaves one, so the launch lists hold only the agents between them; agentCalls keeps both.
-  const agent = async (prompt, agentOptions = {}) => { if (![WORKTREE_CHECK, 'begin', 'add'].includes(agentOptions.label) && !agentOptions.label.startsWith('record-')) { launchedAgents.push(agentOptions.label); launchedPrompts.push(prompt) } agentCalls[agentOptions.label] = { prompt, options: structuredClone(agentOptions) }; return answerFor(agentOptions.label, prompt) }
+  const agent = async (prompt, agentOptions = {}) => { if (![WORKTREE_CHECK, 'begin', 'add'].includes(agentOptions.label) && !agentOptions.label.startsWith('record-') && !agentOptions.label.startsWith(LIMIT_PROBE)) { launchedAgents.push(agentOptions.label); launchedPrompts.push(prompt) } agentCalls[agentOptions.label] = { prompt, options: structuredClone(agentOptions) }; return answerFor(agentOptions.label, prompt) }
   // A thunk that throws resolves to null, as in the Workflow runtime.
   const parallel = async thunks => Promise.all(thunks.map(thunk => thunk().catch(() => null)))
   const ignore = () => {}

@@ -170,7 +170,7 @@ The lane needs a repository that coordinates with aco, after the head ran
   `PENDING`, and the reason names the pending checks. Resume with `pr` and `tip`
   once CI has finished.
 - A Claude agent of any stage (builder, reviewer, fixer, tester, CI reader or
-  mechanical step) that fails with its account usage limit returns awaiting-head
+  mechanical step) that fails with its account usage limit, or that the runtime ends with null while a probe agent of the same model ends with null too, returns awaiting-head
   at its stage with `claudeLimit` (`resetsAt` when the error names a reset), the
   `history` so far and the resume arguments of that stage (`pr`, `tip`, and
   `fixFirst` or, on a review round, `deltaFrom` and `answers`; `build` before a

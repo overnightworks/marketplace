@@ -44,7 +44,7 @@ async function beginRun(startTip = segmentStartTip) {
 }
 // The open segment's record goes to the claim once, with the stages the segment started; aco takes no empty --ran, so a begun segment that started no stage stores nothing.
 async function addRecord(written) {
-  if (!segmentBegun || addAttempted || !written?.file) return null
+  if (!segmentBegun || addAttempted || !written?.file || approvesRevisedTip(history)) return null
   const ran = stagesStarted()
   if (!ran.length) return null
   addAttempted = true

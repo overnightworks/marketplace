@@ -314,6 +314,13 @@ test('run-record: a review revision beside a gate approval on a material lane is
   assert.deepEqual(run.writtenRecords, [])
 })
 
+test('run-record: a review revision beside a gate approval on a material lane stores no approval of the revised tip when the review budget ends the run before a fixer', async () => {
+  const answers = { 'r0-review': { verdict: 'REVISE', blocking: [defectWithoutDraft], followups: [] }, 'r0-gate': APPROVE }
+  const run = await runLane({ ...materialArgs, budgets: { review: 0 } }, answers)
+  assert.equal(run.result.status, 'unresolved', run.result.reason)
+  assert.deepEqual(run.laneRecordCalls.map(call => call[1]), ['begin'])
+})
+
 for (const [name, budget, answers, storedRan] of [
   ['the tester\'s pass', 0, { 'r0-review': APPROVE, 'e2e-0': PASS, 'ci-0': roundRed(0) }, ['review', 'test']],
   ['a reviewed fix', 1, { ...roundReviews, 'r0-review': APPROVE, 'e2e-0': PASS, 'ci-0': roundRed(0), 'ci-1': roundRed(1), 'fix-1': reviewedRoundFix(1) }, ['review', 'test', 'review', 'fix']],

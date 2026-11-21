@@ -94,9 +94,10 @@ function stageChoices({ routing, history, fixRole, testStarted }) {
 }
 
 // Each review and gate verdict with the commit it judged, oldest first; a verdict that is neither approve nor revise, or whose commit is not a full sha, states nothing aco reads.
+const isRecordedVerdict = (entry) => Object.hasOwn(VERDICT_STAGES, entry.by) && ['APPROVE', 'REVISE'].includes(entry.verdict) && FULL_SHA.test(entry.tip ?? '')
 function recordedVerdicts(history) {
   return history
-    .filter(entry => Object.hasOwn(VERDICT_STAGES, entry.by) && ['APPROVE', 'REVISE'].includes(entry.verdict) && FULL_SHA.test(entry.tip ?? ''))
+    .filter(isRecordedVerdict)
     .map(entry => ({ stage: VERDICT_STAGES[entry.by], verdict: entry.verdict.toLowerCase(), sha: entry.tip }))
 }
 
@@ -105,6 +106,15 @@ const lastVerdictSha = (history) => recordedVerdicts(history).at(-1)?.sha ?? nul
 
 // Whether the newest review or gate verdict approved exactly this commit.
 const approvedOn = (history, sha) => { const last = recordedVerdicts(history).at(-1); return last?.verdict === 'approve' && last.sha === sha }
+
+// Whether the newest verdict approves a commit that an earlier verdict revised with no fix between them: the revision still stands, and aco lands the last stored verdict, so storing the approval last would let a run that stops here land the revised commit.
+function approvesRevisedTip(history) {
+  const verdicts = history.filter(entry => isRecordedVerdict(entry) || entry.by === 'fix')
+  const last = verdicts.at(-1)
+  if (!last || last.by === 'fix' || last.verdict !== 'APPROVE') return false
+  const sinceFix = verdicts.slice(verdicts.findLastIndex(entry => entry.by === 'fix') + 1)
+  return sinceFix.some(entry => entry.verdict === 'REVISE' && entry.tip === last.tip)
+}
 
 // The shas of earlier runs' review approvals count for this run's misses only when the run follows them (aco marks the lane's misses unknown otherwise).
 const approvedBeforeRun = (earlier) => earlier?.follows ? earlier.approved : []

@@ -271,9 +271,10 @@ function stageChoices({ routing, history, fixRole, testStarted }) {
 }
 
 // Each review and gate verdict with the commit it judged, oldest first; a verdict that is neither approve nor revise, or whose commit is not a full sha, states nothing aco reads.
+const isRecordedVerdict = (entry) => Object.hasOwn(VERDICT_STAGES, entry.by) && ['APPROVE', 'REVISE'].includes(entry.verdict) && FULL_SHA.test(entry.tip ?? '')
 function recordedVerdicts(history) {
   return history
-    .filter(entry => Object.hasOwn(VERDICT_STAGES, entry.by) && ['APPROVE', 'REVISE'].includes(entry.verdict) && FULL_SHA.test(entry.tip ?? ''))
+    .filter(isRecordedVerdict)
     .map(entry => ({ stage: VERDICT_STAGES[entry.by], verdict: entry.verdict.toLowerCase(), sha: entry.tip }))
 }
 
@@ -282,6 +283,15 @@ const lastVerdictSha = (history) => recordedVerdicts(history).at(-1)?.sha ?? nul
 
 // Whether the newest review or gate verdict approved exactly this commit.
 const approvedOn = (history, sha) => { const last = recordedVerdicts(history).at(-1); return last?.verdict === 'approve' && last.sha === sha }
+
+// Whether the newest verdict approves a commit that an earlier verdict revised with no fix between them: the revision still stands, and aco lands the last stored verdict, so storing the approval last would let a run that stops here land the revised commit.
+function approvesRevisedTip(history) {
+  const verdicts = history.filter(entry => isRecordedVerdict(entry) || entry.by === 'fix')
+  const last = verdicts.at(-1)
+  if (!last || last.by === 'fix' || last.verdict !== 'APPROVE') return false
+  const sinceFix = verdicts.slice(verdicts.findLastIndex(entry => entry.by === 'fix') + 1)
+  return sinceFix.some(entry => entry.verdict === 'REVISE' && entry.tip === last.tip)
+}
 
 // The shas of earlier runs' review approvals count for this run's misses only when the run follows them (aco marks the lane's misses unknown otherwise).
 const approvedBeforeRun = (earlier) => earlier?.follows ? earlier.approved : []
@@ -1427,7 +1437,7 @@ async function beginRun(startTip = segmentStartTip) {
 }
 // The open segment's record goes to the claim once, with the stages the segment started; aco takes no empty --ran, so a begun segment that started no stage stores nothing.
 async function addRecord(written) {
-  if (!segmentBegun || addAttempted || !written?.file) return null
+  if (!segmentBegun || addAttempted || !written?.file || approvesRevisedTip(history)) return null
   const ran = stagesStarted()
   if (!ran.length) return null
   addAttempted = true
@@ -2156,8 +2166,8 @@ async function reviseAfter(rr) {
       'then start a new run with pr and tip and fixFirst, or re-cut the item.' })
   }
   // A reviewer that approved the tip has proven it, whichever other reviewer revises it; its verdict goes to the claim before the fixer can die.
-  // Only when the history ends on a revision: aco lands the last stored verdict, so an approval that follows a revision of the same tip stays unstored.
-  if (rr.results.some(v => v?.verdict === 'APPROVE' && !(v.blocking || []).length) && !approvedOn(history, tip)) {
+  // Not when the approval follows a revision of the same tip: aco lands the last stored verdict, so that segment stays unstored until the fixer's commits are judged.
+  if (rr.results.some(v => v?.verdict === 'APPROVE' && !(v.blocking || []).length) && !approvesRevisedTip(history)) {
     const stored = await storeProvenPoint()
     if (stored) return stored
   }

@@ -4,22 +4,28 @@
 # usage: probe-run [-k K CAP] [--] COMMAND [ARGUMENT...]
 #        probe-run -h | --help
 #
-# Waits (up to an hour) until the 1-minute load average is below 1.5 x cores, then
-# execs: setpriv --pdeathsig TERM timeout -k K CAP COMMAND...
+# Waits (up to an hour) until the 1-minute load average is below 1.5 x cores, then runs
+# setpriv --pdeathsig TERM timeout -k K CAP COMMAND... as its child and waits for it.
 # K is the seconds a stack gets to tear down after TERM (default 30), CAP the seconds
 # it may run (default 1800); CAP + K stays within 1830.
 #
 # While it waits it watches the process that started it and ends without starting the
-# command once that process is gone. It checks once more after setpriv has armed the signal,
-# since a starter gone before that is never signalled, and then execs timeout.
+# command once that process is gone. The child checks once more after setpriv has armed the
+# signal, since a probe-run or starter gone before that is never signalled, and then execs
+# timeout.
+# After the start the starter is watched on: once it ends, the command gets TERM and the
+# status is 4.
 #
-# SIGINT during the wait ends the script at once, without starting the command. The handler
-# is set only for the wait; the guard and the command keep their own signal handling.
+# SIGINT during the wait ends the script at once, without starting the command. After the
+# start, SIGINT, SIGHUP and SIGTERM to probe-run (to its pid or, as Ctrl-C, to its process
+# group) reach the command as one TERM through timeout, so its teardown runs and KILL follows
+# only after K. timeout itself would KILL the command at once on a received INT or HUP.
 #
-# Exit status while waiting: 2 bad arguments or an unreadable load, 75 the load stayed at or
+# Exit status: 2 bad arguments or an unreadable load, 75 the load stayed at or
 # above the limit for the whole wait (no command was started), 4 the starting process died
-# during the wait or before the signal was armed (no command was started), 130 interrupted
-# during the wait (no command was started). After the start the status is the command's.
+# (no command was started, or the started one got TERM), 130 interrupted during the wait (no
+# command was started). After the start the status is the command's, except 130 after a
+# SIGINT and 129 after a SIGHUP to probe-run.
 #
 # The tests inject PROBE_RUN_LOADAVG_FILE (the load source, default /proc/loadavg),
 # PROBE_RUN_POLL_SECONDS (default 5) and PROBE_RUN_WAIT_SECONDS (default 3600); both
@@ -33,6 +39,7 @@ readonly EXIT_BAD_INPUT=2
 readonly EXIT_LOAD_TIMEOUT=75
 readonly EXIT_PARENT_GONE=4
 readonly EXIT_INTERRUPTED=130
+readonly EXIT_HANGUP=129
 kill_after=30
 cap=1800
 starter=$PPID
@@ -121,10 +128,56 @@ while true; do
   waited=$((waited + poll_seconds))
 done
 
-trap - INT
+# The signal survives the exec into the guard and on into timeout. A probe-run that ended since
+# the last check is never signalled, and one whose own parent (the starter) ended has been
+# given a new parent, which the guard sees.
+readonly PARENT_GUARD='starter_now=$(sed -n "s/^PPid:[[:space:]]*//p" "/proc/$1/status" 2>/dev/null)
+[[ $PPID == "$1" && $starter_now == "$2" ]] || { echo "probe-run: $4" >&2; exit "$3"; }; shift 4; exec "$@"'
 
-# The signal survives the exec into the guard and on into timeout; a starter that ended since
-# the last check has left this process a new parent, which the guard sees.
-readonly PARENT_GUARD='[[ $PPID == "$1" ]] || { echo "probe-run: $3" >&2; exit "$2"; }; shift 3; exec "$@"'
-exec setpriv --pdeathsig TERM bash -c "$PARENT_GUARD" probe-run \
-  "$starter" "$EXIT_PARENT_GONE" "$starter_ended_message" timeout -k "$kill_after" "$cap" "$@"
+# Bash runs a trap only between commands, so the child runs in the background and is waited on.
+# Its status is reported as 130 or 129 once probe-run itself was interrupted or hung up.
+child=""
+requested_status=""
+stop_requested=""
+stop_stack() {
+  [[ -z ${1:-} ]] || requested_status=$1
+  stop_requested=1
+  [[ -z $child ]] || kill -TERM "$child" 2>/dev/null || true
+}
+trap 'stop_stack "$EXIT_INTERRUPTED"' INT
+trap 'stop_stack "$EXIT_HANGUP"' HUP
+trap stop_stack TERM
+
+setpriv --pdeathsig TERM bash -c "$PARENT_GUARD" probe-run \
+  "$$" "$starter" "$EXIT_PARENT_GONE" "$starter_ended_message" timeout -k "$kill_after" "$cap" "$@" &
+child=$!
+[[ -z $stop_requested ]] || kill -TERM "$child" 2>/dev/null || true
+
+# A signal to probe-run's process group can end the watcher too, so its end alone proves nothing:
+# a starter that ended has left probe-run a new parent.
+starter_has_ended() {
+  local key value
+  while read -r key value; do
+    [[ $key != PPid: ]] || { [[ $value != "$starter" ]]; return; }
+  done <"/proc/$$/status"
+}
+
+# Waiting on the starter's pid directly is impossible, since it is not this process's child.
+tail --pid="$starter" -f /dev/null &
+starter_watcher=$!
+watched=("$child" "$starter_watcher")
+child_status=0
+while true; do
+  finished=""
+  wait -n -p finished "${watched[@]}" && child_status=0 || child_status=$?
+  [[ ${finished:-} != "$child" ]] || break
+  if [[ ${finished:-} == "$starter_watcher" ]]; then
+    if starter_has_ended; then
+      echo "probe-run: the process that started probe-run ended; ending the probe stack" >&2
+      stop_stack "$EXIT_PARENT_GONE"
+    fi
+    watched=("$child")
+  fi
+done
+kill "$starter_watcher" 2>/dev/null || true
+exit "${requested_status:-$child_status}"

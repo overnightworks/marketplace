@@ -22,18 +22,25 @@ LOAD_TIMEOUT_STATUS = 75
 
 
 @pytest.fixture
-def machine(tmp_path: Path) -> dict[str, str]:
+def real_machine(tmp_path: Path) -> dict[str, str]:
+    """An environment with the system setpriv and timeout and a load that leaves room."""
+    (tmp_path / "loadavg").write_text("0.00 0.00 0.00 1/100 1\n")
+    return {
+        "PATH": os.environ["PATH"],
+        "PROBE_RUN_LOADAVG_FILE": str(tmp_path / "loadavg"),
+        "PROBE_RUN_POLL_SECONDS": "1",
+        "PROBE_RUN_WAIT_SECONDS": "1",
+    }
+
+
+@pytest.fixture
+def machine(tmp_path: Path, real_machine: dict[str, str]) -> dict[str, str]:
     """An environment whose setpriv prints its arguments and whose load is a file."""
     bin_directory = tmp_path / "bin"
     bin_directory.mkdir()
     install_fake(bin_directory, "setpriv", ARGUMENT_ECHO)
     install_fake(bin_directory, "sleep", "#!/bin/sh\n")
-    return {
-        "PATH": f"{bin_directory}:{os.environ['PATH']}",
-        "PROBE_RUN_LOADAVG_FILE": str(tmp_path / "loadavg"),
-        "PROBE_RUN_POLL_SECONDS": "1",
-        "PROBE_RUN_WAIT_SECONDS": "1",
-    }
+    return {**real_machine, "PATH": f"{bin_directory}:{real_machine['PATH']}"}
 
 
 def set_load(machine: dict[str, str], load: float) -> None:
@@ -198,7 +205,7 @@ def test_prints_its_own_usage_for_help_without_waiting_or_starting(machine, flag
     assert result.returncode == 0
     assert result.stdout.startswith("Run a probe stack's drive")
     assert "usage: probe-run" in result.stdout
-    assert "Exit status while waiting" in result.stdout
+    assert "Exit status" in result.stdout
 
 
 def test_hands_help_after_the_command_on_to_the_command(machine):
@@ -232,7 +239,7 @@ def test_ends_a_wait_without_starting_once_the_process_that_started_it_is_gone(m
 SLEEPS_AFTER_ANNOUNCING = "#!/bin/sh\ntouch {announcement}\nexec /bin/sleep 30\n"
 INTERRUPTED_STATUS = 130
 ENDS_ITS_STARTER_BEFORE_ARMING = """#!/bin/sh
-starter=$PPID
+starter=$(sed -n 's/^PPid:[[:space:]]*//p' "/proc/$PPID/status")
 kill -9 "$starter"
 while [ -e "/proc/$starter" ] && ! grep -q '^State:.Z' "/proc/$starter/status"; do /bin/sleep 0.01; done
 exec {real_setpriv} "$@"
@@ -262,7 +269,7 @@ def test_ends_without_starting_when_the_starter_ends_before_the_signal_is_armed(
         libc.prctl(PR_SET_CHILD_SUBREAPER, 0)
 
     assert os.waitstatus_to_exitcode(status) == 4
-    assert "ended during the wait" in output.read_text()
+    assert "the process that started probe-run ended" in output.read_text()
     assert not marker.exists()
 
 
@@ -293,37 +300,6 @@ def test_ends_a_wait_at_once_on_sigint_without_starting_the_command(machine, tmp
     assert not marker.exists()
 
 
-EXECS_AFTER_SKIPPING = "#!/bin/sh\nshift {skipped}\nexec \"$@\"\n"
-TRAPS_INTERRUPT_AFTER_ANNOUNCING = """trap 'touch {received}; exit 0' INT
-touch {announcement}
-while true; do /bin/sleep 0.05; done
-"""
-
-
-def test_delivers_sigint_to_the_started_command_after_the_exec(machine, tmp_path):
-    set_load(machine, 0.0)
-    bin_directory = Path(machine["PATH"].split(":")[0])
-    install_fake(bin_directory, "setpriv", EXECS_AFTER_SKIPPING.format(skipped=2))
-    install_fake(bin_directory, "timeout", EXECS_AFTER_SKIPPING.format(skipped=3))
-    announcement, received = tmp_path / "running", tmp_path / "interrupt-received"
-    script = TRAPS_INTERRUPT_AFTER_ANNOUNCING.format(announcement=announcement, received=received)
-    probe = subprocess.Popen([str(PROBE_RUN), "sh", "-c", script], env=machine)
-    deadline = time.monotonic() + 20
-    while not announcement.exists() and time.monotonic() < deadline:
-        time.sleep(0.05)
-
-    try:
-        probe.send_signal(signal.SIGINT)
-        probe.wait(timeout=10)
-    finally:
-        if probe.poll() is None:
-            probe.kill()
-            probe.wait()
-
-    assert announcement.exists()
-    assert received.exists()
-
-
 def test_runs_the_command_under_timeout_while_the_starter_lives(machine, tmp_path):
     set_load(machine, 0.0)
     (Path(machine["PATH"].split(":")[0]) / "setpriv").unlink()
@@ -333,6 +309,140 @@ def test_runs_the_command_under_timeout_while_the_starter_lives(machine, tmp_pat
 
     assert result.returncode == 0
     assert marker.exists()
+
+
+TEARS_DOWN_ON_EXIT_AND_TERM = """#!/bin/sh
+trap 'touch {torn_down}; exit 0' EXIT TERM
+touch {ready}
+while true; do /bin/sleep 0.05; done
+"""
+IGNORES_TERM = """#!/bin/sh
+trap '' TERM
+touch {ready}
+while true; do /bin/sleep 0.05; done
+"""
+HUNG_UP_STATUS = 129
+CAP_EXPIRED_STATUS = 124
+KILLED_STATUS = 137
+SHORT_KILL_AFTER, SHORT_CAP = "2", "20"
+
+
+class Stack:
+    """A command under the system timeout that announces itself and may tear down."""
+
+    def __init__(self, tmp_path: Path, script: str) -> None:
+        self.ready, self.torn_down = tmp_path / "ready", tmp_path / "torn-down"
+        self.script = tmp_path / "stack.sh"
+        self.script.write_text(script.format(ready=self.ready, torn_down=self.torn_down))
+        self.script.chmod(0o755)
+
+    def wait_until_ready(self) -> None:
+        wait_for(self.ready.exists)
+
+
+def wait_for(condition, seconds: float = 20) -> None:
+    deadline = time.monotonic() + seconds
+    while not condition() and time.monotonic() < deadline:
+        time.sleep(0.05)
+
+
+def start_stack_under_probe_run(
+    real_machine: dict[str, str], stack: Stack, *times: str, **popen_options
+) -> subprocess.Popen[str]:
+    probe = subprocess.Popen(
+        [str(PROBE_RUN), "-k", *(times or (SHORT_KILL_AFTER, SHORT_CAP)), "--", str(stack.script)],
+        env=real_machine, text=True, stderr=subprocess.PIPE, **popen_options,
+    )
+    try:
+        stack.wait_until_ready()
+    except BaseException:
+        end_probe_run(probe)
+        raise
+    return probe
+
+
+def end_probe_run(probe: subprocess.Popen[str]) -> None:
+    """Kills probe-run, which TERMs the stack through its death signal, and reaps it."""
+    if probe.poll() is None:
+        probe.kill()
+    probe.communicate(timeout=30)
+
+
+@pytest.mark.parametrize(
+    ("signal_number", "status"), [(signal.SIGINT, INTERRUPTED_STATUS), (signal.SIGHUP, HUNG_UP_STATUS)]
+)
+@pytest.mark.parametrize("to_process_group", [False, True], ids=["to-the-pid", "to-the-process-group"])
+def test_tears_the_stack_down_on_an_interrupt_or_hangup_and_reports_it(
+    real_machine, tmp_path, signal_number, status, to_process_group
+):
+    stack = Stack(tmp_path, TEARS_DOWN_ON_EXIT_AND_TERM)
+    probe = start_stack_under_probe_run(real_machine, stack, start_new_session=True)
+
+    try:
+        if to_process_group:
+            os.killpg(probe.pid, signal_number)
+        else:
+            probe.send_signal(signal_number)
+        probe.communicate(timeout=10)
+    finally:
+        end_probe_run(probe)
+
+    assert probe.returncode == status
+    assert stack.torn_down.exists()
+
+
+def test_tears_the_stack_down_and_ends_it_when_the_cap_expires(real_machine, tmp_path):
+    stack = Stack(tmp_path, TEARS_DOWN_ON_EXIT_AND_TERM)
+    probe = start_stack_under_probe_run(real_machine, stack, "2", "1")
+
+    try:
+        probe.communicate(timeout=20)
+    finally:
+        end_probe_run(probe)
+
+    assert probe.returncode == CAP_EXPIRED_STATUS
+    assert stack.torn_down.exists()
+
+
+def test_kills_a_stack_that_ignores_term_only_after_the_kill_delay(real_machine, tmp_path):
+    stack = Stack(tmp_path, IGNORES_TERM)
+    probe = start_stack_under_probe_run(real_machine, stack, "2", "1")
+
+    try:
+        started = time.monotonic()
+        probe.communicate(timeout=20)
+        elapsed = time.monotonic() - started
+    finally:
+        end_probe_run(probe)
+
+    assert probe.returncode == KILLED_STATUS
+    assert elapsed >= 2
+
+
+def test_tears_the_stack_down_once_the_process_that_started_probe_run_is_gone(real_machine, tmp_path):
+    stack = Stack(tmp_path, TEARS_DOWN_ON_EXIT_AND_TERM)
+    pid_file = tmp_path / "probe-run.pid"
+    starter = subprocess.Popen(
+        ["sh", "-c", f"{PROBE_RUN} -k {SHORT_KILL_AFTER} {SHORT_CAP} {stack.script} & echo $! > {pid_file}; wait"],
+        env=real_machine,
+    )
+    probe_run_pid = None
+    try:
+        stack.wait_until_ready()
+        probe_run_pid = int(pid_file.read_text())
+        starter.kill()
+        starter.wait(timeout=10)
+        wait_for(stack.torn_down.exists)
+        wait_for(lambda: not is_running(probe_run_pid))
+    finally:
+        if starter.poll() is None:
+            starter.kill()
+            starter.wait()
+        if probe_run_pid is not None and is_running(probe_run_pid):
+            os.kill(probe_run_pid, signal.SIGKILL)
+
+    assert stack.torn_down.exists()
+    assert not is_running(probe_run_pid)
 
 
 def is_running(pid: int) -> bool:

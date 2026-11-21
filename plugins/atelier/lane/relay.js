@@ -14,8 +14,48 @@ function checkpointRenameProblem(relayed, item) {
   if (itemTitle.code !== 0) return `reading the item title exited ${itemTitle.code}: ${itemTitle.err}`
   return retitle.code === 0 ? null : `the title write exited ${retitle.code}: ${retitle.err}`
 }
-// Builds the briefs of the sync and fix steps and owns the schemas of their reports, runs one printer command through an agent and returns the answer of the agent together with the CRC-checked values of the line it relays; for the fix step it judges the fixer's answer against the findings and fold-ins it answered, and for the ci step it reads those values and splits the failing checks into own and shared.
+// Runs one relay step and, when GitHub's rate limit refused a call of a step that changes nothing the lane could not repeat, waits for the reset GitHub names and runs the step once more; the callers see only the final read.
 export async function laneRelay(A) {
+  const relayed = await relayStep(A)
+  return A.answerKind ? relayed : relayAfterReset(A, relayed, 0, 0)
+}
+
+// Waits and runs the step again for as long as the rate limit refuses it; each round adds wait calls, so the MAX_RATE_LIMIT_WAIT_CALLS bound ends it.
+async function relayAfterReset(A, relayed, spent, waitCalls) {
+  if (!relayed?.values?.limited?.length) return relayed
+  const waited = await waitForRateLimitReset(A, spent, waitCalls)
+  if (waited.stop) return { ...relayed, unreachable: `${relayed.unreachable} ${waited.stop}` }
+  return relayAfterReset(A, await relayStep(A), waited.spent, waited.waitCalls)
+}
+
+// The most one lane step sleeps in total for a reset, the reset it accepts beyond that (clock skew), and the calls of the wait step, (3600 + 60) / 240 + 1, that end a loop a stuck clock would otherwise keep going.
+const RATE_LIMIT_WAIT_BOUND_SECONDS = 3600
+const RATE_LIMIT_RESET_SKEW_SECONDS = 60
+const RATE_LIMIT_SLEEP_SECONDS = 240
+const MAX_RATE_LIMIT_WAIT_CALLS = 16
+
+// Runs the wait step, which reads `gh api rate_limit` (it costs no quota) and sleeps toward the named reset, until nothing is exhausted or the reset has passed; returns the seconds slept and the calls made, or why the lane stops waiting.
+async function waitForRateLimitReset(A, spentBefore, callsBefore) {
+  let spent = spentBefore
+  let waitCalls = callsBefore
+  const firstOfRound = callsBefore
+  while (waitCalls < MAX_RATE_LIMIT_WAIT_CALLS) {
+    const nonce = `${A.nonce}-wait-${waitCalls}`
+    const waited = await relayStep({ delegatedLine: A.delegatedLine, worktree: A.worktree, agentOptions: A.agentOptions, reread: A.reread, label: `${A.label}-wait-${waitCalls}`, phase: A.phase, step: 'wait', relayArgs: [`'${nonce}'`], nonce, requiredKeys: ['rate'], brief: 'Change nothing in the files;' })
+    waitCalls++
+    if (!waited || waited.problem || waited.unreachable || waited.values.rate.code !== 0) return { stop: "Its rate limit could not be read with `gh api rate_limit`, so no reset is known." }
+    const { exhausted, now, reset, slept } = waited.values
+    spent += slept
+    if (!exhausted.length) return waitCalls === firstOfRound + 1 ? { stop: '`gh api rate_limit` shows nothing exhausted any more, yet the call is still refused.' } : { spent, waitCalls }
+    if (reset - now > RATE_LIMIT_WAIT_BOUND_SECONDS + RATE_LIMIT_RESET_SKEW_SECONDS) return { stop: `The reset ${exhausted.join(', ')} names is more than an hour away.` }
+    if (now + slept >= reset) return { spent, waitCalls }
+    if (spent > RATE_LIMIT_WAIT_BOUND_SECONDS) return { stop: `The refusal held after waiting ${spent} seconds for the reset.` }
+  }
+  return { stop: 'The refusal held after the most waits the lane makes for the reset.' }
+}
+
+// Builds the briefs of the sync and fix steps and owns the schemas of their reports, runs one printer command through an agent and returns the answer of the agent together with the CRC-checked values of the line it relays; for the fix step it judges the fixer's answer against the findings and fold-ins it answered, and for the ci step it reads those values and splits the failing checks into own and shared.
+async function relayStep(A) {
   const { label, phase: phaseName, step, relayArgs, nonce, requiredKeys, agentOptions, reread, before } = A
 
   // A value a command prints reaches a decision only through one line the PRINTER wrote: the agent runs it and relays the
@@ -31,6 +71,8 @@ export async function laneRelay(A) {
     'received=[urllib.parse.unquote(p) for p in rest[2].split(",") if p] if step=="ci" else []',
     'diffed=[urllib.parse.unquote(p) for p in rest[1].split(",") if p] if step=="fix" else []',
     `wait=${NETWORK_WAIT_SECONDS}`,
+    `sleep_most=${RATE_LIMIT_SLEEP_SECONDS}`,
+    `sleep_within=${RATE_LIMIT_WAIT_BOUND_SECONDS + RATE_LIMIT_RESET_SKEW_SECONDS}`,
     'start=time.monotonic();waits=[];unreachable=set()',
     'network=re.compile("Could not resolve host|Failed to connect to|check your internet connection or https://githubstatus.com")',
     'limit=re.compile("API rate limit already exceeded|API rate limit exceeded|secondary rate limit|rate limit is reached")',
@@ -42,15 +84,18 @@ export async function laneRelay(A) {
     'api=lambda repo:"repos/"+(repo or "{owner}/{repo}")',
     'base=lambda r:json.loads(r["view"].stdout)["baseRefName"]',
     `retitle=lambda pr,item,repo:(("title",("gh","api",api(repo)+"/pulls/"+pr,"--jq",".title")),("item",("gh","api",api(repo)+"/issues/"+item,"--jq",".title")),("retitle",lambda r:("gh","api","-X","PATCH",api(repo)+"/pulls/"+pr,"-f","title="+r["item"].stdout.strip()) if r["title"].stdout.strip()==${JSON.stringify(CHECKPOINT_TITLE_PREFIX)}+item and r["item"].stdout.strip() else ("true",)))`,
-    'steps=dict(retitle=retitle,branch=lambda:(("branch",("git","branch","--show-current")),),scope=lambda item,branch:(("push",("git","push","origin",branch)),("remote",("git","rev-parse","origin/"+branch)),("head",("git","rev-parse","HEAD")),("parents",("git","rev-parse","HEAD^@")),("second_parent_in_main",("git","merge-base","--is-ancestor","HEAD^2","origin/main")),("brief",("aco","brief",item,"--json"))),record=lambda file:(("check",("aco","lane-record","check",file)),),begin=lambda item,run,*ref:((("start",("git","rev-parse","--verify",ref[0]+"^{commit}")),) if ref else ())+(("begin",lambda r:("aco","lane-record","begin",item,"--run",run,*(("--start-tip",r["start"].stdout.strip()) if ref else ()))),("lane",("aco","lane-record","show",item,"--json"))),add=lambda item,file,run,ref,*stages:(("end",("git","rev-parse","--verify",ref+"^{commit}")),("add",lambda r:("aco","lane-record","add",item,file,"--run",run,"--end-tip",r["end"].stdout.strip(),"--ran",*stages))),sync=lambda:(("head",("git","rev-parse","HEAD")),("parents",("git","rev-parse","HEAD^@")),("main",("git","merge-base","--is-ancestor","origin/main","HEAD"))),fix=lambda start,paths:(*steps["sync"](),*((f"diff{i}",("git","log","-p","--first-parent","--remerge-diff","--format=","%s..HEAD"%start,"--",p)) for i,p in enumerate(diffed)),("diffall",("git","log","-p","--first-parent","--remerge-diff","--format=","%s..HEAD"%start)),("tree",("git","rev-parse","HEAD^{tree}")),("mergetree",("git","merge-tree","--write-tree","HEAD^1","HEAD^2"))),ci=lambda pr,repo,paths:(("view",("gh","api",api(repo)+"/pulls/"+pr,"--jq","{headRefOid:.head.sha,baseRefName:.base.ref}")),("changed",("gh","api",api(repo)+"/pulls/"+pr+"/files","--paginate","--slurp")),("headruns",lambda r:("gh","run","list","--commit",json.loads(r["view"].stdout)["headRefOid"],"--json","status,name","--limit","100",*target(repo))),("checks",("gh","pr","checks",pr,"--json","name,bucket,link",*target(repo))),("rules",lambda r:("gh","api",api(repo)+"/rules/branches/"+base(r))),("runs",lambda r:("gh","api",api(repo)+"/commits/"+base(r)+"/check-runs","--paginate","--slurp"))))',
+    'steps=dict(wait=lambda:(("rate",("gh","api","rate_limit")),),retitle=retitle,branch=lambda:(("branch",("git","branch","--show-current")),),scope=lambda item,branch:(("push",("git","push","origin",branch)),("remote",("git","rev-parse","origin/"+branch)),("head",("git","rev-parse","HEAD")),("parents",("git","rev-parse","HEAD^@")),("second_parent_in_main",("git","merge-base","--is-ancestor","HEAD^2","origin/main")),("brief",("aco","brief",item,"--json"))),record=lambda file:(("check",("aco","lane-record","check",file)),),begin=lambda item,run,*ref:((("start",("git","rev-parse","--verify",ref[0]+"^{commit}")),) if ref else ())+(("begin",lambda r:("aco","lane-record","begin",item,"--run",run,*(("--start-tip",r["start"].stdout.strip()) if ref else ()))),("lane",("aco","lane-record","show",item,"--json"))),add=lambda item,file,run,ref,*stages:(("end",("git","rev-parse","--verify",ref+"^{commit}")),("add",lambda r:("aco","lane-record","add",item,file,"--run",run,"--end-tip",r["end"].stdout.strip(),"--ran",*stages))),sync=lambda:(("head",("git","rev-parse","HEAD")),("parents",("git","rev-parse","HEAD^@")),("main",("git","merge-base","--is-ancestor","origin/main","HEAD"))),fix=lambda start,paths:(*steps["sync"](),*((f"diff{i}",("git","log","-p","--first-parent","--remerge-diff","--format=","%s..HEAD"%start,"--",p)) for i,p in enumerate(diffed)),("diffall",("git","log","-p","--first-parent","--remerge-diff","--format=","%s..HEAD"%start)),("tree",("git","rev-parse","HEAD^{tree}")),("mergetree",("git","merge-tree","--write-tree","HEAD^1","HEAD^2"))),ci=lambda pr,repo,paths:(("view",("gh","api",api(repo)+"/pulls/"+pr,"--jq","{headRefOid:.head.sha,baseRefName:.base.ref}")),("changed",("gh","api",api(repo)+"/pulls/"+pr+"/files","--paginate","--slurp")),("headruns",lambda r:("gh","run","list","--commit",json.loads(r["view"].stdout)["headRefOid"],"--json","status,name","--limit","100",*target(repo))),("checks",("gh","pr","checks",pr,"--json","name,bucket,link",*target(repo))),("rules",lambda r:("gh","api",api(repo)+"/rules/branches/"+base(r))),("runs",lambda r:("gh","api",api(repo)+"/commits/"+base(r)+"/check-runs","--paginate","--slurp"))))',
     'ran={"run":subprocess.CompletedProcess(("uuid",),0,uuid.uuid4().hex,"")} if step=="branch" else {}',
     '[ran.__setitem__(n,run(*(c(ran) if callable(c) else c))) for n,c in steps[step](*rest) if not any(ran[k].returncode for k in("view","start","end","begin") if k in ran)]',
     'verdict_jobs=[m[1] for c in (json.loads(ran["checks"].stdout) if step=="ci" and "checks" in ran and ran["checks"].returncode==0 else []) if c["name"]=="quality / verdict" and c["bucket"]=="fail" and (m:=re.search("/job/([0-9]+)",c.get("link") or ""))]',
     'ran.update({"log":run("gh","run","view","--job",verdict_jobs[0],*target(rest[1]),"--log")} if verdict_jobs else {})',
     'brief=json.loads(ran["brief"].stdout) if "brief" in ran and ran["brief"].returncode==0 else None',
     'claim=brief and brief["outside_claim"]',
-    'values={n:{"code":p.returncode,**({"err":e} if ((e:=" ".join(l for l in p.stderr.splitlines() if l[:5]!="hint:")[-300:]) or step!="ci") and (n!="log" or p.returncode) else {}),**({} if n in("brief","view","check","checks","rules","runs","log","changed","headruns","lane") else {"out":p.stdout.strip()[:100]} if n[:4]!="diff" else {"size":len(p.stdout.strip())})} for n,p in ran.items()}',
+    'values={n:{"code":p.returncode,**({"err":e} if ((e:=" ".join(l for l in p.stderr.splitlines() if l[:5]!="hint:")[-300:]) or step!="ci") and (n!="log" or p.returncode) else {}),**({} if n in("brief","view","check","checks","rules","runs","log","changed","headruns","lane","rate") else {"out":p.stdout.strip()[:100]} if n[:4]!="diff" else {"size":len(p.stdout.strip())})} for n,p in ran.items()}',
     'parsed=lambda n:json.loads(ran[n].stdout) if n in ran and ran[n].returncode==0 else None',
+    'exhausted={n:r["reset"] for n,r in ((parsed("rate") or {}).get("resources") or {}).items() if r.get("remaining")==0}',
+    'now=int(time.time());slept=max(0,min(max(exhausted.values())-now,sleep_most-int(time.monotonic()-start))) if exhausted and max(exhausted.values())-now<=sleep_within else 0;time.sleep(slept)',
+    'values.update(**(dict(now=now,slept=slept,exhausted=sorted(exhausted),**({"reset":max(exhausted.values())} if exhausted else {})) if step=="wait" and "rate" in ran and ran["rate"].returncode==0 else {}))',
     'view,listing,rules,pages=parsed("view"),parsed("checks"),parsed("rules"),parsed("runs")',
     'listing=listing and sorted(listing,key=lambda c:(c["name"],c["bucket"]))',
     'latest_on_base={r["name"]:r for r in sorted((r for page in pages or [] for r in page["check_runs"] if r["status"]=="completed"),key=lambda r:(r.get("completed_at") or "",r["id"]))}',

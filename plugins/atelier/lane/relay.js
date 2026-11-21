@@ -284,8 +284,8 @@ export async function laneRelay(A) {
     const anyAnswer = blocking.length > 0 || foldIn.some(f => answers.some(o => o.foldIn === f.where))
     return anyAnswer && blockingAnswered && foldInAnswered
   }
-  // An unchanged tip is a fix too when the fixer proves every blocking finding already met by the lane tip (an earlier fixer's commits).
-  const everyBlockingResolved = (fixed, blocking) => blocking.length > 0 && blocking.every(f => satisfiedEvidence(fixed, f))
+  // An unchanged tip is a fix too when the fixer proves every blocking finding of the carried round already met by the lane tip (an earlier fixer's commits); only that round's answer reaches a review.
+  const everyBlockingResolved = (fixed, blocking) => Boolean(A.carried) && blocking.length > 0 && blocking.every(f => satisfiedEvidence(fixed, f))
   // Why a fixer's answer does not count as a fix, or null when it does.
   function fixRejection(fixed, blocking, foldIn) {
     const { findingNumbers, ...rejection } = fixed.proofRejection ?? {}
@@ -352,7 +352,7 @@ export async function laneRelay(A) {
   const ANSWER_KINDS = {
     sync: { schema: SYNC_ANSWER, need: ['facts', 'hasLedgers', 'hasGenerated'], brief: syncBrief },
     checkpoint: { schema: CHECKPOINT_ANSWER, need: ['facts', 'stage', 'startRef', 'branch', 'item', 'repo'], brief: checkpointBrief },
-    fix: { schema: FIX, need: ['facts', 'pr', 'tip', 'source', 'blocking', 'findings', 'foldIns', 'foldInEntries', 'productionPaths', 'flakeRerunUsed'], brief: fixerBrief },
+    fix: { schema: FIX, need: ['facts', 'pr', 'tip', 'source', 'blocking', 'findings', 'foldIns', 'foldInEntries', 'productionPaths', 'flakeRerunUsed', 'carried'], brief: fixerBrief },
   }
   const answerKind = ANSWER_KINDS[A.answerKind]
   const kindMissing = (answerKind ? answerKind.need : ['brief']).filter(key => A[key] === undefined || A[key] === null)

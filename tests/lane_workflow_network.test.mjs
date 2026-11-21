@@ -140,3 +140,23 @@ test('AC-rate-limit-wait: a quota that stays at zero ends the lane awaiting-head
   assert.deepEqual([result.status, result.stage], ['awaiting-head', 'scope'])
   assert.ok(launchedAgents.filter(label => label.startsWith('scope-resume-wait')).length <= 16)
 })
+
+// A rerun the limit refuses again waits a second round: the quota shows zero on the first wait call, refilled on the second, and again on the third.
+const refusedTwice = { ...refused, network_fails: 6 }
+const SECOND_ROUND_FIRST_WAIT_CALL = 3
+
+test('AC-rate-limit-wait: a rerun refused again whose rate limit then shows no exhausted quota ends the lane awaiting-head', async () => {
+  const { result } = await runLane(resumeArgs, { 'scope-resume': { ...refusedTwice, rate_exhausted_calls: 1, rate_reset_in: WITHIN_THE_HOUR } }, noWait)
+  assert.deepEqual([result.status, result.stage], ['awaiting-head', 'scope'])
+  assert.match(result.reason, /no exhausted quota/)
+})
+
+// One second of sleep per wait, a one-second total bound and a skew that keeps the reset within it make the total reachable inside a test.
+const tinyBound = { transform: (source) => noWait.transform(source).replace(/const RATE_LIMIT_SLEEP_SECONDS = \d+$/m, 'const RATE_LIMIT_SLEEP_SECONDS = 1').replace(/const RATE_LIMIT_WAIT_BOUND_SECONDS = \d+$/m, 'const RATE_LIMIT_WAIT_BOUND_SECONDS = 1').replace(/const RATE_LIMIT_RESET_SKEW_SECONDS = \d+$/m, 'const RATE_LIMIT_RESET_SKEW_SECONDS = 3600') }
+
+test('AC-rate-limit-wait: the seconds slept add up across rerun rounds and end the lane awaiting-head past the total bound', async () => {
+  const { result, launchedAgents } = await runLane(resumeArgs, { 'scope-resume': { ...refusedTwice, rate_exhausted_calls: 1, rate_exhausted_again_at: SECOND_ROUND_FIRST_WAIT_CALL, rate_reset_in: WITHIN_THE_HOUR } }, tinyBound)
+  assert.deepEqual([result.status, result.stage], ['awaiting-head', 'scope'])
+  assert.match(result.reason, /held after waiting 2 seconds/)
+  assert.equal(launchedAgents.filter(label => label.startsWith('scope-resume-wait')).length, SECOND_ROUND_FIRST_WAIT_CALL)
+})

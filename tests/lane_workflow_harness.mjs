@@ -33,13 +33,13 @@ esac
 const NETWORK_DOWN = `calls=$(( $(cat "$0.calls" 2>/dev/null || echo 0) + 1 )); echo "$calls" > "$0.calls"
 if [ -n "$FAKE_NETWORK_ERROR" ] && { [ "$FAKE_NETWORK_FAILS" = always ] || [ "$calls" -le "$FAKE_NETWORK_FAILS" ]; }; then [ -z "$FAKE_NETWORK_STDOUT" ] || printf '%s\\n' "$FAKE_NETWORK_STDOUT"; printf '%s\\n' "$FAKE_NETWORK_ERROR" >&2; exit 1; fi
 `
-// api rate_limit costs no quota and counts apart from the other calls: the first FAKE_RATE_EXHAUSTED_CALLS calls show the core quota at zero with its reset FAKE_RATE_RESET_IN seconds ahead, later ones a refilled quota; FAKE_RATE_ERROR makes it fail.
+// api rate_limit costs no quota and counts apart from the other calls: the first FAKE_RATE_EXHAUSTED_CALLS calls show the core quota at zero with its reset FAKE_RATE_RESET_IN seconds ahead, later ones a refilled quota except call number FAKE_RATE_EXHAUSTED_AGAIN_AT, which shows it at zero again; FAKE_RATE_ERROR makes it fail.
 // run view logs its arguments in a file beside the fake and prints the file FAKE_RUN_LOG, or fails with FAKE_RUN_VIEW_CODE.
 export const FAKE_GH = `#!/bin/sh
 if [ "$1 $2" = "api rate_limit" ]; then
   [ -z "$FAKE_RATE_ERROR" ] || { printf '%s\\n' "$FAKE_RATE_ERROR" >&2; exit 1; }
   rate_calls=$(( $(cat "$0.rate-calls" 2>/dev/null || echo 0) + 1 )); echo "$rate_calls" > "$0.rate-calls"
-  if [ "$rate_calls" -le "$FAKE_RATE_EXHAUSTED_CALLS" ]; then remaining=0; else remaining=5000; fi
+  if [ "$rate_calls" -le "$FAKE_RATE_EXHAUSTED_CALLS" ] || [ "$rate_calls" = "$FAKE_RATE_EXHAUSTED_AGAIN_AT" ]; then remaining=0; else remaining=5000; fi
   printf '{"resources":{"core":{"limit":5000,"remaining":%s,"reset":%s},"graphql":{"limit":5000,"remaining":5000,"reset":1}}}' "$remaining" "$(( $(date +%s) + FAKE_RATE_RESET_IN ))"
   exit 0
 fi
@@ -158,7 +158,7 @@ export async function runLane(args, answers = {}, options = {}) {
     const env = {
       ...process.env, PATH: `${fakeCommands()}:${process.env.PATH}`, FAKE_HEAD: scenario.head ?? newestTip, FAKE_BRANCH: scenario.branch ?? args.branch, FAKE_BRANCH_CODE: scenario.branch_code ?? 0, FAKE_REMOTE: scenario.remote_tip ?? newestTip,
       FAKE_HEAD_CODE: scenario.head_code ?? 0, FAKE_PARENTS: (scenario.parents ?? []).join('\n'), FAKE_MAIN_CODE: scenario.main_code ?? 0, FAKE_TREE: scenario.tree ?? 'a1a1a1a1', FAKE_MERGE_TREE: scenario.merge_tree ?? scenario.tree ?? 'a1a1a1a1', FAKE_MERGE_TREE_CODE: scenario.merge_tree_code ?? 0, FAKE_TOUCHED: (scenario.touched_paths ?? []).join('\n'),
-      FAKE_PUSH_ERROR: scenario.push_error ?? '', FAKE_NETWORK_ERROR: scenario.network_error ?? '', FAKE_NETWORK_STDOUT: scenario.network_stdout ?? '', FAKE_NETWORK_FAILS: scenario.network_fails ?? 1, FAKE_BRIEF_ERROR: scenario.brief_error ?? '', FAKE_RATE_EXHAUSTED_CALLS: scenario.rate_exhausted_calls ?? 0, FAKE_RATE_RESET_IN: scenario.rate_reset_in ?? 600, FAKE_RATE_ERROR: scenario.rate_error ?? '',
+      FAKE_PUSH_ERROR: scenario.push_error ?? '', FAKE_NETWORK_ERROR: scenario.network_error ?? '', FAKE_NETWORK_STDOUT: scenario.network_stdout ?? '', FAKE_NETWORK_FAILS: scenario.network_fails ?? 1, FAKE_BRIEF_ERROR: scenario.brief_error ?? '', FAKE_RATE_EXHAUSTED_CALLS: scenario.rate_exhausted_calls ?? 0, FAKE_RATE_EXHAUSTED_AGAIN_AT: scenario.rate_exhausted_again_at ?? 0, FAKE_RATE_RESET_IN: scenario.rate_reset_in ?? 600, FAKE_RATE_ERROR: scenario.rate_error ?? '',
       FAKE_RECORD_ERROR: scenario.record_error ?? '', FAKE_BEGIN_ERROR: scenario.begin_error ?? '', FAKE_ADD_ERROR: scenario.add_error ?? '', FAKE_SHOW_CODE: scenario.show_code ?? 0, FAKE_SHOW_ERROR: scenario.show_error ?? '', FAKE_SHOW_OUTPUT: JSON.stringify({ runs: scenario.stored_runs ?? [storedOwnRun()] }), FAKE_RESOLVE_CODE: scenario.resolve_code ?? 0, FAKE_PR_TITLE: scenario.pr_title ?? 'Add the feature', FAKE_ITEM_TITLE: scenario.item_title ?? 'The item title', FAKE_PATCH_CODE: scenario.patch_code ?? 0, FAKE_BRIEF_OUTPUT: JSON.stringify({ outside_claim: 'outside_claim' in scenario ? scenario.outside_claim : [] }), ...ghEnv(scenario),
     }
     if (label.startsWith('record-')) return recordPrinted(prompt, line, env, scenario)
@@ -178,7 +178,7 @@ export async function runLane(args, answers = {}, options = {}) {
     if (!isRelayed(label) || !answer) return answer
     const printed = printedBy(prompt, answer, reread, label)
     if (answer.head && !base.startsWith('scope-')) newestTip = answer.head
-    const { pr_title: _prTitle, item_title: _itemTitle, patch_code: _patchCode, pr_head: _prHead, checks: _checks, required: _required, base_runs: _baseRuns, changed_files: _changedFiles, changed_code: _changedCode, changed_error: _changedError, head_runs: _headRuns, runlist_code: _runlistCode, runlist_error: _runlistError, head: _head, parents: _parents, head_code: _headCode, branch_code: _branchCode, main_code: _mainCode, touched_paths: _touchedPaths, nonce: _nonce, edit: _edit, typedCommand: _typedCommand, printerMode: _printerMode, push_error: _pushError, network_error: _networkError, network_fails: _networkFails, remote_tip: _remoteTip, brief_error: _briefError, rate_exhausted_calls: _rateExhaustedCalls, rate_reset_in: _rateResetIn, rate_error: _rateError, outside_claim: _outsideClaim, printed: _printed, ...report } = answer
+    const { pr_title: _prTitle, item_title: _itemTitle, patch_code: _patchCode, pr_head: _prHead, checks: _checks, required: _required, base_runs: _baseRuns, changed_files: _changedFiles, changed_code: _changedCode, changed_error: _changedError, head_runs: _headRuns, runlist_code: _runlistCode, runlist_error: _runlistError, head: _head, parents: _parents, head_code: _headCode, branch_code: _branchCode, main_code: _mainCode, touched_paths: _touchedPaths, nonce: _nonce, edit: _edit, typedCommand: _typedCommand, printerMode: _printerMode, push_error: _pushError, network_error: _networkError, network_fails: _networkFails, remote_tip: _remoteTip, brief_error: _briefError, rate_exhausted_calls: _rateExhaustedCalls, rate_exhausted_again_at: _rateExhaustedAgainAt, rate_reset_in: _rateResetIn, rate_error: _rateError, outside_claim: _outsideClaim, printed: _printed, ...report } = answer
     return reread ? { printed } : { ...report, printed }
   }
   // The worktree check and the begin of the run come before every lane's work and the add and the record courier after every lane that leaves one, so the launch lists hold only the agents between them; agentCalls keeps both.

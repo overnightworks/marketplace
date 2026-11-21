@@ -3,6 +3,6 @@ agent = "Claude 6f734bfc-08d4-4565-9fdb-8eac1c73f4b4"
 role = "builder"
 base = "11dc0579bc297c9e76f269dfeb4a6c6f45c6f05c"
 branch = "claude/issue-907-the-flake-re-run-did-not-fire-for-a-disp"
-scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/lane/relay.js", "plugins/atelier/workflows/lane.js", "plugins/atelier/workflows/lane.md", "tests/lane_workflow_ci.test.mjs", "tests/lane_workflow_fix.test.mjs", "tests/lane_workflow_harness.mjs"]
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/lane/relay.js", "plugins/atelier/workflows/lane.js", "plugins/atelier/workflows/lane.md", "tests/lane_workflow_ci.test.mjs", "tests/lane_workflow_fix.test.mjs", "tests/lane_workflow_harness.mjs", "tests/lane_workflow_tester_at_stop.test.mjs"]
 opened_commit = "a19b4bd1aaf6e8ecb1c77d05a683708a6b80cf78"
 whole_reason = "One rule, a fixer's dispute or resolution names its blocking finding by number, across the fixer's answer schema and brief, the flake and fix judgements that match it, its generated workflow, its doc, its tests and the version manifests the plugin rule requires."

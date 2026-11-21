@@ -182,6 +182,41 @@ for (const [what, evidence] of [['without evidence', ''], ['with blank evidence'
   })
 }
 
+const alsoDefect = { ...finding('u.py:2', 'the code breaks another rule'), kind: 'defect' }
+const dispute = (item) => ({ where: item.where, text: item.text, counterEvidence: 'the rule is not broken' })
+
+const twoCarriedFindings = [
+  ['one finding resolved and the other left out of resolved', [satisfied(defectWithoutDraft)], [], 'failed', /the fixer changed nothing/],
+  ['one finding resolved and the other resolved without evidence', [satisfied(defectWithoutDraft), satisfied(alsoDefect, '')], [], 'failed', /the fixer changed nothing/],
+  ['both resolved with evidence and one also disputed', [satisfied(defectWithoutDraft), satisfied(alsoDefect)], [dispute(alsoDefect)], 'awaiting-head', /./],
+]
+
+for (const [what, resolved, disputed, status, reason] of twoCarriedFindings) {
+  test(`two carried findings with ${what} are not accepted as a fix at an unchanged tip`, async () => {
+    const { result, launchedAgents } = await runLane({ ...resumeArgs, fixFirst: [defectWithoutDraft, alsoDefect] }, { 'fix-1': { ...unchangedFix, resolved, disputed } })
+    assert.equal(result.status, status)
+    assert.match(result.reason, reason)
+    assert.ok(!launchedAgents.includes('r1-review'))
+  })
+}
+
+test('a fixer that changes nothing and shows a review finding resolved with evidence stops with the fixer changed nothing', async () => {
+  const answers = { 'r0-review': { verdict: 'REVISE', blocking: [defectWithoutDraft], followups: [] }, 'fix-1': { ...unchangedFix, resolved: [satisfied(defectWithoutDraft)] } }
+  const { result } = await runLane(resumeArgs, answers)
+  assert.deepEqual([result.status, result.stage], ['failed', 'fix'])
+  assert.match(result.reason, /the fixer changed nothing/)
+  assert.deepEqual(result.resolved, [satisfied(defectWithoutDraft)])
+})
+
+test('a fixer that changes nothing and shows a CI finding resolved with evidence stops with the fixer changed nothing', async () => {
+  const ci = finding('ci: lint', 'ruff fails')
+  const answers = { 'r0-review': APPROVE, 'e2e-0': PASS, 'ci-0': { ...greenCi(resumeTip), green: false, failing: [ci] }, 'fix-1': { ...unchangedFix, resolved: [satisfied(ci)] } }
+  const { result, launchedAgents } = await runLane(resumeArgs, answers)
+  assert.deepEqual([result.status, result.stage], ['failed', 'fix'])
+  assert.match(result.reason, /the fixer changed nothing/)
+  assert.ok(!launchedAgents.includes('r1-review'))
+})
+
 const stopsDespiteResolved = [
   ['a fold-in the fixer leaves out of resolved', { foldIn: [tidy, alsoTidy] }, [satisfied(tidy)]],
   ['nothing listed in resolved', { foldIn: [tidy] }, []],

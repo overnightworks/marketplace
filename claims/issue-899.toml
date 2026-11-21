@@ -1,0 +1,7 @@
+claim_id = "d21caaa67955473b9ca5a834e231dc2e"
+agent = "Claude db9b3568-102f-443a-8291-ba9e64e0946c"
+role = "builder"
+base = "0ecf861be818ba4a6e77e3c7962f8a6c3d3b008b"
+branch = "claude/issue-899-the-contract-s-provider-behaviour-test-r"
+scope = ["instructions/AGENTS.md"]
+opened_commit = "e742b20933a5c7e8c31d9419d9a3439138596860"

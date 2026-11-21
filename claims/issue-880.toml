@@ -1,8 +1,0 @@
-claim_id = "b747cdf73aa34c80be73ddf61dd59f55"
-agent = "Claude 5fd48eeb-f686-416f-85b1-085a6741a604"
-role = "builder"
-base = "5f18fd1f78e84d3984466f40b5acba5e4e299592"
-branch = "claude/issue-880-no-run-ends-while-tester-runs"
-scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/lane/main.js", "plugins/atelier/lane/test.js", "plugins/atelier/workflows/lane.js", "plugins/atelier/workflows/lane.md", "tests/lane_workflow_ci.test.mjs", "tests/lane_workflow_review.test.mjs", "tests/lane_workflow_tester.test.mjs", "tests/lane_workflow_tester_at_stop.test.mjs"]
-opened_commit = "7994246a1b9713a2b2dc0decee3b4e4ba797ee07"
-whole_reason = "One behaviour, no run ends while its tester runs, across the lane source, its generated workflow, its doc, its tests and the version manifests the plugin rule requires."

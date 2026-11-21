@@ -17,6 +17,7 @@ repository kind, and a link to the owner's standard document.
 - **Cross-pod coordination in Redis**, every fleet app that wakes pods or keeps deadlines, leases, locks or counted holds in Redis; owner overnightworks/tandem: [cross-pod coordination in Redis](https://github.com/overnightworks/tandem/blob/main/README.md#fleet-standard-cross-pod-coordination-in-redis).
 - **Logging**, every fleet repository whose code runs as a deployed process (server, worker, app) and every library on such a process's hop; owner overnightworks/logline: [logging through logline](https://github.com/overnightworks/logline/blob/main/README.md#fleet-standard-logging-through-logline).
 - **Fleet package dependencies**, every fleet repository that depends on a fleet package; owner overnightworks/quality: [depending on a fleet package](https://github.com/overnightworks/quality/blob/main/docs/release.md#depending-on-a-fleet-package); checked by overnightworks/quality: [`fleet-source`](https://github.com/overnightworks/quality/blob/main/docs/rules.md).
+- **Naming**, every non-fork repository of the organisation; owner overnightworks/quality: [naming](https://github.com/overnightworks/quality/blob/main/docs/naming.md); checked by overnightworks/quality: [`naming` and SONAR-59](https://github.com/overnightworks/quality/blob/main/docs/rules.md).
 
 ## How a standard works
 

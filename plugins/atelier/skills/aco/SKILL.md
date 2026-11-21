@@ -150,6 +150,8 @@ contract and this skill.
   session without the tool, or a revision of a returned line, writes it by hand:
   pipe the new body through `aco check -` first, then write it with
   `aco item edit <n> --base <hash>`.
+  The message to the operator carries the `link` `ask` returned, or, when it returns none,
+  the link `aco board --url <n> --line K` prints.
   Read `references/decision-cards.md` before writing or revising a card: it holds
   the judgement `aco check` cannot make.
 - After `ask`, start `aco wait <n> --line <k>` as a background command (the flag
@@ -193,6 +195,8 @@ contract and this skill.
   `aco mcp`, which works like a board answer (`specs/mcp.spec.md`). Either answer
   leaves `next` as it is: the head rewrites it only when his answer changes the work
   that follows, or when it still names his finished step.
+  The message to the operator carries the `link` `step` returned, or, when it returns none,
+  the link `aco board --url <n>` prints.
 - An item that waits carries one `wait` in its block: his step, a date or a trigger
   fact, with `since` (`specs/body-block.spec.md`). `frozen_until` is a body defect.
 - Take back your own open or returned line only with `aco withdraw <n> --line <k>`, never
@@ -279,8 +283,8 @@ The head runs this, in this order; the operator takes only the steps marked so, 
 as the ready step given here. The head fills in the real repository names (`OLD`, `NEW`)
 Sonar keys (`KEY_OLD`, `KEY_NEW`) and the file name of the workflow that runs the quality
 gate (`WORKFLOW`, from `gh workflow list`) in the first line of each block and in each link
-before handing it over; the blocks use them as shell variables. The Sonar key and binding follow hal's
-`docs/naming.md`, P2 (until quality's naming document holds it). aco's trap is
+before handing it over; the blocks use them as shell variables. The Sonar key and binding follow quality's
+`docs/naming.md`, P2. aco's trap is
 PIN-52 and E-PIN-42 in `specs/storage-pin.spec.md` of aco: every clone whose `origin`
 still names the old repository refuses a cross-repository read until step 5 re-points it.
 

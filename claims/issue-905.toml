@@ -1,7 +1,0 @@
-claim_id = "ddd02cb01b0349c985878bc74756cf4e"
-agent = "Claude db9b3568-102f-443a-8291-ba9e64e0946c"
-role = "builder"
-base = "0ecf861be818ba4a6e77e3c7962f8a6c3d3b008b"
-branch = "claude/issue-905-probe-run-int-to-term"
-scope = ["scripts/probe_run.sh", "tests/test_probe_run.py"]
-opened_commit = "4ee8dc296c5ff7782f2b4a7c30f757dbea25a510"

@@ -1396,7 +1396,7 @@ async function laneRouting(A) {
 // The first segment begins with the run. A later one begins right before its first stage, or at once when a tester still runs or a CI finding was read, so a run that stops at a proven point leaves no begun run without a record, and a run killed in the middle of a segment, or ending after a CI finding with no stage, leaves one, which aco counts as lost.
 let began = null  // set once aco lane-record begin ran for a segment, so the records go to the claim and landing or release takes no --record: what its read of the stored runs found
 let firstBegan = null  // the read of the run's first begin: the earlier runs' approvals and the gap the misses of every segment's record are judged by, never the later reads that hold this run's own approvals
-let [builderRan, reviewStarted, testStarted] = [false, false, false]  // the stages the open segment started that the history does not show yet
+const startedStages = { build: false, review: false, test: false }  // the stages the open segment started that the history does not show yet
 let segmentNumber = 1
 let segmentBegun = false  // the open segment has begun on the claim and is not added yet
 let segmentStartTip = null  // the tip the open segment begins at: the previous segment's end tip, none for the first segment of a build
@@ -1406,9 +1406,9 @@ let recordsWritten = 0
 
 const segmentRunIdNow = () => segmentRunId(runId, segmentNumber)
 // A tester that has not answered belongs to the segment its answer lands in, so it counts as started only once it is judged.
-const segmentSlice = () => ({ history: history.slice(segmentFrom.history), fixRole: fixRolesRun.slice(segmentFrom.fixRoles).at(-1) ?? null, testStarted: testStarted && !pendingTest })
+const segmentSlice = () => ({ history: history.slice(segmentFrom.history), fixRole: fixRolesRun.slice(segmentFrom.fixRoles).at(-1) ?? null, testStarted: startedStages.test && !pendingTest })
 // The stages the open segment started, in aco's order; a segment that started none (a CI finding read after a proven point, the run then ending without a fixer) stores nothing, since aco takes no empty --ran and a stage that did not run is never claimed.
-const stagesStarted = () => stagesRan({ ...segmentSlice(), builderRan, reviewStarted })
+const stagesStarted = () => stagesRan({ ...segmentSlice(), builderRan: startedStages.build, reviewStarted: startedStages.review })
 
 // The lane record reaches <scratch>/lane-record.json through a courier that cuts it out of its own transcript; the printer then runs aco lane-record check on it and a CRC-signed line brings the exit back.
 // A lane stopped by the Claude usage limit writes none, since the courier is a Claude agent too, and neither does a run refused at input, which has no lane state yet.
@@ -1455,7 +1455,7 @@ async function storeProvenPoint() {
   addAttempted = false
   segmentStartTip = tip
   segmentFrom = { history: history.length, fixRoles: fixRolesRun.length, fixRounds: { ...fixRoundsByStage } }
-  ;[builderRan, reviewStarted, testStarted] = [false, false, Boolean(pendingTest)]
+  Object.assign(startedStages, { build: false, review: false, test: Boolean(pendingTest) })
   // A tester still running is work to come: its answer needs a begun segment, and a run killed meanwhile must leave one with no record.
   return pendingTest ? await beginRun() : null
 }
@@ -1880,7 +1880,7 @@ if (A.build) {
   const beginStop = await beginRun()
   if (beginStop) return beginStop
   phase('Build')
-  builderRan = true
+  startedStages.build = true
   const built = await runPart('lane-build', laneBuild, { delegatedLine: DELEGATED_LINE, laneFacts, driveFacts, rescopeFacts, localCheckFacts: `${localCheckFacts} ${turnFacts('build')}`, build: A.build, routing: claudeRole('build') })
   if (built?.problem && !claudeLimit) return await openResult('failed', 'build', { reason: `the builder step ${built.problem}` })
   if (!built || built.problem) return await checkpointOrFail('build', 'origin/main', { reason: `the builder returned no result; inspect ${A.worktree} for uncommitted work, checkpoint it, and hand it to a fresh finisher` })
@@ -1918,7 +1918,7 @@ function unfitRoundAnswer(answer, expectedResults) {
 async function reviewRound(which, range, from) {
   const beginStop = await beginRun()
   if (beginStop) return { which, results: [], verdict: { state: 'stopped', stop: beginStop }, range, from }
-  reviewStarted = true
+  startedStages.review = true
   const reviewers = which.map(r => ({ key: r.key, provider: r.provider, role: r.role, isGate: r === GATE, routing: claudeRole(r === GATE ? 'gate' : 'review') }))
   const answer = await runPart('lane-review', laneReview, { item: A.item, pr, repo: A.repo, repoFlag: R, after: spent.total, tip, delegatedLine: DELEGATED_LINE, worktree: A.worktree, branch: A.branch, scratch: A.scratch, tag: TAG, label: `r${spent.total}`, range, reuse: buildReuse, e2e: A.e2e, contract: A.contract, blockingLine: BLOCKING_LINE, reviewers, findingKinds: FINDING_KINDS, finding: FINDING, followup: FOLLOWUP, mechanical: MECHANICAL })
   const unfit = unfitRoundAnswer(answer, which.length)
@@ -2243,7 +2243,7 @@ let needTest = true
 let lockRetried = false
 let rerunRed  // the red jobs a flake dispute hands to the next watch for one re-run
 function startTest() {
-  testStarted = true
+  startedStages.test = true
   needTest = false
   productionSinceTest = false
   trackTest(tip, explore(testCalls++, fixRangeOfTest()))

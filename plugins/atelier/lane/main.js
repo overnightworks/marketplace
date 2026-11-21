@@ -299,7 +299,7 @@ if (A.build) {
   const beginStop = await beginRun()
   if (beginStop) return beginStop
   phase('Build')
-  builderRan = true
+  startedStages.build = true
   const built = await runPart('lane-build', laneBuild, { delegatedLine: DELEGATED_LINE, laneFacts, driveFacts, rescopeFacts, localCheckFacts: `${localCheckFacts} ${turnFacts('build')}`, build: A.build, routing: claudeRole('build') })
   if (built?.problem && !claudeLimit) return await openResult('failed', 'build', { reason: `the builder step ${built.problem}` })
   if (!built || built.problem) return await checkpointOrFail('build', 'origin/main', { reason: `the builder returned no result; inspect ${A.worktree} for uncommitted work, checkpoint it, and hand it to a fresh finisher` })
@@ -337,7 +337,7 @@ function unfitRoundAnswer(answer, expectedResults) {
 async function reviewRound(which, range, from) {
   const beginStop = await beginRun()
   if (beginStop) return { which, results: [], verdict: { state: 'stopped', stop: beginStop }, range, from }
-  reviewStarted = true
+  startedStages.review = true
   const reviewers = which.map(r => ({ key: r.key, provider: r.provider, role: r.role, isGate: r === GATE, routing: claudeRole(r === GATE ? 'gate' : 'review') }))
   const answer = await runPart('lane-review', laneReview, { item: A.item, pr, repo: A.repo, repoFlag: R, after: spent.total, tip, delegatedLine: DELEGATED_LINE, worktree: A.worktree, branch: A.branch, scratch: A.scratch, tag: TAG, label: `r${spent.total}`, range, reuse: buildReuse, e2e: A.e2e, contract: A.contract, blockingLine: BLOCKING_LINE, reviewers, findingKinds: FINDING_KINDS, finding: FINDING, followup: FOLLOWUP, mechanical: MECHANICAL })
   const unfit = unfitRoundAnswer(answer, which.length)
@@ -662,7 +662,7 @@ let needTest = true
 let lockRetried = false
 let rerunRed  // the red jobs a flake dispute hands to the next watch for one re-run
 function startTest() {
-  testStarted = true
+  startedStages.test = true
   needTest = false
   productionSinceTest = false
   trackTest(tip, explore(testCalls++, fixRangeOfTest()))

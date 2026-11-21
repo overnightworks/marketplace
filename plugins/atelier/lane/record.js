@@ -1,4 +1,4 @@
-// Builds the lane record file that `aco lane-record add` stores on the claim and that a never-begun run hands `aco release --abandoned --record` (aco's specs/lane-record.spec.md owns the schema)
+// Builds the lane record file that `aco lane-record add` stores on the claim (one per segment of the run) and that a never-begun run hands `aco release --abandoned --record` (aco's specs/lane-record.spec.md owns the schema)
 // from the lane's own state, and the courier brief and command that bring it to disk. No model retypes the record.
 const RECORD_VERSION = 1
 const RECORD_STAGES = ['build', 'fix', 'review', 'test', 'gate', 'land']
@@ -73,19 +73,19 @@ function blockingStages(history, approvedBefore = []) {
 
 const historyRan = (history, key) => history.some(entry => entry.by === key || entry.by?.startsWith(`${key}-`))
 
-// The stages the history and the fixers show for fix, test and gate; a stand-in review is the gate that ran.
-const stagesOfHistory = ({ history, fixRole }) => ({ fix: Boolean(fixRole), test: historyRan(history, 'e2e'), gate: historyRan(history, 'standin') || historyRan(history, 'gate') })
+// The stages the history and the fixers show for fix, test and gate, a tester that started counting as the test; a stand-in review is the gate that ran.
+const stagesOfHistory = ({ history, fixRole, testStarted }) => ({ fix: Boolean(fixRole), test: testStarted || historyRan(history, 'e2e'), gate: historyRan(history, 'standin') || historyRan(history, 'gate') })
 
-// The stages this run started, in the order aco names them; the record's own slots and the --ran stages of aco lane-record add read this one history.
-function stagesRan({ history, fixRole, builderRan, reviewStarted }) {
-  const ofHistory = stagesOfHistory({ history, fixRole })
+// The stages this segment started, in the order aco names them; the record's own slots and the --ran stages of aco lane-record add read this one history.
+function stagesRan({ history, fixRole, testStarted, builderRan, reviewStarted }) {
+  const ofHistory = stagesOfHistory({ history, fixRole, testStarted })
   return [['build', builderRan], ['review', reviewStarted], ...Object.entries(ofHistory)].filter(([, ran]) => ran).map(([stage]) => stage)
 }
 
 // The model and effort each stage ran on, or none for a stage that did not run.
-function stageChoices({ routing, history, fixRole }) {
+function stageChoices({ routing, history, fixRole, testStarted }) {
   const choiceOf = (role) => `${routing[role].model}/${routing[role].effort}`
-  const ofHistory = stagesOfHistory({ history, fixRole })
+  const ofHistory = stagesOfHistory({ history, fixRole, testStarted })
   const choiceOrNone = (ran, role) => ran ? choiceOf(role) : 'none'
   return {
     build: choiceOf('build'), fix: choiceOrNone(ofHistory.fix, fixRole), review: choiceOf('review'),
@@ -94,9 +94,10 @@ function stageChoices({ routing, history, fixRole }) {
 }
 
 // Each review and gate verdict with the commit it judged, oldest first; a verdict that is neither approve nor revise, or whose commit is not a full sha, states nothing aco reads.
+const isRecordedVerdict = (entry) => Object.hasOwn(VERDICT_STAGES, entry.by) && ['APPROVE', 'REVISE'].includes(entry.verdict) && FULL_SHA.test(entry.tip ?? '')
 function recordedVerdicts(history) {
   return history
-    .filter(entry => Object.hasOwn(VERDICT_STAGES, entry.by) && ['APPROVE', 'REVISE'].includes(entry.verdict) && FULL_SHA.test(entry.tip ?? ''))
+    .filter(isRecordedVerdict)
     .map(entry => ({ stage: VERDICT_STAGES[entry.by], verdict: entry.verdict.toLowerCase(), sha: entry.tip }))
 }
 
@@ -106,25 +107,47 @@ const lastVerdictSha = (history) => recordedVerdicts(history).at(-1)?.sha ?? nul
 // Whether the newest review or gate verdict approved exactly this commit.
 const approvedOn = (history, sha) => { const last = recordedVerdicts(history).at(-1); return last?.verdict === 'approve' && last.sha === sha }
 
+// Whether the newest verdict approves a commit that an earlier verdict revised with no fix between them: the revision still stands, and aco lands the last stored verdict, so storing the approval last would let a run that stops here land the revised commit.
+function approvesRevisedTip(history) {
+  const verdicts = history.filter(entry => isRecordedVerdict(entry) || entry.by === 'fix')
+  const last = verdicts.at(-1)
+  if (!last || last.by === 'fix' || last.verdict !== 'APPROVE') return false
+  const sinceFix = verdicts.slice(verdicts.findLastIndex(entry => entry.by === 'fix') + 1)
+  return sinceFix.some(entry => entry.verdict === 'REVISE' && entry.tip === last.tip)
+}
+
 // The shas of earlier runs' review approvals count for this run's misses only when the run follows them (aco marks the lane's misses unknown otherwise).
 const approvedBeforeRun = (earlier) => earlier?.follows ? earlier.approved : []
 
-// The record leaves misses out when the read of the stored runs failed: aco then shows the lane's misses as unknown instead of a low count.
-function laneRecord({ routing, history, fixRole, fixRounds, risk, experiment, earlier }) {
-  const stages = stageChoices({ routing, history, fixRole })
-  const blocking = Object.fromEntries(FINDING_STAGE_NAMES.map(stage => [stage, 0]))
-  const misses = Object.fromEntries(FINDING_STAGE_NAMES.map(stage => [stage, 0]))
-  blockingStages(history, approvedBeforeRun(earlier)).forEach(finding => {
-    blocking[finding.stage] = Math.min(RECORD_COUNT_LIMIT, blocking[finding.stage] + finding.count)
-    misses[finding.stage] = Math.min(RECORD_COUNT_LIMIT, misses[finding.stage] + finding.misses)
+const zeroCounts = () => Object.fromEntries(FINDING_STAGE_NAMES.map(stage => [stage, 0]))
+
+// The blocking findings and misses per stage of a history, each as blockingStages counts them over it.
+function findingCounts(history, approvedBefore) {
+  const [blocking, misses] = [zeroCounts(), zeroCounts()]
+  blockingStages(history, approvedBefore).forEach(finding => {
+    blocking[finding.stage] += finding.count
+    misses[finding.stage] += finding.misses
   })
+  return { blocking, misses }
+}
+
+// The record leaves misses out when the read of the stored runs failed: aco then shows the lane's misses as unknown instead of a low count.
+// `history` is the run's up to the end of this record and `since` where this record's own slice starts: stages and verdicts come from the slice, the counts are the run's figures minus those up to `since`,
+// so the records of a segmented run sum to the figures of one unsplit run. A miss a later fix proof takes back stays counted in the record it was stored in.
+function laneRecord({ routing, history, since = 0, fixRole, testStarted = false, fixRounds, risk, experiment, earlier }) {
+  const slice = history.slice(since)
+  const stages = stageChoices({ routing, history: slice, fixRole, testStarted })
+  const approvedBefore = approvedBeforeRun(earlier)
+  const [total, before] = [findingCounts(history, approvedBefore), findingCounts(history.slice(0, since), approvedBefore)]
+  const delta = (kind) => Object.fromEntries(FINDING_STAGE_NAMES.map(stage => [stage, Math.min(RECORD_COUNT_LIMIT, Math.max(0, total[kind][stage] - before[kind][stage]))]))
+  const [blocking, misses] = [delta('blocking'), delta('misses')]
   return {
     version: RECORD_VERSION,
     stages: Object.fromEntries(RECORD_STAGES.map(stage => [stage, stages[stage]])),
     fix_rounds: Object.fromEntries(FINDING_STAGE_NAMES.map(stage => [stage, Math.min(RECORD_COUNT_LIMIT, fixRounds[stage])])),
     blocking,
     ...(earlier?.gap ? {} : { misses }),
-    verdicts: recordedVerdicts(history),
+    verdicts: recordedVerdicts(slice),
     risk,
     ...(experiment && { experiment }),
   }
@@ -145,6 +168,11 @@ function recordCourier({ record, file, scratch, label }) {
     ` && { [ "$(python3 -c '${BRIEF_CRC_PRINTER}' < ${shellQuoted(file)})" = ${checksum} ] || { echo '${BRIEF_MISMATCH}' >&2; false; }; }`
   return { brief, before, fileArgument: shellQuoted(file) }
 }
+
+// A run's first segment has the run's minted id; a later one adds its number, so every id stays within aco's grammar and derives from the minted one.
+const segmentRunId = (runId, number) => number === 1 ? runId : `${runId}-${number}`
+// The fix rounds a segment ran: what the run counted since the counts the segment started from.
+const fixRoundsSince = (counts, from) => Object.fromEntries(Object.entries(counts).map(([stage, count]) => [stage, count - from[stage]]))
 
 // The relay requests of aco lane-record begin, with the start tip when the run has one, and of aco add, with the stages the run started; both resolve their tip with git rev-parse first.
 const beginRequest = ({ item, runId, startTip, facts }) => ({ label: 'begin', phase: 'Record', step: 'begin', relayArgs: [item, `'${runId}'`, ...(startTip ? [`'${startTip}'`] : []), "'begin'"], nonce: 'begin', requiredKeys: [startTip ? 'start' : 'begin'], brief: `${facts}\nChange nothing in the files;` })

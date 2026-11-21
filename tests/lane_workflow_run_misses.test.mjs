@@ -11,7 +11,6 @@ const proofs = { regression: [1, 2].map(number => ({ finding: number, test: 't.p
 const gateAfterNoOwnApproval = { 'fix-1': resumeFix, 'r1-review': reviewRaises, 'r1-gate': gateRaises, 'fix-2': { ...secondFix, ...proofs }, 'r2-review': APPROVE, 'r2-gate': APPROVE }
 const recordOf = async (begin, args = materialRun) => {
   const run = await runLane(args, { ...gateAfterNoOwnApproval, begin })
-  assert.equal(run.writtenRecords.length, 1)
   return { record: JSON.parse(run.writtenRecords[0]), result: run.result }
 }
 const gateCounts = ({ record }) => [record.blocking.gate, record.misses.gate]

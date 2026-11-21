@@ -81,6 +81,18 @@ const takePendingTest = () => pendingTest.then(e2e => {
   pendingTest = null
   return e2e
 })
+// A run that ends early waits for a tester still running: a usable verdict joins the history and the follow-ups and its findings go to the result; any other answer is named. Returns nothing when no tester runs.
+async function settleTesterAtStop() {
+  if (!pendingTest) return {}
+  const e2e = await takePendingTest()
+  if (e2e?.problem || !e2e || e2e.verdict === 'failed' || typeof e2e.verdict !== 'string' || e2e.emptyVerdictReason) {
+    return { testerAtStop: { unusable: e2e?.problem ? `the tester ${e2e.problem}` : e2e?.emptyVerdictReason || 'the tester returned no usable result' } }
+  }
+  recordTestRound(e2e.blocking || [])
+  history.push({ after: spent.total, ...e2e.historyEntry })
+  followups.push(...e2e.followups)
+  return { testerAtStop: { verdict: e2e.verdict, blocking: e2e.blocking || [] } }
+}
 function recordTestRound(blocking) {
   testBlocking = blocking
   lastTestedTip = pendingTestTip

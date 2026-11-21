@@ -265,6 +265,7 @@ async function addRecord(written) {
 }
 const openResult = async (status, stage, extra = {}) => {
   if (status === 'failed' && claudeLimit) return openResult('awaiting-head', stage, { ...extra, claudeLimit, resume: claudeLimitResume(stage, extra), reason: `${claudeLimitReason(stage)} start a new run with the arguments in resume.${claudeLimitOwnReason(extra)}` })
+  const tester = await settleTesterAtStop()
   const line = await routingLine()
   const written = claudeLimit || stage === 'input' ? null : await writeRecord()
   const refusedAdd = await addRecord(written)
@@ -272,7 +273,7 @@ const openResult = async (status, stage, extra = {}) => {
   const open = openFollowups()
   return {
     status: endStatus, stage: endStage, pr, tip, spent, routing: ROUTING, routingLine: line, ...recordView(written, began), history,
-    followups: open, raisedBeforeTip: raisedBeforeTip(open), folded: [...folded.values()], disputed, ...gateUnseenView(), ...endExtra,
+    followups: open, raisedBeforeTip: raisedBeforeTip(open), folded: [...folded.values()], disputed, ...gateUnseenView(), ...tester, ...endExtra,
   }
 }
 

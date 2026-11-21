@@ -28,6 +28,8 @@ lists `requiredHeadActions`.
    the fix left unchanged as a follow-up unless it touches security, data or a
    failing check. The order is review, tester, CI: the review proves what the
    diff shows, the tester proves what only the drive shows, CI proves the checks.
+   No run ends while its tester runs: an early stop first waits for the tester,
+   records a usable verdict and carries its findings in `testerAtStop`.
 
 The builder and every fixer run the targeted tests of their change and the fast
 static checks the repository names after the last merge of the default branch;

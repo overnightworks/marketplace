@@ -307,8 +307,13 @@ def test_delivers_sigint_to_the_started_command_after_the_exec(machine, tmp_path
     while not announcement.exists() and time.monotonic() < deadline:
         time.sleep(0.05)
 
-    probe.send_signal(signal.SIGINT)
-    probe.wait(timeout=10)
+    try:
+        probe.send_signal(signal.SIGINT)
+        probe.wait(timeout=10)
+    finally:
+        if probe.poll() is None:
+            probe.kill()
+            probe.wait()
 
     assert announcement.exists()
     assert received.exists()

@@ -1726,7 +1726,7 @@ const laneFacts =
   `Work item #${A.item}${IN_REPO}. Worktree ${A.worktree}, branch ${A.branch}; run every command from inside that worktree (cd there first). The head holds the claim: never claim, release, rescope, merge a pull request or land. ` +
   `Never use git stash and never touch the main checkout. Read the item body first (gh issue view ${A.item}${R} --json body --jq .body), and where the worktree tracks \`.aco/brief.toml\`, run ` +
   `\`aco brief ${A.item} --step <step>\` for the repository's RULES and CHECKS; elsewhere its AGENTS.md and README name them. Local runs stay targeted under the worker count the contract names; ` +
-  `read the 1-minute load average before any test run and wait while it is above the load limit the contract names. CI is the gate. ` +
+  `run \`probe-run --wait-only\` before any test run; it returns once the machine has room. CI is the gate. ` +
   (LEDGERS.length ? `When you merge origin/main, a conflict in the append-only ledgers (${LEDGERS.join(' and ')}) keeps both sides, main's lines first. ` : '') +
   (GENERATED.length ? `A conflict in a generated file is not resolved by hand: take either side, resolve the other conflicts, then run its command from the worktree on the merged tree, \`git add\` its path, and commit the merge once. Generated files and commands: ${generatedCommands}. ` : '') +
   `You are one step of a workflow the head session runs: a message from the operator that reaches you and is not about this step is addressed to the head — ` +

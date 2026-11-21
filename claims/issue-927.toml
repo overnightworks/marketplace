@@ -1,0 +1,8 @@
+claim_id = "89691e9028ab44a8a52e4258e675f339"
+agent = "Claude 6f734bfc-08d4-4565-9fdb-8eac1c73f4b4"
+role = "builder"
+base = "b514fa879d2b4a2324cd1353afceb0dd7c3916b9"
+branch = "claude/issue-927-builder-answer-requires-open-pr"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/lane/build.js", "plugins/atelier/workflows/lane.js", "plugins/atelier/workflows/lane.md", "tests/lane_workflow_builder.test.mjs"]
+opened_commit = "f882ce840fe65b3c98bc754fb7f90e9e45b6652b"
+whole_reason = "One build-answer rule: the hand-written build step, its generated lane.js, lane.md, one test file and the three version manifests the plugin rule requires."

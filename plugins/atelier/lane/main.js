@@ -265,6 +265,7 @@ async function addRecord(written) {
 }
 const openResult = async (status, stage, extra = {}) => {
   if (status === 'failed' && claudeLimit) return openResult('awaiting-head', stage, { ...extra, claudeLimit, resume: claudeLimitResume(stage, extra), reason: `${claudeLimitReason(stage)} start a new run with the arguments in resume.${claudeLimitOwnReason(extra)}` })
+  const { unusable, ...tester } = await settleTesterAtStop()
   const line = await routingLine()
   const written = claudeLimit || stage === 'input' ? null : await writeRecord()
   const refusedAdd = await addRecord(written)
@@ -272,7 +273,8 @@ const openResult = async (status, stage, extra = {}) => {
   const open = openFollowups()
   return {
     status: endStatus, stage: endStage, pr, tip, spent, routing: ROUTING, routingLine: line, ...recordView(written, began), history,
-    followups: open, raisedBeforeTip: raisedBeforeTip(open), folded: [...folded.values()], disputed, ...gateUnseenView(), ...endExtra,
+    followups: open, raisedBeforeTip: raisedBeforeTip(open), folded: [...folded.values()], disputed, ...gateUnseenView(), ...tester, ...endExtra,
+    ...(unusable && { reason: [endExtra.reason, unusable].filter(Boolean).join('; ') }),
   }
 }
 
@@ -696,16 +698,12 @@ async function settleTest(ci, awaitRetry = true) {
     if (!awaitRetry) return
     e2e = await takePendingTest()
   }
-  if (e2e?.problem) return openResult('failed', 'test', { reason: `the tester ${e2e.problem}` })
-  if (e2e && typeof e2e.verdict !== 'string') return openResult('failed', 'test', { reason: `lane-test answered without a verdict: ${JSON.stringify(e2e).slice(0, 200)}` })
-  if (e2e?.verdict === 'failed' && e2e.lockBusy) {
+  const unusable = unusableTesterReason(e2e)
+  if (unusable && e2e?.lockBusy && e2e.verdict === 'failed') {
     return openResult('awaiting-head', 'test', { reason: `load wait: the load stayed above the limit for both tries, so the end-to-end test did not run; CI of this round: ${ci && !ci.problem && !ci.unreachable ? ci.state : 'not readable'}. Start a new run with pr and tip once the load falls.` })
   }
-  if (!e2e || e2e.verdict === 'failed') return openResult('failed', 'test', { reason: 'the tester returned no usable result' })
-  recordTestRound(e2e.blocking || [])
-  if (e2e.emptyVerdictReason) return openResult('failed', 'test', { reason: e2e.emptyVerdictReason })
-  history.push({ after: spent.total, ...e2e.historyEntry })
-  followups.push(...e2e.followups)
+  if (unusable) return openResult('failed', 'test', { reason: unusable })
+  recordUsableTest(e2e)
   // A PASS on a tip a fix has since changed in production is stale: a new tester runs on the current tip.
   if (productionSinceTest) needTest = true
 }

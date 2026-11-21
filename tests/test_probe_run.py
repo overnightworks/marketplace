@@ -3,6 +3,7 @@ from __future__ import annotations
 import ctypes
 import os
 import shutil
+import signal
 import subprocess
 import time
 from pathlib import Path
@@ -228,6 +229,8 @@ def test_ends_a_wait_without_starting_once_the_process_that_started_it_is_gone(m
     assert "my-stack" not in output.read_text().splitlines()
 
 
+SLEEPS_AFTER_ANNOUNCING = "#!/bin/sh\ntouch {announcement}\nexec /bin/sleep 30\n"
+INTERRUPTED_STATUS = 130
 ENDS_ITS_STARTER_BEFORE_ARMING = """#!/bin/sh
 starter=$PPID
 kill -9 "$starter"
@@ -261,6 +264,64 @@ def test_ends_without_starting_when_the_starter_ends_before_the_signal_is_armed(
     assert os.waitstatus_to_exitcode(status) == 4
     assert "ended during the wait" in output.read_text()
     assert not marker.exists()
+
+
+def test_ends_a_wait_at_once_on_sigint_without_starting_the_command(machine, tmp_path):
+    set_load(machine, LOAD_LIMIT + 5)
+    bin_directory = Path(machine["PATH"].split(":")[0])
+    (bin_directory / "setpriv").unlink()
+    announcement, marker = tmp_path / "waiting", tmp_path / "command-ran"
+    install_fake(bin_directory, "sleep", SLEEPS_AFTER_ANNOUNCING.format(announcement=announcement))
+    environment = {**machine, "PROBE_RUN_WAIT_SECONDS": "3600"}
+    probe = subprocess.Popen(
+        [str(PROBE_RUN), "sh", "-c", f"touch {marker}"], env=environment, stderr=subprocess.PIPE, text=True
+    )
+    deadline = time.monotonic() + 20
+    while not announcement.exists() and time.monotonic() < deadline:
+        time.sleep(0.05)
+
+    try:
+        probe.send_signal(signal.SIGINT)
+        _, stderr = probe.communicate(timeout=10)
+    finally:
+        if probe.poll() is None:
+            probe.kill()
+            probe.wait()
+
+    assert probe.returncode == INTERRUPTED_STATUS
+    assert "no probe stack was started" in stderr
+    assert not marker.exists()
+
+
+EXECS_AFTER_SKIPPING = "#!/bin/sh\nshift {skipped}\nexec \"$@\"\n"
+TRAPS_INTERRUPT_AFTER_ANNOUNCING = """trap 'touch {received}; exit 0' INT
+touch {announcement}
+while true; do /bin/sleep 0.05; done
+"""
+
+
+def test_delivers_sigint_to_the_started_command_after_the_exec(machine, tmp_path):
+    set_load(machine, 0.0)
+    bin_directory = Path(machine["PATH"].split(":")[0])
+    install_fake(bin_directory, "setpriv", EXECS_AFTER_SKIPPING.format(skipped=2))
+    install_fake(bin_directory, "timeout", EXECS_AFTER_SKIPPING.format(skipped=3))
+    announcement, received = tmp_path / "running", tmp_path / "interrupt-received"
+    script = TRAPS_INTERRUPT_AFTER_ANNOUNCING.format(announcement=announcement, received=received)
+    probe = subprocess.Popen([str(PROBE_RUN), "sh", "-c", script], env=machine)
+    deadline = time.monotonic() + 20
+    while not announcement.exists() and time.monotonic() < deadline:
+        time.sleep(0.05)
+
+    try:
+        probe.send_signal(signal.SIGINT)
+        probe.wait(timeout=10)
+    finally:
+        if probe.poll() is None:
+            probe.kill()
+            probe.wait()
+
+    assert announcement.exists()
+    assert received.exists()
 
 
 def test_runs_the_command_under_timeout_while_the_starter_lives(machine, tmp_path):

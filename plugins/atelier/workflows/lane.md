@@ -29,7 +29,9 @@ lists `requiredHeadActions`.
    failing check. The order is review, tester, CI: the review proves what the
    diff shows, the tester proves what only the drive shows, CI proves the checks.
    No run ends while its tester runs: an early stop first waits for the tester,
-   records a usable verdict and carries its findings in `testerAtStop`.
+   records a usable verdict and carries its findings in `testerAtStop`; a tester
+   without a usable result (an error, no verdict, a load wait) is named in the
+   run's `reason`.
 
 The builder and every fixer run the targeted tests of their change and the fast
 static checks the repository names after the last merge of the default branch;

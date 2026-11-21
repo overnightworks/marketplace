@@ -81,16 +81,27 @@ const takePendingTest = () => pendingTest.then(e2e => {
   pendingTest = null
   return e2e
 })
-// A run that ends early waits for a tester still running: a usable verdict joins the history and the follow-ups and its findings go to the result; any other answer is named. Returns nothing when no tester runs.
-async function settleTesterAtStop() {
-  if (!pendingTest) return {}
-  const e2e = await takePendingTest()
-  if (e2e?.problem || !e2e || e2e.verdict === 'failed' || typeof e2e.verdict !== 'string' || e2e.emptyVerdictReason) {
-    return { testerAtStop: { unusable: e2e?.problem ? `the tester ${e2e.problem}` : e2e?.emptyVerdictReason || 'the tester returned no usable result' } }
-  }
+// Why the tester's answer cannot be used, or '' when it can; the one judge of an answer, for the stage and for an early stop.
+function unusableTesterReason(e2e) {
+  if (e2e?.problem) return `the tester ${e2e.problem}`
+  if (e2e && typeof e2e.verdict !== 'string') return `lane-test answered without a verdict: ${JSON.stringify(e2e).slice(0, 200)}`
+  if (e2e?.verdict === 'failed' && e2e.lockBusy) return 'the load wait kept the tester from running: the load stayed above the limit'
+  if (!e2e || e2e.verdict === 'failed') return 'the tester returned no usable result'
+  return e2e.emptyVerdictReason || ''
+}
+// A usable verdict joins the round state, the history and the follow-ups.
+function recordUsableTest(e2e) {
   recordTestRound(e2e.blocking || [])
   history.push({ after: spent.total, ...e2e.historyEntry })
   followups.push(...e2e.followups)
+}
+// A run that ends early waits for a tester still running: a usable verdict is recorded and its findings go to the result; any other answer comes back as `unusable` for the run's reason. Returns nothing when no tester runs.
+async function settleTesterAtStop() {
+  if (!pendingTest) return {}
+  const e2e = await takePendingTest()
+  const unusable = unusableTesterReason(e2e)
+  if (unusable) return { unusable }
+  recordUsableTest(e2e)
   return { testerAtStop: { verdict: e2e.verdict, blocking: e2e.blocking || [] } }
 }
 function recordTestRound(blocking) {

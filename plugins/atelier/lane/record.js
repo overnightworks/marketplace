@@ -1,4 +1,4 @@
-// Builds the lane record file that `aco lane-record add` stores on the claim and that a never-begun run hands `aco release --abandoned --record` (aco's specs/lane-record.spec.md owns the schema)
+// Builds the lane record file that `aco lane-record add` stores on the claim (one per segment of the run) and that a never-begun run hands `aco release --abandoned --record` (aco's specs/lane-record.spec.md owns the schema)
 // from the lane's own state, and the courier brief and command that bring it to disk. No model retypes the record.
 const RECORD_VERSION = 1
 const RECORD_STAGES = ['build', 'fix', 'review', 'test', 'gate', 'land']
@@ -73,19 +73,19 @@ function blockingStages(history, approvedBefore = []) {
 
 const historyRan = (history, key) => history.some(entry => entry.by === key || entry.by?.startsWith(`${key}-`))
 
-// The stages the history and the fixers show for fix, test and gate; a stand-in review is the gate that ran.
-const stagesOfHistory = ({ history, fixRole }) => ({ fix: Boolean(fixRole), test: historyRan(history, 'e2e'), gate: historyRan(history, 'standin') || historyRan(history, 'gate') })
+// The stages the history and the fixers show for fix, test and gate, a tester that started counting as the test; a stand-in review is the gate that ran.
+const stagesOfHistory = ({ history, fixRole, testStarted }) => ({ fix: Boolean(fixRole), test: testStarted || historyRan(history, 'e2e'), gate: historyRan(history, 'standin') || historyRan(history, 'gate') })
 
-// The stages this run started, in the order aco names them; the record's own slots and the --ran stages of aco lane-record add read this one history.
-function stagesRan({ history, fixRole, builderRan, reviewStarted }) {
-  const ofHistory = stagesOfHistory({ history, fixRole })
+// The stages this segment started, in the order aco names them; the record's own slots and the --ran stages of aco lane-record add read this one history.
+function stagesRan({ history, fixRole, testStarted, builderRan, reviewStarted }) {
+  const ofHistory = stagesOfHistory({ history, fixRole, testStarted })
   return [['build', builderRan], ['review', reviewStarted], ...Object.entries(ofHistory)].filter(([, ran]) => ran).map(([stage]) => stage)
 }
 
 // The model and effort each stage ran on, or none for a stage that did not run.
-function stageChoices({ routing, history, fixRole }) {
+function stageChoices({ routing, history, fixRole, testStarted }) {
   const choiceOf = (role) => `${routing[role].model}/${routing[role].effort}`
-  const ofHistory = stagesOfHistory({ history, fixRole })
+  const ofHistory = stagesOfHistory({ history, fixRole, testStarted })
   const choiceOrNone = (ran, role) => ran ? choiceOf(role) : 'none'
   return {
     build: choiceOf('build'), fix: choiceOrNone(ofHistory.fix, fixRole), review: choiceOf('review'),
@@ -110,8 +110,8 @@ const approvedOn = (history, sha) => { const last = recordedVerdicts(history).at
 const approvedBeforeRun = (earlier) => earlier?.follows ? earlier.approved : []
 
 // The record leaves misses out when the read of the stored runs failed: aco then shows the lane's misses as unknown instead of a low count.
-function laneRecord({ routing, history, fixRole, fixRounds, risk, experiment, earlier }) {
-  const stages = stageChoices({ routing, history, fixRole })
+function laneRecord({ routing, history, fixRole, testStarted = false, fixRounds, risk, experiment, earlier }) {
+  const stages = stageChoices({ routing, history, fixRole, testStarted })
   const blocking = Object.fromEntries(FINDING_STAGE_NAMES.map(stage => [stage, 0]))
   const misses = Object.fromEntries(FINDING_STAGE_NAMES.map(stage => [stage, 0]))
   blockingStages(history, approvedBeforeRun(earlier)).forEach(finding => {
@@ -145,6 +145,11 @@ function recordCourier({ record, file, scratch, label }) {
     ` && { [ "$(python3 -c '${BRIEF_CRC_PRINTER}' < ${shellQuoted(file)})" = ${checksum} ] || { echo '${BRIEF_MISMATCH}' >&2; false; }; }`
   return { brief, before, fileArgument: shellQuoted(file) }
 }
+
+// A run's first segment has the run's minted id; a later one adds its number, so every id stays within aco's grammar and derives from the minted one.
+const segmentRunId = (runId, number) => number === 1 ? runId : `${runId}-${number}`
+// The fix rounds a segment ran: what the run counted since the counts the segment started from.
+const fixRoundsSince = (counts, from) => Object.fromEntries(Object.entries(counts).map(([stage, count]) => [stage, count - from[stage]]))
 
 // The relay requests of aco lane-record begin, with the start tip when the run has one, and of aco add, with the stages the run started; both resolve their tip with git rev-parse first.
 const beginRequest = ({ item, runId, startTip, facts }) => ({ label: 'begin', phase: 'Record', step: 'begin', relayArgs: [item, `'${runId}'`, ...(startTip ? [`'${startTip}'`] : []), "'begin'"], nonce: 'begin', requiredKeys: [startTip ? 'start' : 'begin'], brief: `${facts}\nChange nothing in the files;` })

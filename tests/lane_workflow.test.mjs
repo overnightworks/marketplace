@@ -4,7 +4,7 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import { runLane, partReplaced, courierBriefOf, resumedLane, APPROVE, PASS, resumeFixedTip, greenCi, finding, webauthTips, webauthReplay, agentProvidersReplay, answersWith, resumeTip, olderTip, tidy, defectWithoutDraft, resumeFix, resumeArgs, unchangedFix, satisfied, reachesTheEnd, secondFix, mergedOnlyTip, conflictsWithMain, mergeOnlyFix, delegatedLineOfContract, noWait } from './lane_workflow_harness.mjs'
+import { runLane, storedLane, partReplaced, courierBriefOf, resumedLane, APPROVE, PASS, resumeFixedTip, greenCi, finding, webauthTips, webauthReplay, agentProvidersReplay, answersWith, resumeTip, olderTip, tidy, defectWithoutDraft, resumeFix, resumeArgs, unchangedFix, satisfied, reachesTheEnd, secondFix, mergedOnlyTip, conflictsWithMain, mergeOnlyFix, delegatedLineOfContract, noWait } from './lane_workflow_harness.mjs'
 
 const misspelledChoices = [
   ['risk', 'Material'], ['risk', 'MATERIAL'], ['risk', 'high'],
@@ -567,10 +567,7 @@ test('routing-line-problem: a lane-routing that answers with a problem leaves th
 
 // The lane record is the file aco reads at the landing and at an abandoned release; aco's specs/lane-record.spec.md owns its schema.
 const recordFile = `${resumeArgs.scratch}/lane-record.json`
-const writtenRecord = (run) => {
-  assert.equal(run.writtenRecords.length, 1)
-  return JSON.parse(run.writtenRecords[0])
-}
+const writtenRecord = storedLane
 const modelAndEffort = (routing, role) => `${routing[role].model}/${routing[role].effort}`
 const refusedRecord = { record_error: `lane record ${recordFile} is invalid: version 2 is unknown; this aco reads version 1` }
 
@@ -610,7 +607,7 @@ test('lane-record: a material lane with fix rounds counts them and the findings 
   assert.equal(record.verdicts.at(-1).verdict, 'approve')
   assert.ok(record.verdicts.some(verdict => verdict.verdict === 'revise'))
   assert.ok(record.verdicts.every(verdict => /^[0-9a-f]{40}$/.test(verdict.sha)))
-  assert.doesNotMatch(run.writtenRecords[0].trim(), /\s/)
+  run.writtenRecords.forEach(written => assert.doesNotMatch(written.trim(), /\s/))
 })
 
 test('lane-record: a stand-in review counts as the gate in the record', async () => {
@@ -695,7 +692,7 @@ for (const [name, args, answers, options, expected] of [
     const run = await runLane(args, answers, options)
     assert.deepEqual([run.result.status, run.result.stage], expected)
     assert.equal(run.result.record, recordFile)
-    assert.equal(writtenRecord(run).version, 1)
+    assert.equal(JSON.parse(run.writtenRecords[0]).version, 1)
   })
 }
 
@@ -734,7 +731,7 @@ test('lane-record: the relayed line of the record step carries the exit code and
   assert.equal('out' in relayed.check, false)
 })
 
-test('lane-record: a record is written once for a lane that ends once', async () => {
+test('lane-record: a lane that ends once writes one record per proven point and one for its end', async () => {
   const { agentCalls } = await runLane(resumeArgs, { ...reachesTheEnd, 'r0-review': APPROVE })
-  assert.deepEqual(Object.keys(agentCalls).filter(label => label.startsWith('record-')), ['record-1'])
+  assert.deepEqual(Object.keys(agentCalls).filter(label => label.startsWith('record-')), ['record-1', 'record-2', 'record-3'])
 })

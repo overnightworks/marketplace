@@ -250,14 +250,23 @@ a release can follow carries `record`. A record that fails the check turns `read
 `awaiting-head` at `record`, with `recordProblem` quoting aco; so does a tip no verdict judged (a clean merge of main after the last review), since aco lands only the head the last verdict judged, and `reason` names both shas; a run refused at input writes none, and a lane that hit the Claude usage limit at any point
 may end without a record, since the record courier is a Claude agent (no code guard).
 
-Each run stores its record on the claim. Its first relay step, the branch check, mints a run id. A `build` run runs
+Each run stores its record on the claim as segments, each one an aco run: a span of the run's stages that ends at a
+proven point, a review that approves the tip (on a material lane the round whose gate approves it too) or the tester's
+pass. Its first relay step, the branch check, mints a run id, which the first segment carries; a later segment's id is that
+id, a hyphen and its number. A `build` run runs
 `aco lane-record begin <n> --run <id>` right after that check; a run started with `pr` and `tip` runs it right after its
 sync and its scope check have passed, with the synced head as `--start-tip` (a run that starts at a fixer, with `fixFirst`
 or `foldIn`, right after the sync, since its scope check follows the fix), and a run that ends at `sync` or at its scope
-check before any fixer is never begun. At every end that
-writes a record, a begun run adds it once with `aco lane-record add <n> <path> --run <id> --end-tip <sha> --ran <stages>`,
-the stages being those it started (`build`, `review`, `fix`, `test`, `gate`; a begun run that started none stores nothing,
-since aco takes no empty `--ran`). Every tip aco receives is the 40-digit sha `git rev-parse` resolves in the worktree,
+check before any fixer is never begun. At each proven point the lane writes the record of the open segment, adds it with
+`aco lane-record add <n> <path> --run <id> --end-tip <sha> --ran <stages>` and, right before the first stage after the point
+(a review round, a fix round, the tester), begins the next segment with that tip as `--start-tip`; a run that stops at a proven
+point begins none, so a lane whose gates passed keeps its verdicts on the claim when the run dies later, and a run killed in
+the middle of a segment leaves a begun run without a record, whose counts aco shows as unknown. A segment's record holds only
+its own slice of the run's history and its own fix rounds, and its `--ran` stages are those the segment started (`build`,
+`review`, `fix`, `test`, `gate`), since aco sums the counts and joins the verdicts over the stored runs; the approvals of the
+earlier segments reach a later one through its begin's read of the stored runs. At every end that writes a record, the open
+segment is added once the same way (one that started no stage stores nothing, since aco takes no empty `--ran`). Every tip
+aco receives is the 40-digit sha `git rev-parse` resolves in the worktree,
 and a `build` run that ended without a tip passes the worktree's `HEAD`. A begin or an add that aco refuses, or whose tip
 git cannot resolve, ends the run `awaiting-head` at `record`; the `reason` holds the refusal and, for an add, the status
 and reason the run would have ended with. Once a run is begun, landing and release go without `--record`, because aco

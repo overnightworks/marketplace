@@ -1,0 +1,8 @@
+claim_id = "45ef1e0d8f2a47b08adafddc3352d926"
+agent = "Claude db9b3568-102f-443a-8291-ba9e64e0946c"
+role = "builder"
+base = "0ecf861be818ba4a6e77e3c7962f8a6c3d3b008b"
+branch = "claude/issue-911-claude-limit-awaiting-head"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/lane/limit.js", "plugins/atelier/lane/main.js", "plugins/atelier/workflows/lane.js", "plugins/atelier/workflows/lane.md", "tests/lane_workflow_harness.mjs", "tests/lane_workflow_usage_limit.test.mjs"]
+opened_commit = "fac89a68cd80f13f6a60eb3a1e17a60cc6a80cc4"
+whole_reason = "One behaviour, a Claude usage limit ends the run awaiting-head, across the lane source, its generated workflow, its doc, its harness and test, and the version manifests the plugin rule requires."

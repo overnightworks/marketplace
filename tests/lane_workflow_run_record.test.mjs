@@ -314,6 +314,14 @@ test('run-record: a review approval beside a gate revision on a material lane is
   assert.deepEqual(recordAdded(run, 0).verdicts, [approvalAt('review', resumeTip), { stage: 'gate', verdict: 'revise', sha: resumeTip }])
 })
 
+test('run-record: a review revision beside a gate approval on a material lane is not stored before the fixer starts, so a killed run lands on no approval of the revised tip', async () => {
+  const answers = { 'r0-review': { verdict: 'REVISE', blocking: [defectWithoutDraft], followups: [] }, 'r0-gate': APPROVE }
+  const run = await runLane(materialArgs, answers, { killAt: 'fix-1' })
+  assert.equal(run.killed, true)
+  assert.deepEqual(run.laneRecordCalls.map(call => call[1]), ['begin'])
+  assert.deepEqual(run.writtenRecords, [])
+})
+
 test('run-record: the CI findings read with the tester\'s pass reach the stored runs when the run then ends without a fixer', async () => {
   const run = await runLane({ ...resumeArgs, budgets: { ci: 0 } }, { 'r0-review': APPROVE, 'e2e-0': PASS, 'ci-0': roundRed(0) }, probed)
   assert.equal(run.result.status, 'ci-red', run.result.reason)

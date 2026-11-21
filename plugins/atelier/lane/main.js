@@ -585,7 +585,8 @@ async function reviseAfter(rr) {
       'then start a new run with pr and tip and fixFirst, or re-cut the item.' })
   }
   // A reviewer that approved the tip has proven it, whichever other reviewer revises it; its verdict goes to the claim before the fixer can die.
-  if (rr.results.some(v => v?.verdict === 'APPROVE' && !(v.blocking || []).length)) {
+  // Only when the history ends on a revision: aco lands the last stored verdict, so an approval that follows a revision of the same tip stays unstored.
+  if (rr.results.some(v => v?.verdict === 'APPROVE' && !(v.blocking || []).length) && !approvedOn(history, tip)) {
     const stored = await storeProvenPoint()
     if (stored) return stored
   }

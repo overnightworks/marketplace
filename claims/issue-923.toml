@@ -1,8 +1,0 @@
-claim_id = "9d36a87292924bfa933cca011c1d96ad"
-agent = "Claude 6f734bfc-08d4-4565-9fdb-8eac1c73f4b4"
-role = "builder"
-base = "a22d3835e1804e8df9ebcfc0af1c906dd6460ca7"
-branch = "claude/issue-923-agents-wait-through-probe-run-wait-only"
-scope = [".claude-plugin/marketplace.json", "README.md", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/.codex/agents/code-fixer.toml", "plugins/atelier/.codex/agents/code-worker.toml", "plugins/atelier/.codex/agents/explorative-tester.toml", "plugins/atelier/agents/code-fixer.md", "plugins/atelier/agents/code-worker.md", "plugins/atelier/agents/explorative-tester.md", "plugins/atelier/lane/main.js", "plugins/atelier/skills/explorative-testing/SKILL.md", "plugins/atelier/workflows/lane.js", "scripts/probe_run.sh", "tests/test_probe_run.py"]
-opened_commit = "0577f13e58bd155f95c6c1b3617ae605714ce42f"
-whole_reason = "One rule, agents wait for a quiet machine through probe-run's wait-only mode, across the script, its test, the three agent definitions and their generated copies, the lane's builder brief and its generated workflow, the testing skill, the README line and the version manifests the plugin rule requires."

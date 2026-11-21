@@ -16,17 +16,16 @@ function checkpointRenameProblem(relayed, item) {
 }
 // Runs one relay step and, when GitHub's rate limit refused a call of a step that changes nothing the lane could not repeat, waits for the reset GitHub names and runs the step once more; the callers see only the final read.
 export async function laneRelay(A) {
-  let relayed = await relayStep(A)
-  if (A.answerKind) return relayed
-  let spent = 0
-  let waitCalls = 0
-  while (relayed?.values?.limited?.length) {
-    const waited = await waitForRateLimitReset(A, spent, waitCalls)
-    if (waited.stop) return { ...relayed, unreachable: `${relayed.unreachable} ${waited.stop}` }
-    ;({ spent, waitCalls } = waited)
-    relayed = await relayStep(A)
-  }
-  return relayed
+  const relayed = await relayStep(A)
+  return A.answerKind ? relayed : relayAfterReset(A, relayed, 0, 0)
+}
+
+// Waits and runs the step again for as long as the rate limit refuses it; each round adds wait calls, so the MAX_RATE_LIMIT_WAIT_CALLS bound ends it.
+async function relayAfterReset(A, relayed, spent, waitCalls) {
+  if (!relayed?.values?.limited?.length) return relayed
+  const waited = await waitForRateLimitReset(A, spent, waitCalls)
+  if (waited.stop) return { ...relayed, unreachable: `${relayed.unreachable} ${waited.stop}` }
+  return relayAfterReset(A, await relayStep(A), waited.spent, waited.waitCalls)
 }
 
 // The most one lane step sleeps in total for a reset, the reset it accepts beyond that (clock skew), and the calls of the wait step, (3600 + 60) / 240 + 1, that end a loop a stuck clock would otherwise keep going.

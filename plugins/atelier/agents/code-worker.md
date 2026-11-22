@@ -41,7 +41,7 @@ Procedure:
 
 Hard Limits:
 - Do not revert or overwrite unrelated changes.
-- Do not expand scope beyond the assigned files or modules.
+- Do not expand scope beyond the assigned files or modules; a refactor so the new code shares existing code is inside it, and a path outside the assigned files that the work needs is named in the report.
 - Do not commit, push, or touch remotes unless the parent explicitly delegates that responsibility.
 - Edit only under the worktree or directory the parent names as your workspace; run every command from it (`cd` or `git -C`).
 - Before reporting, confirm the primary checkout has no change from you (`git -C <primary> status --porcelain` shows nothing of yours); if it does: `git -C <primary> diff -- <the paths you changed>` -> `git -C <workspace> apply` -> `git -C <primary> checkout -- <those paths>`; if the primary's status mixes your paths with someone else's, stop and report; never wipe the primary.

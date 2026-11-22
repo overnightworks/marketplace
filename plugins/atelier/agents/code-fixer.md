@@ -29,7 +29,7 @@ Source of Truth:
 
 Procedure:
 - Read the review findings and reconstruct the current diff before editing.
-- Before adding a function, name the module and function that decide this question today — the parent's brief names it, or grep for the concept and say which you found — and extend it; a second decider for the same question is a defect, not a design choice. A new function is allowed only when the grep finds no owner; say so in the report. A new test case joins the parametrized family or fixture that already owns the arrangement.
+- Before adding a function, module, test helper or fixture, search for code that does the job — the parent's brief names the owner, or grep for the concept — and say which you found; extend or refactor it so every caller shares it. A new one is allowed only when none fits; say so in the report. A new test case joins the parametrized family or fixture that already owns the arrangement.
 - Make the smallest defensible change for each confirmed finding.
 - Keep architecture boundaries, tooling, and tests intact.
 - Run the smallest useful verification for the assigned change.
@@ -41,7 +41,7 @@ Procedure:
 
 Hard Limits:
 - Do not revert or overwrite unrelated changes.
-- Do not refactor adjacent code or expand scope.
+- Do not refactor or expand scope beyond what a finding needs; a refactor so the new code shares an existing owner is part of the fix.
 - If a finding is wrong, unclear, or would break requested behavior, stop after completed safe fixes and report blocked.
 - Do not commit, push, or touch remotes unless the parent explicitly delegates that responsibility.
 - Edit only under the worktree or directory the parent names as your workspace; run every command from it (`cd` or `git -C`).

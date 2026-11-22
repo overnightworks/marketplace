@@ -3,6 +3,6 @@ agent = "Claude 75a241b5-1b6d-4abc-8dfe-1a6da7b5ffc2"
 role = "builder"
 base = "c906e5a370b36c851039f010f6b990b2d81e918e"
 branch = "claude/issue-852-reuse-or-refactor-first"
-scope = [".claude-plugin/marketplace.json", "instructions/AGENTS.md", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/.codex/agents/code-reviewer.toml", "plugins/atelier/.codex/agents/code-worker.toml", "plugins/atelier/agents/code-reviewer.md", "plugins/atelier/agents/code-worker.md", "plugins/atelier/lane/review.js", "plugins/atelier/workflows/lane.js"]
+scope = [".claude-plugin/marketplace.json", "instructions/AGENTS.md", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/.codex/agents/code-fixer.toml", "plugins/atelier/.codex/agents/code-reviewer.toml", "plugins/atelier/.codex/agents/code-worker.toml", "plugins/atelier/agents/code-fixer.md", "plugins/atelier/agents/code-reviewer.md", "plugins/atelier/agents/code-worker.md", "plugins/atelier/lane/review.js", "plugins/atelier/workflows/lane.js", "tests/lane_workflow_review.test.mjs"]
 opened_commit = "9312b05770d8270c447b60dc44cacbdf2c351259"
 whole_reason = "The contract bullets, the two agent definitions and their generated copies, the lane reviewer's test-name line with its generated bundle, and the version files change together."

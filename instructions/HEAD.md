@@ -39,8 +39,8 @@ limit, the question waits and the head tells the operator.
 
 A step the operator must run is one paste (a command line with its `cd`, one
 shipped script or one link) and at most one short action, answered yes or no;
-anything longer becomes a script an agent writes first. It names in one line
-what it proves and what he sees when it works.
+anything longer becomes a script an agent writes first, never a chain of
+steps. It names in one line what it proves and what he sees when it works.
 
 Everything that waits on the operator lives in aco: a decision as a card, every
 other step of his as an aco step, each holding the links he needs, a picture to

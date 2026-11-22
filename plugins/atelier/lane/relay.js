@@ -407,9 +407,9 @@ async function relayStep(A) {
 
   // The failing findings of checks main does not share, and every finding that names a file the lane changed: a shared check's red entries and findings named by it are left out otherwise.
   function ownFailing({ shared, red = [], failing = [], files = [] }) {
-    const sharedEntries = new Set(red.filter(job => shared.includes(job.name)).flatMap(job => job.findings.map(entry => JSON.stringify(entry))))
+    const sharedFindingKeys = new Set(red.filter(job => shared.includes(job.name)).flatMap(job => job.findings.map(entry => `${entry.where}\n${entry.rule}`)))
     const inChangedFile = entry => files.includes(A.findingPath(entry.where))
-    return failing.filter(entry => inChangedFile(entry) || (!sharedEntries.has(JSON.stringify(entry)) && ![entry.where, String(entry.rule).replace(/^CI check /, '')].some(name => shared.includes(name))))
+    return failing.filter(entry => inChangedFile(entry) || (!sharedFindingKeys.has(`${entry.where}\n${entry.rule}`) && ![entry.where, String(entry.rule).replace(/^CI check /, '')].some(name => shared.includes(name))))
   }
 
   const readFailure = (read, command) => read.code === 0 ? null : `${command} exited ${read.code}: ${read.err ?? ''}`

@@ -445,3 +445,9 @@ export const roundReviews = Object.fromEntries([1, 2, 3, 4].map(round => [`r${ro
 
 // A tester whose answer the test releases: the lane starts it and goes on with the CI side until `resolve` gives its verdict.
 export const heldTester = () => { let resolve; const promise = new Promise(done => { resolve = done }); return { promise, resolve, answer: () => promise } }
+
+// A red CI job and the base-run listing entries the shared-red tests build their watcher answers from.
+export const redOnHead = (name) => ({ where: name, kind: 'defect', text: `${name} fails`, rule: `CI check ${name}`, evidence: 'boom' })
+let runId = 0
+export const run = (name, conclusion, completedAt = '2026-11-13T10:00:00Z') => ({ id: ++runId, name, status: conclusion ? 'completed' : 'in_progress', conclusion, completed_at: conclusion ? completedAt : null })
+export const redJob = (name, failingStep, ids = ['11', '22']) => ({ name, link: `https://github.com/o/n/actions/runs/${ids[0]}/job/${ids[1]}`, runId: ids[0], jobId: ids[1], failingStep, findings: [redOnHead(name)] })

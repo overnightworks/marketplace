@@ -828,9 +828,9 @@ async function relayStep(A) {
 
   // The failing findings of checks main does not share, and every finding that names a file the lane changed: a shared check's red entries and findings named by it are left out otherwise.
   function ownFailing({ shared, red = [], failing = [], files = [] }) {
-    const sharedEntries = new Set(red.filter(job => shared.includes(job.name)).flatMap(job => job.findings.map(entry => JSON.stringify(entry))))
+    const sharedFindingKeys = new Set(red.filter(job => shared.includes(job.name)).flatMap(job => job.findings.map(entry => `${entry.where}\n${entry.rule}`)))
     const inChangedFile = entry => files.includes(A.findingPath(entry.where))
-    return failing.filter(entry => inChangedFile(entry) || (!sharedEntries.has(JSON.stringify(entry)) && ![entry.where, String(entry.rule).replace(/^CI check /, '')].some(name => shared.includes(name))))
+    return failing.filter(entry => inChangedFile(entry) || (!sharedFindingKeys.has(`${entry.where}\n${entry.rule}`) && ![entry.where, String(entry.rule).replace(/^CI check /, '')].some(name => shared.includes(name))))
   }
 
   const readFailure = (read, command) => read.code === 0 ? null : `${command} exited ${read.code}: ${read.err ?? ''}`
@@ -1494,6 +1494,7 @@ async function laneTest(A) {
       `First create your own directory with \`mktemp -d ${A.scratch}/${A.tag}-e2e-${A.n}-XXXXXX\` and write only there, besides the environment the repository's own sync command creates in ${A.worktree}. For any server, browser or E2E run load the atelier:explorative-testing skill and follow its Probe stack section; use a free port above 8790 and keep your pid files in your directory. ` +
       `Never touch another session's server. ` +
       `Drive only the cells no named CI test proves; for every cell you skip, name the CI test that proves it, judge that test against the cell and mark the cell held or failed on that reading. ` +
+      `The state of a CI check (green, red, pending) is the CI step's to judge and never your finding; a CI test counts only as the proof of one of your cells. ` +
       `Prepare and check everything that needs no server or browser first (build the page, install dependencies, start a throwaway database), because a setup that fails inside probe-run spends your turn; wrap only the drive in \`probe-run\`, which waits for the load limit and ends the stack at the cap, both as \`probe-run\` states them. ` +
       `If probe-run exits 75 (it ends without starting the stack because the load stayed above the limit), return verdict failed with lockBusy true instead of guessing. ` +
       `verdict is PASS with no blocking findings and FAIL with at least one. A PASS needs at least one held cell. Return every cell in cells, each with its command and exit; return evidencePath too, keep your evidence under evidencePath and remove your playground before you report.`

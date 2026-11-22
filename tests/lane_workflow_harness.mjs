@@ -68,7 +68,7 @@ refuse() { logged "$@"; [ -z "$FAKE_REFUSAL" ] || { printf '%s\\n' "$FAKE_REFUSA
 case "$1 $2" in
   "lane-record check") [ -z "$FAKE_RECORD_ERROR" ] || { printf '%s\\n' "$FAKE_RECORD_ERROR" >&2; exit 2; }; printf 'lane record %s\\n' "$3"; exit 0 ;;
   "lane-record begin") FAKE_REFUSAL=$FAKE_BEGIN_ERROR refuse "$@"; printf 'BEGAN run\\n'; exit 0 ;;
-  "lane-record show") [ "$FAKE_SHOW_CODE" = 0 ] || { printf '%s\\n' "$FAKE_SHOW_ERROR" >&2; exit "$FAKE_SHOW_CODE"; }; run=$(sed -n 's/.* --run \\([0-9a-f]*\\).*/\\1/p' "$0.lane-record" | tail -1); printf '%s' "$FAKE_SHOW_OUTPUT" | sed "s/@RUN@/$run/g"; exit 0 ;;
+  "lane-record show") [ "$FAKE_SHOW_CODE" = 0 ] || { printf '%s\\n' "$FAKE_SHOW_ERROR" >&2; exit "$FAKE_SHOW_CODE"; }; run=$(sed -n 's/.* --run \\([0-9a-f-]*\\).*/\\1/p' "$0.lane-record" | tail -1); printf '%s' "$FAKE_SHOW_OUTPUT" | sed "s/@RUN@/$run/g"; exit 0 ;;
   "lane-record add") FAKE_REFUSAL=$FAKE_ADD_ERROR refuse "$@"; printf 'ADDED run\\n'; exit 0 ;;
 esac
 ${NETWORK_DOWN}[ -z "$FAKE_BRIEF_ERROR" ] || printf '%s\\n' "$FAKE_BRIEF_ERROR" >&2
@@ -152,6 +152,16 @@ export async function runLane(args, answers = {}, options = {}) {
     if (fs.existsSync(file)) writtenRecords.push(fs.readFileSync(file, 'utf8'))
     return printed
   }
+  // The runs the lane run has stored so far, as aco lists them: each add of the log with the record it stored. Without a stored_runs answer, a begin's read of the claim lists them before its own run.
+  const storedBefore = () => {
+    const log = path.join(fakeBin, 'aco.lane-record')
+    const adds = fs.existsSync(log) ? fs.readFileSync(log, 'utf8').split('\n').filter(line => line.startsWith('lane-record add ')) : []
+    return adds.map((line, index) => {
+      const words = line.split(' ')
+      const valueOf = (option) => words[words.indexOf(option) + 1]
+      return { run: valueOf('--run'), start_tip: null, follows: true, end_tip: valueOf('--end-tip'), ran: words.slice(words.indexOf('--ran') + 1), record: JSON.parse(writtenRecords[index]) }
+    })
+  }
   const printedBy = (prompt, scenario, reread, label) => {
     if ('printed' in scenario) return scenario.printed
     const line = prompt.split('\n').at(-1).replace(/^cd '[^']*' && /, '')
@@ -159,7 +169,7 @@ export async function runLane(args, answers = {}, options = {}) {
       ...process.env, PATH: `${fakeCommands()}:${process.env.PATH}`, FAKE_HEAD: scenario.head ?? newestTip, FAKE_BRANCH: scenario.branch ?? args.branch, FAKE_BRANCH_CODE: scenario.branch_code ?? 0, FAKE_REMOTE: scenario.remote_tip ?? newestTip,
       FAKE_HEAD_CODE: scenario.head_code ?? 0, FAKE_PARENTS: (scenario.parents ?? []).join('\n'), FAKE_MAIN_CODE: scenario.main_code ?? 0, FAKE_TREE: scenario.tree ?? 'a1a1a1a1', FAKE_MERGE_TREE: scenario.merge_tree ?? scenario.tree ?? 'a1a1a1a1', FAKE_MERGE_TREE_CODE: scenario.merge_tree_code ?? 0, FAKE_TOUCHED: (scenario.touched_paths ?? []).join('\n'),
       FAKE_PUSH_ERROR: scenario.push_error ?? '', FAKE_NETWORK_ERROR: scenario.network_error ?? '', FAKE_NETWORK_STDOUT: scenario.network_stdout ?? '', FAKE_NETWORK_FAILS: scenario.network_fails ?? 1, FAKE_BRIEF_ERROR: scenario.brief_error ?? '', FAKE_RATE_EXHAUSTED_CALLS: scenario.rate_exhausted_calls ?? 0, FAKE_RATE_EXHAUSTED_AGAIN_AT: scenario.rate_exhausted_again_at ?? 0, FAKE_RATE_RESET_IN: scenario.rate_reset_in ?? 600, FAKE_RATE_ERROR: scenario.rate_error ?? '',
-      FAKE_RECORD_ERROR: scenario.record_error ?? '', FAKE_BEGIN_ERROR: scenario.begin_error ?? '', FAKE_ADD_ERROR: scenario.add_error ?? '', FAKE_SHOW_CODE: scenario.show_code ?? 0, FAKE_SHOW_ERROR: scenario.show_error ?? '', FAKE_SHOW_OUTPUT: JSON.stringify({ runs: scenario.stored_runs ?? [storedOwnRun()] }), FAKE_RESOLVE_CODE: scenario.resolve_code ?? 0, FAKE_PR_TITLE: scenario.pr_title ?? 'Add the feature', FAKE_ITEM_TITLE: scenario.item_title ?? 'The item title', FAKE_PATCH_CODE: scenario.patch_code ?? 0, FAKE_BRIEF_OUTPUT: JSON.stringify({ outside_claim: 'outside_claim' in scenario ? scenario.outside_claim : [] }), ...ghEnv(scenario),
+      FAKE_RECORD_ERROR: scenario.record_error ?? '', FAKE_BEGIN_ERROR: scenario.begin_error ?? '', FAKE_ADD_ERROR: scenario.add_error ?? '', FAKE_SHOW_CODE: scenario.show_code ?? 0, FAKE_SHOW_ERROR: scenario.show_error ?? '', FAKE_SHOW_OUTPUT: JSON.stringify({ runs: scenario.stored_runs ?? [...storedBefore(), storedOwnRun()] }), FAKE_RESOLVE_CODE: scenario.resolve_code ?? 0, FAKE_PR_TITLE: scenario.pr_title ?? 'Add the feature', FAKE_ITEM_TITLE: scenario.item_title ?? 'The item title', FAKE_PATCH_CODE: scenario.patch_code ?? 0, FAKE_BRIEF_OUTPUT: JSON.stringify({ outside_claim: 'outside_claim' in scenario ? scenario.outside_claim : [] }), ...ghEnv(scenario),
     }
     if (label.startsWith('record-')) return recordPrinted(prompt, line, env, scenario)
     const typed = scenario.typedCommand && !reread ? scenario.typedCommand(line) : line
@@ -182,7 +192,11 @@ export async function runLane(args, answers = {}, options = {}) {
     return reread ? { printed } : { ...report, printed }
   }
   // The worktree check and the begin of the run come before every lane's work and the add and the record courier after every lane that leaves one, so the launch lists hold only the agents between them; agentCalls keeps both.
-  const agent = async (prompt, agentOptions = {}) => { if (![WORKTREE_CHECK, 'begin', 'add'].includes(agentOptions.label) && !agentOptions.label.startsWith('record-') && !agentOptions.label.startsWith(LIMIT_PROBE)) { launchedAgents.push(agentOptions.label); launchedPrompts.push(prompt) } agentCalls[agentOptions.label] = { prompt, options: structuredClone(agentOptions) }; return answerFor(agentOptions.label, prompt) }
+  // options.killAt names the agent whose launch ends the run: the Workflow runtime stops there, so every later agent and the script itself never answer.
+  let killed = false
+  let endRun
+  const runEnded = new Promise(resolve => { endRun = resolve })
+  const agent = async (prompt, agentOptions = {}) => { if (killed || agentOptions.label === options.killAt) { killed = true; endRun(); return new Promise(() => {}) } if (![WORKTREE_CHECK, 'begin', 'add'].includes(agentOptions.label) && !agentOptions.label.startsWith('record-') && !agentOptions.label.startsWith(LIMIT_PROBE)) { launchedAgents.push(agentOptions.label); launchedPrompts.push(prompt) } agentCalls[agentOptions.label] = { prompt, options: structuredClone(agentOptions) }; return answerFor(agentOptions.label, prompt) }
   // A thunk that throws resolves to null, as in the Workflow runtime.
   const parallel = async thunks => Promise.all(thunks.map(thunk => thunk().catch(() => null)))
   const ignore = () => {}
@@ -190,14 +204,24 @@ export async function runLane(args, answers = {}, options = {}) {
   const compile = (body) => vm.runInContext(`(async function (args, agent, parallel, pipeline, phase, log) {\n${body}\n})`, vm.createContext({}))
   const callsOf = () => Object.fromEntries(['aco', 'gh'].map(program => [program, fakeBin && fs.existsSync(path.join(fakeBin, `${program}.calls`)) ? Number(fs.readFileSync(path.join(fakeBin, `${program}.calls`), 'utf8')) : 0]))
   try {
-    const result = await compile(source)(args, agent, parallel, async () => [], ignore, ignore)
+    const result = await Promise.race([compile(source)(args, agent, parallel, async () => [], ignore, ignore), runEnded])
     const patched = fakeBin && fs.existsSync(path.join(fakeBin, 'gh.patched')) ? fs.readFileSync(path.join(fakeBin, 'gh.patched'), 'utf8').trim().split('\n') : []
     const laneRecordLog = fakeBin && fs.existsSync(path.join(fakeBin, 'aco.lane-record')) ? fs.readFileSync(path.join(fakeBin, 'aco.lane-record'), 'utf8').trim().split('\n') : []
-    return { result: structuredClone(result), patchedTitles: patched, laneRecordCalls: laneRecordLog.map(line => line.split(' ')), calls: callsOf(), launchedAgents, launchedPrompts, agentCalls, writtenRecords }
+    return { killed, result: structuredClone(result), patchedTitles: patched, laneRecordCalls: laneRecordLog.map(line => line.split(' ')), calls: callsOf(), launchedAgents, launchedPrompts, agentCalls, writtenRecords }
   } finally {
     if (fakeBin) fs.rmSync(fakeBin, { recursive: true })
     recordDirectories.forEach(directory => fs.rmSync(directory, { recursive: true, force: true }))
   }
+}
+
+// The lane's record as aco computes it from the runs a lane run stored (aco's specs/lane-record.spec.md, LANREC-77 to LANREC-83): the counts summed, the verdicts joined in order, each stage the choice of the last run that ran it.
+// The records written after the last add belong to no stored run.
+export const storedLane = (run) => {
+  const stored = run.writtenRecords.slice(0, run.laneRecordCalls.filter(call => call[1] === 'add').length).map(text => JSON.parse(text))
+  const summed = (kind) => Object.fromEntries(['review', 'gate', 'ci', 'test'].map(stage => [stage, stored.reduce((total, record) => total + (record[kind]?.[stage] ?? 0), 0)]))
+  const stageChoice = (stage) => stored.map(record => record.stages[stage]).filter(choice => choice !== 'none').at(-1) ?? 'none'
+  const { version, risk, experiment } = stored.at(-1)
+  return { version, stages: Object.fromEntries(Object.keys(stored[0].stages).map(stage => [stage, stageChoice(stage)])), fix_rounds: summed('fix_rounds'), blocking: summed('blocking'), misses: summed('misses'), verdicts: stored.flatMap(record => record.verdicts), risk, ...(experiment && { experiment }) }
 }
 
 // The runs `aco lane-record show --json` lists for the claim: this run's own entry (the printer's run id replaces @RUN@) and the earlier runs with the review verdicts their stored records hold.
@@ -418,3 +442,6 @@ export const roundFix = (round) => ({ ...mergeOnlyFix, head: roundTip(round), pa
 // A fix that changes a lane file outside production moves the tip to a commit a review judges, so the record's last verdict names it.
 export const reviewedRoundFix = (round) => ({ ...resumeFix, head: roundTip(round), parents: [round === 1 ? resumeArgs.tip : roundTip(round - 1)], files: ['x.py'], regression: [] })
 export const roundReviews = Object.fromEntries([1, 2, 3, 4].map(round => [`r${round}-review`, APPROVE]))
+
+// A tester whose answer the test releases: the lane starts it and goes on with the CI side until `resolve` gives its verdict.
+export const heldTester = () => { let resolve; const promise = new Promise(done => { resolve = done }); return { promise, resolve, answer: () => promise } }

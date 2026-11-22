@@ -5,7 +5,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { execFileSync, spawnSync } from 'node:child_process'
-import { runLane, partReplaced, runCommandLine, installFake, FAKE_ACO, resumedLane, resumeArgs, resumeTip, resumeFix, defectWithoutDraft, finding, reachesTheEnd, greenCi, tidy, unchangedFix, satisfied } from './lane_workflow_harness.mjs'
+import { runLane, partReplaced, runCommandLine, installFake, FAKE_ACO, resumedLane, resumeArgs, resumeTip, resumeFix, defectWithoutDraft, finding, reachesTheEnd, greenCi, APPROVE, PASS, resumeFixedTip, tidy, unchangedFix, satisfied } from './lane_workflow_harness.mjs'
 
 const BRANCH = 'lane'
 const LONGEST_PATH_COMPONENT = 255
@@ -640,4 +640,15 @@ test('AC-removal-check-name-empty-range-real-git: a removal for a check name fai
   const { result } = await runRemovalStep(lane, () => {}, [{ ...defectWithoutDraft, where: 'SonarCloud Code Analysis' }], [removalOfT])
   assert.deepEqual([result.status, result.stage], ['failed', 'fix'])
   assert.match(result.reason, /SonarCloud Code Analysis.*no diff/)
+})
+
+test('AC-push-by-name: the sync and fixer briefs push the lane branch by name and no lane brief has a bare git push', async () => {
+  const { agentCalls: clean } = await runLane(resumeArgs)
+  const { agentCalls: ledger } = await runLane({ ...resumeArgs, ledgers: ['LEDGER.md'] })
+  const { agentCalls: fixed } = await runLane({ ...resumeArgs, risk: 'material', fixFirst: [{ ...finding('x.py', 'fix it'), evidence: 'e', kind: 'defect' }] }, { 'fix-1': { ...resumeFix, regression: [] }, 'r1-review': APPROVE, 'r1-gate': { ...APPROVE, codexExit: 0 }, 'e2e-0': PASS, 'ci-0': greenCi(resumeFixedTip) })
+  const branch = resumeArgs.branch
+  assert.equal(clean.sync.prompt.match(/push origin 'b'/g).length, 1)
+  assert.equal(ledger.sync.prompt.match(/push origin 'b'/g).length, 2)
+  assert.ok(fixed['fix-1'].prompt.includes(`push origin '${branch}'`), 'fixer brief')
+  for (const call of Object.values({ ...clean, ...ledger, ...fixed })) assert.doesNotMatch(call.prompt, /git (?:-C '[^']*' )?push(?! origin '[^']+')/)
 })

@@ -5,7 +5,7 @@ import path from 'node:path'
 import { spawnSync } from 'node:child_process'
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { runLane, FAKE_GH, resumeTip, resumeFixedTip, partReplaced, runCommandLine, installFake, resumeArgs, resumeFix, mergeOnlyFix, mainMovedTip, defectWithoutDraft, roundTip, roundRed, roundFix, reviewedRoundFix, roundReviews, PASS, APPROVE, greenCi, tidy } from './lane_workflow_harness.mjs'
+import { runLane, FAKE_GH, resumeTip, resumeFixedTip, partReplaced, runCommandLine, installFake, resumeArgs, resumeFix, mergeOnlyFix, mainMovedTip, defectWithoutDraft, roundTip, roundRed, roundFix, reviewedRoundFix, roundReviews, heldTester, PASS, APPROVE, greenCi, tidy } from './lane_workflow_harness.mjs'
 
 const tip = 'c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0'
 const lane = { item: 1, worktree: '/w', branch: 'b', contract: 'c', e2e: 'e', scratch: '/s', pr: 1, tip }
@@ -580,7 +580,6 @@ test('ci-flake-rerun: a disputed non-CI finding goes to the head without a re-ru
 })
 
 // The fixer starts at once when CI is red; the tester is awaited only when CI has nothing of its own to fix.
-const heldTester = () => { let resolve; const promise = new Promise(done => { resolve = done }); return { promise, resolve, answer: () => promise } }
 const testerLabels = (launchedAgents) => launchedAgents.filter(label => /^e2e-\d+$/.test(label))
 const ciWatches = (launchedAgents) => launchedAgents.filter(label => /^ci-\d+$/.test(label))
 const tolerates = { timeout: 5000 }

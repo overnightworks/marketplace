@@ -256,14 +256,30 @@ a release can follow carries `record`. A record that fails the check turns `read
 `awaiting-head` at `record`, with `recordProblem` quoting aco; so does a tip no verdict judged (a clean merge of main after the last review), since aco lands only the head the last verdict judged, and `reason` names both shas; a run refused at input writes none, and a lane that hit the Claude usage limit at any point
 may end without a record, since the record courier is a Claude agent (no code guard).
 
-Each run stores its record on the claim. Its first relay step, the branch check, mints a run id. A `build` run runs
+Each run stores its record on the claim as segments, each one an aco run: a span of the run's stages that ends at a
+proven point, a review or a gate that approves the tip (stored before the fixer starts, when another reviewer of the round
+revises it) or the tester's pass. Its first relay step, the branch check, mints a run id, which the first segment carries; a later segment's id is that
+id, a hyphen and its number. A `build` run runs
 `aco lane-record begin <n> --run <id>` right after that check; a run started with `pr` and `tip` runs it right after its
 sync and its scope check have passed, with the synced head as `--start-tip` (a run that starts at a fixer, with `fixFirst`
 or `foldIn`, right after the sync, since its scope check follows the fix), and a run that ends at `sync` or at its scope
-check before any fixer is never begun. At every end that
-writes a record, a begun run adds it once with `aco lane-record add <n> <path> --run <id> --end-tip <sha> --ran <stages>`,
-the stages being those it started (`build`, `review`, `fix`, `test`, `gate`; a begun run that started none stores nothing,
-since aco takes no empty `--ran`). Every tip aco receives is the 40-digit sha `git rev-parse` resolves in the worktree,
+check before any fixer is never begun. At each proven point the lane writes the record of the open segment, adds it with
+`aco lane-record add <n> <path> --run <id> --end-tip <sha> --ran <stages>` and, right before the first stage after the point
+(a review round, a fix round, the tester), begins the next segment with that tip as `--start-tip`; a run that stops at a proven
+point begins none unless a tester is still running or a CI finding was read, since either needs a begun segment to land
+in, so a lane whose gates passed keeps its verdicts on the claim when the run dies later, and a run killed in
+the middle of a segment leaves a begun run without a record, whose counts aco shows as unknown. A segment's record holds only
+its own slice of the run's history, its verdicts and its own fix rounds, and its `--ran` stages are those the segment started
+(`build`, `review`, `fix`, `test`, `gate`; a tester counts in the segment its answer lands in); its finding counts are the
+run's counts up to now minus those up to the segment's start, judged by the first begin's read of the stored runs, so the
+stored runs sum to the figures of one unsplit run, a finding that comes back counting once; a miss that a later fix proof takes
+back stays counted in the record it was stored in. aco sums the counts and joins the verdicts over the stored runs; the
+approvals of the earlier segments reach a later one through the history. At every end that writes a record, the open
+segment is added once the same way (one that started no stage stores nothing, since aco takes no empty `--ran` and the lane
+claims no stage that did not run; a CI finding read in such a segment stays unstored and its begun run makes the lane's counts
+unknown). A review or gate approval that follows another reviewer's revision of the same tip is not stored before the fixer
+starts, since aco lands the last stored verdict. Every tip
+aco receives is the 40-digit sha `git rev-parse` resolves in the worktree,
 and a `build` run that ended without a tip passes the worktree's `HEAD`. A begin or an add that aco refuses, or whose tip
 git cannot resolve, ends the run `awaiting-head` at `record`; the `reason` holds the refusal and, for an add, the status
 and reason the run would have ended with. Once a run is begun, landing and release go without `--record`, because aco

@@ -1,0 +1,7 @@
+claim_id = "fdacea9437f949b7afbde42c649800fa"
+agent = "Claude 75a241b5-1b6d-4abc-8dfe-1a6da7b5ffc2"
+role = "builder"
+base = "2ef1c9af138746a223c45756d6e0977286b2977d"
+branch = "claude/issue-939-operator-step-one-paste"
+scope = ["instructions/HEAD.md"]
+opened_commit = "777299ca81fb1415285bf3b03b5755abd8215972"

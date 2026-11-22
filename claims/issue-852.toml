@@ -1,5 +1,5 @@
 claim_id = "cdc772a1b2034fb6a51f9b1bfb390e72"
-agent = "Claude 6f734bfc-08d4-4565-9fdb-8eac1c73f4b4"
+agent = "Claude 75a241b5-1b6d-4abc-8dfe-1a6da7b5ffc2"
 role = "builder"
 base = "8445ace47a62af919d91447ac4ac658e2f2dd3b0"
 branch = "claude/issue-852-reuse-or-refactor-first-new-code-is-the"

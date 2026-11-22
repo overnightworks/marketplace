@@ -1,7 +1,0 @@
-claim_id = "ab0b80277f7a47f392d33716cbb6ddc6"
-agent = "Claude 75a241b5-1b6d-4abc-8dfe-1a6da7b5ffc2"
-role = "builder"
-base = "e2753e156f5b6ea733c2bcc198bdbe7d26199f0f"
-branch = "claude/issue-946-longer-step-becomes-a-script"
-scope = ["instructions/HEAD.md"]
-opened_commit = "c5ff4259e43628e90832900c63a0a851fa9c1b16"

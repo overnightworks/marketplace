@@ -14,7 +14,7 @@ function checkpointRenameProblem(relayed, item) {
   if (itemTitle.code !== 0) return `reading the item title exited ${itemTitle.code}: ${itemTitle.err}`
   return retitle.code === 0 ? null : `the title write exited ${retitle.code}: ${retitle.err}`
 }
-// Runs one relay step and, when GitHub's rate limit refused a call of a step that changes nothing the lane could not repeat, waits for the reset GitHub names and runs the step once more; the callers see only the final read.
+// Runs one relay step and, when GitHub's rate limit refused a call of a step that changes nothing the lane could not repeat, waits for the reset GitHub names and runs the step again, repeating until the 3600 s total wait or the 16 wait calls end it; the callers see only the final read.
 export async function laneRelay(A) {
   const relayed = await relayStep(A)
   return A.answerKind ? relayed : relayAfterReset(A, relayed, 0, 0)

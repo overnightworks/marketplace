@@ -110,6 +110,8 @@ export async function runLane(args, answers = {}, options = {}) {
   // running the real printer the prompt carries. Without answers a sync leaves an up-to-date lane as it is.
   let newestTip = args.tip
   const writtenRecords = []
+  // The seconds each rate-limit wait printed as slept; the printer's own sleep is skipped, so no test waits on the wall clock.
+  const rateLimitSleeps = []
   let fakeBin
   const fakeCommands = () => {
     if (!fakeBin) {
@@ -164,7 +166,7 @@ export async function runLane(args, answers = {}, options = {}) {
   }
   const printedBy = (prompt, scenario, reread, label) => {
     if ('printed' in scenario) return scenario.printed
-    const line = prompt.split('\n').at(-1).replace(/^cd '[^']*' && /, '')
+    const line = prompt.split('\n').at(-1).replace(/^cd '[^']*' && /, '').replace('time.sleep(slept)', '0')
     const env = {
       ...process.env, PATH: `${fakeCommands()}:${process.env.PATH}`, FAKE_HEAD: scenario.head ?? newestTip, FAKE_BRANCH: scenario.branch ?? args.branch, FAKE_BRANCH_CODE: scenario.branch_code ?? 0, FAKE_REMOTE: scenario.remote_tip ?? newestTip,
       FAKE_HEAD_CODE: scenario.head_code ?? 0, FAKE_PARENTS: (scenario.parents ?? []).join('\n'), FAKE_MAIN_CODE: scenario.main_code ?? 0, FAKE_TREE: scenario.tree ?? 'a1a1a1a1', FAKE_MERGE_TREE: scenario.merge_tree ?? scenario.tree ?? 'a1a1a1a1', FAKE_MERGE_TREE_CODE: scenario.merge_tree_code ?? 0, FAKE_TOUCHED: (scenario.touched_paths ?? []).join('\n'),
@@ -187,6 +189,7 @@ export async function runLane(args, answers = {}, options = {}) {
     if (answer?.tip && label === 'build') newestTip = answer.tip
     if (!isRelayed(label) || !answer) return answer
     const printed = printedBy(prompt, answer, reread, label)
+    if (/-wait-\d+$/.test(label)) rateLimitSleeps.push(JSON.parse(printed).v.slept)
     if (answer.head && !base.startsWith('scope-')) newestTip = answer.head
     const { pr_title: _prTitle, item_title: _itemTitle, patch_code: _patchCode, pr_head: _prHead, checks: _checks, required: _required, base_runs: _baseRuns, changed_files: _changedFiles, changed_code: _changedCode, changed_error: _changedError, head_runs: _headRuns, runlist_code: _runlistCode, runlist_error: _runlistError, head: _head, parents: _parents, head_code: _headCode, branch_code: _branchCode, main_code: _mainCode, touched_paths: _touchedPaths, nonce: _nonce, edit: _edit, typedCommand: _typedCommand, printerMode: _printerMode, push_error: _pushError, network_error: _networkError, network_fails: _networkFails, remote_tip: _remoteTip, brief_error: _briefError, rate_exhausted_calls: _rateExhaustedCalls, rate_exhausted_again_at: _rateExhaustedAgainAt, rate_reset_in: _rateResetIn, rate_error: _rateError, outside_claim: _outsideClaim, printed: _printed, ...report } = answer
     return reread ? { printed } : { ...report, printed }
@@ -207,7 +210,7 @@ export async function runLane(args, answers = {}, options = {}) {
     const result = await Promise.race([compile(source)(args, agent, parallel, async () => [], ignore, ignore), runEnded])
     const patched = fakeBin && fs.existsSync(path.join(fakeBin, 'gh.patched')) ? fs.readFileSync(path.join(fakeBin, 'gh.patched'), 'utf8').trim().split('\n') : []
     const laneRecordLog = fakeBin && fs.existsSync(path.join(fakeBin, 'aco.lane-record')) ? fs.readFileSync(path.join(fakeBin, 'aco.lane-record'), 'utf8').trim().split('\n') : []
-    return { killed, result: structuredClone(result), patchedTitles: patched, laneRecordCalls: laneRecordLog.map(line => line.split(' ')), calls: callsOf(), launchedAgents, launchedPrompts, agentCalls, writtenRecords }
+    return { killed, result: structuredClone(result), patchedTitles: patched, laneRecordCalls: laneRecordLog.map(line => line.split(' ')), calls: callsOf(), launchedAgents, launchedPrompts, agentCalls, writtenRecords, rateLimitSleeps }
   } finally {
     if (fakeBin) fs.rmSync(fakeBin, { recursive: true })
     recordDirectories.forEach(directory => fs.rmSync(directory, { recursive: true, force: true }))
@@ -451,3 +454,13 @@ export const redOnHead = (name) => ({ where: name, kind: 'defect', text: `${name
 let runId = 0
 export const run = (name, conclusion, completedAt = '2026-11-13T10:00:00Z') => ({ id: ++runId, name, status: conclusion ? 'completed' : 'in_progress', conclusion, completed_at: conclusion ? completedAt : null })
 export const redJob = (name, failingStep, ids = ['11', '22']) => ({ name, link: `https://github.com/o/n/actions/runs/${ids[0]}/job/${ids[1]}`, runId: ids[0], jobId: ids[1], failingStep, findings: [redOnHead(name)] })
+
+// The CI tests' arrangement: a lane at the resume tip whose fix, review and tester answers reach the CI stage, and a CI answer for it.
+export const tip = resumeTip
+export const lane = resumeArgs
+export const alreadySatisfied = { head: tip, mergeResolvedLaneConflict: false, files: [], regression: [], disputed: [], blocked: false, resolved: [{ where: tidy.where, text: tidy.text, evidence: 'already pinned' }] }
+export const reachesCi = { 'fix-1': alreadySatisfied, 'r1-review': APPROVE, 'e2e-0': PASS }
+export const required = 'quality / verdict'
+export const check = (name, bucket) => ({ name, bucket })
+export const ciAnswer = (checks, extra = {}) => ({ head: tip, green: true, failing: [], checks, requiredChecks: [required], ...extra })
+export const driveCi = (ci, args = lane, read, more = {}) => runLane({ ...args, foldIn: [tidy] }, { ...reachesCi, 'ci-0': ci, ...(read && { 'ci-read-0': read }), ...more })

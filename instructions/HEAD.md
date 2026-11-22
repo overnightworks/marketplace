@@ -163,7 +163,7 @@ it from its branch and claims after adoption.
   waits on whom is said only from `aco check`, read live. Close an item only
   when its `Done when` is met or it was folded into a bundle's lead. A `Done
   when` names only what an agent can prove; a landed item whose rest is an
-  operator live check gets a step (`aco mcp step`) and closes.
+  operator live check closes, and the check becomes a step on a new task.
 - **Comments** preserve evidence; the body, with its dependencies, is the
   current handoff. Keep threads thin: the pull request carries the proof, and a
   landing gets one close comment (PR link and merge SHA), never an evidence

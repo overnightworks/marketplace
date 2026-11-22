@@ -74,8 +74,8 @@ rest and say so in the report.
   now; when it is not done, add one sentence "reopen when <trigger>".
 - Point: does the problem the item names still exist? If not, `close`.
 - Landed, its only rest a live check only the operator can give: `close` with
-  "reopen when <the live fact fails>", clear; the head gives the check a step
-  with the aco mcp `step` tool. The `Done when` names only what an agent can
+  "reopen when <the live fact fails>", clear; the head gives the check its step
+  (`HEAD.md`, Items). The `Done when` names only what an agent can
   prove. Mark nothing "unverified".
 
 A nearly empty board (two open items or fewer, claimed or not) skips Pass 1 detail: run

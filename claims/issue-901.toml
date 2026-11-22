@@ -1,7 +1,0 @@
-claim_id = "da08f508930d4c80872d6dcdfddb1b24"
-agent = "Claude 75a241b5-1b6d-4abc-8dfe-1a6da7b5ffc2"
-role = "builder"
-base = "b008f77db5732f5b5a9bfa92694c64d90019a8fa"
-branch = "claude/issue-901-idle-compact-from-100k"
-scope = ["scripts/install.py", "settings/claude-managed.json"]
-opened_commit = "b7642dfcbc4e931c7507887fa06972af64282818"

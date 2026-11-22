@@ -1,0 +1,8 @@
+claim_id = "28cd2f69d960425aa0131cd849672c66"
+agent = "Claude 75a241b5-1b6d-4abc-8dfe-1a6da7b5ffc2"
+role = "builder"
+base = "b008f77db5732f5b5a9bfa92694c64d90019a8fa"
+branch = "claude/issue-941-lane-tests-share-one-ci-arrangement"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/lane/relay.js", "plugins/atelier/skills/audit/references/ownership.md", "plugins/atelier/workflows/lane.js", "tests/lane_workflow_ci.test.mjs", "tests/lane_workflow_ci_own_finding.test.mjs", "tests/lane_workflow_ci_pending.test.mjs", "tests/lane_workflow_harness.mjs", "tests/lane_workflow_network.test.mjs", "tests/lane_workflow_tester_at_stop.test.mjs"]
+opened_commit = "e705c77e2a8f38a3b8e432ab76cefa77a67e2af6"
+whole_reason = "Four follow-ups of one audit: the shared CI-test arrangement across four test modules and the harness, a sleep-free rate-limit test with its two pins, one relay comment with the generated lane.js, one sentence of the ownership lens, and the three version manifests the plugin rule requires."

@@ -1,0 +1,8 @@
+claim_id = "aa0f37f5c5e345c6aeb2e49375bec296"
+agent = "Claude 6f734bfc-08d4-4565-9fdb-8eac1c73f4b4"
+role = "builder"
+base = "297b3388eb497df94aaa751a41105c96d1d68d68"
+branch = "claude/issue-937-shared-red-never-reaches-fixer"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/lane/relay.js", "plugins/atelier/lane/test.js", "plugins/atelier/workflows/lane.js", "tests/lane_workflow_ci.test.mjs"]
+opened_commit = "971ffa6915cef44bc12c739a06b93438ad22b44f"
+whole_reason = "Two leaks of one classification: the shared-finding match in relay.js and one tester brief sentence in test.js, the generated lane.js, one test file and the three version manifests the plugin rule requires."

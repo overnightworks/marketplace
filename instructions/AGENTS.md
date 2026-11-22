@@ -68,10 +68,11 @@ questions, doubts and friction go to its parent.
 ## How to decide
 
 - **Rulings bind, but not on faith.** Ruled sentences, specs and item bodies
-  bind. Wording a head wrote is a proposal until it records an existing ruling
-  or has passed the expectation-list process (`HEAD.md`); authorship grants no
-  authority, and an item names the source of its ruled sentences, applied
-  recommendations included. A second look may revise a proposal; changing
+  bind. A blessed picture binds what it shows, its order, wording and rough
+  layout, never its pixels. Wording a head wrote is a proposal until it records
+  an existing ruling or has passed the expectation-list process (`HEAD.md`);
+  authorship grants no authority, and an item names the source of its ruled
+  sentences, applied recommendations included. A second look may revise a proposal; changing
   ruled behaviour takes the same process. Yet every agent checks, as product
   owner and architect, whether what it is asked to build still makes sense, by
   the pull question: does the problem still exist, or has a landing, a newer

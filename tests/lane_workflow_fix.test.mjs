@@ -62,20 +62,20 @@ for (const replay of replays) {
 test('a fix that only merged main with a fold-in ends awaiting-head, folds nothing in and leaves the fold-in open', async () => {
   const built = 'b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0'
   const merged = 'a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1'
-  const foldIn = followup('x.py:1', 'tidy', 'follow-up (fix in place)')
+  const foldIn = followup('x.py:1', 'tidy', 'distributor', true)
   const conflicting = { where: 'mergeable', kind: 'defect', text: 'the pull request conflicts with main', rule: 'r', evidence: 'CONFLICTING' }
   const { result } = await runLane({ ...webauthReplay.args, build: 'b' }, {
     build: { pr: 2, tip: built, blocked: false },
-    'r0-review': { ...APPROVE, followups: [foldIn] },
+    'r0-review': APPROVE,
     'r0-gate': { ...APPROVE, codexExit: 0 },
-    'e2e-0': PASS,
+    'e2e-0': { ...PASS, followups: [foldIn] },
     'ci-0': { head: built, green: false, failing: [conflicting] },
     'fix-1': { head: merged, parents: [built, 'e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4e4'], mergeResolvedLaneConflict: false, files: [], disputed: [], blocked: false },
     'ci-1': greenCi(merged),
   })
   assert.deepEqual([result.status, result.stage], ['awaiting-head', 'record'])
   assert.deepEqual(result.folded, [])
-  assert.deepEqual(result.followups, [{ ...foldIn, stage: 'review', tip: built }])
+  assert.deepEqual(result.followups, [{ ...foldIn, stage: 'test', tip: built }])
 })
 
 test('a stopped fix reports the fold-ins its fixer found already done, and leaves them open', async () => {
@@ -127,7 +127,7 @@ test('a fixer given only fold-ins is told there are no blocking findings', async
   assert.doesNotMatch(agentCalls['fix-1'].prompt, /and nothing else/)
 })
 
-const alsoTidy = followup('y.py:2', 'rename the helper', 'follow-up (fix in place)')
+const alsoTidy = followup('y.py:2', 'rename the helper', 'distributor')
 
 const satisfiedFoldIns = [
   ['one fold-in', [tidy], [satisfied(tidy)]],
@@ -144,18 +144,19 @@ for (const [what, foldIn, resolved] of satisfiedFoldIns) {
   })
 }
 
+// A round without blocking findings asks for no merge of main, so main moving neither fails a satisfied fold-in nor excuses a merge.
 const satisfiedAcrossMovedMain = [
-  ['main moved and the lane has no change of its own past the merge', { head: mainMovedTip, parents: [resumeTip, mergedOnlyTip] }, true],
-  ['main moved but the returned tip is not the merge', { head: resumeTip, main_code: 1 }, false],
+  ['a merge of main and no change of its own', { head: mainMovedTip, parents: [resumeTip, mergedOnlyTip] }, false],
+  ['main moved and the tip left where it was', { head: resumeTip, main_code: 1 }, true],
 ]
 
 for (const [what, shape, goesOn] of satisfiedAcrossMovedMain) {
-  test(`every fold-in satisfied with ${what} ${goesOn ? 'goes on with the merge as the tip' : 'stops at fix'}`, async () => {
-    const answers = { 'fix-1': { ...unchangedFix, ...shape, resolved: [satisfied(tidy)] }, 'r1-review': APPROVE, 'e2e-0': PASS, 'ci-0': greenCi(mainMovedTip) }
+  test(`every fold-in satisfied with ${what} ${goesOn ? 'goes on with the tip unchanged' : 'is rejected as unasked work'}`, async () => {
+    const answers = { 'fix-1': { ...unchangedFix, ...shape, resolved: [satisfied(tidy)] }, 'r1-review': APPROVE, 'e2e-0': PASS, 'ci-0': greenCi(shape.head) }
     const { result, launchedAgents } = await runLane({ ...resumeArgs, foldIn: [tidy] }, answers)
     assert.deepEqual([result.status, result.stage], goesOn ? ['ready-to-land', undefined] : ['failed', 'fix'])
     assert.equal(launchedAgents.includes('r1-review'), goesOn)
-    if (goesOn) assert.deepEqual(result.folded.map(f => f.tip), [mainMovedTip])
+    if (goesOn) assert.deepEqual(result.folded.map(f => f.tip), [resumeTip])
   })
 }
 
@@ -256,7 +257,7 @@ const reviewReviseAnswers = (followups) => ({
 })
 
 const deltaRangesByFoldIns = [
-  ['names the fold-in the fixer was given', [tidy], true],
+  ['names the fold-in the fixer was given', [{ ...tidy, inPlace: true }], true],
   ['has no fold-in section when the fixer was given none', [], false],
 ]
 
@@ -668,4 +669,102 @@ test('the builder and the fixer are told to run the targeted tests and fast stat
 test('the fixer prompt says a finding whose message covers the whole file is fixed at every occurrence in that file', async () => {
   const { agentCalls } = await runLane({ ...resumeArgs, fixFirst: [defectWithoutDraft] }, { 'fix-1': resumeFix })
   assert.match(agentCalls['fix-1'].prompt, /message covers the whole file[^.]*every occurrence in that file, not only at the reported line/)
+})
+
+// A passing review that leaves in-place follow-ups open starts one follow-up batch, re-checked before the tester and CI.
+const polish = { ...followup('x.py:1', 'tidy the import order', 'distributor'), inPlace: true }
+const alsoPolish = { ...followup('y.py:2', 'rename the helper', 'distributor'), inPlace: true }
+const elsewhere = { ...followup('z.py:3', 'a rule declared twice', '#57'), inPlace: false }
+const approvedWith = (...followups) => ({ 'r0-review': { ...APPROVE, followups } })
+const batchReachesTheEnd = { 'fix-1': resumeFix, 'r1-review': APPROVE, 'e2e-0': PASS, 'ci-0': greenCi(resumeFixedTip) }
+
+test('a review that passes with an in-place follow-up runs the fixer and a re-check before the tester, and folds it in', async () => {
+  const { result, launchedAgents } = await runLane(resumeArgs, { ...approvedWith(polish), ...batchReachesTheEnd })
+  assert.equal(result.status, 'ready-to-land', result.reason)
+  assert.deepEqual(launchedAgents.filter(label => /^(r\d-review|fix-\d|e2e-\d)$/.test(label)), ['r0-review', 'fix-1', 'r1-review', 'e2e-0'])
+  assert.deepEqual(result.folded.map(f => [f.where, f.tip]), [[polish.where, resumeFixedTip]])
+  assert.deepEqual(result.followups, [])
+})
+
+test('a follow-up whose in-place flag is false starts no batch and goes to the head', async () => {
+  const { result, launchedAgents } = await runLane(resumeArgs, { ...approvedWith(elsewhere), 'e2e-0': PASS, 'ci-0': greenCi(resumeTip) })
+  assert.equal(result.status, 'ready-to-land', result.reason)
+  assert.ok(!launchedAgents.includes('fix-1'))
+  assert.deepEqual(result.followups.map(f => f.where), [elsewhere.where])
+})
+
+test('the batch re-check reads the range as follow-ups, not findings, and the fixer is asked for no merge of main', async () => {
+  const { agentCalls } = await runLane(resumeArgs, { ...approvedWith(polish), ...batchReachesTheEnd })
+  assert.match(agentCalls['r1-review'].prompt, /It answers these follow-ups:\n- x\.py:1 — tidy the import order/)
+  assert.doesNotMatch(agentCalls['r1-review'].prompt, /It answers these findings/)
+  assert.doesNotMatch(agentCalls['fix-1'].prompt, /Merge origin\/main if it moved/)
+})
+
+test('the batch fixer that only merged main is rejected as unasked work, with every fold-in satisfied or not', async () => {
+  const { result, launchedAgents } = await runLane(resumeArgs, { ...approvedWith(polish), 'fix-1': { ...mergeOnlyFix, resolved: [satisfied(polish)] } })
+  assert.deepEqual([result.status, result.stage], ['failed', 'fix'])
+  assert.ok(!launchedAgents.includes('r1-review'))
+})
+
+test('a gate follow-up on a material lane is re-checked by the gate as well', async () => {
+  const gateRaises = { ...APPROVE, followups: [polish], codexExit: 0 }
+  const { result, launchedAgents } = await runLane({ ...resumeArgs, risk: 'material' }, { 'r0-review': APPROVE, 'r0-gate': gateRaises, 'fix-1': resumeFix, 'r1-review': APPROVE, 'r1-gate': { ...APPROVE, codexExit: 0 }, 'e2e-0': PASS, 'ci-0': greenCi(resumeFixedTip) })
+  assert.equal(result.status, 'ready-to-land', result.reason)
+  assert.ok(launchedAgents.includes('r1-review') && launchedAgents.includes('r1-gate'))
+})
+
+test('a follow-up the batch re-check raises starts no second batch and stays for the head', async () => {
+  const { result, launchedAgents } = await runLane(resumeArgs, { ...approvedWith(polish), ...batchReachesTheEnd, 'r1-review': { ...APPROVE, followups: [alsoPolish] } })
+  assert.equal(result.status, 'ready-to-land', result.reason)
+  assert.ok(!launchedAgents.includes('fix-2'))
+  assert.deepEqual(result.followups.map(f => f.where), [alsoPolish.where])
+})
+
+const spentBudgets = [['review', { review: 0 }], ['total', { total: 0 }]]
+
+for (const [which, budgets] of spentBudgets) {
+  test(`with the ${which} budget spent no batch runs and the lane is ready with the follow-up open`, async () => {
+    const { result, launchedAgents } = await runLane({ ...resumeArgs, budgets }, { ...approvedWith(polish), 'e2e-0': PASS, 'ci-0': greenCi(resumeTip) })
+    assert.equal(result.status, 'ready-to-land', result.reason)
+    assert.ok(!launchedAgents.includes('fix-1'))
+    assert.deepEqual(result.followups.map(f => f.where), [polish.where])
+  })
+}
+
+const reason = 'the fix would change behaviour outside the diff'
+const decline = (item) => ({ where: item.where, reason })
+
+test('a batch fixer that declines every fold-in at an unchanged tip lets the lane go on and the follow-ups stay with their reason', async () => {
+  const { result, launchedAgents } = await runLane(resumeArgs, { ...approvedWith(polish, alsoPolish), 'fix-1': { ...unchangedFix, declined: [decline(polish), decline(alsoPolish)] }, 'e2e-0': PASS, 'ci-0': greenCi(resumeTip) })
+  assert.equal(result.status, 'ready-to-land', result.reason)
+  assert.ok(!launchedAgents.includes('r1-review'))
+  assert.deepEqual(result.folded, [])
+  assert.deepEqual(result.followups.map(f => [f.where, f.declined]), [[polish.where, reason], [alsoPolish.where, reason]])
+})
+
+test('a batch that fixes one fold-in and declines the other folds only the fixed one', async () => {
+  const { result } = await runLane(resumeArgs, { ...approvedWith(polish, alsoPolish), ...batchReachesTheEnd, 'fix-1': { ...resumeFix, declined: [decline(alsoPolish)] } })
+  assert.equal(result.status, 'ready-to-land', result.reason)
+  assert.deepEqual(result.folded.map(f => f.where), [polish.where])
+  assert.deepEqual(result.followups.map(f => [f.where, f.declined]), [[alsoPolish.where, reason]])
+})
+
+test('a declined follow-up is not offered to a later fix round', async () => {
+  const red = { head: resumeTip, green: false, failing: [defectWithoutDraft] }
+  const { agentCalls } = await runLane(resumeArgs, { ...approvedWith(polish), 'fix-1': { ...unchangedFix, declined: [decline(polish)] }, 'e2e-0': PASS, 'ci-0': red, 'fix-2': secondFix, 'r2-review': APPROVE, 'ci-1': greenCi(secondFix.head) })
+  assert.doesNotMatch(agentCalls['fix-2'].prompt, /tidy the import order/)
+})
+
+test('a batch re-check that revises enters the normal fix loop', async () => {
+  const { result, launchedAgents } = await runLane(resumeArgs, { ...approvedWith(polish), ...batchReachesTheEnd, 'r1-review': { verdict: 'REVISE', blocking: [defectWithoutDraft], followups: [] }, 'fix-2': secondFix, 'r2-review': APPROVE, 'ci-0': greenCi(secondFix.head) })
+  assert.equal(result.status, 'ready-to-land', result.reason)
+  assert.ok(launchedAgents.includes('fix-2') && launchedAgents.includes('r2-review'))
+})
+
+test('a batch fixer that returns no result ends awaiting-head with the fold-ins and the tip before it in resume', async () => {
+  const { result } = await runLane(resumeArgs, { ...approvedWith(polish), 'fix-1': null, 'checkpoint-fix': { work: false } })
+  assert.equal(result.status, 'failed')
+  const { result: saved } = await runLane(resumeArgs, { ...approvedWith(polish), 'fix-1': null, 'checkpoint-fix': { work: true, head: resumeFixedTip } })
+  assert.equal(saved.status, 'awaiting-head')
+  assert.deepEqual([saved.resume.foldIn.map(f => f.where), saved.resume.deltaFrom], [[polish.where], resumeTip])
 })

@@ -3,7 +3,6 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { tip, lane, required, check, ciAnswer, driveCi } from './lane_workflow_harness.mjs'
 
-
 const stillQueued = [
   ['only pending checks in the listing', [check(required, 'pending'), check('Python: tests', 'pending'), check('lint', 'pass')], undefined, /"Python: tests", "quality \/ verdict"/],
   ['a head run not completed and a required check missing', [check('lint', 'pass')], [{ status: 'queued', name: 'quality' }], /"quality"/],

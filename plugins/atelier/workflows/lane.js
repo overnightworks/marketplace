@@ -131,6 +131,38 @@ function afterRerun(red, rerun) {
   return rerun.findings.length ? rerun.findings : red.findings
 }
 
+// The contract lets the lane's fixer resolve a small follow-up in a file the lane already changed, when its fix cannot change behaviour outside the reviewed diff.
+// A follow-up is in place when its raiser set inPlace or the head named it in foldIn; one the fixer declined is never handed to a fixer again.
+// A fold-in counts as folded only once the fix that carries it is accepted; until then it stays open.
+const inPlaceFollowups = () => {
+  const namedByHead = new Set((A.foldIn || []).map(findingKey))
+  return openFollowups().filter(f => !declined.has(findingKey(f)) && (namedByHead.has(findingKey(f)) || f.inPlace === true))
+}
+const listFoldIns = (foldIn) => foldIn.map(f => `- ${f.where} — ${f.text}`).join('\n')
+// The reviewer sees which follow-ups the fixer was given and which it declined with what reason, so it can tell a skipped one from a done one.
+const foldInsInRange = (foldIn, declinedBy = {}, lead = 'The fixer was also given these follow-ups to fold in; check each is done:') => {
+  const refused = foldIn.filter(f => Object.hasOwn(declinedBy, f.where))
+  const done = foldIn.filter(f => !refused.includes(f))
+  const declinedText = refused.map(f => `- ${f.where} — ${f.text} (declined: ${declinedBy[f.where]})`).join('\n')
+  return [done.length && [lead, listFoldIns(done)].filter(Boolean).join('\n'), refused.length && `The fixer declined these follow-ups; check each reason holds:\n${declinedText}`]
+    .filter(Boolean).map(text => `\n${text}`).join('')
+}
+
+// A review that passes with in-place follow-ups open runs one batch per run, when the review and total budgets allow it. The batch's re-check
+// always runs the ordinary review, and the gate too when a fold-in came from the gate or the fix touched production on a material lane.
+// A follow-up the re-check raises, one the fixer declined and one left by a spent budget stay open for the head.
+let followUpBatchRun = false
+async function followUpBatch() {
+  if (followUpBatchRun || !inPlaceFollowups().length || spent.review >= B.review || spent.total >= B.total) return null
+  followUpBatchRun = true
+  const fixed = await fixRound([], "the passing review's follow-ups", 'review', false)
+  if (fixed.stop) return fixed.stop
+  if (!fixed.range) return null
+  const withGate = MATERIAL && (fixed.gateAgain || fixed.foldIn.some(f => f.stage === 'gate'))
+  phase('Review')
+  return await settleReview(await reviewRound(withGate ? [REVIEW, GATE] : [REVIEW], fixed.range, fixed.deltaFrom)) ?? await storeProvenPoint()
+}
+
 // The one decision whether an agent call failed, and whether a failed Claude agent hit its account usage limit. Every agent call of the lane
 // goes through settledAgent, so a limit reaches the lane's runPart instead of being retried or counted as an ordinary failure.
 const CLAUDE_USAGE_LIMIT = /\b(?:(?:usage|weekly|session|5-hour|opus|sonnet)\s+limit|hit\s+your\s+limit)\b/i
@@ -589,6 +621,7 @@ async function relayStep(A) {
         description: 'fold-ins you found already done: left in the worktree by an earlier fixer whose fix was not accepted, or already satisfied by the lane tip; a blocking finding the tip already meets carries its number',
         items: { type: 'object', required: ['where', 'text', 'evidence'], properties: { finding: { type: 'integer', minimum: 1, description: 'the number of the blocking finding in the list you were given' }, where: { type: 'string' }, text: { type: 'string' }, evidence: { type: 'string', description: 'the test, probe cell or line that already satisfies it' } } },
       },
+      declined: { type: 'array', description: 'fold-ins you leave undone because the fix would change behaviour outside the reviewed diff, take more than about ten lines or sit in a file this lane did not change; each with the reason', items: { type: 'object', required: ['where', 'reason'], properties: { where: { type: 'string' }, reason: { type: 'string' } } } },
       outside: { type: 'array', description: 'blocking findings and fold-ins you answered by editing the item body or the pull request body or posting an item comment, with no commit: a blocking finding by its number in the blocking list (finding), a fold-in by its where (foldIn), and the body section or comment URL', items: { type: 'object', required: ['where'], properties: { finding: { type: 'integer', minimum: 1 }, foldIn: { type: 'string' }, where: { type: 'string' } } } },
       regression: {
         type: 'array',
@@ -646,12 +679,15 @@ async function relayStep(A) {
     const foldInBrief = foldIns
       ? `\n\nAlso fold in these follow-ups, only because each sits in a file this lane already changed and cannot change behaviour; one commit for all of them. ` +
       `One that is already done — left in the worktree by an earlier fixer, or already satisfied by the lane tip — you do not redo; list it in resolved with its evidence (the test, probe cell or line that satisfies it). ` +
-      `One that the item body, the pull request body or an item comment answers goes in outside with foldIn set to its where; commit nothing for it. When that leaves you nothing to change, change nothing:\n${foldIns}`
+      `One that the item body, the pull request body or an item comment answers goes in outside with foldIn set to its where; commit nothing for it. One whose fix would change behaviour outside the reviewed diff, take more than about ten lines or sit in a file this lane did not change you leave undone and list in declined with the reason. When that leaves you nothing to change, change nothing:\n${foldIns}`
       : ''
+    // A round without blocking findings is no integration step: a CI fixer's mergeable finding owns the merge of main.
+    const mergeBrief = blocking
+      ? `Merge origin/main if it moved, before or after your fixes (a merge commit; resolve conflicts so both sides' behaviour holds, and set mergeResolvedLaneConflict true when files this lane changed needed resolution).`
+      : 'Do not merge origin/main: this round asks for the follow-ups only.'
     const answersBrief = A.answers ? `The head's answers on findings it settled, to read before you answer one of them:\n${A.answers}\n` : ''
     return (
-      `${facts}\nYou are a fresh fixer for PR #${pr} (lane tip ${tip}). Merge origin/main if it moved, before or after your fixes (a merge commit; ` +
-      `resolve conflicts so both sides' behaviour holds, and set mergeResolvedLaneConflict true when files this lane changed needed resolution). If the worktree already carries commits or uncommitted changes past that tip from an earlier fixer that ran out of turns, judge them, keep what is right, and continue from there. Commit each finding as soon as it is green. A blocking finding the lane tip already meets (for example by an earlier fixer's commit) is not redone: list it in resolved with its evidence, under its finding's number. List in noBehaviourChange the number of each blocking finding whose fix changes no behaviour of the code, and only those. Then commit what is green and return what is left in blockedReason with blocked true. ${task}${foldInBrief}\n\n` +
+      `${facts}\nYou are a fresh fixer for PR #${pr} (lane tip ${tip}). ${mergeBrief} If the worktree already carries commits or uncommitted changes past that tip from an earlier fixer that ran out of turns, judge them, keep what is right, and continue from there. Commit each finding as soon as it is green. A blocking finding the lane tip already meets (for example by an earlier fixer's commit) is not redone: list it in resolved with its evidence, under its finding's number. List in noBehaviourChange the number of each blocking finding whose fix changes no behaviour of the code, and only those. Then commit what is green and return what is left in blockedReason with blocked true. ${task}${foldInBrief}\n\n` +
       `Each finding names the rule it breaks and its evidence. A scanner finding whose message covers the whole file (for example "in this file") is fixed at every occurrence in that file, not only at the reported line. Check the evidence yourself first. If it does not hold — the rule is not broken, or the evidence is wrong — ` +
       `do not change code for it: list it in disputed with your counter-evidence, under its finding's number. Report every test you add, strengthen or keep for a blocking finding, and every probe cell you run for it, in regression under that finding's number in the list above; the number counts only for the blocking list, a probe you saw fail and then acted on is reported before the entry that passes, and the last entry per finding is its proof; a follow-up needs no regression entry. Run the mutation you name, do not reason about it. ` +
       `A defect's test fails before your fix and passes after it; a defect with a test draft needs one. A defect in test code (hygiene) needs no regression test: the diff is its proof. A test you could not run on this machine is reported with notRun, the reason, and passesAfter false is kept for a test you ran and saw fail; the delta re-check judges a not-run test from its text and CI on the pushed tip runs it. A test-gap finding means a behaviour has no test, the code is already right, and it always needs a test: it passes before and after, ` +
@@ -736,8 +772,10 @@ async function relayStep(A) {
   const disputeFlakes = (fixed, blocking) => fixed.disputed.filter(d => blocking.some((_, index) => proves(d, index))).map(d => ({ where: blocking[d.finding - 1].where, text: `${d.text} (a flake; the fixer's counter-evidence: ${d.counterEvidence})`, owner: 'distributor', stage: 'ci' }))
   // The evidence the fixer gave for a fold-in it found already done, or undefined without any.
   const satisfiedEvidence = (fixed, foldIn) => (fixed.resolved || []).find(r => r.where === foldIn.where && (r.evidence || '').trim())?.evidence
-  // An unchanged tip is a fix only when there are no blocking findings and every fold-in is proven already satisfied.
-  const everyFoldInSatisfied = (fixed, blocking, foldIn) => !blocking.length && foldIn.length > 0 && foldIn.every(f => satisfiedEvidence(fixed, f))
+  // The reason the fixer gave for leaving a fold-in undone, or undefined without one.
+  const declinedReason = (fixed, foldIn) => (fixed.declined || []).find(d => d.where === foldIn.where && (d.reason || '').trim())?.reason
+  // An unchanged tip is a fix only when there are no blocking findings and every fold-in is proven already satisfied or declined with its reason.
+  const everyFoldInSettled = (fixed, blocking, foldIn) => !blocking.length && foldIn.length > 0 && foldIn.every(f => satisfiedEvidence(fixed, f) || declinedReason(fixed, f))
   // An unchanged tip is a fix too when every blocking finding is answered in the pull request body or an item comment and every fold-in
   // is answered there or proven already satisfied; at least one answer outside the tree is what the re-check then reads.
   const outsideAnswers = (fixed) => (fixed.outside || []).filter(o => (o.where || '').trim())
@@ -746,7 +784,7 @@ async function relayStep(A) {
   const answeredOutside = (fixed, blocking, foldIn) => {
     const answers = outsideAnswers(fixed)
     const blockingAnswered = blocking.every((_, index) => answers.some(o => o.finding === index + 1))
-    const foldInAnswered = foldIn.every(f => answers.some(o => o.foldIn === f.where) || satisfiedEvidence(fixed, f))
+    const foldInAnswered = foldIn.every(f => answers.some(o => o.foldIn === f.where) || satisfiedEvidence(fixed, f) || declinedReason(fixed, f))
     const anyAnswer = blocking.length > 0 || foldIn.some(f => answers.some(o => o.foldIn === f.where))
     return anyAnswer && blockingAnswered && foldInAnswered
   }
@@ -756,11 +794,10 @@ async function relayStep(A) {
   function fixRejection(fixed, blocking, foldIn) {
     const { findingNumbers, ...rejection } = fixed.proofRejection ?? {}
     if (findingNumbers) return { ...rejection, lastBlocking: findingNumbers.map(number => blocking[number - 1]) }
-    // Satisfied fold-ins leave the lane at the held tip, or at a merge of main onto it: anything past that is unasked work.
-    const foldInsOnly = everyFoldInSatisfied(fixed, blocking, foldIn)
-    if (fixed.unchanged) return (foldInsOnly && fixed.containsMain) || answeredOutside(fixed, blocking, foldIn) || everyBlockingResolved(fixed, blocking) || checkpointMet(fixed, blocking) ? null : { reason: 'the fixer changed nothing', lastBlocking: blocking }
+    // Settled fold-ins leave the lane at the held tip; a round without blocking findings asks for no merge of main, so a merge there is unasked work.
+    if (fixed.unchanged) return everyFoldInSettled(fixed, blocking, foldIn) || answeredOutside(fixed, blocking, foldIn) || everyBlockingResolved(fixed, blocking) || checkpointMet(fixed, blocking) ? null : { reason: 'the fixer changed nothing', lastBlocking: blocking }
     const mergeWasTheFinding = A.source === 'CI' || (blocking.length === 1 && blocking[0].where === 'mergeable')
-    if (fixed.mergeOnly && !mergeWasTheFinding && !foldInsOnly) return { reason: 'the fixer only merged main and fixed nothing', lastBlocking: blocking }
+    if (fixed.mergeOnly && !mergeWasTheFinding) return { reason: 'the fixer only merged main and fixed nothing', lastBlocking: blocking }
     return null
   }
   // A fixer may report absolute paths; an absolute path once hid a production change and skipped the gate.
@@ -788,7 +825,7 @@ async function relayStep(A) {
     const blocking = A.findings
     const foldIn = A.foldInEntries
     const heldTip = A.tip
-    const facts = { ...answer, regression: withReadRemovals(answer.regression || [], blocking, values, `${heldTip}..${values.head.out}`), tip: values.head.out, heldTip, unchanged: sameCommit(values.head.out, heldTip), mergeOnly: mergedOnto(values, heldTip) && cleanMerge(values), containsMain: values.main.code === 0 }
+    const facts = { ...answer, regression: withReadRemovals(answer.regression || [], blocking, values, `${heldTip}..${values.head.out}`), tip: values.head.out, heldTip, unchanged: sameCommit(values.head.out, heldTip), mergeOnly: mergedOnto(values, heldTip) && cleanMerge(values) }
     const { proofRejection, proofNotes } = judgeProofs(facts, blocking)
     const fixed = { ...facts, proofRejection, proofNotes }
     const relative = worktreeRelative(fixed.files || [])
@@ -809,7 +846,8 @@ async function relayStep(A) {
       touchesProduction: Boolean(fixed.mergeResolvedLaneConflict) || relative.some(f => A.productionPaths.some(prefix => f.startsWith(prefix))),
       answeredOutside: fixed.unchanged && answeredOutside(fixed, blocking, foldIn),
       checkpointMet: fixed.unchanged && checkpointMet(fixed, blocking),
-      satisfied: everyFoldInSatisfied(fixed, blocking, foldIn),
+      settled: everyFoldInSettled(fixed, blocking, foldIn),
+      foldInDeclined: Object.fromEntries(foldIn.map(f => [f.where, declinedReason(fixed, f)]).filter(([, reason]) => reason)),
       foldInEvidence: Object.fromEntries(foldIn.map(f => [f.where, satisfiedEvidence(fixed, f)]).filter(([, evidence]) => evidence)),
     }
   }
@@ -1090,8 +1128,8 @@ async function laneReview(A) {
       verdict: { type: 'string', enum: ['APPROVE', 'REVISE', 'architectural'] },
       blocking: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['where', 'kind', 'text', 'rule', 'evidence'],
         properties: { where: { type: 'string' }, kind: { type: 'string', enum: FINDING_KINDS }, text: { type: 'string' }, rule: { type: 'string' }, evidence: { type: 'string' } } } },
-      followups: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['where', 'text', 'owner'],
-        properties: { where: { type: 'string' }, text: { type: 'string' }, owner: { type: 'string' } } } },
+      followups: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['where', 'text', 'owner', 'inPlace'],
+        properties: { where: { type: 'string' }, text: { type: 'string' }, owner: { type: 'string' }, inPlace: { type: 'boolean' } } } },
       checked_correct: { type: 'string' },
     },
   })
@@ -1695,8 +1733,11 @@ const FOLLOWUP = {
   properties: {
     where: { type: 'string' }, text: { type: 'string' }, owner: { type: 'string', description: 'owning item #n, or "distributor"' },
     stage: { type: 'string', enum: FINDING_STAGE_NAMES, description: 'the stage that raised it; the lane sets it on every follow-up it reports' },
+    inPlace: { type: 'boolean', description: 'true when it sits in a file the lane already changed, its fix cannot change behaviour outside the reviewed diff and it takes about ten lines: the lane\'s fixer resolves it in place; the head\'s foldIn leaves it out, since naming a follow-up there counts as in place' },
   },
 }
+// A reviewer or tester must classify every follow-up it reports; the head's foldIn input check reads FOLLOWUP, which leaves inPlace out of its string fields.
+const REPORTED_FOLLOWUP = { ...FOLLOWUP, required: [...FOLLOWUP.required, 'inPlace'] }
 const entryProblem = badEntry('fixFirst', A.fixFirst, FINDING) || badEntry('foldIn', A.foldIn, FOLLOWUP)
 if (entryProblem) return { status: 'failed', stage: 'input', reason: entryProblem }
 // A part that throws is a problem naming it, which its caller stops on at the stage of its own step.
@@ -1749,7 +1790,7 @@ const driveFacts = `Any drive you run keeps its pidfiles and evidence under ${A.
 
 const BLOCKING_LINE =
   `Mark every finding **blocking** or **follow-up** as the contract's section "Reviews" defines them, the tripwire exception included. ` +
-  `Reproduce a behaviour on origin/main before calling it pre-existing; each follow-up names its owning item (#n) or "distributor". ` +
+  `Reproduce a behaviour on origin/main before calling it pre-existing; each follow-up names its owning item (#n) or "distributor" and sets inPlace true only when it sits in a file the lane already changed, its fix cannot change behaviour outside the reviewed diff and it takes about ten lines. ` +
   `Every blocking finding names the rule it breaks and the evidence you observed; a finding you cannot back with evidence is not blocking. ` +
   `Every blocking finding names its kind: **defect** when the code breaks a rule or ` +
   `does not do what the contract, its docs or its own text promise — a mismatch between promise and code is defect unless the contract says the code is right, ` +
@@ -1786,6 +1827,7 @@ let productionSinceTest = false  // any fix since the last end-to-end test touch
 let productionSinceGate = false  // any fix since the last unlimited gate result touched production
 let gateUnseen = null  // the range a stand-in reviewer re-checked for a gate at its usage limit: {seenTip, findings, limit}, and every result adds tip
 const folded = new Map()  // follow-up key -> the follow-up, with the tip of the accepted fix that folded it in
+const declined = new Map()  // follow-up key -> the reason the fixer gave for leaving it; it stays open and no fixer is handed it again
 const REVIEW = { key: 'review', provider: REVIEWER_PROVIDER, role: 'independent reviewer' }
 const GATE = { key: 'gate', provider: MODEL_PROVIDER[ROUTING.gate.model], role: 'final gate (architecture, data safety, public contract)' }
 const STANDIN = { key: 'standin', provider: 'claude', role: "stand-in reviewer (the final gate's provider is at its usage limit)" }
@@ -1793,7 +1835,7 @@ const ALL = MATERIAL ? [REVIEW, GATE] : [REVIEW]
 
 function openFollowups() {
   const open = new Map()
-  followups.forEach(f => { if (!folded.has(findingKey(f)) && !open.has(findingKey(f))) open.set(findingKey(f), f) })
+  followups.forEach(f => { if (!folded.has(findingKey(f)) && !open.has(findingKey(f))) open.set(findingKey(f), declined.has(findingKey(f)) ? { ...f, declined: declined.get(findingKey(f)) } : f) })
   return [...open.values()]
 }
 const raisedBeforeTip = (open) => open.filter(f => f.tip && !sameCommit(f.tip, tip))
@@ -1808,7 +1850,7 @@ async function routingLine() {
 // A blocked fixer's resume carries no tip: its answer reads none, so the head passes the branch's current head.
 const claudeLimitResume = (stage, extra) => stage === 'build' && !pr
   ? { build: A.build }
-  : { pr, ...(!extra.withoutTip && { tip }), ...(extra.lastBlocking?.length && { fixFirst: extra.lastBlocking }) }
+  : { pr, ...(!extra.withoutTip && { tip }), ...(extra.lastBlocking?.length && { fixFirst: extra.lastBlocking }), ...(extra.foldIn?.length && { foldIn: extra.foldIn }) }
 const claudeLimitResetText = () => claudeLimit.resetsAt ? 'The account resets ' + claudeLimit.resetsAt + '.' : 'The error names no reset time.'
 const claudeLimitReason = (stage) =>
   `a Claude agent hit its usage limit at stage ${stage}; the lane never moves a role to another model or provider. ${claudeLimitResetText()} After the reset`
@@ -1852,7 +1894,7 @@ async function checkpointOrFail(stage, startRef, failure, fixer) {
   const unreviewed = { ...origin, note: `The tip is an unfinished checkpoint no reviewer has seen. ${origin.note}`.trim() }
   const pushStop = await pushAndCheckScope(`scope-checkpoint-${stage}-${spent.total}`, unreviewed)
   const resumeFix = fixer
-    ? { fixFirst: fixer.blocking }
+    ? (fixer.blocking.length ? { fixFirst: fixer.blocking } : { foldIn: fixer.foldIn, ...(origin.deltaFrom && { deltaFrom: origin.deltaFrom }) })
     : { fixFirst: [{ where: CHECKPOINT_FINDING_WHERE, kind: 'defect', text: 'The builder ended without a result, so the checkpoint is unfinished: complete the build brief against it; when it already meets the brief with its checks green, change nothing and report briefMet. The brief follows.', rule: CHECKPOINT_FINDING_WHERE, evidence: `the builder's work is committed on ${A.branch} at ${tip} and the brief is not yet met:\n${A.build}` }] }
   const resume = { pr, tip, ...resumeFix }
   if (pushStop) return { ...pushStop.stop, resume }
@@ -1921,7 +1963,7 @@ async function reviewRound(which, range, from) {
   if (beginStop) return { which, results: [], verdict: { state: 'stopped', stop: beginStop }, range, from }
   startedStages.review = true
   const reviewers = which.map(r => ({ key: r.key, provider: r.provider, role: r.role, isGate: r === GATE, routing: claudeRole(r === GATE ? 'gate' : 'review') }))
-  const answer = await runPart('lane-review', laneReview, { item: A.item, pr, repo: A.repo, repoFlag: R, after: spent.total, tip, delegatedLine: DELEGATED_LINE, worktree: A.worktree, branch: A.branch, scratch: A.scratch, tag: TAG, label: `r${spent.total}`, range, reuse: buildReuse, e2e: A.e2e, contract: A.contract, blockingLine: BLOCKING_LINE, reviewers, findingKinds: FINDING_KINDS, finding: FINDING, followup: FOLLOWUP, mechanical: MECHANICAL })
+  const answer = await runPart('lane-review', laneReview, { item: A.item, pr, repo: A.repo, repoFlag: R, after: spent.total, tip, delegatedLine: DELEGATED_LINE, worktree: A.worktree, branch: A.branch, scratch: A.scratch, tag: TAG, label: `r${spent.total}`, range, reuse: buildReuse, e2e: A.e2e, contract: A.contract, blockingLine: BLOCKING_LINE, reviewers, findingKinds: FINDING_KINDS, finding: FINDING, followup: REPORTED_FOLLOWUP, mechanical: MECHANICAL })
   const unfit = unfitRoundAnswer(answer, which.length)
   if (unfit) {
     // The reviewers that finished before a usage limit keep their records, so the resume carries their findings.
@@ -1959,15 +2001,6 @@ async function fixRoundStop(blocking, budgetKey) {
   return repeated.length ? openResult('unresolved', budgetKey, { reason: 'a finding came back unchanged after its fix', lastBlocking: repeated }) : null
 }
 
-// The contract lets a fixer resolve a small follow-up in a file the lane already changed, when it cannot change behaviour.
-// A fold-in counts as folded only once the fix that carries it is accepted; until then it stays open.
-// The head named the items it passes as foldIn, so the wording filter does not second-guess them.
-const namedByHead = new Set((A.foldIn || []).map(findingKey))
-const inPlaceFollowups = () => openFollowups().filter(f => namedByHead.has(findingKey(f)) || /fix in place/i.test(`${f.owner} ${f.text}`))
-const listFoldIns = (foldIn) => foldIn.map(f => `- ${f.where} — ${f.text}`).join('\n')
-// The reviewer sees which follow-ups the fixer was given, so it can tell a skipped one from a done one.
-const foldInsInRange = (foldIn) => foldIn.length ? `\nThe fixer was also given these follow-ups to fold in; check each is done:\n${listFoldIns(foldIn)}` : ''
-
 // The fixer's returned tip becomes the lane tip; it is unreviewed when the fixer committed anything. Returns whether it did.
 function adoptFixerTip(fixed) {
   tip = fixed.tip
@@ -1988,6 +2021,7 @@ let flakeRerunUsed = false
 
 // Takes the fixer's tip and names the delta the reviewers see next, or none when a clean merge of main was the whole fix.
 async function acceptFix(fixed, blocking, foldIn) {
+  const declinedBy = fixed.foldInDeclined
   if (fixed.outsidePaths.length) return { stop: await openResult('failed', 'fix', { reason: `the fixer reported paths outside the worktree: ${fixed.outsidePaths.join(', ')}` }) }
   tip = fixed.tip
   if (fixed.touchesProduction) {
@@ -2002,7 +2036,8 @@ async function acceptFix(fixed, blocking, foldIn) {
   let delta = `only this delta, the fixer's own commits: git log -p --first-parent --remerge-diff ${fixed.heldTip}..${fixed.tip} (main's clean changes are not shown; a lane edit inside a merge of main is)`
   if (fixed.answeredOutside) delta = `no commit changed: read live what the fixer edited outside the tree (${edited}), the item body with gh issue view ${A.item}${R} --json body --jq .body, the pull request body with gh pr view ${pr}${R} --json body and an item comment with gh issue view ${A.item}${R} --comments`
   else if (fixed.mergeResolvedLaneConflict) delta = `only this delta: git diff ${fixed.heldTip}..${fixed.tip} (it includes a merge of main whose conflicts in this lane's files were resolved by hand)`
-  const range = `${delta}. It answers these findings:\n${listFindings(blocking)}${fixed.proofNotes}${foldInsInRange(foldIn)}`
+  const range = blocking.length ? `${delta}. It answers these findings:\n${listFindings(blocking)}${fixed.proofNotes}${foldInsInRange(foldIn, declinedBy)}`
+    : `${delta}. It answers these follow-ups:${fixed.proofNotes}${foldInsInRange(foldIn, declinedBy, '')}`
   log(`fix ${spent.total}: ${fixed.heldTip.slice(0, 7)}..${tip.slice(0, 7)}`)
   return { range, answeredOutside: fixed.answeredOutside, proofNotes: fixed.proofNotes, gateAgain: MATERIAL && fixed.touchesProduction, touchesProduction: fixed.touchesProduction }
 }
@@ -2036,11 +2071,11 @@ async function fixRound(blocking, source, budgetKey, carried, stage = budgetKey)
   const answeredPaths = [...new Set(blocking.map(f => findingPath(f.where)).filter(Boolean))]
   const answered = await relay({ label: `fix-${spent.total}`, phase: 'Fix', step: 'fix', relayArgs: [`'${tipBeforeFix}'`, `'${pathsArgument(answeredPaths)}'`, `'${nonce}'`], sentPaths: answeredPaths, nonce, requiredKeys: ['head', 'parents', 'main'], answerKind: 'fix', agentOptions: { agentType: 'atelier:code-fixer', ...claudeRole(role) },
     facts: `${laneFacts} ${driveFacts} ${rescopeFacts} ${localCheckFacts} ${turnFacts('fix')}`, pr, tip, source, branch: A.branch, blocking: listFindings(blocking), findings: blocking.map(f => ({ ...f, kind: kindOf(f) })), foldIns: listFoldIns(foldIn), foldInEntries: foldIn, productionPaths: PRODUCTION, flakeRerunUsed, carried: Boolean(carried), answers: A.answers })
-  if (!answered || (claudeLimit && answered.problem)) return { stop: await checkpointOrFail('fix', tipBeforeFix, { reason: `the fixer returned no result; inspect ${A.worktree} for commits past ${tip} and uncommitted work, then start a new run with pr and tip (and fixFirst for what is left)`, lastBlocking: blocking }, { blocking, carried, tipBeforeFix }) }
+  if (!answered || (claudeLimit && answered.problem)) return { stop: await checkpointOrFail('fix', tipBeforeFix, { reason: `the fixer returned no result; inspect ${A.worktree} for commits past ${tip} and uncommitted work, then start a new run with pr and tip (and fixFirst for what is left)`, lastBlocking: blocking }, { blocking, carried, tipBeforeFix, foldIn }) }
   // What the fixer says it found already done is only reported to the head: an unaccepted fix folds nothing in.
   const unaccepted = (result) => ({ stop: (answered.resolved || []).length ? { ...result, resolved: answered.resolved } : result })
   // A blocked fixer may have run out of turns before the relay line, and the blocked answer reads no tip.
-  if (answered.blocked) return unaccepted(await openResult('escalated', 'fix', { reason: `${answered.blockedReason} Start a new run with the arguments in resume and the branch's current head as tip: a blocked answer reads no tip.`, resume: { ...claudeLimitResume('fix', { lastBlocking: blocking, withoutTip: true }), deltaFrom: tipBeforeFix } }))
+  if (answered.blocked) return unaccepted(await openResult('escalated', 'fix', { reason: `${answered.blockedReason} Start a new run with the arguments in resume and the branch's current head as tip: a blocked answer reads no tip.`, resume: { ...claudeLimitResume('fix', { lastBlocking: blocking, withoutTip: true, foldIn: blocking.length ? [] : foldIn }), deltaFrom: tipBeforeFix } }))
   if (answered.problem || answered.commandFailed) return { stop: await openResult('failed', 'fix', { reason: `the fixer's relay line ${answered.problem || 'reports a failed git command'}${printedLine(answered)}` }) }
   if (answered.outcome === 'flake') return { flakes: answered.flakes, fixed: answered }
   if (answered.outcome === 'disputed') return unaccepted(await awaitHeadOnDispute(answered, blocking))
@@ -2053,10 +2088,12 @@ async function fixRound(blocking, source, budgetKey, carried, stage = budgetKey)
   if (scopeStop) return unaccepted(scopeStop.stop)
   // A clean merge of main alone carries no lane change, so it cannot carry a fold-in either; an unchanged tip carries
   // them only when the fixer proved each already satisfied. A scope stop folds nothing in.
-  if (accepted.range || answered.satisfied) {
-    foldIn.forEach(f => folded.set(findingKey(f), { ...f, tip: answered.tip, ...(answered.foldInEvidence[f.where] && { evidence: answered.foldInEvidence[f.where] }) }))
+  if (accepted.range || answered.settled) {
+    foldIn.forEach(f => Object.hasOwn(answered.foldInDeclined, f.where)
+      ? declined.set(findingKey(f), answered.foldInDeclined[f.where])
+      : folded.set(findingKey(f), { ...f, tip: answered.tip, ...(answered.foldInEvidence[f.where] && { evidence: answered.foldInEvidence[f.where] }) }))
   }
-  return { ...accepted, foldIn, deltaFrom, checkpointMet: answered.checkpointMet }
+  return { ...accepted, foldIn, deltaFrom, checkpointMet: answered.checkpointMet, declinedBy: answered.foldInDeclined }
 }
 
 function newRunOf(origin) { return ['a new run with pr and tip', origin.deltaFrom && ` and deltaFrom ${origin.deltaFrom}`].filter(Boolean).join('') }
@@ -2112,7 +2149,7 @@ async function pushAndCheckScope(label, origin) {
 // material lane when the fix touched production or resolved lane conflicts. REVISE is handled one way everywhere.
 async function reviewUntilClean(which, range, from) {
   phase('Review')
-  return await settleReview(await reviewRound(which, range, from)) ?? await storeProvenPoint()
+  return await settleReview(await reviewRound(which, range, from)) ?? await storeProvenPoint() ?? await followUpBatch()
 }
 
 // A round the head resumes (a Codex reviewer out of usage, a courier whose brief never matched) repeats its range, so the review never moves to another provider.
@@ -2207,7 +2244,7 @@ if (carriesBatch) {
   followups.push(...(A.foldIn || []))
   const f = await fixRound(carriedOver, 'the head (carried over from the previous run)', 'test', true)
   if (f.stop) return f.stop
-  firstReview = firstReviewRange({ deltaFrom: A.deltaFrom, answers: A.answers, tip, item: A.item, pr, repoFlag: R, fix: { ...f, findingsText: listFindings(carriedOver), foldInsText: foldInsInRange(f.foldIn) } })
+  firstReview = firstReviewRange({ deltaFrom: A.deltaFrom, answers: A.answers, tip, item: A.item, pr, repoFlag: R, fix: { ...f, findingsText: listFindings(carriedOver), foldInsText: foldInsInRange(f.foldIn, f.declinedBy) } })
 } else {
   firstReview = firstReviewRange({ deltaFrom: A.deltaFrom, answers: A.answers })
 }
@@ -2216,7 +2253,7 @@ if (firstStop) return firstStop
 
 // ---------------------------- end-to-end test and CI side by side
 // laneTest returns the tester's answer, null when both agents ended without a result, or a problem the lane stops on.
-const explore = (n, fixRange) => runPart('lane-test', laneTest, { fixRange, delegatedLine: DELEGATED_LINE, n, pr, tip, worktree: A.worktree, scratch: A.scratch, tag: TAG, e2e: A.e2e, contract: A.contract, laneFacts, blockingLine: BLOCKING_LINE, finding: FINDING, followup: FOLLOWUP, routing: claudeRole('test') })
+const explore = (n, fixRange) => runPart('lane-test', laneTest, { fixRange, delegatedLine: DELEGATED_LINE, n, pr, tip, worktree: A.worktree, scratch: A.scratch, tag: TAG, e2e: A.e2e, contract: A.contract, laneFacts, blockingLine: BLOCKING_LINE, finding: FINDING, followup: REPORTED_FOLLOWUP, routing: claudeRole('test') })
 // The paths the watcher's findings name; the printer keeps those among the pull request's changed files.
 const findingPaths = (failing = []) => [...new Set(failing.map(finding => findingPath(finding.where)).filter(Boolean))]
 // Review and tester both passed on the tip, so a CI read that stays refused leaves only the check runs for the head to read.

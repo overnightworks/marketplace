@@ -3,7 +3,6 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { run, redJob, lane, required, check, ciAnswer, driveCi } from './lane_workflow_harness.mjs'
 
-
 const sonarFinding = { where: 'src/a.py:4', kind: 'defect', text: 'duplicated lines', rule: 'python:S1192', evidence: 'sonar src/a.py:4' }
 const sonarRed = (changedFiles, failing = [sonarFinding]) => {
   const sonarJob = { ...redJob('quality / sonar', 'Run sonar'), findings: [sonarFinding] }

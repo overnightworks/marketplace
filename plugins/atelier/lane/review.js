@@ -105,8 +105,8 @@ export async function laneReview(A) {
       verdict: { type: 'string', enum: ['APPROVE', 'REVISE', 'architectural'] },
       blocking: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['where', 'kind', 'text', 'rule', 'evidence'],
         properties: { where: { type: 'string' }, kind: { type: 'string', enum: FINDING_KINDS }, text: { type: 'string' }, rule: { type: 'string' }, evidence: { type: 'string' } } } },
-      followups: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['where', 'text', 'owner'],
-        properties: { where: { type: 'string' }, text: { type: 'string' }, owner: { type: 'string' } } } },
+      followups: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['where', 'text', 'owner', 'inPlace'],
+        properties: { where: { type: 'string' }, text: { type: 'string' }, owner: { type: 'string' }, inPlace: { type: 'boolean' } } } },
       checked_correct: { type: 'string' },
     },
   })

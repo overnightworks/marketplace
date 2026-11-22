@@ -312,9 +312,10 @@ needs no counter-check. Lane work keeps its own reviews.
 
 - **Risk at dispatch.** The dispatch names the lane's material risk or says it
   has none. Without it, a lane gets one review, and a delta re-check only after
-  a blocking finding. With it, the lane also gets the final gate, started once
-  on the lane tip in parallel with the first review, not after CI, so its
-  findings join the first fix batch; CI still runs on the merged result.
+  a blocking finding or a follow-up batch. With it, the lane also gets the
+  final gate, started once on the lane tip in parallel with the first review,
+  not after CI, so its findings join the first fix batch; CI still runs on the
+  merged result.
 - **Independence.** A builder never reviews its own work. A required final
   gate runs in fresh context on a provider column other than the builder's or,
   while that provider is at its usage limit, on Opus 5.5 at high, named in the
@@ -346,8 +347,8 @@ needs no counter-check. Lane work keeps its own reviews.
   at the relevant mobile and desktop widths.
 - **Follow-ups** go to their owning item, or to the review's distributor issue
   when it has none, before the lane lands, without another review round or a
-  fresh item; a fix-in-place follow-up goes there unchanged when the lane has
-  no fix batch. You may reclassify a finding, never drop it.
+  fresh item; a fix-in-place follow-up goes there unchanged when no batch
+  follows it. You may reclassify a finding, never drop it.
 - **A third consecutive `REVISE`** from the same plan review or gate on one
   item stops the fix loop: before the next batch, re-ask the pull question
   against the findings, then cut back to the declared sentences, re-cut the

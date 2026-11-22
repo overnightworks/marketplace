@@ -171,7 +171,8 @@ Every review finding is marked **blocking** or **follow-up**.
   lane did not change (cite the unchanged evidence), or work outside the lane's
   scope (name its owning item). One inside a file the lane already changed,
   whose fix cannot change behaviour outside the reviewed diff (about ten lines),
-  the lane's fixer resolves in the same fix batch, without a card.
+  the lane's fixer resolves without a card, in the next fix batch or, when a
+  review passes with it open, in one follow-up batch.
 - A verdict of `architectural` stops the lane; it is never a follow-up.
 - Only blocking findings make a `REVISE`; they go back to a builder step and
   earn a delta re-check. A review may raise the lane to material risk.

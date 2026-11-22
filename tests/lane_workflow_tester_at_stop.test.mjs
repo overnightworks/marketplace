@@ -1,16 +1,10 @@
 // A run that ends at fix while its tester still runs waits for the tester and reports its answer.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { runLane, greenCi, tidy, APPROVE } from './lane_workflow_harness.mjs'
+import { runLane, greenCi, tidy, APPROVE, tip, lane, alreadySatisfied, redJob } from './lane_workflow_harness.mjs'
 
-const tip = 'c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0'
-const lane = { item: 1, worktree: '/w', branch: 'b', contract: 'c', e2e: 'e', scratch: '/s', pr: 1, tip, foldIn: [tidy] }
-const alreadySatisfied = { head: tip, mergeResolvedLaneConflict: false, files: [], regression: [], disputed: [], blocked: false, resolved: [{ where: tidy.where, text: tidy.text, evidence: 'already pinned' }] }
-const redOn = (name, ids) => {
-  const finding = { where: name, kind: 'defect', text: `${name} fails`, rule: `CI check ${name}`, evidence: 'boom' }
-  return { name, link: `https://github.com/o/n/actions/runs/${ids[0]}/job/${ids[1]}`, runId: ids[0], jobId: ids[1], failingStep: `Run ${name}`, findings: [finding] }
-}
-const redJobs = [redOn('Node: tests', ['11', '22']), redOn('Python: tests', ['11', '23'])]
+const foldedLane = { ...lane, foldIn: [tidy] }
+const redJobs = [redJob('Node: tests', 'Run Node: tests'), redJob('Python: tests', 'Run Python: tests', ['11', '23'])]
 const redCi = { ...greenCi(tip), green: false, failing: redJobs.flatMap(job => job.findings), checks: [{ name: 'quality / verdict', bucket: 'pass' }, ...redJobs.map(job => ({ name: job.name, bucket: 'fail' }))], red: redJobs }
 const disputed = { head: tip, mergeResolvedLaneConflict: false, files: [], regression: [], blocked: false, disputed: [{ finding: 1, where: 'Node: tests', text: 'Node: tests fails', counterEvidence: 'the same job passes on main; the failing test is not in the diff' }] }
 
@@ -18,7 +12,7 @@ const disputed = { head: tip, mergeResolvedLaneConflict: false, files: [], regre
 const endsAtFixWithTesterAnswering = (testerAnswer) => {
   let fixerReturned
   const afterFixer = new Promise(resolve => { fixerReturned = resolve })
-  return runLane(lane, {
+  return runLane(foldedLane, {
     'fix-1': alreadySatisfied, 'r1-review': APPROVE, 'ci-0': redCi,
     'fix-2': { ...disputed, edit: (printed) => { fixerReturned(); return printed } },
     'e2e-0': async () => { await afterFixer; return testerAnswer },

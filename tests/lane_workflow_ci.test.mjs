@@ -5,16 +5,8 @@ import path from 'node:path'
 import { spawnSync } from 'node:child_process'
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { runLane, FAKE_GH, resumeTip, resumeFixedTip, partReplaced, runCommandLine, installFake, resumeArgs, resumeFix, mergeOnlyFix, mainMovedTip, defectWithoutDraft, roundTip, roundRed, roundFix, reviewedRoundFix, roundReviews, heldTester, PASS, APPROVE, greenCi, tidy, redOnHead, run, redJob } from './lane_workflow_harness.mjs'
+import { runLane, FAKE_GH, resumeTip, resumeFixedTip, partReplaced, runCommandLine, installFake, resumeArgs, resumeFix, defectWithoutDraft, roundTip, roundRed, roundFix, reviewedRoundFix, roundReviews, heldTester, PASS, APPROVE, greenCi, tidy, redOnHead, run, redJob, tip, lane, reachesCi, required, check, ciAnswer, driveCi } from './lane_workflow_harness.mjs'
 
-const tip = 'c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0'
-const lane = { item: 1, worktree: '/w', branch: 'b', contract: 'c', e2e: 'e', scratch: '/s', pr: 1, tip }
-const alreadySatisfied = { head: tip, mergeResolvedLaneConflict: false, files: [], regression: [], disputed: [], blocked: false, resolved: [{ where: tidy.where, text: tidy.text, evidence: 'already pinned' }] }
-const reachesCi = { 'fix-1': alreadySatisfied, 'r1-review': { verdict: 'APPROVE', blocking: [], followups: [] }, 'e2e-0': { verdict: 'PASS', blocking: [], followups: [], cells: [{ cell: 'c', result: 'held', command: 'run', exit: '0' }] } }
-const required = 'quality / verdict'
-const check = (name, bucket) => ({ name, bucket })
-const ciAnswer = (checks, extra = {}) => ({ head: tip, green: true, failing: [], checks, requiredChecks: [required], ...extra })
-const driveCi = (ci, args = lane, read, more = {}) => runLane({ ...args, foldIn: [tidy] }, { ...reachesCi, 'ci-0': ci, ...(read && { 'ci-read-0': read }), ...more })
 
 const unproven = [
   ['a pending check', [check(required, 'pass'), check('Python: tests', 'pending')], /Python: tests/],

@@ -151,12 +151,31 @@ test('AC-rate-limit-wait: a rerun refused again whose rate limit then shows no e
   assert.match(result.reason, /nothing exhausted any more/)
 })
 
-// One second of sleep per wait, a one-second total bound and a skew that keeps the reset within it make the total reachable inside a test.
-const tinyBound = { transform: (source) => noWait.transform(source).replace(/const RATE_LIMIT_SLEEP_SECONDS = \d+$/m, 'const RATE_LIMIT_SLEEP_SECONDS = 1').replace(/const RATE_LIMIT_WAIT_BOUND_SECONDS = \d+$/m, 'const RATE_LIMIT_WAIT_BOUND_SECONDS = 1').replace(/const RATE_LIMIT_RESET_SKEW_SECONDS = \d+$/m, 'const RATE_LIMIT_RESET_SKEW_SECONDS = 3600') }
+// A one-second total bound with a skew that keeps the reset within it makes the total reachable; the harness skips the printer's sleep, so the seconds the printer reports as slept are read from the run.
+const withConstants = (constants) => ({ transform: (source) => Object.entries(constants).reduce((text, [name, seconds]) => text.replace(new RegExp(`const ${name} = \\d+$`, 'm'), `const ${name} = ${seconds}`), noWait.transform(source)) })
+const tinyBound = withConstants({ RATE_LIMIT_SLEEP_SECONDS: 1, RATE_LIMIT_WAIT_BOUND_SECONDS: 1, RATE_LIMIT_RESET_SKEW_SECONDS: 3600 })
+const defaultBound = withConstants({ RATE_LIMIT_SLEEP_SECONDS: 240 })
 
 test('AC-rate-limit-wait: the seconds slept add up across rerun rounds and end the lane awaiting-head past the total bound', async () => {
-  const { result, launchedAgents } = await runLane(resumeArgs, { 'scope-resume': { ...refusedTwice, rate_exhausted_calls: 1, rate_exhausted_again_at: SECOND_ROUND_FIRST_WAIT_CALL, rate_reset_in: WITHIN_THE_HOUR } }, tinyBound)
+  const { result, launchedAgents, rateLimitSleeps } = await runLane(resumeArgs, { 'scope-resume': { ...refusedTwice, rate_exhausted_calls: 1, rate_exhausted_again_at: SECOND_ROUND_FIRST_WAIT_CALL, rate_reset_in: WITHIN_THE_HOUR } }, tinyBound)
   assert.deepEqual([result.status, result.stage], ['awaiting-head', 'scope'])
   assert.match(result.reason, /held after waiting 2 seconds/)
   assert.equal(launchedAgents.filter(label => label.startsWith('scope-resume-wait')).length, SECOND_ROUND_FIRST_WAIT_CALL)
+  assert.deepEqual(rateLimitSleeps.slice(0, 1), [1])
+})
+
+// The printer sleeps toward a reset at most sleep_within (the total bound plus the skew, 3660 s) ahead and reports nothing slept for a later one.
+for (const [name, resetIn, sleeps] of [['within sleep_within sleeps', 3600, true], ['more than sleep_within ahead skips the sleep', 3700, false]]) {
+  test(`AC-rate-limit-wait: a reset ${name}`, async () => {
+    const { rateLimitSleeps } = await runLane(resumeArgs, { 'scope-resume': { ...refused, rate_exhausted_calls: 1000, rate_reset_in: resetIn } }, defaultBound)
+    assert.equal(rateLimitSleeps[0] > 0, sleeps, `slept ${rateLimitSleeps[0]}`)
+  })
+}
+
+// A wait whose sleep reaches the reset lets the rerun go on even when the slept total passes the bound: the reset is checked first.
+test('AC-rate-limit-wait: a sleep that reaches the reset reruns the step although the total slept passes the bound', async () => {
+  const reachesReset = withConstants({ RATE_LIMIT_SLEEP_SECONDS: 3, RATE_LIMIT_WAIT_BOUND_SECONDS: 0 })
+  const { result, rateLimitSleeps } = await runLane(resumeArgs, { 'scope-resume': { ...refused, rate_exhausted_calls: 1, rate_reset_in: 3 }, ...throughCi }, reachesReset)
+  assert.equal(result.status, 'ready-to-land', result.reason)
+  assert.ok(rateLimitSleeps[0] > 0)
 })

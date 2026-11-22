@@ -16,7 +16,8 @@ Layer and boundary ownership is `architecture.md`'s question.
    more than one production module and read each group. A group is a lead,
    never a finding by itself: it becomes one only when reading shows the same
    decision or the same job. Such copies sit below a token clone detector's
-   floor, and about one group in five is a real copy (quality#910).
+   floor, and about one group in five is a real copy (quality#910). A confirmed
+   group stands as its own concept.
 3. Per concept, list every function that SETS or INTERPRETS it, not one that
    merely reads it: grep the name family (the noun and its deciding verbs) and
    read each candidate to confirm it decides rather than relays.

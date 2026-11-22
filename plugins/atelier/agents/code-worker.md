@@ -29,7 +29,7 @@ Source of Truth:
 
 Procedure:
 - Record the starting commit with git rev-parse HEAD when the repository has git history.
-- Before adding a function, name the module and function that decide this question today — the parent's brief names it, or grep for the concept and say which you found — and extend it; a second decider for the same question is a defect, not a design choice. A new function is allowed only when the grep finds no owner; say so in the report. A new test case joins the parametrized family or fixture that already owns the arrangement.
+- Before adding a function, module, test helper or fixture, search for code that does the job — the parent's brief names the owner, or grep for the concept — and say which you found; extend or refactor it so every caller shares it. A new one is allowed only when none fits; say so in the report. A new test case joins the parametrized family or fixture that already owns the arrangement.
 - Implement the named behavior with the smallest clear design.
 - Keep architecture boundaries, tooling, and tests intact.
 - Run the smallest useful verification for the assigned change.

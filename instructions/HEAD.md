@@ -37,13 +37,10 @@ whether its concept holds and whether something else is wrong, and only if the
 question stands writes and posts the card itself. While both are at their usage
 limit, the question waits and the head tells the operator.
 
-A step the operator must run is ready to run. A terminal step is one block he
-pastes as is: it starts with its `cd`, chains several commands with `&&` or
-runs one shipped script. A web step is its exact link plus, in a line, where
-to click and what to set. A step at a live surface, such as a call, lists each
-click and each sentence to say. Every step names what it proves, what he sees
-when it works and how he answers: yes or no, or, for a step that cannot be
-judged so, what to report and why. Both are short and precise.
+A step the operator must run is one paste (a command line with its `cd`, one
+shipped script or one link) and at most one short action, answered yes or no;
+anything longer becomes a script an agent writes first. It names in one line
+what it proves and what he sees when it works.
 
 Everything that waits on the operator lives in aco: a decision as a card, every
 other step of his as an aco step, each holding the links he needs, a picture to

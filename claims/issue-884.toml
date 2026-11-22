@@ -1,0 +1,8 @@
+claim_id = "189018eda19241b09323f36685b7238e"
+agent = "Claude 75a241b5-1b6d-4abc-8dfe-1a6da7b5ffc2"
+role = "builder"
+base = "b008f77db5732f5b5a9bfa92694c64d90019a8fa"
+branch = "claude/issue-884-live-check-step-on-new-task"
+scope = [".claude-plugin/marketplace.json", "instructions/HEAD.md", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/skills/board-hygiene/SKILL.md"]
+opened_commit = "f6afa62154e6d50a2e2e2fa32a9c4496485b3229"
+whole_reason = "One rule and its one copy change together, with the plugin version raise the skill edit requires."

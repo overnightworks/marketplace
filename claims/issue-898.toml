@@ -1,0 +1,7 @@
+claim_id = "3b0c22a045074aab9425ccff0000a4f1"
+agent = "Claude 75a241b5-1b6d-4abc-8dfe-1a6da7b5ffc2"
+role = "builder"
+base = "b008f77db5732f5b5a9bfa92694c64d90019a8fa"
+branch = "claude/issue-898-blessed-picture-binds-rough-design"
+scope = ["instructions/AGENTS.md"]
+opened_commit = "d3883642d97e5217131491818ec4f772d6b6d48e"

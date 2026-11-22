@@ -213,6 +213,25 @@ test('ci-own-finding: a finding of the same check in a file the lane did not cha
   assert.ok(!launchedAgents.includes('fix-2'))
 })
 
+const sonarRedWithDifferingCopy = (changedFiles) => {
+  const sonarJob = { ...redJob('quality / sonar', 'Run sonar'), findings: [sonarFinding] }
+  const watcherCopy = { ...sonarFinding, text: 'duplicated string literal', evidence: 'the watcher quoted another line' }
+  return ciAnswer([check(required, 'pass'), check('quality / sonar', 'fail')], { green: false, failing: [watcherCopy], red: [sonarJob], baseChecks: [run('quality / sonar', 'failure')], changedFiles })
+}
+
+test('ci-shared-red: a failing finding with the red job finding where and rule but another text stays shared and launches no fixer', async () => {
+  const { result, launchedAgents } = await driveCi(sonarRedWithDifferingCopy(['src/other.py']))
+  assert.deepEqual([result.status, result.stage], ['awaiting-head', 'ci'])
+  assert.match(result.reason, /quality \/ sonar/)
+  assert.ok(!launchedAgents.includes('fix-2'))
+})
+
+test('ci-own-finding: a differing copy of a shared finding in a changed file reaches the fixer', async () => {
+  const { result, launchedAgents } = await driveCi(sonarRedWithDifferingCopy(['src/a.py']))
+  assert.notEqual(result.status, 'awaiting-head')
+  assert.ok(launchedAgents.includes('fix-2'))
+})
+
 test('ci-path-digest: a printer run that received the finding paths the lane sent is trusted without a reread', async () => {
   const { launchedAgents } = await driveCi(sonarRed(['src/a.py']))
   assert.ok(!launchedAgents.includes('ci-read-0-reread'))

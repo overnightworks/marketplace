@@ -45,6 +45,7 @@ class OwnedSetting:
 # The shipped file may hold nothing else, and the install removes exactly these from the user file.
 OWNED = (
     OwnedSetting(("env", "PYTEST_XDIST_AUTO_NUM_WORKERS"), "a string", lambda value: isinstance(value, str)),
+    OwnedSetting(("env", "CLAUDE_CODE_IDLE_COMPACT_MIN_TOKENS"), "a string", lambda value: isinstance(value, str)),
     OwnedSetting(
         ("autoMode", "allow"), "a list of strings", lambda value: isinstance(value, list) and all(isinstance(item, str) for item in value)
     ),

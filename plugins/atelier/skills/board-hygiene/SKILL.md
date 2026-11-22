@@ -77,6 +77,13 @@ rest and say so in the report.
   "reopen when <the live fact fails>", clear; the head gives the check its step
   (`HEAD.md`, Items). The `Done when` names only what an agent can
   prove. Mark nothing "unverified".
+- Waiting operator step (an item whose body's `aco` block holds
+  `wait = { operator = ... }`; `aco board --json` shows only a flat `wait`
+  string and `actionable_reason` "waiting on operator", and a date or trigger
+  wait is no step): `current`, `stale` with its evidence (the landed change,
+  the moved item, the outdated command or an answer already recorded), or
+  `breaks the step rule` naming the part (`HEAD.md`, Role). The head's action:
+  keep, take the step back, or rewrite it as one paste.
 
 A nearly empty board (two open items or fewer, claimed or not) skips Pass 1 detail: run
 both aco commands, apply Pass 2 to each item, and report in under five
@@ -93,6 +100,8 @@ bracketed field.
 <owner>/<repo>#<n> keep <reason>|close|merge into #m|re-cut|body stale|label idea|idea — clear|unclear — <evidence> [— recommendation; default: <verdict>]
 ```
 
+- A waiting step's verdict is appended to its item's one line as a segment:
+  `… — step current|stale|breaks the step rule — <evidence or part> — keep|take back|rewrite as one paste`.
 - Evidence: the merged PR or sha, the overtaking ruling or landing with its
   link, or the false sentence and why it is false. Terse references
   (file:line, PR, sha) suffice. Empty `recovery`/`uncut` lists give no line.

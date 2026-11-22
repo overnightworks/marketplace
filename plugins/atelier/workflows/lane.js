@@ -17,15 +17,15 @@ async function laneBuild(A) {
   const BUILD = {
     type: 'object',
     required: ['pr', 'tip', 'reuse', 'blocked'],
-    properties: { pr: { type: 'number' }, tip: { type: 'string', pattern: '^[0-9a-f]{7,40}$', description: 'a commit sha from git rev-parse, nothing else' }, summary: { type: 'string' }, reuse: { type: 'string', description: 'the owner you extended (module and function), or the search you ran and why nothing found fits' }, blocked: { type: 'boolean' }, blockedReason: { type: 'string' } },
+    properties: { pr: { type: 'number', minimum: 1, description: 'the number of the open pull request you opened for this lane' }, tip: { type: 'string', pattern: '^[0-9a-f]{7,40}$', description: 'a commit sha from git rev-parse, nothing else' }, summary: { type: 'string' }, reuse: { type: 'string', description: 'the owner you extended (module and function), or the search you ran and why nothing found fits' }, blocked: { type: 'boolean' }, blockedReason: { type: 'string' } },
   }
 
-  // An end without a result is a null the lane reports.
+  // An end without a result is a null the lane reports; so is an unblocked answer without an open pull request, which the schema's minimum names but a runtime need not enforce.
   const { answer } = await settledAgent(
     `${A.delegatedLine}\n${A.laneFacts} ${A.driveFacts} ${A.rescopeFacts} ${A.localCheckFacts}\nYou are the builder. ${A.build}\nCommit each goal as soon as its targeted tests pass — never hold more than one goal uncommitted. Merge origin/main into the lane before pushing (a merge commit). ` +
     `Open the pull request as the build RULES say, run \`aco check <pr>\`, and return pr, tip, summary and reuse: the owner you extended (module and function), or the search you ran and why nothing found fits.`,
     { label: 'build', phase: 'Build', schema: BUILD, agentType: 'atelier:code-worker', ...A.routing })
-  return answer
+  return answer?.blocked || (Number.isInteger(answer?.pr) && answer.pr >= 1) ? answer : null
 }
 
 // Watches the CI of one pull request and returns whether it went green with the failing checks quoted; the lane reads the listing itself.
@@ -626,20 +626,20 @@ async function relayStep(A) {
     )
   }
 
-  function syncBrief({ facts, hasLedgers, hasGenerated }) {
+  function syncBrief({ facts, branch, hasLedgers, hasGenerated }) {
     const either = hasLedgers || hasGenerated
     const andGeneratedFiles = hasGenerated ? ' and the generated files' : ''
     return (
       `${facts}\nBring the lane up to date with main and change nothing else. Run each command exactly as written, with its -C option. Run \`${git} fetch origin && ${git} merge-base --is-ancestor origin/main HEAD\`; when it exits 0, the lane already contains main: change nothing. ` +
-      `Otherwise run \`${git} merge origin/main\`; when it merges cleanly, run \`${git} push\`. ` +
-      (either ? `Conflicts only in the append-only ledgers${andGeneratedFiles}: resolve them as the lane facts say, commit the merge, run \`${git} push\`. ` : '') +
+      `Otherwise run \`${git} merge origin/main\`; when it merges cleanly, run \`${git} push origin '${branch}'\`. ` +
+      (either ? `Conflicts only in the append-only ledgers${andGeneratedFiles}: resolve them as the lane facts say, commit the merge, run \`${git} push origin '${branch}'\`. ` : '') +
       (hasGenerated ? `When a generated file's command fails or leaves its path dirty or unmerged, run \`${git} merge --abort\` and put the command and its output in note. ` : '') +
       (either ? `Any other conflict: ` : `Any conflict: `) +
       `run \`${git} merge --abort\`, confirm \`${git} status --porcelain\` is empty, push nothing, and put the conflicting paths in note. Last, whatever happened,`
     )
   }
 
-  function fixerBrief({ facts, pr, tip, source, blocking, foldIns }) {
+  function fixerBrief({ facts, branch, pr, tip, source, blocking, foldIns }) {
     const task = blocking
       ? `Then answer exactly these blocking findings from ${source}, and nothing else:\n${blocking}`
       : 'There are no blocking findings; your whole task is the follow-ups below:'
@@ -656,7 +656,7 @@ async function relayStep(A) {
       `do not change code for it: list it in disputed with your counter-evidence, under its finding's number. Report every test you add, strengthen or keep for a blocking finding, and every probe cell you run for it, in regression under that finding's number in the list above; the number counts only for the blocking list, a probe you saw fail and then acted on is reported before the entry that passes, and the last entry per finding is its proof; a follow-up needs no regression entry. Run the mutation you name, do not reason about it. ` +
       `A defect's test fails before your fix and passes after it; a defect with a test draft needs one. A defect in test code (hygiene) needs no regression test: the diff is its proof. A test you could not run on this machine is reported with notRun, the reason, and passesAfter false is kept for a test you ran and saw fail; the delta re-check judges a not-run test from its text and CI on the pushed tip runs it. A test-gap finding means a behaviour has no test, the code is already right, and it always needs a test: it passes before and after, ` +
       `so name in the mutation field (not inside test) the production change, made and reverted, under which the test fails; a test that fails on the pre-fix code counts as such a mutation (failedBefore true). When a finding is answered by deleting dead code or a test that pins no behaviour (a test-gap's vacuous cell, an unreachable guard), no test is needed: report resolution removed and commit the removal: the lane reads its diff from your commits, so do not copy it. No failing-first or passing-after bar applies. A fix that changes behaviour is no removal and keeps its test. A docs finding needs no test. When the only finding is that the pull request conflicts with main, the merge is the whole fix. ` +
-      `Otherwise one commit per finding. Push, patch the PR body where it became false or where a finding is about it (REST PATCH with --input, never gh pr edit --body-file); a finding the item body, the pull request body or an item comment answers goes in outside under its number in finding, and commit nothing for it. A finding answered by editing the item body or the pull request body is reported in outside, never as removed; removed is only for code or a test deleted in your commits. Run \`aco check ${pr}\` from the worktree. ` +
+      `Otherwise one commit per finding. Push with \`${git} push origin '${branch}'\`, patch the PR body where it became false or where a finding is about it (REST PATCH with --input, never gh pr edit --body-file); a finding the item body, the pull request body or an item comment answers goes in outside under its number in finding, and commit nothing for it. A finding answered by editing the item body or the pull request body is reported in outside, never as removed; removed is only for code or a test deleted in your commits. Run \`aco check ${pr}\` from the worktree. ` +
       answersBrief +
       `Return files: the output of \`${git} log --name-only --format= --first-parent --remerge-diff ${tip}..HEAD\` (of \`${git} diff --name-only ${tip}..HEAD\` when mergeResolvedLaneConflict is true). Last, whatever happened,`
     )
@@ -816,9 +816,9 @@ async function relayStep(A) {
 
   // The sync step and the fix step have an agent that works before the printer runs: each brings its own brief and the schema of the report that brief asks for.
   const ANSWER_KINDS = {
-    sync: { schema: SYNC_ANSWER, need: ['facts', 'hasLedgers', 'hasGenerated'], brief: syncBrief },
+    sync: { schema: SYNC_ANSWER, need: ['facts', 'branch', 'hasLedgers', 'hasGenerated'], brief: syncBrief },
     checkpoint: { schema: CHECKPOINT_ANSWER, need: ['facts', 'stage', 'startRef', 'branch', 'item', 'repo'], brief: checkpointBrief },
-    fix: { schema: FIX, need: ['facts', 'pr', 'tip', 'source', 'blocking', 'findings', 'foldIns', 'foldInEntries', 'productionPaths', 'flakeRerunUsed', 'carried'], brief: fixerBrief },
+    fix: { schema: FIX, need: ['facts', 'branch', 'pr', 'tip', 'source', 'blocking', 'findings', 'foldIns', 'foldInEntries', 'productionPaths', 'flakeRerunUsed', 'carried'], brief: fixerBrief },
   }
   const answerKind = ANSWER_KINDS[A.answerKind]
   const kindMissing = (answerKind ? answerKind.need : ['brief']).filter(key => A[key] === undefined || A[key] === null)
@@ -1891,7 +1891,7 @@ if (A.build) {
 } else {
   phase('Sync')
   const nonce = `sync-${tip}`
-  const synced = await relay({ label: 'sync', phase: 'Sync', step: 'sync', relayArgs: [`'${nonce}'`], nonce, requiredKeys: ['head', 'parents', 'main'], answerKind: 'sync', facts: laneFacts, hasLedgers: LEDGERS.length > 0, hasGenerated: GENERATED.length > 0 })
+  const synced = await relay({ label: 'sync', phase: 'Sync', step: 'sync', relayArgs: [`'${nonce}'`], nonce, requiredKeys: ['head', 'parents', 'main'], answerKind: 'sync', facts: laneFacts, branch: A.branch, hasLedgers: LEDGERS.length > 0, hasGenerated: GENERATED.length > 0 })
   if (!synced) return await openResult('failed', 'sync')
   const { values, problem } = synced
   if (problem || synced.commandFailed) return await openResult('failed', 'sync', { reason: `the sync's relay line ${problem || 'reports a failed git command'}${printedLine(synced)}` })
@@ -2034,7 +2034,7 @@ async function fixRound(blocking, source, budgetKey, carried, stage = budgetKey)
   const nonce = `fix-${spent.total}-${tipBeforeFix}`
   const answeredPaths = [...new Set(blocking.map(f => findingPath(f.where)).filter(Boolean))]
   const answered = await relay({ label: `fix-${spent.total}`, phase: 'Fix', step: 'fix', relayArgs: [`'${tipBeforeFix}'`, `'${pathsArgument(answeredPaths)}'`, `'${nonce}'`], sentPaths: answeredPaths, nonce, requiredKeys: ['head', 'parents', 'main'], answerKind: 'fix', agentOptions: { agentType: 'atelier:code-fixer', ...claudeRole(role) },
-    facts: `${laneFacts} ${driveFacts} ${rescopeFacts} ${localCheckFacts} ${turnFacts('fix')}`, pr, tip, source, blocking: listFindings(blocking), findings: blocking.map(f => ({ ...f, kind: kindOf(f) })), foldIns: listFoldIns(foldIn), foldInEntries: foldIn, productionPaths: PRODUCTION, flakeRerunUsed, carried: Boolean(carried), answers: A.answers })
+    facts: `${laneFacts} ${driveFacts} ${rescopeFacts} ${localCheckFacts} ${turnFacts('fix')}`, pr, tip, source, branch: A.branch, blocking: listFindings(blocking), findings: blocking.map(f => ({ ...f, kind: kindOf(f) })), foldIns: listFoldIns(foldIn), foldInEntries: foldIn, productionPaths: PRODUCTION, flakeRerunUsed, carried: Boolean(carried), answers: A.answers })
   if (!answered || (claudeLimit && answered.problem)) return { stop: await checkpointOrFail('fix', tipBeforeFix, { reason: `the fixer returned no result; inspect ${A.worktree} for commits past ${tip} and uncommitted work, then start a new run with pr and tip (and fixFirst for what is left)`, lastBlocking: blocking }, { blocking, carried, tipBeforeFix }) }
   // What the fixer says it found already done is only reported to the head: an unaccepted fix folds nothing in.
   const unaccepted = (result) => ({ stop: (answered.resolved || []).length ? { ...result, resolved: answered.resolved } : result })

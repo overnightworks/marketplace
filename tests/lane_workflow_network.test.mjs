@@ -174,7 +174,7 @@ for (const [name, resetIn, sleeps] of [['within sleep_within sleeps', 3600, true
 
 // A wait whose sleep reaches the reset lets the rerun go on even when the slept total passes the bound: the reset is checked first.
 test('AC-rate-limit-wait: a sleep that reaches the reset reruns the step although the total slept passes the bound', async () => {
-  const reachesReset = withConstants({ RATE_LIMIT_SLEEP_SECONDS: 3, RATE_LIMIT_WAIT_BOUND_SECONDS: 0 })
+  const reachesReset = withConstants({ RATE_LIMIT_SLEEP_SECONDS: 30, RATE_LIMIT_WAIT_BOUND_SECONDS: 0 })
   const { result, rateLimitSleeps } = await runLane(resumeArgs, { 'scope-resume': { ...refused, rate_exhausted_calls: 1, rate_reset_in: 3 }, ...throughCi }, reachesReset)
   assert.equal(result.status, 'ready-to-land', result.reason)
   assert.ok(rateLimitSleeps[0] > 0)

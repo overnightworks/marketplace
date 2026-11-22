@@ -457,7 +457,7 @@ export const redJob = (name, failingStep, ids = ['11', '22']) => ({ name, link: 
 
 // The CI tests' arrangement: a lane at the resume tip whose fix, review and tester answers reach the CI stage, and a CI answer for it.
 export const tip = resumeTip
-export const lane = { ...resumedLane, tip }
+export const lane = resumeArgs
 export const alreadySatisfied = { head: tip, mergeResolvedLaneConflict: false, files: [], regression: [], disputed: [], blocked: false, resolved: [{ where: tidy.where, text: tidy.text, evidence: 'already pinned' }] }
 export const reachesCi = { 'fix-1': alreadySatisfied, 'r1-review': APPROVE, 'e2e-0': PASS }
 export const required = 'quality / verdict'

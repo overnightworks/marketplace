@@ -35,6 +35,20 @@ test('a builder without a result and with work in the worktree returns awaiting-
   assert.ok(result.resume.fixFirst[0].evidence.endsWith('\nb'))
 })
 
+for (const [name, answer] of [['pr 0', { ...built, pr: 0 }], ['no pr', { tip: built.tip, reuse: built.reuse, blocked: false }]]) {
+  test(`a builder answer with ${name} ends awaiting-head at build with the draft pull request before any review or test`, async () => {
+    const { result, launchedAgents } = await runLane(builtLane, { build: answer, 'checkpoint-build': { work: true, pr: 7, head: checkpointTip } })
+    assert.deepEqual([result.status, result.stage, result.pr, result.tip], ['awaiting-head', 'build', 7, checkpointTip])
+    assert.deepEqual([result.resume.pr, result.resume.tip], [7, checkpointTip])
+    assert.deepEqual(launchedAgents.filter(label => /review|gate|test/.test(label)), [])
+  })
+}
+
+test('a blocked builder answer without a pull request ends escalated at build with its reason', async () => {
+  const { result } = await runLane(builtLane, { build: { blocked: true, blockedReason: 'the brief is contradictory' } })
+  assert.deepEqual([result.status, result.stage, result.reason], ['escalated', 'build', 'the brief is contradictory'])
+})
+
 test('a builder without a result and with a clean worktree keeps the failed result', async () => {
   const { result } = await runLane(builtLane, { build: null, 'checkpoint-build': { work: false } })
   assert.deepEqual([result.status, result.stage], ['failed', 'build'])

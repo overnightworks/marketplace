@@ -1,0 +1,8 @@
+claim_id = "8334dbaf7e084c1ba786cf240109e35a"
+agent = "Claude 75a241b5-1b6d-4abc-8dfe-1a6da7b5ffc2"
+role = "builder"
+base = "e2753e156f5b6ea733c2bcc198bdbe7d26199f0f"
+branch = "claude/issue-944-board-check-judges-waiting-steps"
+scope = [".claude-plugin/marketplace.json", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/skills/board-hygiene/SKILL.md"]
+opened_commit = "39febb7f948f637f47ff7332c1afa4ab9676d363"
+whole_reason = "One skill paragraph and the three version manifests the plugin rule requires."

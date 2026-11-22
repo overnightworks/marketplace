@@ -1,5 +1,5 @@
 claim_id = "aa0f37f5c5e345c6aeb2e49375bec296"
-agent = "Claude 6f734bfc-08d4-4565-9fdb-8eac1c73f4b4"
+agent = "Claude 75a241b5-1b6d-4abc-8dfe-1a6da7b5ffc2"
 role = "builder"
 base = "297b3388eb497df94aaa751a41105c96d1d68d68"
 branch = "claude/issue-937-shared-red-never-reaches-fixer"

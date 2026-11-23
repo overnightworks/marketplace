@@ -491,9 +491,7 @@ async function fixRound(blocking, source, budgetKey, carried, stage = budgetKey)
   if (scopeStop) return unaccepted(answered, scopeStop.stop)
   // A clean merge of main alone carries no lane change, so it cannot carry a fold-in either; an unchanged tip carries
   // them only when the fixer proved each already satisfied. A scope stop folds nothing in.
-  if (accepted.range || answered.settled) {
-    recordFoldIns(foldIn, answered)
-  }
+  if (accepted.range || answered.settled) recordFoldIns(foldIn, answered)
   return { ...accepted, foldIn, deltaFrom, checkpointMet: answered.checkpointMet, declinedBy: answered.foldInDeclined }
 }
 

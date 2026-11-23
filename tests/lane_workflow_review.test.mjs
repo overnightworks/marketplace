@@ -601,7 +601,7 @@ const removalProof = { finding: 1, test: 'removed_test.py [case]', failedBefore:
 
 test('gate-stand-in: the stand-in is given the removal diff and the fold-ins the limited gate re-check would have judged', async () => {
   const { result, agentCalls } = await standInRun({}, {
-    'r0-review': { ...APPROVE, followups: [tidy] }, 'r0-gate': { ...gateRevise, blocking: [testGapFinding] }, 'fix-1': { ...resumeFix, files: ['tests/x.py'], regression: [removalProof], touched_paths: [testGapFinding.where.replace(/:\d+$/, '')] },
+    'r0-review': { ...APPROVE, followups: [{ ...tidy, inPlace: true }] }, 'r0-gate': { ...gateRevise, blocking: [testGapFinding] }, 'fix-1': { ...resumeFix, files: ['tests/x.py'], regression: [removalProof], touched_paths: [testGapFinding.where.replace(/:\d+$/, '')] },
   })
   assert.equal(result.status, 'ready-to-land', result.reason)
   const prompt = agentCalls['r1-standin'].prompt

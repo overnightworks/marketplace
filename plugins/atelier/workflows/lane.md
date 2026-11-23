@@ -22,7 +22,13 @@ lists `requiredHeadActions`.
    line neither the diff nor that drive proves stays blocking. Every lane has a
    tester, so the brief has no tester-less variant; later rounds do not repeat it.
 3. Fix: fresh fixers answer evidence-bearing findings; whoever raised a finding
-   re-checks the delta.
+   re-checks the delta. A review that passes with in-place follow-ups open (the
+   reviewer's or gate's `inPlace` true, or named in `foldIn`) starts one
+   follow-up batch per run, when the review and total budgets allow it: a fixer
+   resolves them, asked for no merge of main, and the review re-checks the delta
+   (the gate too on a material lane when a fold-in came from the gate or the fix
+   touched production). A follow-up the fixer declines, one the re-check raises
+   and one left by a spent budget stay in `followups` for the head.
 4. Test and CI run side by side: the explorative end-to-end test and the CI of
    the pull request. A red CI is fixed at once while the tester runs on. A tester
    round after a fix is a delta re-check: it gets the fix range and the findings it
@@ -111,13 +117,23 @@ The lane needs a repository that coordinates with aco, after the head ran
   is passed here with `deltaFrom` = `tip` and `answers`; the fixer names the body
   in `outside` and commits nothing.
 - `foldIn`: none. `Followup[]`, follow-ups for that fixer, each handed over
-  whatever its owner or wording; given alone it still starts the fixer. A
+  whatever its owner or wording; naming one here counts as in place, and given
+  alone it still starts the fixer. A
   `Followup` is `{ where, text, owner }`, all non-empty strings: `where` the
-  place, `text` what to do, `owner` the owning item `#n` or `distributor`. A
+  place, `text` what to do, `owner` the owning item `#n` or `distributor`; its
+  `inPlace` boolean is optional here, since naming it already says so. A
   follow-up has an optional `stage` (`review`, `gate`, `ci` or `test`), the stage
   that raised it; every follow-up the lane reports carries it. A round that fixes
   only fold-ins counts as a fix round under the first of their stages in that
   order, and under the stage it would count under without one when none names a stage.
+  The fixer may answer `declined: [{ where, reason }]` for a fold-in whose fix would
+  change behaviour outside the reviewed diff, take more than about ten lines or sit in
+  a file the lane did not change: it is not folded in, stays in `followups` with its
+  `declined` reason and is handed to no later fixer, and a fixer that changes nothing
+  with every fold-in satisfied or declined is accepted. A round without blocking
+  findings asks the fixer for no merge of main and rejects one; its review range
+  reads "It answers these follow-ups:". A fixer of such a round that returns no
+  result or is blocked carries `foldIn` and `deltaFrom` in `resume`.
 - `experiment`: none. A tag of 1 to 40 lowercase letters, digits or hyphens,
   appended to the Routing line as `Experiment: <tag>`.
 
@@ -229,6 +245,12 @@ A head that finds a run stopped awaiting-head, or lost, reads `aco lane-record s
   REST; when that write fails, `requiredHeadActions` name the rename.
 
 ## Result
+
+Every follow-up a reviewer, the gate or the tester reports carries a required
+boolean `inPlace`: true when it sits in a file the lane already changed, its fix
+cannot change behaviour outside the reviewed diff and it takes about ten lines.
+`followups` holds each follow-up the lane left open, one the fixer declined with
+its `declined` reason; `folded` holds those a fixer resolved.
 
 A result `ci-red` or `unresolved` from a spent budget carries `resume`: `pr`,
 `tip`, `deltaFrom` equal to that tip and `fixFirst` holding the remaining

@@ -49,6 +49,6 @@ Output Contract:
 - Return verdict as exactly one of clean, findings, or architectural.
 - For findings, list only concrete issues a fixer can address, with file reference, affected function or area, failing behavior or risk, and the fix.
 - Use architectural when the issue needs human judgment instead of a bounded fix.
-- Mark every finding `blocking` or `follow-up` exactly as the global contract's "Every review finding is marked ..." defines them, including its tripwire exception; mark a follow-up that the fixer resolves in the same batch `follow-up (fix in place)`. `architectural` stays a stop, never a follow-up.
+- Mark every finding `blocking` or `follow-up` exactly as the global contract's "Every review finding is marked ..." defines them, including its tripwire exception; the output's `inPlace` field says whether a follow-up is one the lane's fixer resolves in place. `architectural` stays a stop, never a follow-up.
 - When the brief supplies a scenario matrix, report every cell as held, failed, or not driven; an unreported cell is not a completed gate.
 - When stopped before the task is complete (turn cap, interruption), say so first and name exactly what is verified and what is not; a partial return is not a verdict.

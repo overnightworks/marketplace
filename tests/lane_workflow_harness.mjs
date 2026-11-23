@@ -166,7 +166,7 @@ export async function runLane(args, answers = {}, options = {}) {
   }
   const printedBy = (prompt, scenario, reread, label) => {
     if ('printed' in scenario) return scenario.printed
-    const line = prompt.split('\n').at(-1).replace(/^cd '[^']*' && /, '').replace('time.sleep(slept)', '0')
+    const line = prompt.split('\n').at(-1).replace(/^cd '[^']*' && /, '')
     const env = {
       ...process.env, PATH: `${fakeCommands()}:${process.env.PATH}`, FAKE_HEAD: scenario.head ?? newestTip, FAKE_BRANCH: scenario.branch ?? args.branch, FAKE_BRANCH_CODE: scenario.branch_code ?? 0, FAKE_REMOTE: scenario.remote_tip ?? newestTip,
       FAKE_HEAD_CODE: scenario.head_code ?? 0, FAKE_PARENTS: (scenario.parents ?? []).join('\n'), FAKE_MAIN_CODE: scenario.main_code ?? 0, FAKE_TREE: scenario.tree ?? 'a1a1a1a1', FAKE_MERGE_TREE: scenario.merge_tree ?? scenario.tree ?? 'a1a1a1a1', FAKE_MERGE_TREE_CODE: scenario.merge_tree_code ?? 0, FAKE_TOUCHED: (scenario.touched_paths ?? []).join('\n'),
@@ -174,7 +174,9 @@ export async function runLane(args, answers = {}, options = {}) {
       FAKE_RECORD_ERROR: scenario.record_error ?? '', FAKE_BEGIN_ERROR: scenario.begin_error ?? '', FAKE_ADD_ERROR: scenario.add_error ?? '', FAKE_SHOW_CODE: scenario.show_code ?? 0, FAKE_SHOW_ERROR: scenario.show_error ?? '', FAKE_SHOW_OUTPUT: JSON.stringify({ runs: scenario.stored_runs ?? [...storedBefore(), storedOwnRun()] }), FAKE_RESOLVE_CODE: scenario.resolve_code ?? 0, FAKE_PR_TITLE: scenario.pr_title ?? 'Add the feature', FAKE_ITEM_TITLE: scenario.item_title ?? 'The item title', FAKE_PATCH_CODE: scenario.patch_code ?? 0, FAKE_BRIEF_OUTPUT: JSON.stringify({ outside_claim: 'outside_claim' in scenario ? scenario.outside_claim : [] }), ...ghEnv(scenario),
     }
     if (label.startsWith('record-')) return recordPrinted(prompt, line, env, scenario)
-    const typed = scenario.typedCommand && !reread ? scenario.typedCommand(line) : line
+    const sleepless = line.replace('time.sleep(slept)', '0')
+    if (sleepless === line) throw new Error(`the printer line of ${label} no longer holds time.sleep(slept), so the harness cannot skip its sleep`)
+    const typed = scenario.typedCommand && !reread ? scenario.typedCommand(sleepless) : sleepless
     const asked = scenario.printerMode ? typed.replace(/' scope .* ('[^']*')$/, `' ${scenario.printerMode} $1`) : typed
     const printed = runCommandLine(scenario.nonce ? asked.replace(/'[^']*'$/, `'${scenario.nonce}'`) : asked, { cwd: os.tmpdir(), env })
     return scenario.edit ? scenario.edit(printed) : printed
@@ -243,7 +245,7 @@ export const greenCi = (head) => ({ head, green: true, failing: [], checks: [{ n
 
 export const finding = (where, text) => ({ where, text, rule: 'recorded rule', evidence: 'recorded evidence' })
 
-export const followup = (where, text, owner) => ({ where, text, owner })
+export const followup = (where, text, owner, inPlace) => ({ where, text, owner, ...(inPlace !== undefined && { inPlace }) })
 
 export const builtReuse = 'extended lane/review.js reviewerBrief'
 export const webauthTips = { built: '7ac1653ab10c05e6b41a393d47a586a2bacb9640', firstFix: 'd7e50a7509ea87793fed5bdbabcf7df3955bc893', secondFix: '307742391d346d4579400c733ef7adbdeea5ef79' }
@@ -276,8 +278,8 @@ export const webauthReplay = {
         finding('tests/test_oidc.py:70-72, 463-476 (token request test) and 230-291 (_CALLBACK_REFUSALS)', 'Two behaviours this diff implements have no test that pins them'),
       ],
       followups: [
-        followup('src/webauth/oidc.py:130-133 (TokenEndpointAnswer)', 'Follow-up (fix in place): the default repr prints the whole token body', '#57'),
-        followup('README.md:433-434 (OpenID Connect login paragraph)', 'Follow-up (fix in place): the README leaves out that any azp must name the client', '#57'),
+        followup('src/webauth/oidc.py:130-133 (TokenEndpointAnswer)', 'Follow-up (fix in place): the default repr prints the whole token body', '#57', true),
+        followup('README.md:433-434 (OpenID Connect login paragraph)', 'Follow-up (fix in place): the README leaves out that any azp must name the client', '#57', true),
         followup("CLAUDE.md 'Code patterns'", 'The guidance names only one of the two arrangement modules', 'distributor'),
         followup('AGENTS.md:35-38 / .importlinter', 'The import claims are not enforced', '#49'),
       ],
@@ -296,7 +298,7 @@ export const webauthReplay = {
       verdict: 'REVISE',
       blocking: [finding(webauthC1Finding, 'C1 control characters are still accepted and stored')],
       followups: [
-        followup('src/webauth/jwt_verification.py:365-372 (is_https_url)', 'follow-up (fix in place). A non-str argument now raises a bare TypeError', '#57'),
+        followup('src/webauth/jwt_verification.py:365-372 (is_https_url)', 'follow-up (fix in place). A non-str argument now raises a bare TypeError', '#57', true),
         followup('overnightworks/webauth#57 body, claim-scope line for src/webauth/jwt_verification.py', 'The body says this lane only renames the function', '#57'),
       ],
     },
@@ -347,8 +349,8 @@ export const agentProvidersReplay = {
     'r0-review': {
       verdict: 'APPROVE', blocking: [],
       followups: [
-        followup('packages/agent-client/src/agent_client/wire.py:92 and :100 (ToolCall.tool_use_id, ToolResult.tool_use_id)', 'follow-up (fix in place). The valid tool_use_id rule is declared twice', 'follow-up (fix in place)'),
-        followup('docs/decisions/0001-agent-service.md:238-246 (ruling f)', 'follow-up (fix in place). Ruling (f) names only "any other field" as malformed_frame', 'follow-up (fix in place)'),
+        followup('packages/agent-client/src/agent_client/wire.py:92 and :100 (ToolCall.tool_use_id, ToolResult.tool_use_id)', 'follow-up (fix in place). The valid tool_use_id rule is declared twice', 'follow-up (fix in place)', true),
+        followup('docs/decisions/0001-agent-service.md:238-246 (ruling f)', 'follow-up (fix in place). Ruling (f) names only "any other field" as malformed_frame', 'follow-up (fix in place)', true),
         followup('packages/agent-client/src/agent_client/run_stream.py:96-104 (_violation_from)', 'Pre-existing. Violation details copy unbounded text', 'distributor'),
         followup('packages/agent-client/src/agent_client/sse.py:45 (encode_event)', 'Pre-existing model laxity the encoder makes visible', '#18'),
         followup('packages/agent-client/src/agent_client/run_stream.py:144-162 and :209-224', 'Ownership note (pre-existing): one rule lives in two places', 'distributor'),
@@ -399,7 +401,7 @@ export const olderTip = 'b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2'
 
 export const resumeFixedTip = 'd1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1'
 
-export const tidy = followup('x.py:1', 'tidy the import order', 'follow-up (fix in place)')
+export const tidy = followup('x.py:1', 'tidy the import order', 'distributor')
 
 export const defectWithoutDraft = { ...finding('t.py:1', 'the code breaks the rule'), kind: 'defect' }
 

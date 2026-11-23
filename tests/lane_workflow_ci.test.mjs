@@ -7,7 +7,6 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { runLane, FAKE_GH, resumeTip, resumeFixedTip, partReplaced, runCommandLine, installFake, resumeArgs, resumeFix, defectWithoutDraft, roundTip, roundRed, roundFix, reviewedRoundFix, roundReviews, heldTester, PASS, APPROVE, greenCi, tidy, redOnHead, run, redJob, tip, lane, reachesCi, required, check, ciAnswer, driveCi } from './lane_workflow_harness.mjs'
 
-
 const unproven = [
   ['a pending check', [check(required, 'pass'), check('Python: tests', 'pending')], /Python: tests/],
   ['a red check among several passing ones', [check(required, 'pass'), check('a', 'pass'), check('b', 'fail'), check('c', 'pass')], /b/],

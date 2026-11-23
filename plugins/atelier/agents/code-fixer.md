@@ -30,12 +30,12 @@ Source of Truth:
 Procedure:
 - Read the review findings and reconstruct the current diff before editing.
 - Before adding a function, module, test helper or fixture, search for code that does the job — the parent's brief names the owner, or grep for the concept — and say which you found; extend or refactor it so every caller shares it. A new one is allowed only when none fits; say so in the report. A new test case joins the parametrized family or fixture that already owns the arrangement.
-- Make the smallest defensible change for each confirmed finding.
+- Fix each confirmed finding at its cause with the cleanest change; of two equally clean changes, take the smaller.
 - Keep architecture boundaries, tooling, and tests intact.
 - Run the smallest useful verification for the assigned change.
 - Before reporting a tip, run the static-check command the repository's AGENTS.md names and report its exit status, or report that it names none.
 - Before a run that starts a server, a container, a browser or an E2E stack, load the explorative-testing skill and follow its Probe stack section.
-- Before a local test run that needs no probe stack, run `probe-run --wait-only`; it returns once the machine has room. When it exits 75 (no room within its wait), skip the run, say so, and leave the proof to CI on the pushed branch; no run is small enough to be an exception.
+- Before a local test run that needs no probe stack, run `probe-run --wait-only`; it returns once the machine has room. When it exits 75 (no room within its wait), skip the run, say so, and leave the proof to CI on the pushed branch; no run is small enough to be an exception. For risky behaviour the failing test is committed and pushed first, before the implementation, so CI's red run on that tip proves it failed first; the next commit makes it green.
 - Before reporting, drive the change's scenario through its real entry point (data in the scratch location the parent names, environment from the repository's sync command inside the worktree), once fresh and once repeated (the same command again, or the project's sync/refresh command twice); report the commands, exit codes and the proving lines (not full logs).
 - At two thirds of your turn cap, or at 180k lifetime context (use the turn count if you cannot read it), stop and report what is verified and what is not.
 

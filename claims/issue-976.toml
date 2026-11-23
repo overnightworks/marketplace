@@ -1,8 +1,0 @@
-claim_id = "5a2c8e31d2f34403bca3c2ecca1b68eb"
-agent = "Claude 1d929eb3-41d2-4e4c-9a0b-334204e51408"
-role = "builder"
-base = "3d9df12786d774621a40683259d600941858c3ab"
-branch = "claude/issue-976-briefs-cleanest-design-red-first"
-scope = ["plugins/atelier/.codex/agents/code-fixer.toml", "plugins/atelier/.codex/agents/code-worker.toml", "plugins/atelier/agents/code-fixer.md", "plugins/atelier/agents/code-worker.md"]
-opened_commit = "0b8326b1114713e8c06dd571edfd740f925ed7ba"
-whole_reason = "The two Markdown briefs change together and their two generated Codex copies must match them, or CI's sync check is red."

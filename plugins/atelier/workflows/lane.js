@@ -672,6 +672,13 @@ async function relayStep(A) {
     )
   }
 
+  // A round without blocking findings is no integration step: a CI fixer's mergeable finding owns the merge of main.
+  function mergeInstruction(blocking, ciRound) {
+    if (!blocking) return 'Do not merge origin/main: this round asks for the follow-ups only.'
+    if (ciRound) return `Merge origin/main only for a finding whose where is "mergeable" (a merge commit; resolve conflicts so both sides' behaviour holds, and set mergeResolvedLaneConflict true when files this lane changed needed resolution). For any other CI finding, fix the red in commits; when it lies outside the diff or passed on your own re-run, dispute it with your evidence (name the main commit that fixes it, if one does), commit nothing and never answer it with a merge of main: the head decides whether a merge answers it.`
+    return `Merge origin/main if it moved, before or after your fixes (a merge commit; resolve conflicts so both sides' behaviour holds, and set mergeResolvedLaneConflict true when files this lane changed needed resolution).`
+  }
+
   function fixerBrief({ facts, branch, pr, tip, source, blocking, foldIns }) {
     const task = blocking
       ? `Then answer exactly these blocking findings from ${source}, and nothing else:\n${blocking}`
@@ -681,13 +688,8 @@ async function relayStep(A) {
       `One that is already done — left in the worktree by an earlier fixer, or already satisfied by the lane tip — you do not redo; list it in resolved with its evidence (the test, probe cell or line that satisfies it). ` +
       `One that the item body, the pull request body or an item comment answers goes in outside with foldIn set to its where; commit nothing for it. One whose fix would change behaviour outside the reviewed diff, take more than about ten lines or sit in a file this lane did not change you leave undone and list in declined with the reason. When that leaves you nothing to change, change nothing:\n${foldIns}`
       : ''
-    // A round without blocking findings is no integration step: a CI fixer's mergeable finding owns the merge of main.
     const ciRound = source.endsWith('CI')
-    const mergeBrief = !blocking
-      ? 'Do not merge origin/main: this round asks for the follow-ups only.'
-      : ciRound
-        ? `Merge origin/main only for a finding whose where is "mergeable" (a merge commit; resolve conflicts so both sides' behaviour holds, and set mergeResolvedLaneConflict true when files this lane changed needed resolution). For any other CI finding, fix the red in commits; when it lies outside the diff or passed on your own re-run, dispute it with your evidence (name the main commit that fixes it, if one does), commit nothing and never answer it with a merge of main: the head decides whether a merge answers it.`
-        : `Merge origin/main if it moved, before or after your fixes (a merge commit; resolve conflicts so both sides' behaviour holds, and set mergeResolvedLaneConflict true when files this lane changed needed resolution).`
+    const mergeBrief = mergeInstruction(blocking, ciRound)
     const answersBrief = A.answers ? `The head's answers on findings it settled, to read before you answer one of them:\n${A.answers}\n` : ''
     return (
       `${facts}\nYou are a fresh fixer for PR #${pr} (lane tip ${tip}). ${mergeBrief} If the worktree already carries commits or uncommitted changes past that tip from an earlier fixer that ran out of turns, judge them, keep what is right, and continue from there. Commit each finding as soon as it is green. A blocking finding the lane tip already meets (for example by an earlier fixer's commit) is not redone: list it in resolved with its evidence, under its finding's number. List in noBehaviourChange the number of each blocking finding whose fix changes no behaviour of the code, and only those. Then commit what is green and return what is left in blockedReason with blocked true. ${task}${foldInBrief}\n\n` +
@@ -876,11 +878,18 @@ async function relayStep(A) {
 
   const readFailure = (read, command) => read.code === 0 ? null : `${command} exited ${read.code}: ${read.err ?? ''}`
 
+  const operatorDoorOf = (checks, jobLog) => checks.open?.length === 1 && jobLog?.code === 0 && jobLog.loosenings && jobLog.merge ? jobLog.merge : null
+
+  function ciState(proven, names) {
+    if (proven) return 'green'
+    return names ? `red (${names})` : 'not green'
+  }
+
   // What the lane reads from the ci step: the head, the checks red on the base branch too, the red a fixer may not remove, why the listing does not prove green,
   // and the watcher's verdict corrected by the printed listing: green, proven, the state in words, the failing checks split into own and shared.
   function readCi({ checks, rules, headruns, changed, head, shared, files, log: jobLog }) {
     // The printer reads a job log only for the red verdict check; its two values name the red a fixer may not remove.
-    const operatorDoor = checks.open?.length === 1 && jobLog?.code === 0 && jobLog.loosenings && jobLog.merge ? jobLog.merge : null
+    const operatorDoor = operatorDoorOf(checks, jobLog)
     const listed = unprovenGreen({ checks, rules })
     const open = checks.open || []
     const watched = A.watched
@@ -899,9 +908,7 @@ async function relayStep(A) {
     const changedError = readFailure(changed, 'gh api')
     const proven = green && !unproven && !rulesError && !runsError && !changedError
     const names = (failing || []).map(f => `"${f.where}"`).join(', ')
-    let state = 'not green'
-    if (proven) state = 'green'
-    else if (names) state = `red (${names})`
+    const state = ciState(proven, names)
     const settled = green || failing.length || open.some(c => c.bucket === 'fail')
     const pending = settled ? null : pendingReason([...open.filter(c => c.bucket === 'pending').map(c => c.name), ...(headruns.open || [])])
     const readError = [runsError && `the workflow runs of the pull request head could not be read: ${runsError}`, changedError && `the changed files of the pull request could not be listed: ${changedError}`, rulesError && `the required checks of the base branch could not be read: ${rulesError}`].find(Boolean)
@@ -2068,6 +2075,13 @@ function scopeOrigin(carried, tipBeforeFix) {
   return { deltaFrom: tipBeforeFix, note: 'The tip carries fix commits no reviewer has seen.' }
 }
 
+function recordFoldIns(foldIn, answered) {
+  for (const f of foldIn) {
+    if (Object.hasOwn(answered.foldInDeclined, f.where)) declined.set(findingKey(f), answered.foldInDeclined[f.where])
+    else folded.set(findingKey(f), { ...f, tip: answered.tip, ...(answered.foldInEvidence[f.where] && { evidence: answered.foldInEvidence[f.where] }) })
+  }
+}
+
 async function fixRound(blocking, source, budgetKey, carried, stage = budgetKey) {
   const tipBeforeFix = tip
   const stop = await fixRoundStop(blocking, budgetKey)
@@ -2103,9 +2117,7 @@ async function fixRound(blocking, source, budgetKey, carried, stage = budgetKey)
   // A clean merge of main alone carries no lane change, so it cannot carry a fold-in either; an unchanged tip carries
   // them only when the fixer proved each already satisfied. A scope stop folds nothing in.
   if (accepted.range || answered.settled) {
-    foldIn.forEach(f => Object.hasOwn(answered.foldInDeclined, f.where)
-      ? declined.set(findingKey(f), answered.foldInDeclined[f.where])
-      : folded.set(findingKey(f), { ...f, tip: answered.tip, ...(answered.foldInEvidence[f.where] && { evidence: answered.foldInEvidence[f.where] }) }))
+    recordFoldIns(foldIn, answered)
   }
   return { ...accepted, foldIn, deltaFrom, checkpointMet: answered.checkpointMet, declinedBy: answered.foldInDeclined }
 }

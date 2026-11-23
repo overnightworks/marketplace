@@ -442,6 +442,13 @@ function scopeOrigin(carried, tipBeforeFix) {
   return { deltaFrom: tipBeforeFix, note: 'The tip carries fix commits no reviewer has seen.' }
 }
 
+function recordFoldIns(foldIn, answered) {
+  for (const f of foldIn) {
+    if (Object.hasOwn(answered.foldInDeclined, f.where)) declined.set(findingKey(f), answered.foldInDeclined[f.where])
+    else folded.set(findingKey(f), { ...f, tip: answered.tip, ...(answered.foldInEvidence[f.where] && { evidence: answered.foldInEvidence[f.where] }) })
+  }
+}
+
 async function fixRound(blocking, source, budgetKey, carried, stage = budgetKey) {
   const tipBeforeFix = tip
   const stop = await fixRoundStop(blocking, budgetKey)
@@ -477,9 +484,7 @@ async function fixRound(blocking, source, budgetKey, carried, stage = budgetKey)
   // A clean merge of main alone carries no lane change, so it cannot carry a fold-in either; an unchanged tip carries
   // them only when the fixer proved each already satisfied. A scope stop folds nothing in.
   if (accepted.range || answered.settled) {
-    foldIn.forEach(f => Object.hasOwn(answered.foldInDeclined, f.where)
-      ? declined.set(findingKey(f), answered.foldInDeclined[f.where])
-      : folded.set(findingKey(f), { ...f, tip: answered.tip, ...(answered.foldInEvidence[f.where] && { evidence: answered.foldInEvidence[f.where] }) }))
+    recordFoldIns(foldIn, answered)
   }
   return { ...accepted, foldIn, deltaFrom, checkpointMet: answered.checkpointMet, declinedBy: answered.foldInDeclined }
 }

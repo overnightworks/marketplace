@@ -414,7 +414,7 @@ async function relayStep(A) {
   function ownFailing({ shared, red = [], failing = [], files = [] }) {
     const sharedFindingKeys = new Set(red.filter(job => shared.includes(job.name)).flatMap(job => job.findings.map(entry => `${entry.where}\n${entry.rule}`)))
     const inChangedFile = entry => files.includes(A.findingPath(entry.where))
-    return failing.filter(entry => inChangedFile(entry) || (!sharedFindingKeys.has(`${entry.where}\n${entry.rule}`) && ![entry.where, String(entry.rule).replace(/^CI check /, '')].some(name => shared.includes(name))))
+    return failing.filter(entry => inChangedFile(entry) || (!sharedFindingKeys.has(`${entry.where}\n${entry.rule}`) && ![entry.where, String(entry.rule).replace(CI_CHECK_RULE_PREFIX, '')].some(name => shared.includes(name))))
   }
 
   const readFailure = (read, command) => read.code === 0 ? null : `${command} exited ${read.code}: ${read.err ?? ''}`
@@ -539,7 +539,7 @@ function pendingReason(waiting) {
 const ROUND = { review: 'review', head: 'head', ci: 'ci', mixed: 'mixed' }
 const isCiRound = (round) => round === ROUND.ci || round === ROUND.mixed
 // The rules the CI reader writes itself and the watcher's "CI check <name>"; a carried batch holding one is a CI round.
-const isCiFinding = (f) => /^(CI check |CI must run on head$|GitHub runs no CI on a conflicting pull request$)/.test(f.rule || '')
+const isCiFinding = (f) => (f.rule || '').startsWith(CI_CHECK_RULE_PREFIX) || [CI_MISSING_RULE, CI_CONFLICT_RULE].includes(f.rule)
 
 const RESOLVE_CONFLICTS = `resolve conflicts so both sides' behaviour holds, and set mergeResolvedLaneConflict true when files this lane changed needed resolution`
 // How a fixer resolves the merge, for every branch that merges main: a merge commit stays a pure merge, and sides that cannot both hold go back to the head.
@@ -576,7 +576,7 @@ function unprovenGreen({ checks, rules }) {
 // A watcher that answers red without quoting a log leaves the fixer nothing to act on; the printed listing still names the red checks.
 function failedCheckFindings(openChecks = []) {
   return openChecks.filter(c => c.bucket === 'fail').map(c => ({
-    where: c.name, kind: 'defect', rule: `CI check ${c.name}`, text: `The check "${c.name}" is red, and the CI watcher quoted no log for it.`, evidence: `The relay's ci line lists "${c.name}" in the fail bucket; read its log with gh run view.`,
+    where: c.name, kind: 'defect', rule: `${CI_CHECK_RULE_PREFIX}${c.name}`, text: `The check "${c.name}" is red, and the CI watcher quoted no log for it.`, evidence: `The relay's ci line lists "${c.name}" in the fail bucket; read its log with gh run view.`,
   }))
 }
 

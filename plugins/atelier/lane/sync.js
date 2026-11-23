@@ -2,7 +2,7 @@
 const SYNC_CONFLICT_RULE = 'the lane contains origin/main before its review'
 const TREE_LINE = /^[0-9a-f]{40}$/
 const isSyncConflictFinding = (f) => f.where === 'mergeable' && f.rule === SYNC_CONFLICT_RULE
-const conflictedPathsOf = (blocking) => blocking.filter(isSyncConflictFinding).flatMap(f => f.evidence.split(', '))
+const conflictedPathsOf = (blocking) => blocking.filter(isSyncConflictFinding).flatMap(f => f.paths)
 
 // The conflict of the sync's merge-tree read, or null when the sync keeps its escalation: no conflict read (an error, a clean merge, a first line that is no tree),
 // or every conflicted path is one the sync's own rules resolve and the list is complete.
@@ -13,7 +13,7 @@ function syncConflictOf(values, covered) {
   return !cut && read.paths.every(path => covered.includes(path)) ? null : { paths: read.paths, cut }
 }
 
-const syncConflictFinding = ({ paths, cut }) => ({ where: 'mergeable', kind: 'defect', text: `the lane conflicts with origin/main in ${paths.join(', ')}${cut ? ' and more' : ''}`, rule: SYNC_CONFLICT_RULE, evidence: paths.join(', ') })
+const syncConflictFinding = ({ paths, cut }) => ({ where: 'mergeable', kind: 'defect', text: `the lane conflicts with origin/main in ${paths.join(', ')}${cut ? ' and more' : ''}`, rule: SYNC_CONFLICT_RULE, evidence: paths.join(', '), paths })
 
 // The sentences that make a reviewer read a merge fix as the merge it is: each conflicted path against both sides, and every other path the merge commits change.
 function mergeReading({ conflicted, merged, mergedCut, generatedPaths }) {

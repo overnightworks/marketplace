@@ -29,6 +29,10 @@ async function laneBuild(A) {
 }
 
 // Watches the CI of one pull request and returns whether it went green with the failing checks quoted; the lane reads the listing itself.
+// The rules the CI watcher writes into its findings; the lane reads a carried batch by them.
+const CI_CHECK_RULE_PREFIX = 'CI check '
+const CI_MISSING_RULE = 'CI must run on head'
+const CI_CONFLICT_RULE = 'GitHub runs no CI on a conflicting pull request'
 async function laneCi(A) {
   const { pr } = A
   const R = A.repoFlag
@@ -78,10 +82,10 @@ async function laneCi(A) {
     return agentAnswer(
       `${A.delegatedLine}\nReport CI for pull request #${pr}${IN_REPO}; change nothing in the repository. ` +
       `If \`${inWorktree}gh pr view ${pr}${R} --json mergeable --jq .mergeable\` says CONFLICTING, return green false with one failing entry: where "mergeable", kind "defect", text "the pull request conflicts with main", ` +
-      `rule "GitHub runs no CI on a conflicting pull request", evidence the mergeable value. Otherwise wait in the foreground — you cannot be woken later. First wait until CI has registered the head, because a just-pushed head lists no check yet: run \`${inWorktree}for i in $(seq 1 5); do [ "$(gh pr checks ${pr}${R} --json name --jq length 2>/dev/null)" -gt 0 ] 2>/dev/null && break; sleep 60; done\` (Bash timeout 600000 ms; it ends with status 0 after about 5 minutes even when no check registered, then go on). Then run \`${inWorktree}timeout 540 gh pr checks ${pr}${R} --watch --interval 90\` (Bash timeout 600000 ms) and repeat it until it exits on its own rather than by the timeout, at most 7 times; it exits when every check listed for head has finished, but the listing shows one entry per check name, so a finished run can hide a same-named job of a run still going. After every exit read the head's workflow runs with \`${inWorktree}gh run list --commit "$(gh pr view ${pr}${R} --json headRefOid --jq .headRefOid)" --json status,name --limit 100${R}\`: while any run is not completed, watch again, whatever the listing shows. Never re-run anything: the lane decides that from the facts you return. ` +
+      `rule "${CI_CONFLICT_RULE}", evidence the mergeable value. Otherwise wait in the foreground — you cannot be woken later. First wait until CI has registered the head, because a just-pushed head lists no check yet: run \`${inWorktree}for i in $(seq 1 5); do [ "$(gh pr checks ${pr}${R} --json name --jq length 2>/dev/null)" -gt 0 ] 2>/dev/null && break; sleep 60; done\` (Bash timeout 600000 ms; it ends with status 0 after about 5 minutes even when no check registered, then go on). Then run \`${inWorktree}timeout 540 gh pr checks ${pr}${R} --watch --interval 90\` (Bash timeout 600000 ms) and repeat it until it exits on its own rather than by the timeout, at most 7 times; it exits when every check listed for head has finished, but the listing shows one entry per check name, so a finished run can hide a same-named job of a run still going. After every exit read the head's workflow runs with \`${inWorktree}gh run list --commit "$(gh pr view ${pr}${R} --json headRefOid --jq .headRefOid)" --json status,name --limit 100${R}\`: while any run is not completed, watch again, whatever the listing shows. Never re-run anything: the lane decides that from the facts you return. ` +
       `When it exits on a red check, take every check in the fail bucket of \`${inWorktree}gh pr checks ${pr}${R} --json name,state,bucket,link\`, not only the first; judge only after no check is pending. green is true only when at least one check ran on head ` +
-      `and every check on head succeeded; CI that has not finished is green false with an empty failing, never a failing entry; no checks at all, with no run of head open, is one failing entry: where "checks", kind "defect", text "no CI checks ran on the head commit", rule "CI must run on head", evidence the gh pr checks output after that wait. For each check in the fail bucket: where = its name, kind = "defect", text = what failed, ` +
-      `rule = "CI check <name>". Take run-id and job-id from the check's link (the link ends …/actions/runs/<run-id>/job/<job-id>). ` +
+      `and every check on head succeeded; CI that has not finished is green false with an empty failing, never a failing entry; no checks at all, with no run of head open, is one failing entry: where "checks", kind "defect", text "no CI checks ran on the head commit", rule "${CI_MISSING_RULE}", evidence the gh pr checks output after that wait. For each check in the fail bucket: where = its name, kind = "defect", text = what failed, ` +
+      `rule = "${CI_CHECK_RULE_PREFIX}<name>". Take run-id and job-id from the check's link (the link ends …/actions/runs/<run-id>/job/<job-id>). ` +
       `Also return each such check once in red: name, its link as printed, runId, jobId (empty strings when the link is not an Actions job link), findings = the entries you made for that check, and failingStep = the name of the first step whose conclusion is failure in \`${inWorktree}gh run view <run-id>${R} --json jobs --jq '.jobs[]|select(.databaseId==<job-id>)|[.steps[]|select(.conclusion=="failure")|.name][0]'\` (null when it prints nothing or you cannot read it); failing is all findings together. ` +
       evidenceRules(inWorktree) +
       `Read the required contexts of the base branch only to pace the wait: \`${inWorktree}gh api ${rulesRepoPath}/rules/branches/<base> --jq '[.[]|select(.type=="required_status_checks")|.parameters.required_status_checks[].context]'\`, ` +
@@ -98,7 +102,7 @@ async function laneCi(A) {
       `The job is check "${red.name}", run ${red.runId}, job ${red.jobId}. GitHub may refuse a job re-run while its run is still in progress: if \`${inWorktree}gh run view ${red.runId}${R} --json status --jq .status\` is not completed, wait with \`${inWorktree}gh run watch ${red.runId}${R} --exit-status\` (Bash timeout 600000 ms, repeat while the run is not completed, at most 3 times). ` +
       `Then run \`${inWorktree}gh run rerun ${red.runId}${R} --job ${red.jobId}\` once; never re-run anything else and never a second time. Then run \`${inWorktree}timeout 540 gh pr checks ${pr}${R} --watch --interval 90\` (Bash timeout 600000 ms) and repeat it until it exits on its own, at most 5 times. ` +
       `Return the link of check "${red.name}" as \`${inWorktree}gh pr checks ${pr}${R} --json name,bucket,link\` prints it after that, and its bucket. If its bucket is fail, ` +
-      `return findings for it: each entry has kind = "defect" and rule = "CI check ${red.name}" unless the log lists findings with their own rule ids. Otherwise findings is empty. ` +
+      `return findings for it: each entry has kind = "defect" and rule = "${CI_CHECK_RULE_PREFIX}${red.name}" unless the log lists findings with their own rule ids. Otherwise findings is empty. ` +
       evidenceRules(inWorktree),
       { label: `ci-${A.n}-rerun-${index + 1}`, phase: 'Test and CI', schema: RERUN, ...A.mechanical })
   }
@@ -897,7 +901,7 @@ async function relayStep(A) {
   function ownFailing({ shared, red = [], failing = [], files = [] }) {
     const sharedFindingKeys = new Set(red.filter(job => shared.includes(job.name)).flatMap(job => job.findings.map(entry => `${entry.where}\n${entry.rule}`)))
     const inChangedFile = entry => files.includes(A.findingPath(entry.where))
-    return failing.filter(entry => inChangedFile(entry) || (!sharedFindingKeys.has(`${entry.where}\n${entry.rule}`) && ![entry.where, String(entry.rule).replace(/^CI check /, '')].some(name => shared.includes(name))))
+    return failing.filter(entry => inChangedFile(entry) || (!sharedFindingKeys.has(`${entry.where}\n${entry.rule}`) && ![entry.where, String(entry.rule).replace(CI_CHECK_RULE_PREFIX, '')].some(name => shared.includes(name))))
   }
 
   const readFailure = (read, command) => read.code === 0 ? null : `${command} exited ${read.code}: ${read.err ?? ''}`
@@ -1022,7 +1026,7 @@ function pendingReason(waiting) {
 const ROUND = { review: 'review', head: 'head', ci: 'ci', mixed: 'mixed' }
 const isCiRound = (round) => round === ROUND.ci || round === ROUND.mixed
 // The rules the CI reader writes itself and the watcher's "CI check <name>"; a carried batch holding one is a CI round.
-const isCiFinding = (f) => /^(CI check |CI must run on head$|GitHub runs no CI on a conflicting pull request$)/.test(f.rule || '')
+const isCiFinding = (f) => (f.rule || '').startsWith(CI_CHECK_RULE_PREFIX) || [CI_MISSING_RULE, CI_CONFLICT_RULE].includes(f.rule)
 
 const RESOLVE_CONFLICTS = `resolve conflicts so both sides' behaviour holds, and set mergeResolvedLaneConflict true when files this lane changed needed resolution`
 // How a fixer resolves the merge, for every branch that merges main: a merge commit stays a pure merge, and sides that cannot both hold go back to the head.
@@ -1059,7 +1063,7 @@ function unprovenGreen({ checks, rules }) {
 // A watcher that answers red without quoting a log leaves the fixer nothing to act on; the printed listing still names the red checks.
 function failedCheckFindings(openChecks = []) {
   return openChecks.filter(c => c.bucket === 'fail').map(c => ({
-    where: c.name, kind: 'defect', rule: `CI check ${c.name}`, text: `The check "${c.name}" is red, and the CI watcher quoted no log for it.`, evidence: `The relay's ci line lists "${c.name}" in the fail bucket; read its log with gh run view.`,
+    where: c.name, kind: 'defect', rule: `${CI_CHECK_RULE_PREFIX}${c.name}`, text: `The check "${c.name}" is red, and the CI watcher quoted no log for it.`, evidence: `The relay's ci line lists "${c.name}" in the fail bucket; read its log with gh run view.`,
   }))
 }
 
@@ -1558,7 +1562,7 @@ async function storeProvenPoint() {
 const SYNC_CONFLICT_RULE = 'the lane contains origin/main before its review'
 const TREE_LINE = /^[0-9a-f]{40}$/
 const isSyncConflictFinding = (f) => f.where === 'mergeable' && f.rule === SYNC_CONFLICT_RULE
-const conflictedPathsOf = (blocking) => blocking.filter(isSyncConflictFinding).flatMap(f => f.evidence.split(', '))
+const conflictedPathsOf = (blocking) => blocking.filter(isSyncConflictFinding).flatMap(f => f.paths)
 
 // The conflict of the sync's merge-tree read, or null when the sync keeps its escalation: no conflict read (an error, a clean merge, a first line that is no tree),
 // or every conflicted path is one the sync's own rules resolve and the list is complete.
@@ -1569,7 +1573,7 @@ function syncConflictOf(values, covered) {
   return !cut && read.paths.every(path => covered.includes(path)) ? null : { paths: read.paths, cut }
 }
 
-const syncConflictFinding = ({ paths, cut }) => ({ where: 'mergeable', kind: 'defect', text: `the lane conflicts with origin/main in ${paths.join(', ')}${cut ? ' and more' : ''}`, rule: SYNC_CONFLICT_RULE, evidence: paths.join(', ') })
+const syncConflictFinding = ({ paths, cut }) => ({ where: 'mergeable', kind: 'defect', text: `the lane conflicts with origin/main in ${paths.join(', ')}${cut ? ' and more' : ''}`, rule: SYNC_CONFLICT_RULE, evidence: paths.join(', '), paths })
 
 // The sentences that make a reviewer read a merge fix as the merge it is: each conflicted path against both sides, and every other path the merge commits change.
 function mergeReading({ conflicted, merged, mergedCut, generatedPaths }) {

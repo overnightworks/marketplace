@@ -70,6 +70,10 @@ install before the copy or a `sudo` line.
 script waits until no Codex job runs before it updates Codex. Afterwards start
 a new Codex thread or run `/reload-plugins` in Claude Code.
 
+No manifest carries a `version`: updates reach Codex only through
+`scripts/install.py`, and each host shows the version as a commit SHA (Claude
+Code) or `local` (Codex).
+
 ## Read On
 
 - [Vision](docs/VISION.md): why marketplace exists, who uses it today and what

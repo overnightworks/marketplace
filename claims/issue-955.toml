@@ -1,0 +1,8 @@
+claim_id = "58188813bb51432e9be07c9474db2e58"
+agent = "Claude 1d929eb3-41d2-4e4c-9a0b-334204e51408"
+role = "builder"
+base = "580581e2df3ad468ee1df887f0859f1f1ffe9e7f"
+branch = "claude/issue-955-marketplace-pins-quality-v0-24-0"
+scope = [".github/workflows/ci.yml", ".github/workflows/codeql.yml", "pyproject.toml", "uv.lock"]
+opened_commit = "26641537f15d97f2be8696f8c700f6435254e2f7"
+whole_reason = "the quality pins in both workflows, pytest-randomly in pyproject.toml and its lock move together, or CI runs a quality version whose seed rule the lockfile does not meet"

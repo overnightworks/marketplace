@@ -728,6 +728,16 @@ test('a follow-up the batch re-check raises starts no second batch and stays for
   assert.deepEqual(result.followups.map(f => f.where), [alsoPolish.where])
 })
 
+test('a follow-up a later review raises after the batch has run starts no second batch', async () => {
+  const red = { head: resumeFixedTip, green: false, failing: [defectWithoutDraft] }
+  const third = { ...followup('w.py:4', 'drop the unused alias', 'distributor'), inPlace: true }
+  const { result, launchedAgents } = await runLane(resumeArgs, { ...approvedWith(polish), ...batchReachesTheEnd, 'r1-review': { ...APPROVE, followups: [alsoPolish] }, 'ci-0': red, 'fix-2': secondFix, 'r2-review': { ...APPROVE, followups: [third] }, 'fix-3': secondFix, 'r3-review': APPROVE, 'ci-1': greenCi(secondFix.head) })
+  assert.equal(result.status, 'ready-to-land', result.reason)
+  assert.ok(launchedAgents.includes('r2-review'))
+  assert.ok(!launchedAgents.includes('fix-3'))
+  assert.deepEqual(result.followups.map(f => f.where), [third.where])
+})
+
 const spentBudgets = [['review', { review: 0 }], ['total', { total: 0 }]]
 
 for (const [which, budgets] of spentBudgets) {

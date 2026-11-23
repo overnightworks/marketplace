@@ -1,0 +1,8 @@
+claim_id = "026566d892b14958b8547bfcc209db3c"
+agent = "Claude 1d929eb3-41d2-4e4c-9a0b-334204e51408"
+role = "builder"
+base = "bdcc62135bec24faf3c0a0b2b43150ddb68ea6fe"
+branch = "claude/issue-977-tester-delta-round-marks-lane-defects"
+scope = ["plugins/atelier/lane/test.js", "plugins/atelier/workflows/lane.js", "plugins/atelier/workflows/lane.md", "tests/lane_workflow_ci.test.mjs"]
+opened_commit = "005ac56ab54393ac9e699fd69374e207ca6a42ad"
+whole_reason = "The tester brief, lane.md, the generated lane.js and the test pin change together, or the lane and its tests disagree."

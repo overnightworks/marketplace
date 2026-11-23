@@ -1,5 +1,5 @@
 claim_id = "595b660f862047cca5d736fc773353c2"
-agent = "Claude 75a241b5-1b6d-4abc-8dfe-1a6da7b5ffc2"
+agent = "Claude 1d929eb3-41d2-4e4c-9a0b-334204e51408"
 role = "builder"
 base = "c906e5a370b36c851039f010f6b990b2d81e918e"
 branch = "claude/issue-883-fix-in-place-before-landing"

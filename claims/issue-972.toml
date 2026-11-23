@@ -1,0 +1,8 @@
+claim_id = "baa31764305447ccb08d6703b48a0b9a"
+agent = "Claude 1d929eb3-41d2-4e4c-9a0b-334204e51408"
+role = "builder"
+base = "ebaea493570d3d2d67e150d9721106178f552c49"
+branch = "claude/issue-972-marketplace-pins-quality-v0-25-0"
+scope = [".github/workflows/ci.yml", ".github/workflows/codeql.yml", "quality/baseline.toml", "quality/config.toml"]
+opened_commit = "ae14334201fec3739029097efd307af9f53ae6ec"
+whole_reason = "The pin move in both workflows and the size entries the new release measures with their loosening declaration land together, or CI is red without the door's declaration."

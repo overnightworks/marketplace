@@ -24,5 +24,5 @@ def test_manifest_carries_no_version(path: Path) -> None:
     manifest = json.loads((REPOSITORY_ROOT / path).read_text(encoding="utf-8"))
 
     assert declared_versions(manifest) == [], (
-        f"{path} pins a version, which freezes Claude Code updates at it"
+        f"{path} pins a version, which stops its host from following new commits"
     )

@@ -219,13 +219,6 @@ async function relayStep(A) {
     )
   }
 
-  // A round without blocking findings is no integration step: a CI fixer's mergeable finding owns the merge of main.
-  function mergeInstruction(blocking, ciRound) {
-    if (!blocking) return 'Do not merge origin/main: this round asks for the follow-ups only.'
-    if (ciRound) return `Merge origin/main only for a finding whose where is "mergeable" (a merge commit; resolve conflicts so both sides' behaviour holds, and set mergeResolvedLaneConflict true when files this lane changed needed resolution). For any other CI finding, fix the red in commits; when it lies outside the diff or passed on your own re-run, dispute it with your evidence (name the main commit that fixes it, if one does), commit nothing and never answer it with a merge of main: the head decides whether a merge answers it.`
-    return `Merge origin/main if it moved, before or after your fixes (a merge commit; resolve conflicts so both sides' behaviour holds, and set mergeResolvedLaneConflict true when files this lane changed needed resolution).`
-  }
-
   function fixerBrief({ facts, branch, pr, tip, source, blocking, foldIns }) {
     const task = blocking
       ? `Then answer exactly these blocking findings from ${source}, and nothing else:\n${blocking}`
@@ -427,11 +420,6 @@ async function relayStep(A) {
 
   const operatorDoorOf = (checks, jobLog) => checks.open?.length === 1 && jobLog?.code === 0 && jobLog.loosenings && jobLog.merge ? jobLog.merge : null
 
-  function ciState(proven, names) {
-    if (proven) return 'green'
-    return names ? `red (${names})` : 'not green'
-  }
-
   // What the lane reads from the ci step: the head, the checks red on the base branch too, the red a fixer may not remove, why the listing does not prove green,
   // and the watcher's verdict corrected by the printed listing: green, proven, the state in words, the failing checks split into own and shared.
   function readCi({ checks, rules, headruns, changed, head, shared, files, log: jobLog }) {
@@ -546,6 +534,18 @@ function pendingReason(waiting) {
 }
 
 // The word the history keeps for one CI read.
+// A round without blocking findings is no integration step: a CI fixer's mergeable finding owns the merge of main.
+function mergeInstruction(blocking, ciRound) {
+  if (!blocking) return 'Do not merge origin/main: this round asks for the follow-ups only.'
+  if (ciRound) return `Merge origin/main only for a finding whose where is "mergeable" (a merge commit; resolve conflicts so both sides' behaviour holds, and set mergeResolvedLaneConflict true when files this lane changed needed resolution). For any other CI finding, fix the red in commits; when it lies outside the diff or passed on your own re-run, dispute it with your evidence (name the main commit that fixes it, if one does), commit nothing and never answer it with a merge of main: the head decides whether a merge answers it.`
+  return `Merge origin/main if it moved, before or after your fixes (a merge commit; resolve conflicts so both sides' behaviour holds, and set mergeResolvedLaneConflict true when files this lane changed needed resolution).`
+}
+
+function ciState(proven, names) {
+  if (proven) return 'green'
+  return names ? `red (${names})` : 'not green'
+}
+
 function ciVerdict(proven, pending) {
   if (proven) return 'GREEN'
   return pending ? 'PENDING' : 'RED'

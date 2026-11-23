@@ -32,9 +32,9 @@ lists `requiredHeadActions`.
 4. Test and CI run side by side: the explorative end-to-end test and the CI of
    the pull request. A red CI is fixed at once while the tester runs on. A tester
    round after a fix is a delta re-check: it gets the fix range and the findings it
-   raised, still drives the real flow in full, and reports a new finding in a part
-   the fix left unchanged as a follow-up unless it touches security, data or a
-   failing check. The order is review, tester, CI: the review proves what the
+   raised, still drives the real flow in full, and marks a new finding as the
+   contract's Reviews does, against the lane's whole diff rather than the fix
+   range. The order is review, tester, CI: the review proves what the
    diff shows, the tester proves what only the drive shows, CI proves the checks.
    No run ends while its tester runs: an early stop first waits for the tester,
    records a usable verdict and carries its findings in `testerAtStop`; a tester

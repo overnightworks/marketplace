@@ -628,7 +628,7 @@ for (const [what, answers, expected] of testerRounds) {
     const { agentCalls, result } = await runLane(resumeArgs, { 'r0-review': APPROVE, ...answers() })
     assert.equal(result.status, 'ready-to-land', result.reason)
     for (const text of expected) assert.ok(agentCalls['e2e-1'].prompt.includes(text), `the second tester prompt lacks ${text}`)
-    assert.match(agentCalls['e2e-1'].prompt, /Judge whether the repair holds and opened nothing new, and still drive the real flow in full\. A new finding in a part the fix left unchanged goes into follow-ups, not blocking, unless it touches security, data or a failing check\./)
+    assert.doesNotMatch(agentCalls['e2e-1'].prompt, /left unchanged/)
   })
 }
 

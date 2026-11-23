@@ -23,7 +23,7 @@ export async function laneTest(A) {
 
   function explore() {
     const fixRange = A.fixRange && `This is a delta re-check of a fix: the fix is \`git diff ${A.fixRange.from}..HEAD\` and answers these findings of your earlier round:\n${A.fixRange.findings}\n` +
-      `Judge whether the repair holds and opened nothing new, and still drive the real flow in full. A new finding in a part the fix left unchanged goes into follow-ups, not blocking, unless it touches security, data or a failing check.\n\n`
+      `Judge whether the repair holds and opened nothing new, and still drive the real flow in full. Mark a new finding against the lane's whole diff, \`git diff origin/main...HEAD\`, not the fix range.\n\n`
     const prompt =
       `${A.laneFacts}\nYou test PR #${pr} at its lane tip ${tip} through the real entry point, like a curious user, before it lands. ` +
       `Run the lane's code, not the installed tool (from ${A.worktree}). What to drive:\n${A.e2e}\n\nContract:\n${A.contract}\n\n${fixRange || ''}${A.blockingLine}\n` +

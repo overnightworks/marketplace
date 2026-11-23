@@ -170,7 +170,7 @@ test('an unchanged tip with every finding resolved and deltaFrom at the tip revi
   const { result, agentCalls } = await runLane({ ...resumeArgs, deltaFrom: resumeTip, fixFirst: [defectWithoutDraft] }, { 'fix-1': { ...unchangedFix, resolved: [satisfied(defectWithoutDraft, undefined, 1)] }, ...reachesTheEnd })
   assert.equal(result.status, 'ready-to-land', result.reason)
   assert.match(agentCalls['r1-review'].prompt, /git diff origin\/main\.\.\.HEAD/)
-  assert.doesNotMatch(agentCalls['r1-review'].prompt, new RegExp(`git diff ${resumeTip}\\.\\.HEAD`))
+  assert.doesNotMatch(agentCalls['r1-review'].prompt, new RegExp(`git (diff|log -p --first-parent --remerge-diff) ${resumeTip}\\.\\.HEAD`))
 })
 
 for (const [what, evidence] of [['without evidence', ''], ['with blank evidence', '  ']]) {

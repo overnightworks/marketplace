@@ -2326,7 +2326,7 @@ let firstReview
 if (carriesBatch) {
   followups.push(...(A.foldIn || []))
   // A conflict alone is the CI budget's round, as CI's own conflict finding is; joined to a carried batch it is that batch's round.
-  const conflictOnly = syncRaisedConflict && carriedOver.length === 1
+  const conflictOnly = syncRaisedConflict && carriedOver.length === 1 && !A.foldIn?.length
   const carriedFrom = syncRaisedConflict ? (conflictOnly ? 'the sync' : 'the sync and the head (carried over from the previous run)') : 'the head (carried over from the previous run)'
   const f = await fixRound(carriedOver, carriedFrom, carriedOver.some(isCiFinding) ? ROUND.mixed : ROUND.head, conflictOnly ? 'ci' : 'test', true)
   if (f.stop) return f.stop

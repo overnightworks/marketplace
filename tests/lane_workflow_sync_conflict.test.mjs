@@ -1,7 +1,7 @@
 // Drives the atelier lane workflow script through a sync that hits a merge conflict, with a stub agent runner.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { runLane, storedLane, APPROVE, PASS, greenCi, resumeArgs, resumeFix, resumeTip, olderTip, mergedOnlyTip, mainMovedTip, defectWithoutDraft, conflictsWithMain, unchangedFix, reachesTheEnd } from './lane_workflow_harness.mjs'
+import { runLane, storedLane, APPROVE, PASS, greenCi, resumeArgs, resumeFix, resumeTip, olderTip, mergedOnlyTip, mainMovedTip, defectWithoutDraft, conflictsWithMain, tidy, unchangedFix, reachesTheEnd } from './lane_workflow_harness.mjs'
 
 const conflictTree = 'ab'.repeat(20)
 const conflicted = 'docs/ARCHITECTURE.md'
@@ -72,6 +72,13 @@ test('a sync conflict joins the fixFirst batch as one fixer round under the test
   assert.equal(mergeableLines(fixer).length, 1)
   assert.ok(fixer.includes(defectWithoutDraft.where), fixer)
   assert.ok(fixer.indexOf('mergeable —') < fixer.indexOf(defectWithoutDraft.where), 'the sync finding comes first')
+  const stored = storedLane(run)
+  assert.deepEqual([stored.fix_rounds.test, stored.fix_rounds.ci], [1, 0])
+})
+
+test('a sync conflict joins the foldIn batch as one fixer round under the test budget', async () => {
+  const run = await runLane({ ...resumeArgs, foldIn: [tidy] }, { sync: conflictingSync(), 'fix-1': resolvedMerge, ...readyAfterMerge })
+  assert.equal(run.result.status, 'ready-to-land')
   const stored = storedLane(run)
   assert.deepEqual([stored.fix_rounds.test, stored.fix_rounds.ci], [1, 0])
 })

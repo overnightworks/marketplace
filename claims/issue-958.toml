@@ -1,0 +1,7 @@
+claim_id = "b4a80fe51cc7436cb06b592dd5baf95f"
+agent = "Claude 1d929eb3-41d2-4e4c-9a0b-334204e51408"
+role = "builder"
+base = "463dd89e2d56b98a7a6ea7198fdac2d98e5b471f"
+branch = "claude/issue-958-write-docs-contract-row-one-rule-form"
+scope = ["plugins/atelier/skills/write-docs/references/document-types.md"]
+opened_commit = "1a06ab8b4a05b0016ef848fe59b9f0488a080e2b"

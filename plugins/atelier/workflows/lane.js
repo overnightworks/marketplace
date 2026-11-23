@@ -189,7 +189,7 @@ let followUpBatchRun = false
 async function followUpBatch() {
   if (followUpBatchRun || !inPlaceFollowups().length || spent.review >= B.review || spent.total >= B.total) return null
   followUpBatchRun = true
-  const fixed = await fixRound([], "the passing review's follow-ups", 'review', false)
+  const fixed = await fixRound([], "the passing review's follow-ups", ROUND.review, 'review', false)
   if (fixed.stop) return fixed.stop
   if (!fixed.range) return null
   const withGate = MATERIAL && (fixed.gateAgain || fixed.foldIn.some(f => f.stage === 'gate'))

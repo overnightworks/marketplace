@@ -657,6 +657,13 @@ test('a review that passes with an in-place follow-up runs the fixer and a re-ch
   assert.deepEqual(result.followups, [])
 })
 
+test('the follow-up batch counts one round under the review budget and no other key', async () => {
+  const { result } = await runLane(resumeArgs, { ...approvedWith(polish), ...batchReachesTheEnd })
+  assert.equal(result.status, 'ready-to-land', result.reason)
+  assert.equal(result.spent.review, 1)
+  assert.deepEqual(Object.keys(result.spent).sort(), ['ci', 'review', 'test', 'total'])
+})
+
 test('a follow-up whose in-place flag is false starts no batch and goes to the head', async () => {
   const { result, launchedAgents } = await runLane(resumeArgs, { ...approvedWith(elsewhere), 'e2e-0': PASS, 'ci-0': greenCi(resumeTip) })
   assert.equal(result.status, 'ready-to-land', result.reason)

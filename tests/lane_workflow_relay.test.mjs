@@ -239,14 +239,22 @@ test('AC-sync-relay-real-git: a clean merge of origin/main makes the merge commi
   }
 })
 
-test('AC-sync-relay-real-git: a real conflict the agent aborts escalates at sync with the lane head unchanged and no review', async (t) => {
+test('AC-sync-relay-real-git: a real conflict the agent aborts reaches a fixer as a mergeable finding naming the path, with the lane head unchanged', async (t) => {
   const lane = laneRepository(t, { onMain: true })
   lane.advanceMain('lane-file', 'main wrote this file too')
-  const { result, launchedAgents } = await runSyncStep(lane)
-  assert.deepEqual([result.status, result.stage, result.reason], ['escalated', 'sync', 'conflict in lane-file'])
-  assert.deepEqual(launchedAgents, ['sync'])
+  const { agentCalls, launchedAgents } = await runSyncStep(lane)
+  assert.deepEqual(launchedAgents.slice(0, 2), ['sync', 'fix-1'])
+  assert.match(agentCalls['fix-1'].prompt, /mergeable — the lane conflicts with origin\/main in lane-file\n/)
   assert.equal(headOf(lane), lane.tip)
   assert.equal(lane.git(lane.worktree, 'status', '--porcelain'), '')
+})
+
+test('AC-sync-relay-real-git: a real conflict only in a ledger the sync could not resolve still escalates at sync', async (t) => {
+  const lane = laneRepository(t, { onMain: true })
+  lane.advanceMain('lane-file', 'main wrote this file too')
+  const { result, launchedAgents } = await runLane({ ...laneArgs(lane), ledgers: ['lane-file'] }, { sync: syncAgentRunning(lane) })
+  assert.deepEqual([result.status, result.stage, result.reason], ['escalated', 'sync', 'conflict in lane-file'])
+  assert.deepEqual(launchedAgents, ['sync'])
 })
 
 test('AC-sync-relay-real-git: a scope printer line that carries the sync nonce ends the lane as failed at sync quoting the line', async (t) => {

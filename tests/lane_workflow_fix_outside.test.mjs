@@ -58,7 +58,7 @@ test('a body-settled finding at an unchanged tip is re-checked with the answers 
   assert.ok(prompt.includes(docsFinding.text) && prompt.includes(docsFinding.evidence))
   assert.match(prompt, /item body[^.]*pull request body[^.]*live|live[^.]*item body[^.]*pull request body/)
   assert.match(prompt, /whether the unchanged tip does more or less than the changed body asks/)
-  assert.doesNotMatch(prompt, new RegExp(`git diff ${resumeTip}\\.\\.HEAD`))
+  assert.doesNotMatch(prompt, new RegExp(`git (diff|log -p --first-parent --remerge-diff) ${resumeTip}\\.\\.HEAD`))
 })
 
 test('a body-settled finding on a material lane re-checks with the gate as well, both reading the answers of the head and the unchanged tip', async () => {

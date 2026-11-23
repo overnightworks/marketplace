@@ -170,7 +170,7 @@ test('an unchanged tip with every finding resolved and deltaFrom at the tip revi
   const { result, agentCalls } = await runLane({ ...resumeArgs, deltaFrom: resumeTip, fixFirst: [defectWithoutDraft] }, { 'fix-1': { ...unchangedFix, resolved: [satisfied(defectWithoutDraft, undefined, 1)] }, ...reachesTheEnd })
   assert.equal(result.status, 'ready-to-land', result.reason)
   assert.match(agentCalls['r1-review'].prompt, /git diff origin\/main\.\.\.HEAD/)
-  assert.doesNotMatch(agentCalls['r1-review'].prompt, new RegExp(`git diff ${resumeTip}\\.\\.HEAD`))
+  assert.doesNotMatch(agentCalls['r1-review'].prompt, new RegExp(`git (diff|log -p --first-parent --remerge-diff) ${resumeTip}\\.\\.HEAD`))
 })
 
 for (const [what, evidence] of [['without evidence', ''], ['with blank evidence', '  ']]) {
@@ -655,6 +655,13 @@ test('a review that passes with an in-place follow-up runs the fixer and a re-ch
   assert.deepEqual(launchedAgents.filter(label => /^(r\d-review|fix-\d|e2e-\d)$/.test(label)), ['r0-review', 'fix-1', 'r1-review', 'e2e-0'])
   assert.deepEqual(result.folded.map(f => [f.where, f.tip]), [[polish.where, resumeFixedTip]])
   assert.deepEqual(result.followups, [])
+})
+
+test('the follow-up batch counts one round under the review budget and no other key', async () => {
+  const { result } = await runLane(resumeArgs, { ...approvedWith(polish), ...batchReachesTheEnd })
+  assert.equal(result.status, 'ready-to-land', result.reason)
+  assert.equal(result.spent.review, 1)
+  assert.deepEqual(Object.keys(result.spent).sort(), ['ci', 'review', 'test', 'total'])
 })
 
 test('a follow-up whose in-place flag is false starts no batch and goes to the head', async () => {

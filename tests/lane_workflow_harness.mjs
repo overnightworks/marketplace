@@ -24,6 +24,7 @@ case "$1 $2" in
   "rev-parse HEAD^@") printf '%s\\n' "$FAKE_PARENTS" ;;
   "rev-parse HEAD^{tree}") printf '%s\\n' "$FAKE_TREE" ;;
   "merge-tree --write-tree") printf '%s\\n' "$FAKE_MERGE_TREE"; exit "$FAKE_MERGE_TREE_CODE" ;;
+  "-c core.quotePath=false") case "$3" in merge-tree) printf '%s\\n' "$FAKE_MERGE_TREE"; exit "$FAKE_MERGE_TREE_CODE" ;; log) printf '%s' "$FAKE_MERGE_PATHS" ;; esac ;;
   "log -p") for last; do :; done; case "$last" in *..HEAD) [ -z "$FAKE_TOUCHED" ] || printf -- '-removed in the range\\n' ;; *) printf '%s\\n' "$FAKE_TOUCHED" | grep -qxF -- "$last" && printf -- '-removed in %s\\n' "$last" ;; esac ;;
   "merge-base --is-ancestor") exit "$FAKE_MAIN_CODE" ;;
   "rev-parse origin/"*) printf '%s\\n' "$FAKE_REMOTE" ;;
@@ -169,7 +170,7 @@ export async function runLane(args, answers = {}, options = {}) {
     const line = prompt.split('\n').at(-1).replace(/^cd '[^']*' && /, '')
     const env = {
       ...process.env, PATH: `${fakeCommands()}:${process.env.PATH}`, FAKE_HEAD: scenario.head ?? newestTip, FAKE_BRANCH: scenario.branch ?? args.branch, FAKE_BRANCH_CODE: scenario.branch_code ?? 0, FAKE_REMOTE: scenario.remote_tip ?? newestTip,
-      FAKE_HEAD_CODE: scenario.head_code ?? 0, FAKE_PARENTS: (scenario.parents ?? []).join('\n'), FAKE_MAIN_CODE: scenario.main_code ?? 0, FAKE_TREE: scenario.tree ?? 'a1a1a1a1', FAKE_MERGE_TREE: scenario.merge_tree ?? scenario.tree ?? 'a1a1a1a1', FAKE_MERGE_TREE_CODE: scenario.merge_tree_code ?? 0, FAKE_TOUCHED: (scenario.touched_paths ?? []).join('\n'),
+      FAKE_HEAD_CODE: scenario.head_code ?? 0, FAKE_PARENTS: (scenario.parents ?? []).join('\n'), FAKE_MAIN_CODE: scenario.main_code ?? 0, FAKE_TREE: scenario.tree ?? 'a1a1a1a1', FAKE_MERGE_TREE: scenario.merge_tree ?? scenario.tree ?? 'a1a1a1a1', FAKE_MERGE_TREE_CODE: scenario.merge_tree_code ?? 0, FAKE_TOUCHED: (scenario.touched_paths ?? []).join('\n'), FAKE_MERGE_PATHS: (scenario.merge_paths ?? []).join('\n'),
       FAKE_PUSH_ERROR: scenario.push_error ?? '', FAKE_NETWORK_ERROR: scenario.network_error ?? '', FAKE_NETWORK_STDOUT: scenario.network_stdout ?? '', FAKE_NETWORK_FAILS: scenario.network_fails ?? 1, FAKE_BRIEF_ERROR: scenario.brief_error ?? '', FAKE_RATE_EXHAUSTED_CALLS: scenario.rate_exhausted_calls ?? 0, FAKE_RATE_EXHAUSTED_AGAIN_AT: scenario.rate_exhausted_again_at ?? 0, FAKE_RATE_RESET_IN: scenario.rate_reset_in ?? 600, FAKE_RATE_ERROR: scenario.rate_error ?? '',
       FAKE_RECORD_ERROR: scenario.record_error ?? '', FAKE_BEGIN_ERROR: scenario.begin_error ?? '', FAKE_ADD_ERROR: scenario.add_error ?? '', FAKE_SHOW_CODE: scenario.show_code ?? 0, FAKE_SHOW_ERROR: scenario.show_error ?? '', FAKE_SHOW_OUTPUT: JSON.stringify({ runs: scenario.stored_runs ?? [...storedBefore(), storedOwnRun()] }), FAKE_RESOLVE_CODE: scenario.resolve_code ?? 0, FAKE_PR_TITLE: scenario.pr_title ?? 'Add the feature', FAKE_ITEM_TITLE: scenario.item_title ?? 'The item title', FAKE_PATCH_CODE: scenario.patch_code ?? 0, FAKE_BRIEF_OUTPUT: JSON.stringify({ outside_claim: 'outside_claim' in scenario ? scenario.outside_claim : [] }), ...ghEnv(scenario),
     }

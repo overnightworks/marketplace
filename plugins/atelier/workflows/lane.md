@@ -82,7 +82,8 @@ The lane needs a repository that coordinates with aco, after the head ran
 - `ledgers`: none by default. Files whose merge conflicts keep both sides, main's lines first.
 - `generated`: `{}`. A map from a generated file's path to the command that
   regenerates it; a merge conflict confined to such files and ledgers is resolved
-  by running the command on the merged tree, not escalated.
+  by running the command on the merged tree, not escalated. A conflict that
+  reaches any other file goes to a fixer (see the sync conflict below).
 - `budgets`: `B` in `lane/main.js` holds the defaults, the fix rounds per phase and
   in total; a partial object overrides single keys.
 - `deltaFrom`: none. A sha; review only the commits since it, after the head
@@ -131,7 +132,7 @@ The lane needs a repository that coordinates with aco, after the head ran
   a file the lane did not change: it is not folded in, stays in `followups` with its
   `declined` reason and is handed to no later fixer, and a fixer that changes nothing
   with every fold-in satisfied or declined is accepted. A round without blocking
-  findings asks the fixer for no merge of main and rejects one; its review range
+  findings asks the fixer for no merge of main; its review range
   reads "It answers these follow-ups:". A fixer of such a round that returns no
   result or is blocked carries `foldIn` and `deltaFrom` in `resume`.
 - `experiment`: none. A tag of 1 to 40 lowercase letters, digits or hyphens,
@@ -204,6 +205,31 @@ A head that finds a run stopped awaiting-head, or lost, reads `aco lane-record s
   limit, and no role moves to another model or provider. The same holds for an
   agent the runtime ends with null while a probe agent of the same model ends
   with null too.
+- A run started with `pr` and `tip` whose sync hits a merge conflict outside `ledgers`
+  and `generated` does not escalate: the sync's printer reads git's own merge of the
+  tip and `origin/main` (not the sync agent's note), and a conflict it names, or a
+  path list it cut at 50, starts a fresh fixer with a `mergeable` finding ("the lane
+  conflicts with origin/main in <paths>"), first in the carried batch and
+  deduplicated against a `mergeable` finding `fixFirst` carries. Its fixer gets the
+  plain merging brief, never the CI one, and a disputed answer that changed nothing
+  goes to the head, never to a CI re-run. A conflict only in `ledgers` and
+  `generated`, a merge-tree error, a failed generated command, fetch or push, and a
+  sync that reports a conflict git's merge-tree does not show keep `escalated` at
+  `sync` with the agent's note; a `build` run has no sync. The review reads the merge
+  through `git log -p --first-parent --remerge-diff` (over `deltaFrom` when the run
+  carries one, else over the fixer's commits), naming the conflicted paths, each to be
+  checked against both sides (`git diff M^1 M -- <path>`, `git diff M^2 M -- <path>`),
+  and every other path the merge commits change; a lost intent or behaviour neither
+  side had is blocking, and a merge commit that edits more is not rejected. A fixer
+  that finds the sides contradicting each other ends the run `escalated` at `fix`;
+  its `resume` holds `fixFirst` with the `mergeable` finding and the run's own
+  `deltaFrom` (none when the run had none), never the synced tip. Settle it by
+  writing which intent wins into `answers`, which the next fixer reads, or by merging
+  by hand. A conflict alone counts as one fix round under the `ci` budget and
+  `fixRoundsByStage.ci`; joined to a carried batch it is that batch's round (`test`).
+  The history gets `{ after: 0, by: "sync", conflict: [paths], tip }`, which adds no
+  Blocking entry and no miss: a sync-raised `mergeable` is no stage's finding, unlike
+  CI's.
 - In a CI round the fixer merges main only for a `mergeable` finding; any other
   CI finding it fixes in commits, or disputes with evidence when the red lies
   outside the diff or passed on its own re-run, and commits nothing for a

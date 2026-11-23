@@ -215,14 +215,16 @@ Every review finding is marked **blocking** or **follow-up**.
   it built down in `trap '<teardown>' EXIT TERM` and stops a child that detaches
   itself by pid. The cap ends the stack even if you stop, and a stack that needs
   longer is cut, not raised. Never skip the proof, never point at the operator's
-  live stack. Drive only the slice's flow, at the widths the brief names. A test
-  that starts a process ends it before its worktree is removed.
+  live stack, except a live check through platform's live-check command. Drive
+  only the slice's flow, at the widths the brief names. A test that starts a
+  process ends it before its worktree is removed.
 - The operator's live store is read only once he allowed it in this session,
   by a delegated agent: read-only queries (a read-only transaction or role),
   only the rows and columns needed, never secrets, credentials or session data,
   evidence as counts and identifiers, never user content. A write to live data
   is material risk: it waits for his spoken yes to that change, after a backup
-  whose restore path is known.
+  whose restore path is known. A live check's writes to its test identities and
+  their own data need neither his further yes nor a backup.
 - Poll GitHub at 60 seconds or slower, monitors at 90 or more.
 
 # Code policy
@@ -390,7 +392,10 @@ before the work is called done.
 - Every repository follows one proof strategy; only its numbers and reasoned
   exceptions differ. Tests are one proof beside types and structure rules,
   end-to-end runs through real flows, probes in operation and less code to
-  prove; unit tests serve logic with many cases.
+  prove; unit tests serve logic with many cases. A live check is a probe in
+  operation, not a test layer: outside the gate, coverage and the fake,
+  determinism and parallel rules, and never the only proof of logic CI can
+  reach.
 - Branch coverage is 100 % in every repository, measured over all test layers
   together; a branch an end-to-end test reaches gets no mirror unit test.
   Coverage serves deletion: a line no real flow and no logic rule reaches is

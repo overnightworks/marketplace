@@ -80,7 +80,7 @@ async function laneCi(A) {
       `If \`${inWorktree}gh pr view ${pr}${R} --json mergeable --jq .mergeable\` says CONFLICTING, return green false with one failing entry: where "mergeable", kind "defect", text "the pull request conflicts with main", ` +
       `rule "GitHub runs no CI on a conflicting pull request", evidence the mergeable value. Otherwise wait in the foreground — you cannot be woken later. First wait until CI has registered the head, because a just-pushed head lists no check yet: run \`${inWorktree}for i in $(seq 1 5); do [ "$(gh pr checks ${pr}${R} --json name --jq length 2>/dev/null)" -gt 0 ] 2>/dev/null && break; sleep 60; done\` (Bash timeout 600000 ms; it ends with status 0 after about 5 minutes even when no check registered, then go on). Then run \`${inWorktree}timeout 540 gh pr checks ${pr}${R} --watch --interval 90\` (Bash timeout 600000 ms) and repeat it until it exits on its own rather than by the timeout, at most 7 times; it exits when every check listed for head has finished, but the listing shows one entry per check name, so a finished run can hide a same-named job of a run still going. After every exit read the head's workflow runs with \`${inWorktree}gh run list --commit "$(gh pr view ${pr}${R} --json headRefOid --jq .headRefOid)" --json status,name --limit 100${R}\`: while any run is not completed, watch again, whatever the listing shows. Never re-run anything: the lane decides that from the facts you return. ` +
       `When it exits on a red check, take every check in the fail bucket of \`${inWorktree}gh pr checks ${pr}${R} --json name,state,bucket,link\`, not only the first; judge only after no check is pending. green is true only when at least one check ran on head ` +
-      `and every check on head succeeded; no checks at all is one failing entry: where "checks", kind "defect", text "no CI checks ran on the head commit", rule "CI must run on head", evidence the gh pr checks output after that wait. For each check in the fail bucket: where = its name, kind = "defect", text = what failed, ` +
+      `and every check on head succeeded; CI that has not finished is green false with an empty failing, never a failing entry; no checks at all, with no run of head open, is one failing entry: where "checks", kind "defect", text "no CI checks ran on the head commit", rule "CI must run on head", evidence the gh pr checks output after that wait. For each check in the fail bucket: where = its name, kind = "defect", text = what failed, ` +
       `rule = "CI check <name>". Take run-id and job-id from the check's link (the link ends …/actions/runs/<run-id>/job/<job-id>). ` +
       `Also return each such check once in red: name, its link as printed, runId, jobId (empty strings when the link is not an Actions job link), findings = the entries you made for that check, and failingStep = the name of the first step whose conclusion is failure in \`${inWorktree}gh run view <run-id>${R} --json jobs --jq '.jobs[]|select(.databaseId==<job-id>)|[.steps[]|select(.conclusion=="failure")|.name][0]'\` (null when it prints nothing or you cannot read it); failing is all findings together. ` +
       evidenceRules(inWorktree) +
@@ -682,9 +682,12 @@ async function relayStep(A) {
       `One that the item body, the pull request body or an item comment answers goes in outside with foldIn set to its where; commit nothing for it. One whose fix would change behaviour outside the reviewed diff, take more than about ten lines or sit in a file this lane did not change you leave undone and list in declined with the reason. When that leaves you nothing to change, change nothing:\n${foldIns}`
       : ''
     // A round without blocking findings is no integration step: a CI fixer's mergeable finding owns the merge of main.
-    const mergeBrief = blocking
-      ? `Merge origin/main if it moved, before or after your fixes (a merge commit; resolve conflicts so both sides' behaviour holds, and set mergeResolvedLaneConflict true when files this lane changed needed resolution).`
-      : 'Do not merge origin/main: this round asks for the follow-ups only.'
+    const ciRound = source.endsWith('CI')
+    const mergeBrief = !blocking
+      ? 'Do not merge origin/main: this round asks for the follow-ups only.'
+      : ciRound
+        ? `Merge origin/main only for a finding whose where is "mergeable" (a merge commit; resolve conflicts so both sides' behaviour holds, and set mergeResolvedLaneConflict true when files this lane changed needed resolution). For any other CI finding, fix the red in commits; when it lies outside the diff or passed on your own re-run, dispute it with your evidence (name the main commit that fixes it, if one does), commit nothing and never answer it with a merge of main: the head decides whether a merge answers it.`
+        : `Merge origin/main if it moved, before or after your fixes (a merge commit; resolve conflicts so both sides' behaviour holds, and set mergeResolvedLaneConflict true when files this lane changed needed resolution).`
     const answersBrief = A.answers ? `The head's answers on findings it settled, to read before you answer one of them:\n${A.answers}\n` : ''
     return (
       `${facts}\nYou are a fresh fixer for PR #${pr} (lane tip ${tip}). ${mergeBrief} If the worktree already carries commits or uncommitted changes past that tip from an earlier fixer that ran out of turns, judge them, keep what is right, and continue from there. Commit each finding as soon as it is green. A blocking finding the lane tip already meets (for example by an earlier fixer's commit) is not redone: list it in resolved with its evidence, under its finding's number. List in noBehaviourChange the number of each blocking finding whose fix changes no behaviour of the code, and only those. Then commit what is green and return what is left in blockedReason with blocked true. ${task}${foldInBrief}\n\n` +
@@ -796,7 +799,7 @@ async function relayStep(A) {
     if (findingNumbers) return { ...rejection, lastBlocking: findingNumbers.map(number => blocking[number - 1]) }
     // Settled fold-ins leave the lane at the held tip; a round without blocking findings asks for no merge of main, so a merge there is unasked work.
     if (fixed.unchanged) return everyFoldInSettled(fixed, blocking, foldIn) || answeredOutside(fixed, blocking, foldIn) || everyBlockingResolved(fixed, blocking) || checkpointMet(fixed, blocking) ? null : { reason: 'the fixer changed nothing', lastBlocking: blocking }
-    const mergeWasTheFinding = A.source === 'CI' || (blocking.length === 1 && blocking[0].where === 'mergeable')
+    const mergeWasTheFinding = blocking.length === 1 && blocking[0].where === 'mergeable'
     if (fixed.mergeOnly && !mergeWasTheFinding) return { reason: 'the fixer only merged main and fixed nothing', lastBlocking: blocking }
     return null
   }
@@ -883,7 +886,10 @@ async function relayStep(A) {
     const watched = A.watched
     // A re-run watches only the jobs it re-ran: its green leaves a red shared with main in the listing, which stays red, not unproven.
     const sharedRerun = Boolean(A.rerun) && watched.green && open.length > 0 && open.every(c => c.bucket === 'fail' && shared?.includes(c.name))
-    const watcherDecides = !sharedRerun && (watched.green || watched.failing?.length)
+    // Unfinished CI is no finding: a watcher entry the listing does not back (nothing failed, something still runs) waits unless it is the merge conflict.
+    const stillRunning = open.some(c => c.bucket === 'pending') || (headruns.open || []).length > 0
+    const unbackedFinding = stillRunning && !open.some(c => c.bucket === 'fail') && !watched.failing?.some(f => f.where === 'mergeable')
+    const watcherDecides = !sharedRerun && (watched.green || (watched.failing?.length && !unbackedFinding))
     const failing = watcherDecides ? watched.failing : failedCheckFindings(open)
     const ownRed = ownFailing({ shared, red: watched.red, failing, files })
     const green = watched.green && !sharedRerun
@@ -2017,6 +2023,12 @@ async function awaitHeadOnDispute(fixed, blocking) {
   return openResult('awaiting-head', 'fix', { reason: committed ? 'the fixer disputes findings with counter-evidence; the returned tip carries fix commits no reviewer has seen' : 'the fixer disputes every finding with counter-evidence and committed nothing', lastBlocking: blocking })
 }
 
+// The push of a merge of main cannot be undone, so a rejected merge-only answer leaves the merged tip to the head instead of failing the lane.
+async function awaitHeadOnRejectedMerge(fixed, rejection) {
+  adoptFixerTip(fixed)
+  return openResult('awaiting-head', 'fix', { ...rejection, reason: `${rejection.reason}; the fixer pushed a merge of main, so the branch head is now ${fixed.tip}: start a new run with pr ${pr} and tip ${fixed.tip}` })
+}
+
 // A batch of CI findings only, every one disputed with counter-evidence and nothing committed, is a flake the lane re-runs once before the head sees it.
 let flakeRerunUsed = false
 
@@ -2080,7 +2092,7 @@ async function fixRound(blocking, source, budgetKey, carried, stage = budgetKey)
   if (answered.problem || answered.commandFailed) return { stop: await openResult('failed', 'fix', { reason: `the fixer's relay line ${answered.problem || 'reports a failed git command'}${printedLine(answered)}` }) }
   if (answered.outcome === 'flake') return { flakes: answered.flakes, fixed: answered }
   if (answered.outcome === 'disputed') return unaccepted(await awaitHeadOnDispute(answered, blocking))
-  if (answered.outcome === 'rejected') return unaccepted(await openResult('failed', 'fix', answered.rejection))
+  if (answered.outcome === 'rejected') return unaccepted(answered.mergeOnly ? await awaitHeadOnRejectedMerge(answered, answered.rejection) : await openResult('failed', 'fix', answered.rejection))
   const accepted = await acceptFix(answered, blocking, foldIn)
   if (accepted.stop) return unaccepted(accepted.stop)
   history.push(...fixProofEntries(answered, blocking, spent.total))

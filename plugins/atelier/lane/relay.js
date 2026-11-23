@@ -229,9 +229,12 @@ async function relayStep(A) {
       `One that the item body, the pull request body or an item comment answers goes in outside with foldIn set to its where; commit nothing for it. One whose fix would change behaviour outside the reviewed diff, take more than about ten lines or sit in a file this lane did not change you leave undone and list in declined with the reason. When that leaves you nothing to change, change nothing:\n${foldIns}`
       : ''
     // A round without blocking findings is no integration step: a CI fixer's mergeable finding owns the merge of main.
-    const mergeBrief = blocking
-      ? `Merge origin/main if it moved, before or after your fixes (a merge commit; resolve conflicts so both sides' behaviour holds, and set mergeResolvedLaneConflict true when files this lane changed needed resolution).`
-      : 'Do not merge origin/main: this round asks for the follow-ups only.'
+    const ciRound = source.endsWith('CI')
+    const mergeBrief = !blocking
+      ? 'Do not merge origin/main: this round asks for the follow-ups only.'
+      : ciRound
+        ? `Merge origin/main only for a finding whose where is "mergeable" (a merge commit; resolve conflicts so both sides' behaviour holds, and set mergeResolvedLaneConflict true when files this lane changed needed resolution). For any other CI finding, fix the red in commits; when it lies outside the diff or passed on your own re-run, dispute it with your evidence (name the main commit that fixes it, if one does), commit nothing and never answer it with a merge of main: the head decides whether a merge answers it.`
+        : `Merge origin/main if it moved, before or after your fixes (a merge commit; resolve conflicts so both sides' behaviour holds, and set mergeResolvedLaneConflict true when files this lane changed needed resolution).`
     const answersBrief = A.answers ? `The head's answers on findings it settled, to read before you answer one of them:\n${A.answers}\n` : ''
     return (
       `${facts}\nYou are a fresh fixer for PR #${pr} (lane tip ${tip}). ${mergeBrief} If the worktree already carries commits or uncommitted changes past that tip from an earlier fixer that ran out of turns, judge them, keep what is right, and continue from there. Commit each finding as soon as it is green. A blocking finding the lane tip already meets (for example by an earlier fixer's commit) is not redone: list it in resolved with its evidence, under its finding's number. List in noBehaviourChange the number of each blocking finding whose fix changes no behaviour of the code, and only those. Then commit what is green and return what is left in blockedReason with blocked true. ${task}${foldInBrief}\n\n` +
@@ -343,7 +346,7 @@ async function relayStep(A) {
     if (findingNumbers) return { ...rejection, lastBlocking: findingNumbers.map(number => blocking[number - 1]) }
     // Settled fold-ins leave the lane at the held tip; a round without blocking findings asks for no merge of main, so a merge there is unasked work.
     if (fixed.unchanged) return everyFoldInSettled(fixed, blocking, foldIn) || answeredOutside(fixed, blocking, foldIn) || everyBlockingResolved(fixed, blocking) || checkpointMet(fixed, blocking) ? null : { reason: 'the fixer changed nothing', lastBlocking: blocking }
-    const mergeWasTheFinding = A.source === 'CI' || (blocking.length === 1 && blocking[0].where === 'mergeable')
+    const mergeWasTheFinding = blocking.length === 1 && blocking[0].where === 'mergeable'
     if (fixed.mergeOnly && !mergeWasTheFinding) return { reason: 'the fixer only merged main and fixed nothing', lastBlocking: blocking }
     return null
   }
@@ -430,7 +433,10 @@ async function relayStep(A) {
     const watched = A.watched
     // A re-run watches only the jobs it re-ran: its green leaves a red shared with main in the listing, which stays red, not unproven.
     const sharedRerun = Boolean(A.rerun) && watched.green && open.length > 0 && open.every(c => c.bucket === 'fail' && shared?.includes(c.name))
-    const watcherDecides = !sharedRerun && (watched.green || watched.failing?.length)
+    // Unfinished CI is no finding: a watcher entry the listing does not back (nothing failed, something still runs) waits unless it is the merge conflict.
+    const stillRunning = open.some(c => c.bucket === 'pending') || (headruns.open || []).length > 0
+    const unbackedFinding = stillRunning && !open.some(c => c.bucket === 'fail') && !watched.failing?.some(f => f.where === 'mergeable')
+    const watcherDecides = !sharedRerun && (watched.green || (watched.failing?.length && !unbackedFinding))
     const failing = watcherDecides ? watched.failing : failedCheckFindings(open)
     const ownRed = ownFailing({ shared, red: watched.red, failing, files })
     const green = watched.green && !sharedRerun

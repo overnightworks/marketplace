@@ -18,9 +18,12 @@ for (const [what, checks, head_runs, named] of stillQueued) {
   })
 }
 
+const pendingWatcherFinding = { where: 'checks', kind: 'test-gap', text: 'CI is not finished, which is not a failure', rule: 'CI must finish', evidence: 'gh pr checks lists pending checks' }
+const manyPending = [...Array.from({ length: 17 }, (_, index) => check(`job ${index}`, 'pending')), check('lint', 'pass')]
+
 const redWhilePending = [
   ['a failed check and a pending check in the listing', ciAnswer([check('b', 'fail'), check(required, 'pending')], { green: false })],
-  ['a failing finding of the watcher and only pending checks in the listing', ciAnswer([check(required, 'pending')], { green: false, failing: [{ where: 'b', kind: 'defect', text: 'fails', rule: 'CI check b', evidence: 'boom' }] })],
+  ['a mergeable finding of the watcher and only pending checks in the listing', ciAnswer([check(required, 'pending')], { green: false, failing: [{ where: 'mergeable', kind: 'defect', text: 'the pull request conflicts with main', rule: 'r', evidence: 'CONFLICTING' }] })],
 ]
 for (const [what, answer] of redWhilePending) {
   test(`ci-pending: a not green answer with ${what} goes to a fixer and is RED`, async () => {
@@ -28,6 +31,19 @@ for (const [what, answer] of redWhilePending) {
     assert.ok(launchedAgents.includes('fix-2'))
     assert.notEqual(result.status, 'awaiting-head')
     assert.equal(result.history.find(entry => entry.by === 'ci-0').verdict, 'RED')
+  })
+}
+
+const watcherFindingIgnored = [
+  ['a watcher failing entry and only pending checks in the listing', ciAnswer([check(required, 'pending')], { green: false, failing: [{ where: 'b', kind: 'defect', text: 'fails', rule: 'CI check b', evidence: 'boom' }] })],
+  ['a checks test-gap entry, 17 pending checks and the required verdict missing', ciAnswer(manyPending, { green: false, failing: [pendingWatcherFinding] })],
+]
+for (const [what, answer] of watcherFindingIgnored) {
+  test(`ci-pending: a not green answer with ${what} ends awaiting-head at ci with no fixer, PENDING and without blocking`, async () => {
+    const { result, launchedAgents } = await driveCi(answer)
+    assert.deepEqual([result.status, result.stage], ['awaiting-head', 'ci'])
+    assert.ok(!launchedAgents.includes('fix-2'))
+    assert.deepEqual(result.history.find(entry => entry.by === 'ci-0'), { ...result.history.find(entry => entry.by === 'ci-0'), verdict: 'PENDING', blocking: [] })
   })
 }
 

@@ -11,8 +11,8 @@ matter).
 
 ## 1. Question
 
-Before writing a card, read the repository's `AGENTS.md` and the rulings `ask` shows
-for the item, and write no card an existing sentence answers.
+Before writing a card, read the repository's `AGENTS.md` and the earlier
+rulings (`aco rulings <n>`), and write no card an existing sentence answers.
 
 One plain sentence about the person's outcome, in the operator's language, short enough
 to read in one breath. It asks what the person gets or loses, never which mechanism to
@@ -65,8 +65,8 @@ choice.
   one exists.
 - No option text claims to be recommended ("Empfohlen" in `notice`): only `recommended`
   and `reason` say that.
-- No option breaks a law or a ruled sentence. A card that revises a ruling quotes it
-  and says what changed since.
+- No option breaks a law or a ruled sentence; an option that proposes to change a
+  ruling is allowed only on a card that quotes it and says what changed since.
 
 ## 5. Recommendation
 
@@ -75,7 +75,7 @@ verbatim and dated. It carries no process talk ("die Zeile wartet auf dein
 gesprochenes Wort"); the reader decides the card, they do not need to hear how the
 board works.
 
-The recommendation is the cleanest option (contract, Cleanest solution); a cheaper one
+The recommendation is the cleanest option ([contract, Cleanest solution](https://github.com/overnightworks/marketplace/blob/main/instructions/AGENTS.md#how-to-decide)); a cheaper one
 is recommended only with its limit named. One principle that answers several lines is
 asked once, in one line.
 

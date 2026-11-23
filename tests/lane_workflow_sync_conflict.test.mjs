@@ -117,6 +117,14 @@ test('a conflicted path containing a comma is named whole to the fixer and the r
   assert.ok(!range.includes(`The merge commit also changes ${commaPath}`), range)
 })
 
+test('a resumed sync conflict finding retyped without paths names no conflicted path to the reviewer', async () => {
+  const retyped = { where: 'mergeable', kind: 'defect', text: 'the lane conflicts with origin/main', rule: 'the lane contains origin/main before its review', evidence: 'CONFLICTING' }
+  const { agentCalls } = await runLane({ ...resumeArgs, fixFirst: [retyped] }, { sync: {}, 'fix-1': resolvedMerge, ...readyAfterMerge })
+  const range = agentCalls['r1-review'].prompt
+  assert.ok(!range.includes('The fix merges origin/main'), range)
+  assert.ok(!range.includes('undefined'), range)
+})
+
 test('a sync that merges main cleanly or already contains it raises no conflict finding', async () => {
   const { launchedAgents } = await runLane(resumeArgs, { sync: {}, ...reachesTheEnd, 'r0-review': APPROVE })
   assert.ok(!launchedAgents.includes('fix-1'))

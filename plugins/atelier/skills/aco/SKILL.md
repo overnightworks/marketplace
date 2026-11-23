@@ -241,9 +241,9 @@ one. Any other identity is refused. A later session resuming an issue lane whose
 an earlier session holds (`aco status` prints the holder before its `(role)`) first runs
 `aco handover <n> --from '<holder>' --reason '<why, e.g. the operator restarted the head>'`
 once, then lands, releases and rescopes as the holder (`specs/handover.spec.md`); never
-`--agent` or `ACO_AGENT='<holder>'`. An issue-less lane claim has no handover: a successor head lands or releases it with
-`--role coordinator --coordinator-override` on `aco land` or `aco release`
-(`specs/land.spec.md` LANDCMD-10, `specs/release.spec.md` REL-13).
+`--agent` or `ACO_AGENT='<holder>'`. A successor head takes an issue-less lane claim the same way with
+`aco handover --branch <branch> --from '<holder>' --reason '<why>'`, then lands,
+releases and rescopes it as the holder with no override (specs/handover.spec.md HANDOVER-16..HANDOVER-22).
 
 1. Stand in a clean checkout of the default branch — the primary checkout, never the
    lane worktree.

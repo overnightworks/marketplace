@@ -1,8 +1,0 @@
-claim_id = "595b660f862047cca5d736fc773353c2"
-agent = "Claude 1d929eb3-41d2-4e4c-9a0b-334204e51408"
-role = "builder"
-base = "c906e5a370b36c851039f010f6b990b2d81e918e"
-branch = "claude/issue-883-fix-in-place-before-landing"
-scope = [".claude-plugin/marketplace.json", "instructions/AGENTS.md", "instructions/HEAD.md", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "plugins/atelier/.codex/agents/code-fixer.toml", "plugins/atelier/.codex/agents/code-reviewer.toml", "plugins/atelier/agents/code-fixer.md", "plugins/atelier/agents/code-reviewer.md", "plugins/atelier/lane", "plugins/atelier/workflows/lane.js", "plugins/atelier/workflows/lane.md", "tests"]
-opened_commit = "3843a98154bd51fca188d1934ce544cee925c639"
-whole_reason = "The three ruled sentences and the lane behaviour they describe land together, or contract and lane disagree in between; the agent definitions, generated copies, tests and version files follow."

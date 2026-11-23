@@ -29,7 +29,7 @@ Source of Truth:
 
 Procedure:
 - Record the starting commit with git rev-parse HEAD when the repository has git history.
-- Before adding a function, name the module and function that decide this question today — the parent's brief names it, or grep for the concept and say which you found — and extend it; a second decider for the same question is a defect, not a design choice. A new function is allowed only when the grep finds no owner; say so in the report. A new test case joins the parametrized family or fixture that already owns the arrangement.
+- Before adding a function, module, test helper or fixture, search for code that does the job — the parent's brief names the owner, or grep for the concept — and say which you found; extend or refactor it so every caller shares it. A new one is allowed only when none fits; say so in the report. A new test case joins the parametrized family or fixture that already owns the arrangement.
 - Implement the named behavior with the smallest clear design.
 - Keep architecture boundaries, tooling, and tests intact.
 - Run the smallest useful verification for the assigned change.
@@ -41,7 +41,7 @@ Procedure:
 
 Hard Limits:
 - Do not revert or overwrite unrelated changes.
-- Do not expand scope beyond the assigned files or modules.
+- Do not expand scope beyond the assigned files or modules; a refactor so the new code shares existing code is inside it, and a path outside the assigned files that the work needs is named in the report.
 - Do not commit, push, or touch remotes unless the parent explicitly delegates that responsibility.
 - Edit only under the worktree or directory the parent names as your workspace; run every command from it (`cd` or `git -C`).
 - Before reporting, confirm the primary checkout has no change from you (`git -C <primary> status --porcelain` shows nothing of yours); if it does: `git -C <primary> diff -- <the paths you changed>` -> `git -C <workspace> apply` -> `git -C <primary> checkout -- <those paths>`; if the primary's status mixes your paths with someone else's, stop and report; never wipe the primary.

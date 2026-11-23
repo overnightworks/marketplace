@@ -142,7 +142,8 @@ questions, doubts and friction go to its parent.
 - A writing step edits only inside a lane whose exact-scope claim exists, in
   that lane's isolated worktree, and never uses a value another lane holds
   exclusively. A path outside the claim that the work needs is added to the
-  claim before landing.
+  claim before landing. Refactoring existing code so the new caller shares it is
+  inside the lane's scope.
 - An open lane merges trunk into its worktree and runs the checks; a lane that
   must land on its own never merges an unlanded sibling lane.
 - A step ends with its work committed on the lane branch and its evidence in the
@@ -239,10 +240,12 @@ before the work is called done.
   that beats plain search.
 - Before editing, identify the owner, state, configuration, failure modes and
   verification. Behaviour lives in the module that owns the decision.
-- Reuse code only for the same domain idea, owner and invariant; a review of new
-  code asks which owner was checked first. Remove duplication that must evolve
-  together; keep short duplication where an abstraction would hide meaning or
-  couple unrelated concepts.
+- Before writing a function, module, test helper or fixture, search for code
+  that does the job; extend or refactor it so every caller shares it, and write
+  new code only when none fits. Reuse only for the same domain idea, owner and
+  invariant. Remove duplication that must evolve together; keep short
+  duplication where an abstraction would hide meaning or couple unrelated
+  concepts. Other new code that repeats existing code is blocking.
 - Check repository claims against files, external ones against primary sources;
   mark unknowns; memory and notes hold no system state (where something runs,
   what is deployed, versions, who waits), only preferences, rulings and how-tos.
@@ -263,6 +266,8 @@ before the work is called done.
 
 - No abstraction, extension point, compatibility layer or option without a
   current caller; leave a clean seam only where later change would be hard.
+  Cases of one shape are data in the one owner of their decision, so the next
+  case is an addition in one place.
 - Build vertically first: shapes early, surfaces thin, hardening after use. A
   capability's first slice is the thinnest honest end-to-end proof. Edge cases
   precede its first run only where their absence corrupts durable state, loses
@@ -407,8 +412,9 @@ before the work is called done.
   network, clock, randomness and external services come as temporary state or
   fakes. Tests run with the repository's configured parallel execution.
 - Test code meets these rules: shared arrangement in fixtures and builders,
-  cases that differ only in data as one parametrized test. A suite several
-  times the size of its code is almost always duplication.
+  cases that differ only in data as one parametrized test whose case ids state
+  the behaviour. A suite several times the size of its code is almost always
+  duplication.
 - Our handling of agent and provider output is tested for failures and safety
   bounds; the model's answers are the provider's and are not tested.
 

@@ -1,0 +1,7 @@
+claim_id = "a2285d9db24c445e97bab711efc0c7b9"
+agent = "Claude 1d929eb3-41d2-4e4c-9a0b-334204e51408"
+role = "builder"
+base = "3d9df12786d774621a40683259d600941858c3ab"
+branch = "claude/issue-978-decision-cards-checked-against-contract"
+scope = ["plugins/atelier/skills/aco/references/decision-cards.md"]
+opened_commit = "da610198c05f0f803bd8445cd829d98596a3c9fa"

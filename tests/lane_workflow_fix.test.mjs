@@ -713,6 +713,14 @@ test('a gate follow-up on a material lane is re-checked by the gate as well', as
   assert.ok(launchedAgents.includes('r1-review') && launchedAgents.includes('r1-gate'))
 })
 
+for (const [what, files, gateRuns] of [['touches production', ['src/app.py'], true], ['touches no production path', ['x.py'], false]]) {
+  test(`a reviewer follow-up's fix that ${what} on a material lane ${gateRuns ? 'is' : 'is not'} re-checked by the gate`, async () => {
+    const { result, launchedAgents } = await runLane({ ...resumeArgs, risk: 'material' }, { 'r0-review': { ...APPROVE, followups: [polish] }, 'r0-gate': { ...APPROVE, codexExit: 0 }, 'fix-1': { ...resumeFix, files }, 'r1-review': APPROVE, 'r1-gate': { ...APPROVE, codexExit: 0 }, 'e2e-0': PASS, 'ci-0': greenCi(resumeFixedTip) })
+    assert.equal(result.status, 'ready-to-land', result.reason)
+    assert.equal(launchedAgents.includes('r1-gate'), gateRuns)
+  })
+}
+
 test('a follow-up the batch re-check raises starts no second batch and stays for the head', async () => {
   const { result, launchedAgents } = await runLane(resumeArgs, { ...approvedWith(polish), ...batchReachesTheEnd, 'r1-review': { ...APPROVE, followups: [alsoPolish] } })
   assert.equal(result.status, 'ready-to-land', result.reason)
@@ -767,4 +775,10 @@ test('a batch fixer that returns no result ends awaiting-head with the fold-ins 
   const { result: saved } = await runLane(resumeArgs, { ...approvedWith(polish), 'fix-1': null, 'checkpoint-fix': { work: true, head: resumeFixedTip } })
   assert.equal(saved.status, 'awaiting-head')
   assert.deepEqual([saved.resume.foldIn.map(f => f.where), saved.resume.deltaFrom], [[polish.where], resumeTip])
+})
+
+test('a blocked batch fixer ends escalated with the fold-ins and the tip before it in resume', async () => {
+  const { result } = await runLane(resumeArgs, { ...approvedWith(polish), 'fix-1': { ...resumeFix, printed: '', blocked: true, blockedReason: 'out of turns' } })
+  assert.deepEqual([result.status, result.stage], ['escalated', 'fix'])
+  assert.deepEqual([result.resume.foldIn.map(f => f.where), result.resume.deltaFrom], [[polish.where], resumeTip])
 })

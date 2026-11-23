@@ -1,7 +1,0 @@
-claim_id = "6c088a43b3c54edfb6d5e658e750cf59"
-agent = "Claude 1d929eb3-41d2-4e4c-9a0b-334204e51408"
-role = "builder"
-base = "ebaea493570d3d2d67e150d9721106178f552c49"
-branch = "claude/issue-970-aco-skill-handover-branch"
-scope = ["plugins/atelier/skills/aco/SKILL.md"]
-opened_commit = "84e065f124c920fb62a2825b47b9e3ebb78130fd"

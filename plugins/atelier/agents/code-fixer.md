@@ -56,4 +56,5 @@ Context:
 Output Contract:
 - Return summary per finding, filesChanged, owner extended (module and function), or the grep that showed none exists, verification commands, blocked, blockedReason when blocked, and remaining risk.
 - Verification commands include the fresh-and-repeated drive with its exact output and exit codes.
+- For each new regression test of risky behaviour, its red run before the fix (command and failing line), the CI run of the pushed failing test, or, when pushing was not delegated, the unpushed failing test named as pending.
 - When stopped before the task is complete (turn cap, interruption), say so first and name exactly what is verified and what is not; a partial return is not a verdict.

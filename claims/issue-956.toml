@@ -1,7 +1,0 @@
-claim_id = "91060e3cbd734711b854abdde6fee57b"
-agent = "Claude 1d929eb3-41d2-4e4c-9a0b-334204e51408"
-role = "builder"
-base = "463dd89e2d56b98a7a6ea7198fdac2d98e5b471f"
-branch = "claude/issue-956-successor-lands-issue-less-claim"
-scope = ["plugins/atelier/skills/aco/SKILL.md"]
-opened_commit = "dc6387dc04cb4ab024058274e273b1b158240fa1"

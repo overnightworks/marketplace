@@ -1,8 +1,0 @@
-claim_id = "6d3efd0591354bb49f7a9d1fe5744ff2"
-agent = "Claude 1d929eb3-41d2-4e4c-9a0b-334204e51408"
-role = "builder"
-base = "463dd89e2d56b98a7a6ea7198fdac2d98e5b471f"
-branch = "claude/issue-966-ci-state-diff-did-not-cause-is-no-fix"
-scope = ["plugins/atelier/lane", "plugins/atelier/workflows/lane.js", "plugins/atelier/workflows/lane.md", "tests"]
-opened_commit = "c990f59a265104811a579dc139775da4ea9937e6"
-whole_reason = "The CI read's decision, the CI round's merge rule and its rejection, the watcher and fixer briefs, the generated lane.js, lane.md and the pending, fix and CI tests change together, or the lane and its tests disagree."

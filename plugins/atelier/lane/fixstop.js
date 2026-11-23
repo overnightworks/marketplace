@@ -28,7 +28,7 @@ const unaccepted = (answered, result) => ({ stop: (answered.resolved || []).leng
 // The stop or flake result of an answer that carries no accepted fix, or null when the fix goes on to acceptance.
 async function fixAnswerStop(answered, blocking, foldIn, tipBeforeFix) {
   // A blocked fixer may have run out of turns before the relay line, and the blocked answer reads no tip.
-  if (answered.blocked) return unaccepted(answered, await openResult('escalated', 'fix', { reason: `${answered.blockedReason} Start a new run with the arguments in resume and the branch's current head as tip: a blocked answer reads no tip.`, resume: { ...claudeLimitResume('fix', { lastBlocking: blocking, withoutTip: true, foldIn: blocking.length ? [] : foldIn }), deltaFrom: tipBeforeFix } }))
+  if (answered.blocked) return unaccepted(answered, await openResult('escalated', 'fix', { reason: `${answered.blockedReason} Start a new run with the arguments in resume and the branch's current head as tip: a blocked answer reads no tip.`, resume: { ...claudeLimitResume('fix', { lastBlocking: blocking, withoutTip: true, foldIn: blocking.length ? [] : foldIn }), deltaFrom: blocking.some(isSyncConflictFinding) ? A.deltaFrom : tipBeforeFix } }))
   if (answered.problem || answered.commandFailed) return { stop: await openResult('failed', 'fix', { reason: `the fixer's relay line ${answered.problem || 'reports a failed git command'}${printedLine(answered)}` }) }
   if (answered.outcome === 'flake') return { flakes: answered.flakes, fixed: answered }
   if (answered.outcome === 'disputed') return unaccepted(answered, await awaitHeadOnDispute(answered, blocking))

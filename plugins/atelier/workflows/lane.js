@@ -161,7 +161,7 @@ const unaccepted = (answered, result) => ({ stop: (answered.resolved || []).leng
 // The stop or flake result of an answer that carries no accepted fix, or null when the fix goes on to acceptance.
 async function fixAnswerStop(answered, blocking, foldIn, tipBeforeFix) {
   // A blocked fixer may have run out of turns before the relay line, and the blocked answer reads no tip.
-  if (answered.blocked) return unaccepted(answered, await openResult('escalated', 'fix', { reason: `${answered.blockedReason} Start a new run with the arguments in resume and the branch's current head as tip: a blocked answer reads no tip.`, resume: { ...claudeLimitResume('fix', { lastBlocking: blocking, withoutTip: true, foldIn: blocking.length ? [] : foldIn }), deltaFrom: tipBeforeFix } }))
+  if (answered.blocked) return unaccepted(answered, await openResult('escalated', 'fix', { reason: `${answered.blockedReason} Start a new run with the arguments in resume and the branch's current head as tip: a blocked answer reads no tip.`, resume: { ...claudeLimitResume('fix', { lastBlocking: blocking, withoutTip: true, foldIn: blocking.length ? [] : foldIn }), deltaFrom: blocking.some(isSyncConflictFinding) ? A.deltaFrom : tipBeforeFix } }))
   if (answered.problem || answered.commandFailed) return { stop: await openResult('failed', 'fix', { reason: `the fixer's relay line ${answered.problem || 'reports a failed git command'}${printedLine(answered)}` }) }
   if (answered.outcome === 'flake') return { flakes: answered.flakes, fixed: answered }
   if (answered.outcome === 'disputed') return unaccepted(answered, await awaitHeadOnDispute(answered, blocking))
@@ -552,7 +552,7 @@ async function relayStep(A) {
   // A value a command prints reaches a decision only through one line the PRINTER wrote: the agent runs it and relays the
   // line unchanged, and a retyped or edited line fails its CRC32. The printer holds no single quote, so the shell passes
   // it as one argument. Its first argument names the step whose commands it runs; the branch step reports the branch the worktree has checked out and mints the run id the begin and add steps pass to aco, the begin step runs `aco lane-record begin` and the add step `aco lane-record add`, each with the tip resolved by `git rev-parse` to 40 digits and each reporting its exit code and error output; after a begin that exited 0, the begin step runs `aco lane-record show --json` and reports only its exit code and error output, this run's own `follows`, and the shas of the earlier runs' stored review verdicts `approve` (the stored runs other than this run's id), the scope step never forces a push,
-  // relays HEAD's parents and whether its second parent is in origin/main, at most 50 paths and no text of aco brief but its exit code and error output, the record step reports the exit code and error output of `aco lane-record check` on the record file, the sync step reports the lane tip, its parents and whether it contains origin/main, the fix step reports those sync values and, per finding path the lane sent, the size in characters of the diff of that path in the first-parent commits between the held tip and HEAD, a merge showing only its conflict resolution, and the same size for the whole range, never the diff text, and the tree of HEAD and the tree git itself produces by merging HEAD's first two parents (the first line of `git merge-tree --write-tree`), and the count and CRC32 of those paths like the ci step, and the ci step reports the pull request head, the count of listed checks, the checks that are neither pass nor skipping, each required context of the base whose bucket is not pass, with its bucket or missing, the exit code of each gh call, left out when it is 0 and the call has nothing else to carry, and its error output where it is not empty, the positions, among the finding paths the lane sent, of those that the pull request changes (the lane passes the finding paths as the last argument but one, each percent-encoded and joined by commas, so the argument holds no quote or backslash a copier could break; the file listing is paginated and never relayed), the exit code and error output of the head's workflow run listing, and the checks red on head that failed on the base tip too; a failed read of the pull request (gh api pulls/<n>, which spends no GraphQL points) ends its reads. A call that fails with a network marker or with GitHub's rate limit is retried (see NETWORK_WAIT_SECONDS) and, still failing, puts its name into unreachable, and into limited when the rate limit refused it. Only when the verdict check (the check named quality / verdict) is red, the ci step also reads that job log with gh run view and relays two values of it, never its text: whether a line says that only declared loosenings made it red and only the operator merges it, and the quality merge command of its next line; the lines come in any order and carry a job name, a step and a timestamp before their text.
+  // relays HEAD's parents and whether its second parent is in origin/main, at most 50 paths and no text of aco brief but its exit code and error output, the record step reports the exit code and error output of `aco lane-record check` on the record file, the sync step reports the lane tip, its parents and whether it contains origin/main and, only when git's own merge of the lane tip and origin/main does not come out clean, that merge's exit code, its tree line and its conflicted paths (at most 50, with their count), the fix step reports those sync values and, per finding path the lane sent, the size in characters of the diff of that path in the first-parent commits between the held tip and HEAD, a merge showing only its conflict resolution, and the same size for the whole range, never the diff text, and the tree of HEAD and the tree git itself produces by merging HEAD's first two parents (the first line of `git merge-tree --write-tree`), and the count and CRC32 of those paths like the ci step, and the paths the first-parent merge commits since the held tip change against their remerge (at most 50, with their count, left out when none), and the ci step reports the pull request head, the count of listed checks, the checks that are neither pass nor skipping, each required context of the base whose bucket is not pass, with its bucket or missing, the exit code of each gh call, left out when it is 0 and the call has nothing else to carry, and its error output where it is not empty, the positions, among the finding paths the lane sent, of those that the pull request changes (the lane passes the finding paths as the last argument but one, each percent-encoded and joined by commas, so the argument holds no quote or backslash a copier could break; the file listing is paginated and never relayed), the exit code and error output of the head's workflow run listing, and the checks red on head that failed on the base tip too; a failed read of the pull request (gh api pulls/<n>, which spends no GraphQL points) ends its reads. A call that fails with a network marker or with GitHub's rate limit is retried (see NETWORK_WAIT_SECONDS) and, still failing, puts its name into unreachable, and into limited when the rate limit refused it. Only when the verdict check (the check named quality / verdict) is red, the ci step also reads that job log with gh run view and relays two values of it, never its text: whether a line says that only declared loosenings made it red and only the operator merges it, and the quality merge command of its next line; the lines come in any order and carry a job name, a step and a timestamp before their text.
   // A git or gh call that fails with one of these untranslated network or rate-limit markers, or an aco brief call whose stdout JSON has the reason unreachable, is run again after this many seconds; the tests rewrite the constant to 0.
   const NETWORK_WAIT_SECONDS = 30
   // The printer waits at most twice, gives each call 60 s and stops retrying once its run nears 240 s, inside the 300 s Bash timeout RELAY_ASK asks for.
@@ -575,14 +575,16 @@ async function relayStep(A) {
     'api=lambda repo:"repos/"+(repo or "{owner}/{repo}")',
     'base=lambda r:json.loads(r["view"].stdout)["baseRefName"]',
     `retitle=lambda pr,item,repo:(("title",("gh","api",api(repo)+"/pulls/"+pr,"--jq",".title")),("item",("gh","api",api(repo)+"/issues/"+item,"--jq",".title")),("retitle",lambda r:("gh","api","-X","PATCH",api(repo)+"/pulls/"+pr,"-f","title="+r["item"].stdout.strip()) if r["title"].stdout.strip()==${JSON.stringify(CHECKPOINT_TITLE_PREFIX)}+item and r["item"].stdout.strip() else ("true",)))`,
-    'steps=dict(wait=lambda:(("rate",("gh","api","rate_limit")),),retitle=retitle,branch=lambda:(("branch",("git","branch","--show-current")),),scope=lambda item,branch:(("push",("git","push","origin",branch)),("remote",("git","rev-parse","origin/"+branch)),("head",("git","rev-parse","HEAD")),("parents",("git","rev-parse","HEAD^@")),("second_parent_in_main",("git","merge-base","--is-ancestor","HEAD^2","origin/main")),("brief",("aco","brief",item,"--json"))),record=lambda file:(("check",("aco","lane-record","check",file)),),begin=lambda item,run,*ref:((("start",("git","rev-parse","--verify",ref[0]+"^{commit}")),) if ref else ())+(("begin",lambda r:("aco","lane-record","begin",item,"--run",run,*(("--start-tip",r["start"].stdout.strip()) if ref else ()))),("lane",("aco","lane-record","show",item,"--json"))),add=lambda item,file,run,ref,*stages:(("end",("git","rev-parse","--verify",ref+"^{commit}")),("add",lambda r:("aco","lane-record","add",item,file,"--run",run,"--end-tip",r["end"].stdout.strip(),"--ran",*stages))),sync=lambda:(("head",("git","rev-parse","HEAD")),("parents",("git","rev-parse","HEAD^@")),("main",("git","merge-base","--is-ancestor","origin/main","HEAD"))),fix=lambda start,paths:(*steps["sync"](),*((f"diff{i}",("git","log","-p","--first-parent","--remerge-diff","--format=","%s..HEAD"%start,"--",p)) for i,p in enumerate(diffed)),("diffall",("git","log","-p","--first-parent","--remerge-diff","--format=","%s..HEAD"%start)),("tree",("git","rev-parse","HEAD^{tree}")),("mergetree",("git","merge-tree","--write-tree","HEAD^1","HEAD^2"))),ci=lambda pr,repo,paths:(("view",("gh","api",api(repo)+"/pulls/"+pr,"--jq","{headRefOid:.head.sha,baseRefName:.base.ref}")),("changed",("gh","api",api(repo)+"/pulls/"+pr+"/files","--paginate","--slurp")),("headruns",lambda r:("gh","run","list","--commit",json.loads(r["view"].stdout)["headRefOid"],"--json","status,name","--limit","100",*target(repo))),("checks",("gh","pr","checks",pr,"--json","name,bucket,link",*target(repo))),("rules",lambda r:("gh","api",api(repo)+"/rules/branches/"+base(r))),("runs",lambda r:("gh","api",api(repo)+"/commits/"+base(r)+"/check-runs","--paginate","--slurp"))))',
+    'steps=dict(wait=lambda:(("rate",("gh","api","rate_limit")),),retitle=retitle,branch=lambda:(("branch",("git","branch","--show-current")),),scope=lambda item,branch:(("push",("git","push","origin",branch)),("remote",("git","rev-parse","origin/"+branch)),("head",("git","rev-parse","HEAD")),("parents",("git","rev-parse","HEAD^@")),("second_parent_in_main",("git","merge-base","--is-ancestor","HEAD^2","origin/main")),("brief",("aco","brief",item,"--json"))),record=lambda file:(("check",("aco","lane-record","check",file)),),begin=lambda item,run,*ref:((("start",("git","rev-parse","--verify",ref[0]+"^{commit}")),) if ref else ())+(("begin",lambda r:("aco","lane-record","begin",item,"--run",run,*(("--start-tip",r["start"].stdout.strip()) if ref else ()))),("lane",("aco","lane-record","show",item,"--json"))),add=lambda item,file,run,ref,*stages:(("end",("git","rev-parse","--verify",ref+"^{commit}")),("add",lambda r:("aco","lane-record","add",item,file,"--run",run,"--end-tip",r["end"].stdout.strip(),"--ran",*stages))),sync=lambda:(("head",("git","rev-parse","HEAD")),("parents",("git","rev-parse","HEAD^@")),("main",("git","merge-base","--is-ancestor","origin/main","HEAD")),("conflict",("git","-c","core.quotePath=false","merge-tree","--write-tree","--name-only","--no-messages","HEAD","origin/main"))),fix=lambda start,paths:(*steps["sync"]()[:3],*((f"diff{i}",("git","log","-p","--first-parent","--remerge-diff","--format=","%s..HEAD"%start,"--",p)) for i,p in enumerate(diffed)),("diffall",("git","log","-p","--first-parent","--remerge-diff","--format=","%s..HEAD"%start)),("tree",("git","rev-parse","HEAD^{tree}")),("mergetree",("git","merge-tree","--write-tree","HEAD^1","HEAD^2")),("merged",("git","-c","core.quotePath=false","log","--first-parent","--merges","--remerge-diff","--name-only","--format=","%s..HEAD"%start))),ci=lambda pr,repo,paths:(("view",("gh","api",api(repo)+"/pulls/"+pr,"--jq","{headRefOid:.head.sha,baseRefName:.base.ref}")),("changed",("gh","api",api(repo)+"/pulls/"+pr+"/files","--paginate","--slurp")),("headruns",lambda r:("gh","run","list","--commit",json.loads(r["view"].stdout)["headRefOid"],"--json","status,name","--limit","100",*target(repo))),("checks",("gh","pr","checks",pr,"--json","name,bucket,link",*target(repo))),("rules",lambda r:("gh","api",api(repo)+"/rules/branches/"+base(r))),("runs",lambda r:("gh","api",api(repo)+"/commits/"+base(r)+"/check-runs","--paginate","--slurp"))))',
     'ran={"run":subprocess.CompletedProcess(("uuid",),0,uuid.uuid4().hex,"")} if step=="branch" else {}',
     '[ran.__setitem__(n,run(*(c(ran) if callable(c) else c))) for n,c in steps[step](*rest) if not any(ran[k].returncode for k in("view","start","end","begin") if k in ran)]',
     'verdict_jobs=[m[1] for c in (json.loads(ran["checks"].stdout) if step=="ci" and "checks" in ran and ran["checks"].returncode==0 else []) if c["name"]=="quality / verdict" and c["bucket"]=="fail" and (m:=re.search("/job/([0-9]+)",c.get("link") or ""))]',
     'ran.update({"log":run("gh","run","view","--job",verdict_jobs[0],*target(rest[1]),"--log")} if verdict_jobs else {})',
     'brief=json.loads(ran["brief"].stdout) if "brief" in ran and ran["brief"].returncode==0 else None',
     'claim=brief and brief["outside_claim"]',
-    'values={n:{"code":p.returncode,**({"err":e} if ((e:=" ".join(l for l in p.stderr.splitlines() if l[:5]!="hint:")[-300:]) or step!="ci") and (n!="log" or p.returncode) else {}),**({} if n in("brief","view","check","checks","rules","runs","log","changed","headruns","lane","rate") else {"out":p.stdout.strip()[:100]} if n[:4]!="diff" else {"size":len(p.stdout.strip())})} for n,p in ran.items()}',
+    'values={n:{"code":p.returncode,**({"err":e} if ((e:=" ".join(l for l in p.stderr.splitlines() if l[:5]!="hint:")[-300:]) or step!="ci") and (n!="log" or p.returncode) else {}),**({} if n in("brief","view","check","checks","rules","runs","log","changed","headruns","lane","rate","conflict","merged") else {"out":p.stdout.strip()[:100]} if n[:4]!="diff" else {"size":len(p.stdout.strip())})} for n,p in ran.items()}',
+    'listed=lambda n,skip:list(dict.fromkeys(l for l in ran[n].stdout.splitlines()[skip:] if l))',
+    'values.update(**({"conflict":dict(code=ran["conflict"].returncode,tree=(ran["conflict"].stdout.splitlines() or [""])[0],paths=listed("conflict",1)[:50],count=len(listed("conflict",1)))} if "conflict" in ran and ran["conflict"].returncode else {}),**({"merged":dict(code=ran["merged"].returncode,paths=listed("merged",0)[:50],count=len(listed("merged",0)))} if "merged" in ran and listed("merged",0) else {}))',
     'parsed=lambda n:json.loads(ran[n].stdout) if n in ran and ran[n].returncode==0 else None',
     'exhausted={n:r["reset"] for n,r in ((parsed("rate") or {}).get("resources") or {}).items() if r.get("remaining")==0}',
     'now=int(time.time());slept=max(0,min(max(exhausted.values())-now,sleep_most-int(time.monotonic()-start))) if exhausted and max(exhausted.values())-now<=sleep_within else 0;time.sleep(slept)',
@@ -710,7 +712,7 @@ async function relayStep(A) {
     )
   }
 
-  function fixerBrief({ facts, branch, pr, tip, source, blocking, foldIns }) {
+  function fixerBrief({ facts, branch, pr, tip, source, round, blocking, foldIns }) {
     const task = blocking
       ? `Then answer exactly these blocking findings from ${source}, and nothing else:\n${blocking}`
       : 'There are no blocking findings; your whole task is the follow-ups below:'
@@ -719,8 +721,7 @@ async function relayStep(A) {
       `One that is already done — left in the worktree by an earlier fixer, or already satisfied by the lane tip — you do not redo; list it in resolved with its evidence (the test, probe cell or line that satisfies it). ` +
       `One that the item body, the pull request body or an item comment answers goes in outside with foldIn set to its where; commit nothing for it. One whose fix would change behaviour outside the reviewed diff, take more than about ten lines or sit in a file this lane did not change you leave undone and list in declined with the reason. When that leaves you nothing to change, change nothing:\n${foldIns}`
       : ''
-    const ciRound = source.endsWith('CI')
-    const mergeBrief = mergeInstruction(blocking, ciRound)
+    const mergeBrief = mergeInstruction(blocking, isCiRound(round))
     const answersBrief = A.answers ? `The head's answers on findings it settled, to read before you answer one of them:\n${A.answers}\n` : ''
     return (
       `${facts}\nYou are a fresh fixer for PR #${pr} (lane tip ${tip}). ${mergeBrief} If the worktree already carries commits or uncommitted changes past that tip from an earlier fixer that ran out of turns, judge them, keep what is right, and continue from there. Commit each finding as soon as it is green. A blocking finding the lane tip already meets (for example by an earlier fixer's commit) is not redone: list it in resolved with its evidence, under its finding's number. List in noBehaviourChange the number of each blocking finding whose fix changes no behaviour of the code, and only those. Then commit what is green and return what is left in blockedReason with blocked true. ${task}${foldInBrief}\n\n` +
@@ -802,7 +803,7 @@ async function relayStep(A) {
 
   // A batch of CI findings only, every one disputed with counter-evidence and nothing committed, is a flake the lane re-runs once before the head sees it.
   function isFlakeDispute(fixed, blocking) {
-    if (A.flakeRerunUsed || A.source !== 'CI' || !fixed.unchanged) return false
+    if (A.flakeRerunUsed || A.round !== ROUND.ci || !fixed.unchanged) return false
     return blocking.every((_, index) => fixed.disputed.some(d => proves(d, index) && (d.counterEvidence || '').trim()))
   }
   const disputeFlakes = (fixed, blocking) => fixed.disputed.filter(d => blocking.some((_, index) => proves(d, index))).map(d => ({ where: blocking[d.finding - 1].where, text: `${d.text} (a flake; the fixer's counter-evidence: ${d.counterEvidence})`, owner: 'distributor', stage: 'ci' }))
@@ -861,7 +862,7 @@ async function relayStep(A) {
     const blocking = A.findings
     const foldIn = A.foldInEntries
     const heldTip = A.tip
-    const facts = { ...answer, regression: withReadRemovals(answer.regression || [], blocking, values, `${heldTip}..${values.head.out}`), tip: values.head.out, heldTip, unchanged: sameCommit(values.head.out, heldTip), mergeOnly: mergedOnto(values, heldTip) && cleanMerge(values) }
+    const facts = { ...answer, regression: withReadRemovals(answer.regression || [], blocking, values, `${heldTip}..${values.head.out}`), tip: values.head.out, heldTip, unchanged: sameCommit(values.head.out, heldTip), mergeOnly: mergedOnto(values, heldTip) && cleanMerge(values), mergedPaths: values.merged?.paths ?? [], mergedCut: (values.merged?.count ?? 0) > (values.merged?.paths ?? []).length }
     const { proofRejection, proofNotes } = judgeProofs(facts, blocking)
     const fixed = { ...facts, proofRejection, proofNotes }
     const relative = worktreeRelative(fixed.files || [])
@@ -892,7 +893,7 @@ async function relayStep(A) {
   const ANSWER_KINDS = {
     sync: { schema: SYNC_ANSWER, need: ['facts', 'branch', 'hasLedgers', 'hasGenerated'], brief: syncBrief },
     checkpoint: { schema: CHECKPOINT_ANSWER, need: ['facts', 'stage', 'startRef', 'branch', 'item', 'repo'], brief: checkpointBrief },
-    fix: { schema: FIX, need: ['facts', 'branch', 'pr', 'tip', 'source', 'blocking', 'findings', 'foldIns', 'foldInEntries', 'productionPaths', 'flakeRerunUsed', 'carried'], brief: fixerBrief },
+    fix: { schema: FIX, need: ['facts', 'branch', 'pr', 'tip', 'source', 'round', 'blocking', 'findings', 'foldIns', 'foldInEntries', 'productionPaths', 'flakeRerunUsed', 'carried'], brief: fixerBrief },
   }
   const answerKind = ANSWER_KINDS[A.answerKind]
   const kindMissing = (answerKind ? answerKind.need : ['brief']).filter(key => A[key] === undefined || A[key] === null)
@@ -1024,11 +1025,23 @@ function pendingReason(waiting) {
   return names.length ? `CI has not finished and the watcher's budget ended: ${names.join(', ')} still pending.` : null
 }
 
+// What a fix round is, which decides how its fixer merges main and whether a disputed CI batch is a flake: a review round, a batch the head carried over,
+// a batch of CI findings only, or CI findings together with the tester's or a carried batch. A sync conflict is no CI finding.
+const ROUND = { review: 'review', head: 'head', ci: 'ci', mixed: 'mixed' }
+const isCiRound = (round) => round === ROUND.ci || round === ROUND.mixed
+// The rules the CI reader writes itself and the watcher's "CI check <name>"; a carried batch holding one is a CI round.
+const isCiFinding = (f) => /^(CI check |CI must run on head$|GitHub runs no CI on a conflicting pull request$)/.test(f.rule || '')
+
+const RESOLVE_CONFLICTS = `resolve conflicts so both sides' behaviour holds, and set mergeResolvedLaneConflict true when files this lane changed needed resolution`
+// How a fixer resolves the merge, for every branch that merges main: a merge commit stays a pure merge, and sides that cannot both hold go back to the head.
+const MERGE_RULES = `Keep both sides' intent in every hunk. The merge commit holds only conflict resolutions and regenerated generated files; adaptations to main's change and fixes the static checks ask for go in commits after the merge, and the static checks run after the last merge. ` +
+  `When both sides change the meaning of the same lines incompatibly, run \`git merge --abort\`, commit nothing and answer blocked, naming the path, the hunk and both sides' intent.`
+
 // A round without blocking findings is no integration step: a CI fixer's mergeable finding owns the merge of main.
 function mergeInstruction(blocking, ciRound) {
   if (!blocking) return 'Do not merge origin/main: this round asks for the follow-ups only.'
-  if (ciRound) return `Merge origin/main only for a finding whose where is "mergeable" (a merge commit; resolve conflicts so both sides' behaviour holds, and set mergeResolvedLaneConflict true when files this lane changed needed resolution). For any other CI finding, fix the red in commits; when it lies outside the diff or passed on your own re-run, dispute it with your evidence (name the main commit that fixes it, if one does), commit nothing and never answer it with a merge of main: the head decides whether a merge answers it.`
-  return `Merge origin/main if it moved, before or after your fixes (a merge commit; resolve conflicts so both sides' behaviour holds, and set mergeResolvedLaneConflict true when files this lane changed needed resolution).`
+  if (ciRound) return `Merge origin/main only for a finding whose where is "mergeable" (a merge commit; ${RESOLVE_CONFLICTS}). ${MERGE_RULES} For any other CI finding, fix the red in commits; when it lies outside the diff or passed on your own re-run, dispute it with your evidence (name the main commit that fixes it, if one does), commit nothing and never answer it with a merge of main: the head decides whether a merge answers it.`
+  return `Merge origin/main if it moved, before or after your fixes (a merge commit; ${RESOLVE_CONFLICTS}). ${MERGE_RULES}`
 }
 
 function ciState(proven, names) {
@@ -1399,7 +1412,7 @@ const WHOLE_LANE = 'the whole lane: git diff origin/main...HEAD'
 // deltaFrom bounds it; with one the fixer's own range joins it. A fixer that changed nothing but answered in a body leaves no commit to
 // diff, so the re-check judges the whole tip against the bodies as they stand now.
 function firstReviewRange({ deltaFrom, answers, tip, item, pr, repoFlag, fix }) {
-  const delta = deltaFrom && `only this delta: git diff ${deltaFrom}..HEAD — fix commits made for earlier blocking findings that no reviewer has seen yet. They answer:\n${answers || '(see the commit messages in the range)'}`
+  const delta = deltaFrom && `only this delta: git log -p --first-parent --remerge-diff ${deltaFrom}..HEAD — fix commits made for earlier blocking findings that no reviewer has seen yet. They answer:\n${answers || '(see the commit messages in the range)'}`
   if (!fix) return { range: delta || WHOLE_LANE, from: deltaFrom }
   const nothingNewSinceDelta = !fix.range && !fix.answeredOutside && sameCommit(deltaFrom, tip)  // an unchanged tip at deltaFrom leaves an empty delta
   const asDelta = deltaFrom && !fix.checkpointMet && !nothingNewSinceDelta  // without deltaFrom the round covers the whole lane
@@ -1409,7 +1422,7 @@ function firstReviewRange({ deltaFrom, answers, tip, item, pr, repoFlag, fix }) 
       ? `${delta || WHOLE_LANE}. It includes the fixer's commits for the head's carried-over findings, described next as a delta to look at closely; review the whole lane, not only that delta:\n${fix.range}`
       : `${wholeLane}${fix.foldInsText}` }
   }
-  if (!fix.answeredOutside) return { from: fix.deltaFrom, range: `only this delta: git diff ${deltaFrom}..HEAD — fixes no reviewer has seen yet. They answer:\n${answers || ''}\n${fix.findingsText}${fix.proofNotes}${fix.foldInsText}` }
+  if (!fix.answeredOutside) return { from: fix.deltaFrom, range: `only this delta: git log -p --first-parent --remerge-diff ${deltaFrom}..HEAD — fixes no reviewer has seen yet.${fix.mergeLines || ''} They answer:\n${answers || ''}\n${fix.findingsText}${fix.proofNotes}${fix.foldInsText}` }
   const unchanged = sameCommit(deltaFrom, tip)
   const what = unchanged ? 'the unchanged tip' : 'the tip'
   const scope = unchanged ? 'no commit is new, so judge the whole tip: git diff origin/main...HEAD' : 'only this delta: git diff ' + deltaFrom + '..HEAD'
@@ -1547,6 +1560,32 @@ async function storeProvenPoint() {
   Object.assign(startedStages, { build: false, review: false, test: Boolean(pendingTest) })
   // A tester still running is work to come: its answer needs a begun segment, and a run killed meanwhile must leave one with no record.
   return pendingTest ? await beginRun() : null
+}
+
+// A merge conflict the sync could not resolve by its own rules (ledgers, generated files) becomes a finding for a fresh fixer, the way CI's conflict finding does.
+const SYNC_CONFLICT_RULE = 'the lane contains origin/main before its review'
+const TREE_LINE = /^[0-9a-f]{40}$/
+const isSyncConflictFinding = (f) => f.where === 'mergeable' && f.rule === SYNC_CONFLICT_RULE
+const conflictedPathsOf = (blocking) => blocking.filter(isSyncConflictFinding).flatMap(f => f.evidence.split(', '))
+
+// The conflict of the sync's merge-tree read, or null when the sync keeps its escalation: no conflict read (an error, a clean merge, a first line that is no tree),
+// or every conflicted path is one the sync's own rules resolve and the list is complete.
+function syncConflictOf(values, covered) {
+  const read = values.conflict
+  if (read?.code !== 1 || !TREE_LINE.test(read.tree || '') || !read.paths?.length) return null
+  const cut = read.count > read.paths.length
+  return !cut && read.paths.every(path => covered.includes(path)) ? null : { paths: read.paths, cut }
+}
+
+const syncConflictFinding = ({ paths, cut }) => ({ where: 'mergeable', kind: 'defect', text: `the lane conflicts with origin/main in ${paths.join(', ')}${cut ? ' and more' : ''}`, rule: SYNC_CONFLICT_RULE, evidence: paths.join(', ') })
+
+// The sentences that make a reviewer read a merge fix as the merge it is: each conflicted path against both sides, and every other path the merge commits change.
+function mergeReading({ conflicted, merged, mergedCut, generatedPaths }) {
+  if (!conflicted.length) return ''
+  const others = merged.filter(path => !conflicted.includes(path) && !generatedPaths.includes(path))
+  return ` The fix merges origin/main, which conflicted in ${conflicted.join(', ')}: for each of those paths check that main's change survives (git diff M^1 M -- <path>) and that the lane's survives (git diff M^2 M -- <path>), M being the merge commit; a lost intent or behaviour neither side had is blocking.` +
+    others.map(path => ` The merge commit also changes ${path}; check that it keeps main's change and adds no behaviour.`).join('') +
+    (mergedCut ? ' The list of paths the merge commits change is cut at 50: read the rest with git log --first-parent --merges --remerge-diff --name-only --format=.' : '')
 }
 
 // Runs the explorative end-to-end tester of one pull request tip, with a fallback agent, and returns its answer with the history entry, the follow-ups at the tested tip and the reason an empty verdict is unusable; the lane judges the rest itself.
@@ -1921,8 +1960,9 @@ const openResult = async (status, stage, extra = {}) => {
   }
 }
 
-const carriedOver = A.fixFirst || []
-const carriesBatch = carriedOver.length || A.foldIn?.length
+let carriedOver = A.fixFirst || []
+let carriesBatch = carriedOver.length || A.foldIn?.length
+let syncRaisedConflict = false  // the sync's conflict is the first finding of the carried batch
 if (A.deltaFrom && !SHA.test(A.deltaFrom)) return await openResult('failed', 'input', { reason: 'deltaFrom is not a sha' })
 // Without fixFirst or foldIn an empty delta has no reviewer to satisfy, and the lane cannot verify an earlier approval; the head names the honest resume. With either, the fixer's commits are the delta.
 if (sameCommit(A.deltaFrom, A.tip) && !carriesBatch) return await openResult('failed', 'input', { reason: 'deltaFrom is the tip, so the delta is empty and nothing is reviewed. Start the run again without deltaFrom for a full review, name the commit before the commits no reviewer has seen as deltaFrom, or pass fixFirst or foldIn for a run that starts at the fixer.' })
@@ -1990,7 +2030,14 @@ if (A.build) {
   if (!synced) return await openResult('failed', 'sync')
   const { values, problem } = synced
   if (problem || synced.commandFailed) return await openResult('failed', 'sync', { reason: `the sync's relay line ${problem || 'reports a failed git command'}${printedLine(synced)}` })
-  if (values.main.code === 1) return await openResult('escalated', 'sync', { reason: synced.note || `the lane tip ${values.head.out} does not contain origin/main, and the sync named no cause` })
+  if (values.main.code === 1) {
+    const conflict = syncConflictOf(values, [...LEDGERS, ...GENERATED.map(([path]) => path)])
+    if (!conflict) return await openResult('escalated', 'sync', { reason: synced.note || `the lane tip ${values.head.out} does not contain origin/main, and the sync named no cause` })
+    syncRaisedConflict = true
+    carriedOver = [syncConflictFinding(conflict), ...carriedOver.filter(f => f.where !== 'mergeable')]
+    carriesBatch = true
+    history.push({ after: 0, by: 'sync', conflict: conflict.paths, tip: values.head.out })
+  }
   if (!sameCommit(values.head.out, tip) && !mergedOnto(values, tip)) history.push({ after: 0, by: 'sync', from: tip, tip: values.head.out })
   tip = values.head.out
   syncedTip = tip
@@ -2070,13 +2117,15 @@ async function acceptFix(fixed, blocking, foldIn) {
     return { range: null, proofNotes: '', gateAgain: false, touchesProduction: false }
   }
   const edited = fixed.answeredOutside ? fixed.outside.map(o => (o.foldIn ? 'fold-in ' + o.foldIn : 'finding ' + o.finding) + ': ' + o.where).join('; ') : ''
+  const conflicted = conflictedPathsOf(blocking)
+  const mergeLines = mergeReading({ conflicted, merged: fixed.mergedPaths, mergedCut: fixed.mergedCut, generatedPaths: GENERATED.map(([path]) => path) })
   let delta = `only this delta, the fixer's own commits: git log -p --first-parent --remerge-diff ${fixed.heldTip}..${fixed.tip} (main's clean changes are not shown; a lane edit inside a merge of main is)`
   if (fixed.answeredOutside) delta = `no commit changed: read live what the fixer edited outside the tree (${edited}), the item body with gh issue view ${A.item}${R} --json body --jq .body, the pull request body with gh pr view ${pr}${R} --json body and an item comment with gh issue view ${A.item}${R} --comments`
-  else if (fixed.mergeResolvedLaneConflict) delta = `only this delta: git diff ${fixed.heldTip}..${fixed.tip} (it includes a merge of main whose conflicts in this lane's files were resolved by hand)`
-  const range = blocking.length ? `${delta}. It answers these findings:\n${listFindings(blocking)}${fixed.proofNotes}${foldInsInRange(foldIn, declinedBy)}`
-    : `${delta}. It answers these follow-ups:${fixed.proofNotes}${foldInsInRange(foldIn, declinedBy, '')}`
+  else if (fixed.mergeResolvedLaneConflict && !conflicted.length) delta = `only this delta: git diff ${fixed.heldTip}..${fixed.tip} (it includes a merge of main whose conflicts in this lane's files were resolved by hand)`
+  const range = blocking.length ? `${delta}.${mergeLines} It answers these findings:\n${listFindings(blocking)}${fixed.proofNotes}${foldInsInRange(foldIn, declinedBy)}`
+    : `${delta}.${mergeLines} It answers these follow-ups:${fixed.proofNotes}${foldInsInRange(foldIn, declinedBy, '')}`
   log(`fix ${spent.total}: ${fixed.heldTip.slice(0, 7)}..${tip.slice(0, 7)}`)
-  return { range, answeredOutside: fixed.answeredOutside, proofNotes: fixed.proofNotes, gateAgain: MATERIAL && fixed.touchesProduction, touchesProduction: fixed.touchesProduction }
+  return { range, mergeLines, answeredOutside: fixed.answeredOutside, proofNotes: fixed.proofNotes, gateAgain: MATERIAL && fixed.touchesProduction, touchesProduction: fixed.touchesProduction }
 }
 
 // Only a docs finding is provably behaviour-neutral; the third fix round on is rework (fixRound counts the running round in spent.total before it asks).
@@ -2098,7 +2147,7 @@ function recordFoldIns(foldIn, answered) {
   }
 }
 
-async function fixRound(blocking, source, budgetKey, carried, stage = budgetKey) {
+async function fixRound(blocking, source, round, budgetKey, carried, stage = budgetKey) {
   const tipBeforeFix = tip
   const stop = await fixRoundStop(blocking, budgetKey)
   if (stop) return { stop }
@@ -2114,7 +2163,7 @@ async function fixRound(blocking, source, budgetKey, carried, stage = budgetKey)
   const nonce = `fix-${spent.total}-${tipBeforeFix}`
   const answeredPaths = [...new Set(blocking.map(f => findingPath(f.where)).filter(Boolean))]
   const answered = await relay({ label: `fix-${spent.total}`, phase: 'Fix', step: 'fix', relayArgs: [`'${tipBeforeFix}'`, `'${pathsArgument(answeredPaths)}'`, `'${nonce}'`], sentPaths: answeredPaths, nonce, requiredKeys: ['head', 'parents', 'main'], answerKind: 'fix', agentOptions: { agentType: 'atelier:code-fixer', ...claudeRole(role) },
-    facts: `${laneFacts} ${driveFacts} ${rescopeFacts} ${localCheckFacts} ${turnFacts('fix')}`, pr, tip, source, branch: A.branch, blocking: listFindings(blocking), findings: blocking.map(f => ({ ...f, kind: kindOf(f) })), foldIns: listFoldIns(foldIn), foldInEntries: foldIn, productionPaths: PRODUCTION, flakeRerunUsed, carried: Boolean(carried), answers: A.answers })
+    facts: `${laneFacts} ${driveFacts} ${rescopeFacts} ${localCheckFacts} ${turnFacts('fix')}`, pr, tip, source, round, branch: A.branch, blocking: listFindings(blocking), findings: blocking.map(f => ({ ...f, kind: kindOf(f) })), foldIns: listFoldIns(foldIn), foldInEntries: foldIn, productionPaths: PRODUCTION, flakeRerunUsed, carried: Boolean(carried), answers: A.answers })
   if (!answered || (claudeLimit && answered.problem)) return { stop: await checkpointOrFail('fix', tipBeforeFix, { reason: `the fixer returned no result; inspect ${A.worktree} for commits past ${tip} and uncommitted work, then start a new run with pr and tip (and fixFirst for what is left)`, lastBlocking: blocking }, { blocking, carried, tipBeforeFix, foldIn }) }
   const early = await fixAnswerStop(answered, blocking, foldIn, tipBeforeFix)
   if (early) return early
@@ -2243,7 +2292,7 @@ async function reviseAfter(rr) {
     const stored = await storeProvenPoint()
     if (stored) return stored
   }
-  const f = await fixRound(blocking, 'the review', 'review', false, raised.some(r => r === GATE || r === STANDIN) ? 'gate' : 'review')
+  const f = await fixRound(blocking, 'the review', ROUND.review, 'review', false, raised.some(r => r === GATE || r === STANDIN) ? 'gate' : 'review')
   if (f.stop) return f.stop
   if (!f.range) return openResult('failed', 'review', { reason: 'a review finding was answered by a merge alone', lastBlocking: blocking })
   const next = f.gateAgain && !raised.includes(GATE) ? raised.concat([GATE]) : raised
@@ -2276,7 +2325,10 @@ if (synchronizedBeginStop) return synchronizedBeginStop
 let firstReview
 if (carriesBatch) {
   followups.push(...(A.foldIn || []))
-  const f = await fixRound(carriedOver, 'the head (carried over from the previous run)', 'test', true)
+  // A conflict alone is the CI budget's round, as CI's own conflict finding is; joined to a carried batch it is that batch's round.
+  const conflictOnly = syncRaisedConflict && carriedOver.length === 1
+  const carriedFrom = syncRaisedConflict ? (conflictOnly ? 'the sync' : 'the sync and the head (carried over from the previous run)') : 'the head (carried over from the previous run)'
+  const f = await fixRound(carriedOver, carriedFrom, carriedOver.some(isCiFinding) ? ROUND.mixed : ROUND.head, conflictOnly ? 'ci' : 'test', true)
   if (f.stop) return f.stop
   firstReview = firstReviewRange({ deltaFrom: A.deltaFrom, answers: A.answers, tip, item: A.item, pr, repoFlag: R, fix: { ...f, findingsText: listFindings(carriedOver), foldInsText: foldInsInRange(f.foldIn, f.declinedBy) } })
 } else {
@@ -2382,7 +2434,7 @@ while (true) {
   }
   const taken = takeTestBlocking()
   const ciBlocking = ci.green || sharedOnly ? [] : ownRed
-  const f = await fixRound(taken.concat(ciBlocking), taken.length ? 'the end-to-end test and CI' : 'CI', ci.green || sharedOnly ? 'test' : 'ci')
+  const f = await fixRound(taken.concat(ciBlocking), taken.length ? 'the end-to-end test and CI' : 'CI', taken.length ? ROUND.mixed : ROUND.ci, ci.green || sharedOnly ? 'test' : 'ci')
   if (f.stop) return f.stop
   if (f.flakes) {
     const ownJobs = (ci.red || []).filter(job => !shared.includes(job.name))

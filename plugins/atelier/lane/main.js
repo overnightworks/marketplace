@@ -250,8 +250,9 @@ const openResult = async (status, stage, extra = {}) => {
   }
 }
 
-const carriedOver = A.fixFirst || []
-const carriesBatch = carriedOver.length || A.foldIn?.length
+let carriedOver = A.fixFirst || []
+let carriesBatch = carriedOver.length || A.foldIn?.length
+let syncRaisedConflict = false  // the sync's conflict is the first finding of the carried batch
 if (A.deltaFrom && !SHA.test(A.deltaFrom)) return await openResult('failed', 'input', { reason: 'deltaFrom is not a sha' })
 // Without fixFirst or foldIn an empty delta has no reviewer to satisfy, and the lane cannot verify an earlier approval; the head names the honest resume. With either, the fixer's commits are the delta.
 if (sameCommit(A.deltaFrom, A.tip) && !carriesBatch) return await openResult('failed', 'input', { reason: 'deltaFrom is the tip, so the delta is empty and nothing is reviewed. Start the run again without deltaFrom for a full review, name the commit before the commits no reviewer has seen as deltaFrom, or pass fixFirst or foldIn for a run that starts at the fixer.' })
@@ -319,7 +320,14 @@ if (A.build) {
   if (!synced) return await openResult('failed', 'sync')
   const { values, problem } = synced
   if (problem || synced.commandFailed) return await openResult('failed', 'sync', { reason: `the sync's relay line ${problem || 'reports a failed git command'}${printedLine(synced)}` })
-  if (values.main.code === 1) return await openResult('escalated', 'sync', { reason: synced.note || `the lane tip ${values.head.out} does not contain origin/main, and the sync named no cause` })
+  if (values.main.code === 1) {
+    const conflict = syncConflictOf(values, [...LEDGERS, ...GENERATED.map(([path]) => path)])
+    if (!conflict) return await openResult('escalated', 'sync', { reason: synced.note || `the lane tip ${values.head.out} does not contain origin/main, and the sync named no cause` })
+    syncRaisedConflict = true
+    carriedOver = [syncConflictFinding(conflict), ...carriedOver.filter(f => f.where !== 'mergeable')]
+    carriesBatch = true
+    history.push({ after: 0, by: 'sync', conflict: conflict.paths, tip: values.head.out })
+  }
   if (!sameCommit(values.head.out, tip) && !mergedOnto(values, tip)) history.push({ after: 0, by: 'sync', from: tip, tip: values.head.out })
   tip = values.head.out
   syncedTip = tip
@@ -399,13 +407,15 @@ async function acceptFix(fixed, blocking, foldIn) {
     return { range: null, proofNotes: '', gateAgain: false, touchesProduction: false }
   }
   const edited = fixed.answeredOutside ? fixed.outside.map(o => (o.foldIn ? 'fold-in ' + o.foldIn : 'finding ' + o.finding) + ': ' + o.where).join('; ') : ''
+  const conflicted = conflictedPathsOf(blocking)
+  const mergeLines = mergeReading({ conflicted, merged: fixed.mergedPaths, mergedCut: fixed.mergedCut, generatedPaths: GENERATED.map(([path]) => path) })
   let delta = `only this delta, the fixer's own commits: git log -p --first-parent --remerge-diff ${fixed.heldTip}..${fixed.tip} (main's clean changes are not shown; a lane edit inside a merge of main is)`
   if (fixed.answeredOutside) delta = `no commit changed: read live what the fixer edited outside the tree (${edited}), the item body with gh issue view ${A.item}${R} --json body --jq .body, the pull request body with gh pr view ${pr}${R} --json body and an item comment with gh issue view ${A.item}${R} --comments`
-  else if (fixed.mergeResolvedLaneConflict) delta = `only this delta: git diff ${fixed.heldTip}..${fixed.tip} (it includes a merge of main whose conflicts in this lane's files were resolved by hand)`
-  const range = blocking.length ? `${delta}. It answers these findings:\n${listFindings(blocking)}${fixed.proofNotes}${foldInsInRange(foldIn, declinedBy)}`
-    : `${delta}. It answers these follow-ups:${fixed.proofNotes}${foldInsInRange(foldIn, declinedBy, '')}`
+  else if (fixed.mergeResolvedLaneConflict && !conflicted.length) delta = `only this delta: git diff ${fixed.heldTip}..${fixed.tip} (it includes a merge of main whose conflicts in this lane's files were resolved by hand)`
+  const range = blocking.length ? `${delta}.${mergeLines} It answers these findings:\n${listFindings(blocking)}${fixed.proofNotes}${foldInsInRange(foldIn, declinedBy)}`
+    : `${delta}.${mergeLines} It answers these follow-ups:${fixed.proofNotes}${foldInsInRange(foldIn, declinedBy, '')}`
   log(`fix ${spent.total}: ${fixed.heldTip.slice(0, 7)}..${tip.slice(0, 7)}`)
-  return { range, answeredOutside: fixed.answeredOutside, proofNotes: fixed.proofNotes, gateAgain: MATERIAL && fixed.touchesProduction, touchesProduction: fixed.touchesProduction }
+  return { range, mergeLines, answeredOutside: fixed.answeredOutside, proofNotes: fixed.proofNotes, gateAgain: MATERIAL && fixed.touchesProduction, touchesProduction: fixed.touchesProduction }
 }
 
 // Only a docs finding is provably behaviour-neutral; the third fix round on is rework (fixRound counts the running round in spent.total before it asks).
@@ -427,7 +437,7 @@ function recordFoldIns(foldIn, answered) {
   }
 }
 
-async function fixRound(blocking, source, budgetKey, carried, stage = budgetKey) {
+async function fixRound(blocking, source, round, budgetKey, carried, stage = budgetKey) {
   const tipBeforeFix = tip
   const stop = await fixRoundStop(blocking, budgetKey)
   if (stop) return { stop }
@@ -443,7 +453,7 @@ async function fixRound(blocking, source, budgetKey, carried, stage = budgetKey)
   const nonce = `fix-${spent.total}-${tipBeforeFix}`
   const answeredPaths = [...new Set(blocking.map(f => findingPath(f.where)).filter(Boolean))]
   const answered = await relay({ label: `fix-${spent.total}`, phase: 'Fix', step: 'fix', relayArgs: [`'${tipBeforeFix}'`, `'${pathsArgument(answeredPaths)}'`, `'${nonce}'`], sentPaths: answeredPaths, nonce, requiredKeys: ['head', 'parents', 'main'], answerKind: 'fix', agentOptions: { agentType: 'atelier:code-fixer', ...claudeRole(role) },
-    facts: `${laneFacts} ${driveFacts} ${rescopeFacts} ${localCheckFacts} ${turnFacts('fix')}`, pr, tip, source, branch: A.branch, blocking: listFindings(blocking), findings: blocking.map(f => ({ ...f, kind: kindOf(f) })), foldIns: listFoldIns(foldIn), foldInEntries: foldIn, productionPaths: PRODUCTION, flakeRerunUsed, carried: Boolean(carried), answers: A.answers })
+    facts: `${laneFacts} ${driveFacts} ${rescopeFacts} ${localCheckFacts} ${turnFacts('fix')}`, pr, tip, source, round, branch: A.branch, blocking: listFindings(blocking), findings: blocking.map(f => ({ ...f, kind: kindOf(f) })), foldIns: listFoldIns(foldIn), foldInEntries: foldIn, productionPaths: PRODUCTION, flakeRerunUsed, carried: Boolean(carried), answers: A.answers })
   if (!answered || (claudeLimit && answered.problem)) return { stop: await checkpointOrFail('fix', tipBeforeFix, { reason: `the fixer returned no result; inspect ${A.worktree} for commits past ${tip} and uncommitted work, then start a new run with pr and tip (and fixFirst for what is left)`, lastBlocking: blocking }, { blocking, carried, tipBeforeFix, foldIn }) }
   const early = await fixAnswerStop(answered, blocking, foldIn, tipBeforeFix)
   if (early) return early
@@ -572,7 +582,7 @@ async function reviseAfter(rr) {
     const stored = await storeProvenPoint()
     if (stored) return stored
   }
-  const f = await fixRound(blocking, 'the review', 'review', false, raised.some(r => r === GATE || r === STANDIN) ? 'gate' : 'review')
+  const f = await fixRound(blocking, 'the review', ROUND.review, 'review', false, raised.some(r => r === GATE || r === STANDIN) ? 'gate' : 'review')
   if (f.stop) return f.stop
   if (!f.range) return openResult('failed', 'review', { reason: 'a review finding was answered by a merge alone', lastBlocking: blocking })
   const next = f.gateAgain && !raised.includes(GATE) ? raised.concat([GATE]) : raised
@@ -605,7 +615,10 @@ if (synchronizedBeginStop) return synchronizedBeginStop
 let firstReview
 if (carriesBatch) {
   followups.push(...(A.foldIn || []))
-  const f = await fixRound(carriedOver, 'the head (carried over from the previous run)', 'test', true)
+  // A conflict alone is the CI budget's round, as CI's own conflict finding is; joined to a carried batch it is that batch's round.
+  const conflictOnly = syncRaisedConflict && carriedOver.length === 1
+  const carriedFrom = syncRaisedConflict ? (conflictOnly ? 'the sync' : 'the sync and the head (carried over from the previous run)') : 'the head (carried over from the previous run)'
+  const f = await fixRound(carriedOver, carriedFrom, carriedOver.some(isCiFinding) ? ROUND.mixed : ROUND.head, conflictOnly ? 'ci' : 'test', true)
   if (f.stop) return f.stop
   firstReview = firstReviewRange({ deltaFrom: A.deltaFrom, answers: A.answers, tip, item: A.item, pr, repoFlag: R, fix: { ...f, findingsText: listFindings(carriedOver), foldInsText: foldInsInRange(f.foldIn, f.declinedBy) } })
 } else {
@@ -711,7 +724,7 @@ while (true) {
   }
   const taken = takeTestBlocking()
   const ciBlocking = ci.green || sharedOnly ? [] : ownRed
-  const f = await fixRound(taken.concat(ciBlocking), taken.length ? 'the end-to-end test and CI' : 'CI', ci.green || sharedOnly ? 'test' : 'ci')
+  const f = await fixRound(taken.concat(ciBlocking), taken.length ? 'the end-to-end test and CI' : 'CI', taken.length ? ROUND.mixed : ROUND.ci, ci.green || sharedOnly ? 'test' : 'ci')
   if (f.stop) return f.stop
   if (f.flakes) {
     const ownJobs = (ci.red || []).filter(job => !shared.includes(job.name))

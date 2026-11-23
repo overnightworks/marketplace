@@ -325,7 +325,7 @@ const WHOLE_LANE = 'the whole lane: git diff origin/main...HEAD'
 // deltaFrom bounds it; with one the fixer's own range joins it. A fixer that changed nothing but answered in a body leaves no commit to
 // diff, so the re-check judges the whole tip against the bodies as they stand now.
 function firstReviewRange({ deltaFrom, answers, tip, item, pr, repoFlag, fix }) {
-  const delta = deltaFrom && `only this delta: git diff ${deltaFrom}..HEAD — fix commits made for earlier blocking findings that no reviewer has seen yet. They answer:\n${answers || '(see the commit messages in the range)'}`
+  const delta = deltaFrom && `only this delta: git log -p --first-parent --remerge-diff ${deltaFrom}..HEAD — fix commits made for earlier blocking findings that no reviewer has seen yet. They answer:\n${answers || '(see the commit messages in the range)'}`
   if (!fix) return { range: delta || WHOLE_LANE, from: deltaFrom }
   const nothingNewSinceDelta = !fix.range && !fix.answeredOutside && sameCommit(deltaFrom, tip)  // an unchanged tip at deltaFrom leaves an empty delta
   const asDelta = deltaFrom && !fix.checkpointMet && !nothingNewSinceDelta  // without deltaFrom the round covers the whole lane
@@ -335,7 +335,7 @@ function firstReviewRange({ deltaFrom, answers, tip, item, pr, repoFlag, fix }) 
       ? `${delta || WHOLE_LANE}. It includes the fixer's commits for the head's carried-over findings, described next as a delta to look at closely; review the whole lane, not only that delta:\n${fix.range}`
       : `${wholeLane}${fix.foldInsText}` }
   }
-  if (!fix.answeredOutside) return { from: fix.deltaFrom, range: `only this delta: git diff ${deltaFrom}..HEAD — fixes no reviewer has seen yet. They answer:\n${answers || ''}\n${fix.findingsText}${fix.proofNotes}${fix.foldInsText}` }
+  if (!fix.answeredOutside) return { from: fix.deltaFrom, range: `only this delta: git log -p --first-parent --remerge-diff ${deltaFrom}..HEAD — fixes no reviewer has seen yet.${fix.mergeLines || ''} They answer:\n${answers || ''}\n${fix.findingsText}${fix.proofNotes}${fix.foldInsText}` }
   const unchanged = sameCommit(deltaFrom, tip)
   const what = unchanged ? 'the unchanged tip' : 'the tip'
   const scope = unchanged ? 'no commit is new, so judge the whole tip: git diff origin/main...HEAD' : 'only this delta: git diff ' + deltaFrom + '..HEAD'

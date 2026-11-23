@@ -533,7 +533,6 @@ function pendingReason(waiting) {
   return names.length ? `CI has not finished and the watcher's budget ended: ${names.join(', ')} still pending.` : null
 }
 
-// The word the history keeps for one CI read.
 // A round without blocking findings is no integration step: a CI fixer's mergeable finding owns the merge of main.
 function mergeInstruction(blocking, ciRound) {
   if (!blocking) return 'Do not merge origin/main: this round asks for the follow-ups only.'
@@ -546,6 +545,7 @@ function ciState(proven, names) {
   return names ? `red (${names})` : 'not green'
 }
 
+// The word the history keeps for one CI read.
 function ciVerdict(proven, pending) {
   if (proven) return 'GREEN'
   return pending ? 'PENDING' : 'RED'

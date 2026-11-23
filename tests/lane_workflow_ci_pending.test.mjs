@@ -47,6 +47,14 @@ for (const [what, answer] of watcherFindingIgnored) {
   })
 }
 
+test('ci-pending: a watcher checks entry with only passed checks, an open head run and the required verdict missing ends awaiting-head at ci, PENDING, naming the run', async () => {
+  const { result, launchedAgents } = await driveCi(ciAnswer([check('lint', 'pass')], { green: false, failing: [pendingWatcherFinding] }), lane, { head_runs: [{ status: 'queued', name: 'CI' }] })
+  assert.deepEqual([result.status, result.stage], ['awaiting-head', 'ci'])
+  assert.ok(!launchedAgents.includes('fix-2'))
+  assert.deepEqual(result.history.find(entry => entry.by === 'ci-0'), { ...result.history.find(entry => entry.by === 'ci-0'), verdict: 'PENDING', blocking: [] })
+  assert.match(result.reason, /"CI"/)
+})
+
 test('ci-pending: a completed head run leaves a not green answer without pending checks to today\'s handling', async () => {
   const { result } = await driveCi(ciAnswer([check(required, 'pass')], { green: false }), lane, { head_runs: [{ status: 'completed', name: 'quality' }] })
   assert.notEqual(result.status, 'awaiting-head')

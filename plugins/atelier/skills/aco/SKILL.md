@@ -243,7 +243,7 @@ an earlier session holds (`aco status` prints the holder before its `(role)`) fi
 once, then lands, releases and rescopes as the holder (`specs/handover.spec.md`); never
 `--agent` or `ACO_AGENT='<holder>'`. A successor head takes an issue-less lane claim the same way with
 `aco handover --branch <branch> --from '<holder>' --reason '<why>'`, then lands,
-releases and rescopes it as the holder with no override (`specs/handover.spec.md`).
+releases and rescopes it as the holder with no override (specs/handover.spec.md HANDOVER-16..HANDOVER-22).
 
 1. Stand in a clean checkout of the default branch — the primary checkout, never the
    lane worktree.

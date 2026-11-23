@@ -201,7 +201,10 @@ This section holds contract rules: the fleet standard for which documents
 every repository carries. It covers every repository and is due at a
 repository's first landing after it that changes a tracked Markdown file. hal
 is exempt until it is archived; the exemption ends if its cutover is abandoned
-or hal is unfrozen.
+or hal is unfrozen. The rule form is due instead at the pull request that moves
+the repository's quality gate pin to the first quality release whose rule holds
+the list; that pull request converts its documents and test citations and
+records its list.
 
 | File | Type | Reader's question | Length | Picture | Carried |
 |---|---|---|---|---|---|
@@ -209,9 +212,11 @@ or hal is unfrozen.
 | `AGENTS.md` | Agent guidance | What must I know here that neither the code nor the global contract tells me? | ≤ 100 lines and ≤ 4 KiB; `CLAUDE.md` = `@AGENTS.md` | none | every repository |
 | `docs/VISION.md` | Vision | What does it do, what is its end state as if built anew, for whom today, what is it deliberately not? | ≤ 500 words | none | every repository |
 | `docs/ARCHITECTURE.md` | Architecture overview (arc42-lite) | Which parts, who talks to whom, where are the boundaries and the trust? | ≤ 2200 words, with the sections of the skeleton above | context and container diagram, one sequence diagram for the core flow | every repository; a small repository keeps it to a few lines and one diagram |
-| `docs/<contract>.md` | Reference | What exactly does the contract promise, and which test proves each rule? | one contract per file | state or sequence diagram only where the order is the rule | where others implement a contract, or where an app's own surface carries ruled sentences; generated where derivable; each rule carries the ID its test cites |
+| `docs/<contract>.md` | Reference | What exactly does the contract promise, and which test proves each rule? | one contract per file | state or sequence diagram only where the order is the rule | where others implement a contract, or where an app's own surface carries ruled sentences; generated where derivable; each rule carries the ID its test cites, in the rule form below |
 | `docs/runbooks/<task>.md` | Runbook | Which command when, and how do I see it worked? | one task, one screen | flow chart for diagnosis | always for infrastructure, elsewhere where a reader operates something |
 | `docs/mockups/<surface>.html` | Mockup | What does the blessed surface look like? | one file per surface | it is the picture | from the operator's blessing until the landing that finishes its surface |
+
+Rule form: a rule is a Markdown list item that opens with its ID and a colon, as `- CALL-26: ...`. An ID is capital letters and digits in hyphen-joined parts that end in a number (`CALL-26`, `REQ-AUTH-3`), unique in its repository and never reused. The rule's continuation lines, nested lists and tables belong to it, and a row of such a table whose first cell is an ID defines that ID; prose between rules defines nothing. A retired rule stays as `- CALL-26 (retired).` and needs no test. A test cites a rule at the head of its docstring, after an optional `Spec:`, or at the head of its name (`it("CALL-26: ...")`). The rules of a contract others implement are cited by the implementers' tests.
 
 A word budget counts every word of the file, split at white space, fenced code and diagrams included.
 

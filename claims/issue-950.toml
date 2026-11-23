@@ -1,0 +1,8 @@
+claim_id = "59f82f6bec7c40e7aa5a8cc4e1998ca1"
+agent = "Claude 1d929eb3-41d2-4e4c-9a0b-334204e51408"
+role = "builder"
+base = "580581e2df3ad468ee1df887f0859f1f1ffe9e7f"
+branch = "claude/issue-950-plugin-manifests-carry-no-version"
+scope = [".claude-plugin/marketplace.json", "AGENTS.md", "README.md", "plugins/atelier/.claude-plugin/plugin.json", "plugins/atelier/.codex-plugin/plugin.json", "tests"]
+opened_commit = "0efc9e078adf8b6284c56dcf98e4e2d5092629ba"
+whole_reason = "Dropping the version from the three manifests, the guard test against its return, the README sentence and the AGENTS.md rule it replaces belong together: any part alone either freezes updates or leaves the rule demanding a version that no longer exists."

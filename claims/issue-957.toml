@@ -1,0 +1,7 @@
+claim_id = "e1e5216a783a4aa1b8af104090922549"
+agent = "Claude 1d929eb3-41d2-4e4c-9a0b-334204e51408"
+role = "builder"
+base = "ad24385c62121d27195d7f5bcfc60422b0e78790"
+branch = "claude/issue-957-contract-allows-live-checks"
+scope = ["instructions/AGENTS.md"]
+opened_commit = "6ddf23182e2b6359e1a7c438a4d3af90197368e9"

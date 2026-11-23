@@ -393,6 +393,14 @@ async function fixRoundStop(blocking, budgetKey) {
 // A batch of CI findings only, every one disputed with counter-evidence and nothing committed, is a flake the lane re-runs once before the head sees it.
 let flakeRerunUsed = false
 
+// The fixer's returned tip becomes the lane tip; it is unreviewed when the fixer committed anything. Returns whether it did.
+function adoptFixerTip(fixed) {
+  tip = fixed.tip
+  const committed = !fixed.unchanged
+  history.push({ after: spent.total, by: 'fix', tip: fixed.tip, reviewed: !committed })
+  return committed
+}
+
 // Takes the fixer's tip and names the delta the reviewers see next, or none when a clean merge of main was the whole fix.
 async function acceptFix(fixed, blocking, foldIn) {
   const declinedBy = fixed.foldInDeclined
@@ -617,7 +625,8 @@ if (carriesBatch) {
   followups.push(...(A.foldIn || []))
   // A conflict alone is the CI budget's round, as CI's own conflict finding is; joined to a carried batch it is that batch's round.
   const conflictOnly = syncRaisedConflict && carriedOver.length === 1 && !A.foldIn?.length
-  const carriedFrom = syncRaisedConflict ? (conflictOnly ? 'the sync' : 'the sync and the head (carried over from the previous run)') : 'the head (carried over from the previous run)'
+  let carriedFrom = 'the head (carried over from the previous run)'
+  if (syncRaisedConflict) carriedFrom = conflictOnly ? 'the sync' : 'the sync and the head (carried over from the previous run)'
   const f = await fixRound(carriedOver, carriedFrom, carriedOver.some(isCiFinding) ? ROUND.mixed : ROUND.head, conflictOnly ? 'ci' : 'test', true)
   if (f.stop) return f.stop
   firstReview = firstReviewRange({ deltaFrom: A.deltaFrom, answers: A.answers, tip, item: A.item, pr, repoFlag: R, fix: { ...f, findingsText: listFindings(carriedOver), foldInsText: foldInsInRange(f.foldIn, f.declinedBy) } })

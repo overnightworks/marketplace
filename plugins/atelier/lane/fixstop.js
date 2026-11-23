@@ -1,13 +1,5 @@
 // How a fix round ends without an accepted fix: the stop and hand-over answers the fixer can return.
 
-// The fixer's returned tip becomes the lane tip; it is unreviewed when the fixer committed anything. Returns whether it did.
-function adoptFixerTip(fixed) {
-  tip = fixed.tip
-  const committed = !fixed.unchanged
-  history.push({ after: spent.total, by: 'fix', tip: fixed.tip, reviewed: !committed })
-  return committed
-}
-
 // A disputed finding is a disagreement between two fresh agents about evidence: the head decides it.
 async function awaitHeadOnDispute(fixed, blocking) {
   disputed.push(...fixed.disputed)

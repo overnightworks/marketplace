@@ -449,6 +449,20 @@ function recordFoldIns(foldIn, answered) {
   }
 }
 
+// What the fixer says it found already done is only reported to the head: an unaccepted fix folds nothing in.
+const unaccepted = (answered, result) => ({ stop: (answered.resolved || []).length ? { ...result, resolved: answered.resolved } : result })
+
+// The stop or flake result of an answer that carries no accepted fix, or null when the fix goes on to acceptance.
+async function fixAnswerStop(answered, blocking, foldIn, tipBeforeFix) {
+  // A blocked fixer may have run out of turns before the relay line, and the blocked answer reads no tip.
+  if (answered.blocked) return unaccepted(answered, await openResult('escalated', 'fix', { reason: `${answered.blockedReason} Start a new run with the arguments in resume and the branch's current head as tip: a blocked answer reads no tip.`, resume: { ...claudeLimitResume('fix', { lastBlocking: blocking, withoutTip: true, foldIn: blocking.length ? [] : foldIn }), deltaFrom: tipBeforeFix } }))
+  if (answered.problem || answered.commandFailed) return { stop: await openResult('failed', 'fix', { reason: `the fixer's relay line ${answered.problem || 'reports a failed git command'}${printedLine(answered)}` }) }
+  if (answered.outcome === 'flake') return { flakes: answered.flakes, fixed: answered }
+  if (answered.outcome === 'disputed') return unaccepted(answered, await awaitHeadOnDispute(answered, blocking))
+  if (answered.outcome === 'rejected') return unaccepted(answered, answered.mergeOnly ? await awaitHeadOnRejectedMerge(answered) : await openResult('failed', 'fix', answered.rejection))
+  return null
+}
+
 async function fixRound(blocking, source, budgetKey, carried, stage = budgetKey) {
   const tipBeforeFix = tip
   const stop = await fixRoundStop(blocking, budgetKey)
@@ -467,20 +481,14 @@ async function fixRound(blocking, source, budgetKey, carried, stage = budgetKey)
   const answered = await relay({ label: `fix-${spent.total}`, phase: 'Fix', step: 'fix', relayArgs: [`'${tipBeforeFix}'`, `'${pathsArgument(answeredPaths)}'`, `'${nonce}'`], sentPaths: answeredPaths, nonce, requiredKeys: ['head', 'parents', 'main'], answerKind: 'fix', agentOptions: { agentType: 'atelier:code-fixer', ...claudeRole(role) },
     facts: `${laneFacts} ${driveFacts} ${rescopeFacts} ${localCheckFacts} ${turnFacts('fix')}`, pr, tip, source, branch: A.branch, blocking: listFindings(blocking), findings: blocking.map(f => ({ ...f, kind: kindOf(f) })), foldIns: listFoldIns(foldIn), foldInEntries: foldIn, productionPaths: PRODUCTION, flakeRerunUsed, carried: Boolean(carried), answers: A.answers })
   if (!answered || (claudeLimit && answered.problem)) return { stop: await checkpointOrFail('fix', tipBeforeFix, { reason: `the fixer returned no result; inspect ${A.worktree} for commits past ${tip} and uncommitted work, then start a new run with pr and tip (and fixFirst for what is left)`, lastBlocking: blocking }, { blocking, carried, tipBeforeFix, foldIn }) }
-  // What the fixer says it found already done is only reported to the head: an unaccepted fix folds nothing in.
-  const unaccepted = (result) => ({ stop: (answered.resolved || []).length ? { ...result, resolved: answered.resolved } : result })
-  // A blocked fixer may have run out of turns before the relay line, and the blocked answer reads no tip.
-  if (answered.blocked) return unaccepted(await openResult('escalated', 'fix', { reason: `${answered.blockedReason} Start a new run with the arguments in resume and the branch's current head as tip: a blocked answer reads no tip.`, resume: { ...claudeLimitResume('fix', { lastBlocking: blocking, withoutTip: true, foldIn: blocking.length ? [] : foldIn }), deltaFrom: tipBeforeFix } }))
-  if (answered.problem || answered.commandFailed) return { stop: await openResult('failed', 'fix', { reason: `the fixer's relay line ${answered.problem || 'reports a failed git command'}${printedLine(answered)}` }) }
-  if (answered.outcome === 'flake') return { flakes: answered.flakes, fixed: answered }
-  if (answered.outcome === 'disputed') return unaccepted(await awaitHeadOnDispute(answered, blocking))
-  if (answered.outcome === 'rejected') return unaccepted(answered.mergeOnly ? await awaitHeadOnRejectedMerge(answered) : await openResult('failed', 'fix', answered.rejection))
+  const early = await fixAnswerStop(answered, blocking, foldIn, tipBeforeFix)
+  if (early) return early
   const accepted = await acceptFix(answered, blocking, foldIn)
-  if (accepted.stop) return unaccepted(accepted.stop)
+  if (accepted.stop) return unaccepted(answered, accepted.stop)
   history.push(...fixProofEntries(answered, blocking, spent.total))
   const { deltaFrom, note } = scopeOrigin(carried, tipBeforeFix)
   const scopeStop = await pushAndCheckScope(`scope-${spent.total}`, { note, deltaFrom })
-  if (scopeStop) return unaccepted(scopeStop.stop)
+  if (scopeStop) return unaccepted(answered, scopeStop.stop)
   // A clean merge of main alone carries no lane change, so it cannot carry a fold-in either; an unchanged tip carries
   // them only when the fixer proved each already satisfied. A scope stop folds nothing in.
   if (accepted.range || answered.settled) {

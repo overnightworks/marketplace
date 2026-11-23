@@ -1,0 +1,7 @@
+claim_id = "c374f90e78fa48df8c88b1bcad420b1a"
+agent = "Claude 1d929eb3-41d2-4e4c-9a0b-334204e51408"
+role = "builder"
+base = "580581e2df3ad468ee1df887f0859f1f1ffe9e7f"
+branch = "claude/issue-964-standards-index-lists-proof-and-ci-time"
+scope = ["docs/standards.md"]
+opened_commit = "04fe3e8c45eeaf4453bc7ef5b3a84b44355384b1"

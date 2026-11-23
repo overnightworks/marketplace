@@ -12,7 +12,6 @@
 
 - Never edit `plugins/atelier/.codex/agents/`; change the Markdown in `plugins/atelier/agents/` and run `sync_agents.py`.
 - Never edit `plugins/atelier/workflows/lane.js`; change `plugins/atelier/lane/` and run `build_lane.mjs`.
-- A change to the plugin raises `version` in `plugins/atelier/.claude-plugin/plugin.json` and `.claude-plugin/marketplace.json`, and in `plugins/atelier/.codex-plugin/plugin.json` to the same number with `+codex.<UTC YYYYMMDDHHMMSS>`.
 
 ## Owners
 

@@ -398,7 +398,8 @@ async function awaitHeadOnDispute(fixed, blocking) {
 }
 
 // The push of a merge of main cannot be undone, so a rejected merge-only answer leaves the merged tip to the head instead of failing the lane.
-async function awaitHeadOnRejectedMerge(fixed, rejection) {
+async function awaitHeadOnRejectedMerge(fixed) {
+  const { rejection } = fixed
   adoptFixerTip(fixed)
   return openResult('awaiting-head', 'fix', { ...rejection, reason: `${rejection.reason}; the fixer pushed a merge of main, so the branch head is now ${fixed.tip}: start a new run with pr ${pr} and tip ${fixed.tip}` })
 }
@@ -466,7 +467,7 @@ async function fixRound(blocking, source, budgetKey, carried, stage = budgetKey)
   if (answered.problem || answered.commandFailed) return { stop: await openResult('failed', 'fix', { reason: `the fixer's relay line ${answered.problem || 'reports a failed git command'}${printedLine(answered)}` }) }
   if (answered.outcome === 'flake') return { flakes: answered.flakes, fixed: answered }
   if (answered.outcome === 'disputed') return unaccepted(await awaitHeadOnDispute(answered, blocking))
-  if (answered.outcome === 'rejected') return unaccepted(answered.mergeOnly ? await awaitHeadOnRejectedMerge(answered, answered.rejection) : await openResult('failed', 'fix', answered.rejection))
+  if (answered.outcome === 'rejected') return unaccepted(answered.mergeOnly ? await awaitHeadOnRejectedMerge(answered) : await openResult('failed', 'fix', answered.rejection))
   const accepted = await acceptFix(answered, blocking, foldIn)
   if (accepted.stop) return unaccepted(accepted.stop)
   history.push(...fixProofEntries(answered, blocking, spent.total))

@@ -1562,7 +1562,7 @@ async function storeProvenPoint() {
 const SYNC_CONFLICT_RULE = 'the lane contains origin/main before its review'
 const TREE_LINE = /^[0-9a-f]{40}$/
 const isSyncConflictFinding = (f) => f.where === 'mergeable' && f.rule === SYNC_CONFLICT_RULE
-const conflictedPathsOf = (blocking) => blocking.filter(isSyncConflictFinding).flatMap(f => f.paths)
+const conflictedPathsOf = (blocking) => blocking.filter(isSyncConflictFinding).flatMap(f => f.paths ?? [])
 
 // The conflict of the sync's merge-tree read, or null when the sync keeps its escalation: no conflict read (an error, a clean merge, a first line that is no tree),
 // or every conflicted path is one the sync's own rules resolve and the list is complete.

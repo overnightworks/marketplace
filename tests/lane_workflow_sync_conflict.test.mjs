@@ -106,6 +106,17 @@ test('a conflict list cut at fifty paths goes to the fixer', async () => {
   assert.ok(agentCalls['fix-1'].prompt.includes('docs/part-49.md'))
 })
 
+test('a conflicted path containing a comma is named whole to the fixer and the reviewer', async () => {
+  const commaPath = 'docs/a, b.md'
+  const mergeOfCommaPath = { ...resolvedMerge, files: [commaPath], merge_tree: mergeTreeOf(commaPath), merge_paths: [commaPath, alsoChanged] }
+  const { agentCalls } = await runLane(resumeArgs, { sync: conflictingSync(commaPath), 'fix-1': mergeOfCommaPath, ...readyAfterMerge })
+  assert.ok(agentCalls['fix-1'].prompt.includes(`the lane conflicts with origin/main in ${commaPath}`))
+  const range = agentCalls['r1-review'].prompt
+  assert.ok(range.includes(`conflicted in ${commaPath}:`), range)
+  assert.ok(range.includes(`The merge commit also changes ${alsoChanged}`), range)
+  assert.ok(!range.includes(`The merge commit also changes ${commaPath}`), range)
+})
+
 test('a sync that merges main cleanly or already contains it raises no conflict finding', async () => {
   const { launchedAgents } = await runLane(resumeArgs, { sync: {}, ...reachesTheEnd, 'r0-review': APPROVE })
   assert.ok(!launchedAgents.includes('fix-1'))

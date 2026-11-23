@@ -1,8 +1,0 @@
-claim_id = "7cee5eb0d5cd425eb85637fc8195c416"
-agent = "Claude 1d929eb3-41d2-4e4c-9a0b-334204e51408"
-role = "builder"
-base = "943c31a528a96a7e8130e969f309e8bd55352568"
-branch = "claude/issue-427-sync-conflict-hands-merge-to-fixer"
-scope = ["plugins/atelier/lane", "plugins/atelier/workflows/lane.js", "plugins/atelier/workflows/lane.md", "tests"]
-opened_commit = "7f5aaa80aa447db5f78e66a75c22e541cca919d7"
-whole_reason = "The sync step's conflict path, the fixer brief it starts, the review's delta framing, lane.md and their harness tests change together, or the lane and its reference disagree."

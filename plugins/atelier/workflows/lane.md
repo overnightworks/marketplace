@@ -188,9 +188,10 @@ A head that finds a run stopped awaiting-head, or lost, reads `aco lane-record s
   passed on the tip, `requiredHeadActions` name the head's way without a new run:
   read the tip's check runs over REST and land once every one is green. The printer reads the pull request over REST (`gh api`), which spends no
   GraphQL points; `gh pr checks` stays on GraphQL.
-- A CI answer that is not green and names no failing check, while the printed
-  listing shows no failed check but a pending one or a run of the head not
-  completed (the watcher's cap ended in a queue), ends the lane awaiting-head at
+- A CI answer that is not green, while the printed listing shows no failed check
+  but a pending one or a run of the head not completed (the watcher's cap ended
+  in a queue), whatever failing entry the watcher answers, unless it is
+  `mergeable`, ends the lane awaiting-head at
   `ci`: no fixer starts, no fix round is spent, the history records the step as
   `PENDING`, and the reason names the pending checks. Resume with `pr` and `tip`
   once CI has finished.
@@ -203,6 +204,15 @@ A head that finds a run stopped awaiting-head, or lost, reads `aco lane-record s
   limit, and no role moves to another model or provider. The same holds for an
   agent the runtime ends with null while a probe agent of the same model ends
   with null too.
+- In a CI round the fixer merges main only for a `mergeable` finding; any other
+  CI finding it fixes in commits, or disputes with evidence when the red lies
+  outside the diff or passed on its own re-run, and commits nothing for a
+  dispute. A merge-only answer to any other batch, in any round, is rejected
+  ("the fixer only merged main and fixed nothing"), and so is a merge-only answer
+  rejected on its proof. The merge is already pushed, so the lane adopts the
+  merged tip and ends awaiting-head at `fix`; the reason names that tip, and the
+  resume is a new run with `pr` and it as `tip`. Other rejections end failed at
+  `fix`.
 - A fixer that answers its whole batch in the pull request body or an item
   comment and commits nothing is no failure.
   The fix brief tells it to report such an answer in `outside`, never as

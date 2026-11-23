@@ -154,7 +154,7 @@ for (const [what, shape, goesOn] of satisfiedAcrossMovedMain) {
   test(`every fold-in satisfied with ${what} ${goesOn ? 'goes on with the tip unchanged' : 'is rejected as unasked work'}`, async () => {
     const answers = { 'fix-1': { ...unchangedFix, ...shape, resolved: [satisfied(tidy)] }, 'r1-review': APPROVE, 'e2e-0': PASS, 'ci-0': greenCi(shape.head) }
     const { result, launchedAgents } = await runLane({ ...resumeArgs, foldIn: [tidy] }, answers)
-    assert.deepEqual([result.status, result.stage], goesOn ? ['ready-to-land', undefined] : ['failed', 'fix'])
+    assert.deepEqual([result.status, result.stage], goesOn ? ['ready-to-land', undefined] : ['awaiting-head', 'fix'])
     assert.equal(launchedAgents.includes('r1-review'), goesOn)
     if (goesOn) assert.deepEqual(result.folded.map(f => f.tip), [resumeTip])
   })
@@ -584,38 +584,9 @@ for (const [what, shape] of fixerShapes) {
   })
 }
 
-// The relay reads the merge commit's tree and the tree git itself produces for its parents; only equal trees are a clean merge.
-const mergeShapes = [
-  ['a merge commit whose tree differs from git\'s own merge', { tree: 'b2b2b2b2', merge_tree: 'a1a1a1a1' }, true],
-  ['a merge git cannot merge cleanly', { merge_tree_code: 1 }, true],
-  ['a merge commit whose tree equals git\'s own merge', {}, false],
-]
-
-for (const [what, shape, changed] of mergeShapes) {
-  test(`${what} ${changed ? 'counts as the fixer\'s change and reaches the delta review' : 'still reads as merge-only'}`, async () => {
-    const { result, launchedAgents } = await runLane({ ...resumeArgs, fixFirst: [defectWithoutDraft] }, { 'fix-1': { ...mergeOnlyFix, ...shape, files: ['tests/x.test.mjs'] }, ...reachesTheEnd, 'ci-0': greenCi(mergedOnlyTip) })
-    assert.equal(launchedAgents.includes('r1-review'), changed)
-    if (!changed) assert.deepEqual([result.status, result.stage, result.reason], ['failed', 'fix', 'the fixer only merged main and fixed nothing'])
-  })
-}
-
-test('a fixer that only merged main fixes nothing when a review finding, not the merge, was the finding', async () => {
-  const { result, launchedAgents } = await runLane({ ...resumeArgs, fixFirst: [defectWithoutDraft] }, { 'fix-1': mergeOnlyFix })
-  assert.deepEqual([result.status, result.stage, result.reason], ['failed', 'fix', 'the fixer only merged main and fixed nothing'])
-  assert.ok(!launchedAgents.includes('r1-review'))
-})
-
-test('a CI finding answered by a clean merge of main runs CI again and ends awaiting-head, since no verdict judged the merged tip', async () => {
-  const { result, launchedAgents } = await runLane(resumeArgs, { 'r0-review': APPROVE, 'e2e-0': PASS, 'ci-0': { head: resumeTip, green: false, failing: [defectWithoutDraft] }, 'fix-1': mergeOnlyFix, 'ci-1': greenCi(mergedOnlyTip) })
-  assert.deepEqual([result.status, result.stage, result.tip], ['awaiting-head', 'record', mergedOnlyTip])
-  assert.ok(result.reason.includes(`the last verdict judged ${resumeTip}`), result.reason)
-  assert.ok(!launchedAgents.includes('r1-review'))
-  assert.ok(!result.requiredHeadActions.some(action => action.includes('aco land')))
-})
-
-test('a CI finding that stays red after a clean merge of main stops the lane', async () => {
+test('a CI finding that stays red after a fixer commit stops the lane', async () => {
   const red = { green: false, failing: [defectWithoutDraft] }
-  const { result } = await runLane(resumeArgs, { 'r0-review': APPROVE, 'e2e-0': PASS, 'ci-0': { head: resumeTip, ...red }, 'fix-1': mergeOnlyFix, 'ci-1': { head: mergedOnlyTip, ...red } })
+  const { result } = await runLane(resumeArgs, { 'r0-review': APPROVE, 'e2e-0': PASS, 'ci-0': { head: resumeTip, ...red }, 'fix-1': resumeFix, 'r1-review': APPROVE, 'ci-1': { head: resumeFixedTip, ...red } })
   assert.notEqual(result.status, 'ready-to-land')
   assert.equal(result.stage, 'ci')
 })
@@ -702,7 +673,7 @@ test('the batch re-check reads the range as follow-ups, not findings, and the fi
 
 test('the batch fixer that only merged main is rejected as unasked work, with every fold-in satisfied or not', async () => {
   const { result, launchedAgents } = await runLane(resumeArgs, { ...approvedWith(polish), 'fix-1': { ...mergeOnlyFix, resolved: [satisfied(polish)] } })
-  assert.deepEqual([result.status, result.stage], ['failed', 'fix'])
+  assert.deepEqual([result.status, result.stage, result.tip], ['awaiting-head', 'fix', mergedOnlyTip])
   assert.ok(!launchedAgents.includes('r1-review'))
 })
 

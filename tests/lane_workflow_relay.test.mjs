@@ -326,7 +326,9 @@ for (const [what, workFor, shown] of fixShapes) {
 test('AC-merge-only-real-git: a fixer that only merged main fixes nothing for a review finding, and no review starts', async (t) => {
   const lane = laneRepository(t, { onMain: true })
   const { result, launchedAgents } = await runFixStep(lane, () => { lane.advanceMain('main-file'); mergeMain(lane) })
-  assert.deepEqual([result.status, result.stage, result.reason], ['failed', 'fix', 'the fixer only merged main and fixed nothing'])
+  assert.deepEqual([result.status, result.stage], ['awaiting-head', 'fix'])
+  assert.match(result.reason, /^the fixer only merged main and fixed nothing/)
+  assert.equal(result.tip, lane.git(lane.worktree, 'rev-parse', 'HEAD'))
   assert.ok(!launchedAgents.includes('r1-review'))
 })
 
@@ -583,8 +585,9 @@ test('AC-removal-merge-real-git: a merge of main that changes the finding path i
     lane.advanceMain('t.py')
     mergeMain(lane)
   }, [defectWithoutDraft], [removalOfT])
-  assert.deepEqual([result.status, result.stage], ['failed', 'fix'])
+  assert.deepEqual([result.status, result.stage], ['awaiting-head', 'fix'])
   assert.match(result.reason, /t\.py:1.*no diff/)
+  assert.equal(result.tip, lane.git(lane.worktree, 'rev-parse', 'HEAD'))
   assert.ok(!launchedAgents.includes('r1-review'))
 })
 

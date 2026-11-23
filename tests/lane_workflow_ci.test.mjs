@@ -669,7 +669,7 @@ test('ci-fixer-at-once: a lock-busy tester does not hold a red CI back from the 
 })
 
 test('ci-fixer-at-once: a retry that is lock-busy again while CI is red again goes to the head with the red check named', tolerates, async () => {
-  const answers = { 'r0-review': APPROVE, 'e2e-0': lockBusy, 'e2e-1': lockBusy, 'ci-0': roundRed(0), 'ci-1': roundRed(1), 'fix-1': roundFix(1) }
+  const answers = { 'r0-review': APPROVE, 'e2e-0': lockBusy, 'e2e-1': lockBusy, 'ci-0': roundRed(0), 'ci-1': roundRed(1), 'fix-1': roundFix(1), 'r1-review': APPROVE }
   const { result, launchedAgents } = await runLane(resumeArgs, answers)
   assert.deepEqual([result.status, result.stage], ['awaiting-head', 'test'])
   assert.match(result.reason, /red[\s\S]*t\.py:1/)

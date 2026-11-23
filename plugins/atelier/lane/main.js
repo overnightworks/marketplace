@@ -273,8 +273,9 @@ async function checkpointOrFail(stage, startRef, failure, fixer) {
   const origin = fixer ? scopeOrigin(fixer.carried, fixer.tipBeforeFix) : { note: '' }
   const unreviewed = { ...origin, note: `The tip is an unfinished checkpoint no reviewer has seen. ${origin.note}`.trim() }
   const pushStop = await pushAndCheckScope(`scope-checkpoint-${stage}-${spent.total}`, unreviewed)
+  const fixerResume = fixer?.blocking.length ? { fixFirst: fixer.blocking } : { foldIn: fixer?.foldIn, ...(origin.deltaFrom && { deltaFrom: origin.deltaFrom }) }
   const resumeFix = fixer
-    ? (fixer.blocking.length ? { fixFirst: fixer.blocking } : { foldIn: fixer.foldIn, ...(origin.deltaFrom && { deltaFrom: origin.deltaFrom }) })
+    ? fixerResume
     : { fixFirst: [{ where: CHECKPOINT_FINDING_WHERE, kind: 'defect', text: 'The builder ended without a result, so the checkpoint is unfinished: complete the build brief against it; when it already meets the brief with its checks green, change nothing and report briefMet. The brief follows.', rule: CHECKPOINT_FINDING_WHERE, evidence: `the builder's work is committed on ${A.branch} at ${tip} and the brief is not yet met:\n${A.build}` }] }
   const resume = { pr, tip, ...resumeFix }
   if (pushStop) return { ...pushStop.stop, resume }

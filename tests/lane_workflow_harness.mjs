@@ -178,7 +178,7 @@ export async function runLane(args, answers = {}, options = {}) {
     if (label.startsWith('record-')) return recordPrinted(prompt, line, env, scenario)
     const sleepless = line.replace('time.sleep(slept)', '0')
     if (sleepless === line) throw new Error(`the printer line of ${label} no longer holds time.sleep(slept), so the harness cannot skip its sleep`)
-    const typed = scenario.typedCommand && !reread ? scenario.typedCommand(sleepless) : sleepless
+    const typed = scenario.typedCommand && (!reread || scenario.typedAlways) ? scenario.typedCommand(sleepless) : sleepless
     const asked = scenario.printerMode ? typed.replace(/' scope .* ('[^']*')$/, `' ${scenario.printerMode} $1`) : typed
     const printed = runCommandLine(scenario.nonce ? asked.replace(/'[^']*'$/, `'${scenario.nonce}'`) : asked, { cwd: os.tmpdir(), env })
     return scenario.edit ? scenario.edit(printed) : printed
@@ -195,7 +195,7 @@ export async function runLane(args, answers = {}, options = {}) {
     const printed = printedBy(prompt, answer, reread, label)
     if (/-wait-\d+$/.test(label)) rateLimitSleeps.push(JSON.parse(printed).v.slept)
     if (answer.head && !base.startsWith('scope-')) newestTip = answer.head
-    const { pr_title: _prTitle, item_title: _itemTitle, item_body: _itemBody, item_code: _itemCode, item_error: _itemError, patch_code: _patchCode, pr_head: _prHead, checks: _checks, required: _required, base_runs: _baseRuns, changed_files: _changedFiles, changed_code: _changedCode, changed_error: _changedError, head_runs: _headRuns, runlist_code: _runlistCode, runlist_error: _runlistError, head: _head, parents: _parents, head_code: _headCode, branch_code: _branchCode, main_code: _mainCode, touched_paths: _touchedPaths, nonce: _nonce, edit: _edit, typedCommand: _typedCommand, printerMode: _printerMode, push_error: _pushError, network_error: _networkError, network_fails: _networkFails, remote_tip: _remoteTip, brief_error: _briefError, rate_exhausted_calls: _rateExhaustedCalls, rate_exhausted_again_at: _rateExhaustedAgainAt, rate_reset_in: _rateResetIn, rate_error: _rateError, outside_claim: _outsideClaim, printed: _printed, ...report } = answer
+    const { pr_title: _prTitle, item_title: _itemTitle, item_body: _itemBody, item_code: _itemCode, item_error: _itemError, patch_code: _patchCode, pr_head: _prHead, checks: _checks, required: _required, base_runs: _baseRuns, changed_files: _changedFiles, changed_code: _changedCode, changed_error: _changedError, head_runs: _headRuns, runlist_code: _runlistCode, runlist_error: _runlistError, head: _head, parents: _parents, head_code: _headCode, branch_code: _branchCode, main_code: _mainCode, touched_paths: _touchedPaths, nonce: _nonce, edit: _edit, typedCommand: _typedCommand, typedAlways: _typedAlways, printerMode: _printerMode, push_error: _pushError, network_error: _networkError, network_fails: _networkFails, remote_tip: _remoteTip, brief_error: _briefError, rate_exhausted_calls: _rateExhaustedCalls, rate_exhausted_again_at: _rateExhaustedAgainAt, rate_reset_in: _rateResetIn, rate_error: _rateError, outside_claim: _outsideClaim, printed: _printed, ...report } = answer
     return reread ? { printed } : { ...report, printed }
   }
   // The worktree check and the begin of the run come before every lane's work and the add and the record courier after every lane that leaves one, so the launch lists hold only the agents between them; agentCalls keeps both.

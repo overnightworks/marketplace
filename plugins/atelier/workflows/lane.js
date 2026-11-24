@@ -573,14 +573,14 @@ async function relayStep(A) {
     'api=lambda repo:"repos/"+(repo or "{owner}/{repo}")',
     'base=lambda r:json.loads(r["view"].stdout)["baseRefName"]',
     `retitle=lambda pr,item,repo:(("title",("gh","api",api(repo)+"/pulls/"+pr,"--jq",".title")),("item",("gh","api",api(repo)+"/issues/"+item,"--jq",".title")),("retitle",lambda r:("gh","api","-X","PATCH",api(repo)+"/pulls/"+pr,"-f","title="+r["item"].stdout.strip()) if r["title"].stdout.strip()==${JSON.stringify(CHECKPOINT_TITLE_PREFIX)}+item and r["item"].stdout.strip() else ("true",)))`,
-    'steps=dict(wait=lambda:(("rate",("gh","api","rate_limit")),),retitle=retitle,branch=lambda:(("branch",("git","branch","--show-current")),),scope=lambda item,branch:(("push",("git","push","origin",branch)),("remote",("git","rev-parse","origin/"+branch)),("head",("git","rev-parse","HEAD")),("parents",("git","rev-parse","HEAD^@")),("second_parent_in_main",("git","merge-base","--is-ancestor","HEAD^2","origin/main")),("brief",("aco","brief",item,"--json"))),record=lambda file:(("check",("aco","lane-record","check",file)),),begin=lambda item,run,*ref:((("start",("git","rev-parse","--verify",ref[0]+"^{commit}")),) if ref else ())+(("begin",lambda r:("aco","lane-record","begin",item,"--run",run,*(("--start-tip",r["start"].stdout.strip()) if ref else ()))),("lane",("aco","lane-record","show",item,"--json"))),add=lambda item,file,run,ref,*stages:(("end",("git","rev-parse","--verify",ref+"^{commit}")),("add",lambda r:("aco","lane-record","add",item,file,"--run",run,"--end-tip",r["end"].stdout.strip(),"--ran",*stages))),sync=lambda:(("head",("git","rev-parse","HEAD")),("parents",("git","rev-parse","HEAD^@")),("main",("git","merge-base","--is-ancestor","origin/main","HEAD")),("conflict",("git","-c","core.quotePath=false","merge-tree","--write-tree","--name-only","--no-messages","HEAD","origin/main"))),fix=lambda start,paths:(*steps["sync"]()[:3],*((f"diff{i}",("git","log","-p","--first-parent","--remerge-diff","--format=","%s..HEAD"%start,"--",p)) for i,p in enumerate(diffed)),("diffall",("git","log","-p","--first-parent","--remerge-diff","--format=","%s..HEAD"%start)),("tree",("git","rev-parse","HEAD^{tree}")),("mergetree",("git","merge-tree","--write-tree","HEAD^1","HEAD^2")),("merged",("git","-c","core.quotePath=false","log","--first-parent","--merges","--remerge-diff","--name-only","--format=","%s..HEAD"%start))),ci=lambda pr,repo,paths:(("view",("gh","api",api(repo)+"/pulls/"+pr,"--jq","{headRefOid:.head.sha,baseRefName:.base.ref}")),("changed",("gh","api",api(repo)+"/pulls/"+pr+"/files","--paginate","--slurp")),("headruns",lambda r:("gh","run","list","--commit",json.loads(r["view"].stdout)["headRefOid"],"--json","status,name","--limit","100",*target(repo))),("checks",("gh","pr","checks",pr,"--json","name,bucket,link",*target(repo))),("rules",lambda r:("gh","api",api(repo)+"/rules/branches/"+base(r))),("runs",lambda r:("gh","api",api(repo)+"/commits/"+base(r)+"/check-runs","--paginate","--slurp"))))',
+    'steps=dict(wait=lambda:(("rate",("gh","api","rate_limit")),),retitle=retitle,branch=lambda*word:(("branch",("git","branch","--show-current")),)+((("item",("gh","api",api(word[1])+"/issues/"+word[0],"--jq",".body")),) if word else ()),scope=lambda item,branch:(("push",("git","push","origin",branch)),("remote",("git","rev-parse","origin/"+branch)),("head",("git","rev-parse","HEAD")),("parents",("git","rev-parse","HEAD^@")),("second_parent_in_main",("git","merge-base","--is-ancestor","HEAD^2","origin/main")),("brief",("aco","brief",item,"--json"))),record=lambda file:(("check",("aco","lane-record","check",file)),),begin=lambda item,run,*ref:((("start",("git","rev-parse","--verify",ref[0]+"^{commit}")),) if ref else ())+(("begin",lambda r:("aco","lane-record","begin",item,"--run",run,*(("--start-tip",r["start"].stdout.strip()) if ref else ()))),("lane",("aco","lane-record","show",item,"--json"))),add=lambda item,file,run,ref,*stages:(("end",("git","rev-parse","--verify",ref+"^{commit}")),("add",lambda r:("aco","lane-record","add",item,file,"--run",run,"--end-tip",r["end"].stdout.strip(),"--ran",*stages))),sync=lambda:(("head",("git","rev-parse","HEAD")),("parents",("git","rev-parse","HEAD^@")),("main",("git","merge-base","--is-ancestor","origin/main","HEAD")),("conflict",("git","-c","core.quotePath=false","merge-tree","--write-tree","--name-only","--no-messages","HEAD","origin/main"))),fix=lambda start,paths:(*steps["sync"]()[:3],*((f"diff{i}",("git","log","-p","--first-parent","--remerge-diff","--format=","%s..HEAD"%start,"--",p)) for i,p in enumerate(diffed)),("diffall",("git","log","-p","--first-parent","--remerge-diff","--format=","%s..HEAD"%start)),("tree",("git","rev-parse","HEAD^{tree}")),("mergetree",("git","merge-tree","--write-tree","HEAD^1","HEAD^2")),("merged",("git","-c","core.quotePath=false","log","--first-parent","--merges","--remerge-diff","--name-only","--format=","%s..HEAD"%start))),ci=lambda pr,repo,paths:(("view",("gh","api",api(repo)+"/pulls/"+pr,"--jq","{headRefOid:.head.sha,baseRefName:.base.ref}")),("changed",("gh","api",api(repo)+"/pulls/"+pr+"/files","--paginate","--slurp")),("headruns",lambda r:("gh","run","list","--commit",json.loads(r["view"].stdout)["headRefOid"],"--json","status,name","--limit","100",*target(repo))),("checks",("gh","pr","checks",pr,"--json","name,bucket,link",*target(repo))),("rules",lambda r:("gh","api",api(repo)+"/rules/branches/"+base(r))),("runs",lambda r:("gh","api",api(repo)+"/commits/"+base(r)+"/check-runs","--paginate","--slurp"))))',
     'ran={"run":subprocess.CompletedProcess(("uuid",),0,uuid.uuid4().hex,"")} if step=="branch" else {}',
     '[ran.__setitem__(n,run(*(c(ran) if callable(c) else c))) for n,c in steps[step](*rest) if not any(ran[k].returncode for k in("view","start","end","begin") if k in ran)]',
     `verdict_jobs=[m[1] for c in (json.loads(ran["checks"].stdout) if step=="ci" and "checks" in ran and ran["checks"].returncode==0 else []) if c["name"]==${JSON.stringify(VERDICT_CHECK)} and c["bucket"]=="fail" and (m:=re.search("/job/([0-9]+)",c.get("link") or ""))]`,
     'ran.update({"log":run("gh","run","view","--job",verdict_jobs[0],*target(rest[1]),"--log")} if verdict_jobs else {})',
     'brief=json.loads(ran["brief"].stdout) if "brief" in ran and ran["brief"].returncode==0 else None',
     'claim=brief and brief["outside_claim"]',
-    'values={n:{"code":p.returncode,**({"err":e} if ((e:=" ".join(l for l in p.stderr.splitlines() if l[:5]!="hint:")[-300:]) or step!="ci") and (n!="log" or p.returncode) else {}),**({} if n in("brief","view","check","checks","rules","runs","log","changed","headruns","lane","rate","conflict","merged") else {"out":p.stdout.strip()[:100]} if n[:4]!="diff" else {"size":len(p.stdout.strip())})} for n,p in ran.items()}',
+    'values={n:{"code":p.returncode,**({"err":e} if ((e:=" ".join(l for l in p.stderr.splitlines() if l[:5]!="hint:")[-300:]) or step!="ci") and (n!="log" or p.returncode) else {}),**({} if n in("brief","view","check","checks","rules","runs","log","changed","headruns","lane","rate","conflict","merged","item") else {"out":p.stdout.strip()[:100]} if n[:4]!="diff" else {"size":len(p.stdout.strip())})} for n,p in ran.items()}',
     'listed=lambda n,skip:list(dict.fromkeys(l for l in ran[n].stdout.splitlines()[skip:] if l))',
     'values.update(**({"conflict":dict(code=ran["conflict"].returncode,tree=(ran["conflict"].stdout.splitlines() or [""])[0],paths=listed("conflict",1)[:50],count=len(listed("conflict",1)))} if "conflict" in ran and ran["conflict"].returncode else {}),**({"merged":dict(code=ran["merged"].returncode,paths=listed("merged",0)[:50],count=len(listed("merged",0)))} if "merged" in ran and listed("merged",0) else {}))',
     'parsed=lambda n:json.loads(ran[n].stdout) if n in ran and ran[n].returncode==0 else None',
@@ -603,6 +603,10 @@ async function relayStep(A) {
     'values.update(nonce=nonce,**({"unreachable":sorted(n for n,p in ran.items() if getattr(p,"down",0))} if any(getattr(p,"down",0) for p in ran.values()) else {}),**({"limited":sorted(n for n,p in ran.items() if getattr(p,"down",0) and limit.search(p.stderr))} if any(getattr(p,"down",0) and limit.search(p.stderr) for p in ran.values()) else {}),**(dict(outside_claim=claim[:50] if isinstance(claim,list) else claim,count=len(claim) if isinstance(claim,list) else None) if "brief" in ran else {}))',
     'values={n:v for n,v in values.items() if v!={"code":0} and not(n in("shared","changed_index") and v==[])}',
     'values.update(**(dict(paths=dict(count=len(received or diffed),hash="%08x"%zlib.crc32(json.dumps(received or diffed,ensure_ascii=True,separators=(",",":")).encode()))) if step in("ci","fix") and (received or diffed) else {}))',
+    // The item body quotes the word when it stands between quotation marks, whitespace runs folded to one space on both sides; only the outcome and the word's count and CRC32 leave the printer, never the body.
+    String.raw`exec("def folded(s):return \" \".join(s.split())\nquotes=((\"\\\"\",\"\\\"\"),(\"\\u201e\",\"\\u201c\"),(\"\\u201c\",\"\\u201d\"))")`,
+    'word=urllib.parse.unquote(rest[2]) if step=="branch" and len(rest)>2 else None',
+    'values.update(**(dict(quoted=ran["item"].returncode==0 and any(o+folded(word)+c in folded(ran["item"].stdout) for o,c in quotes),word=dict(count=len(word),hash="%08x"%zlib.crc32(json.dumps(word,ensure_ascii=True).encode()))) if word is not None and "item" in ran else {}))',
     'payload=json.dumps(values,ensure_ascii=True,separators=(",",":"),sort_keys=True)',
     'print("""{"crc":"%08x","v":%s}"""%(zlib.crc32(payload.encode()),payload))',
   ].join(';')
@@ -962,8 +966,10 @@ async function relayStep(A) {
     }
   }
 
-  // The count and CRC32 of the finding paths, as the printer computes them over the list it received (JSON with ASCII escapes).
-  const pathsDigest = (paths) => ({ count: paths.length, hash: crc32(JSON.stringify(paths).replace(/[^\x20-\x7e]/g, char => String.raw`\u` + char.codePointAt(0).toString(16).padStart(4, '0'))) })
+  // The CRC32 of a value as the printer computes it over the value it received (JSON with ASCII escapes), with the count of the finding paths or of the characters of the word.
+  const asciiJsonHash = (value) => crc32(JSON.stringify(value).replace(/[^\x20-\x7e]/g, char => String.raw`\u` + char.codePointAt(0).toString(16).padStart(4, '0')))
+  const pathsDigest = (paths) => ({ count: paths.length, hash: asciiJsonHash(paths) })
+  const wordDigest = (word) => ({ count: [...word].length, hash: asciiJsonHash(word) })
   const sameDigest = (echoed, sent) => echoed?.count === sent.count && echoed?.hash === sent.hash
 
   // The printer leaves out the values equal to their default (an empty list, no finding paths), so a copy that drops them is the printed line.
@@ -990,6 +996,7 @@ async function relayStep(A) {
     values = withPrinterDefaults(values)
     if (['ci', 'fix'].includes(step) && A.sentPaths && !sameDigest(values.paths, pathsDigest(A.sentPaths))) return { problem: 'echoes other finding paths than the lane sent' }
     // The printer leaves out an entry of the ci step that carries only exit code 0, so its absence reads as that code.
+    if (step === 'branch' && A.sentWord && !sameDigest(values.word, wordDigest(A.sentWord))) return { problem: 'echoes another operator word than the lane sent' }
     const complete = step === 'ci' ? { view: { code: 0 }, runs: { code: 0 }, rules: { code: 0 }, changed: { code: 0 }, headruns: { code: 0 }, files: values.changed_index.map(position => A.sentPaths?.[position]).filter(Boolean), ...values } : values
     const missing = requiredKeys.find(key => !complete[key])
     if (missing) return { problem: `lacks the ${missing} entry` }
@@ -1097,8 +1104,11 @@ function mergedOnto(values, base) {
   const [firstParent, mergedIn] = values.parents.out.split('\n')
   return Boolean(mergedIn) && sameCommit(firstParent, base)
 }
+const percentEncoded = (text) => encodeURIComponent(text).replace(/[!'()*]/g, char => '%' + char.codePointAt(0).toString(16).toUpperCase())
 // The paths as one argument of unreserved characters only, so no quoting a copier applies to the command can change it: each path percent-encoded, joined by commas, with the slash kept.
-const pathsArgument = (paths) => paths.map(path => encodeURIComponent(path).replace(/[!'()*]/g, char => '%' + char.codePointAt(0).toString(16).toUpperCase()).replaceAll('%2F', '/')).join(',')
+const pathsArgument = (paths) => paths.map(path => percentEncoded(path).replaceAll('%2F', '/')).join(',')
+// The operator's word as one argument of unreserved characters, so the prompt's indentation and a copier's quoting cannot change it.
+const wordArgument = percentEncoded
 
 // Runs every reviewer of one review round (a fresh Claude reviewer, a Codex courier) in parallel and returns their results with the round verdict.
 async function laneReview(A) {
@@ -1742,6 +1752,9 @@ if (A.risk !== undefined && !['normal', 'material'].includes(A.risk)) return { s
 if (A.reviewer !== undefined && !['claude', 'codex'].includes(A.reviewer)) return { status: 'failed', stage: 'input', reason: 'reviewer must be "claude" or "codex"' }
 // The tag is a token of the routing line (aco's specs/lane-record.spec.md owns the grammar), so a malformed one fails here.
 if (A.experiment !== undefined && !/^[a-z0-9-]{1,40}$/.test(A.experiment)) return { status: 'failed', stage: 'input', reason: 'experiment must be 1 to 40 lowercase letters, digits or hyphens' }
+// The operator's words, as the item quotes them; the lane's one entry to routing above the effort cap and to models the table lacks.
+if (A.operatorWord !== undefined && !(typeof A.operatorWord === 'string' && /\S/.test(A.operatorWord))) return { status: 'failed', stage: 'input', reason: 'operatorWord must be a non-empty string: the operator\'s words as the item quotes them' }
+const OPERATOR_WORD = A.operatorWord
 const MATERIAL = A.risk === 'material'
 // Every gh call names the repository explicitly: agents start in the head's own checkout, which may be another repository.
 if (A.repo && !/^[\w.-]+\/[\w.-]+$/.test(A.repo)) return { status: 'failed', stage: 'input', reason: 'repo must be owner/name' }
@@ -1758,10 +1771,16 @@ const LEDGERS = A.ledgers || []
 // Only the newest scope check counts: a path a later fixer reverted is no longer outside.
 let passedOutsidePaths = []
 const GENERATED = Object.entries(A.generated || {})
-// The one table of every role's model and effort (instructions/HEAD.md, "Model routing"), by the lane's risk; effort is capped per model (opus medium, others high).
-const MODEL_PROVIDER = { haiku: 'claude', sonnet: 'claude', opus: 'claude', 'gpt-6-astra': 'codex' }
-const EFFORTS = ['low', 'medium', 'high']
+// The one table of every role's model and effort (instructions/HEAD.md, "Model routing"), by the lane's risk: the models and the efforts each provider accepts,
+// with what the operator's word adds, and the effort cap per model that the word lifts (opus medium, others high).
+const LANE_MODEL_PROVIDER = { haiku: 'claude', sonnet: 'claude', opus: 'claude', 'gpt-6-astra': 'codex' }
+const OPERATOR_WORD_MODEL_PROVIDER = { fable: 'claude' }
+const LANE_PROVIDER_EFFORTS = { claude: ['low', 'medium', 'high'], codex: ['low', 'medium', 'high'] }
+const OPERATOR_WORD_PROVIDER_EFFORTS = { claude: ['low', 'medium', 'high', 'xhigh', 'max'] }
+const MODEL_PROVIDER = OPERATOR_WORD ? { ...LANE_MODEL_PROVIDER, ...OPERATOR_WORD_MODEL_PROVIDER } : LANE_MODEL_PROVIDER
+const PROVIDER_EFFORTS = OPERATOR_WORD ? { ...LANE_PROVIDER_EFFORTS, ...OPERATOR_WORD_PROVIDER_EFFORTS } : LANE_PROVIDER_EFFORTS
 const EFFORT_CAP = { opus: 'medium' }
+const WORD_HINT = OPERATOR_WORD ? '' : '; more needs the operator\'s word, passed as operatorWord and quoted in the item'
 // The one Claude gate: opus at high stands in while Codex is at its usage limit (instructions/HEAD.md, Reviews and gates); it is the one effort above medium opus may have.
 const isGateStandIn = (role, model, effort) => role === 'gate' && model === 'opus' && effort === 'high'
 const REVIEWER_PROVIDER = A.reviewer || 'claude'
@@ -1790,16 +1809,17 @@ function roleChoiceRefusal(role, choice) {
   if (!Object.hasOwn(DEFAULT_ROUTING, role)) return `routing names an unknown role "${role}"`
   if (typeof choice !== 'object' || choice === null) return `routing for ${role} must be {model, effort}`
   const knownModel = typeof choice.model === 'string' && Object.hasOwn(MODEL_PROVIDER, choice.model)
-  if (choice.model !== undefined && !knownModel) return `routing for ${role} names an unknown model "${choice.model}"`
-  if (choice.effort !== undefined && !EFFORTS.includes(choice.effort)) return `routing for ${role} sets effort "${choice.effort}"; the efforts are ${EFFORTS.join(', ')}`
+  if (choice.model !== undefined && !knownModel) return `routing for ${role} names an unknown model "${choice.model}"${Object.hasOwn(OPERATOR_WORD_MODEL_PROVIDER, choice.model) ? WORD_HINT : ''}`
   const model = choice.model || DEFAULT_ROUTING[role].model
   const effort = choice.effort || DEFAULT_ROUTING[role].effort
-  if (EFFORTS.indexOf(effort) > EFFORTS.indexOf(EFFORT_CAP[model] || 'high') && !isGateStandIn(role, model, effort)) return `routing for ${role} sets ${model} to effort "${effort}"; ${model} is capped at ${EFFORT_CAP[model] || 'high'}`
+  const efforts = PROVIDER_EFFORTS[MODEL_PROVIDER[model]]
+  if (!efforts.includes(effort)) return `routing for ${role} sets effort "${effort}"; ${MODEL_PROVIDER[model]} accepts ${efforts.join(', ')}${MODEL_PROVIDER[model] in OPERATOR_WORD_PROVIDER_EFFORTS ? WORD_HINT : ''}`
+  if (!OPERATOR_WORD && efforts.indexOf(effort) > efforts.indexOf(EFFORT_CAP[model] || 'high') && !isGateStandIn(role, model, effort)) return `routing for ${role} sets ${model} to effort "${effort}"; ${model} is capped at ${EFFORT_CAP[model] || 'high'}${WORD_HINT}`
   if (providerAllowed(role, model, effort)) return null
   return `routing for ${role} puts it on ${MODEL_PROVIDER[model]}, which breaks ${role === 'gate' ? 'gate provider separation from the builder; the one Claude gate is the stand-in opus at high effort' : 'the role\'s provider'}`
 }
 
-// Why a routing override is refused, or null. An override never bypasses reviewer independence, gate provider separation beyond the Opus stand-in, or the per-model effort caps.
+// Why a routing override is refused, or null. An override never bypasses reviewer independence or gate provider separation beyond the Opus stand-in, and bypasses the per-model effort caps only with the operator's word.
 function routingRefusal(overrides) {
   if (typeof overrides !== 'object' || overrides === null || Array.isArray(overrides)) return 'routing must be an object of roles'
   return Object.entries(overrides).map(([role, choice]) => roleChoiceRefusal(role, choice)).find(Boolean) ?? null
@@ -1969,7 +1989,7 @@ const openResult = async (status, stage, extra = {}) => {
   const { status: endStatus, stage: endStage, extra: endExtra } = openEnd({ status, stage, extra, refusedAdd, abandon: abandonActions(A.item, written, began) })
   const open = openFollowups()
   return {
-    status: endStatus, stage: endStage, pr, tip, spent, routing: ROUTING, routingLine: line, ...recordView(written, began), history,
+    status: endStatus, stage: endStage, pr, tip, spent, routing: ROUTING, ...(OPERATOR_WORD && { operatorWord: OPERATOR_WORD }), routingLine: line, ...recordView(written, began), history,
     followups: open, raisedBeforeTip: raisedBeforeTip(open), folded: [...folded.values()], disputed, ...gateUnseenView(), ...tester, ...endExtra,
     ...(unusable && { reason: [endExtra.reason, unusable].filter(Boolean).join('; ') }),
   }
@@ -2015,7 +2035,9 @@ async function checkpointOrFail(stage, startRef, failure, fixer) {
 // ------------------------------------------------------- worktree and branch
 // A worktree that is missing or holds another branch costs a whole builder run before the scope step notices, so the relay reads it first.
 phase('Worktree')
-const checkedBranch = await relay({ label: 'branch', phase: 'Worktree', step: 'branch', relayArgs: ["'branch'"], nonce: 'branch', requiredKeys: ['branch', 'run'], brief: `${laneFacts}\nChange nothing in the files;` })
+// With the operator's word the same printer run reads the item body, so a forgotten or mistyped quote stops the lane before any builder or reviewer starts.
+const wordRelay = OPERATOR_WORD ? { relayArgs: [A.item, `'${A.repo || ''}'`, `'${wordArgument(OPERATOR_WORD)}'`, "'branch'"], sentWord: OPERATOR_WORD, requiredKeys: ['branch', 'run', 'item'] } : { relayArgs: ["'branch'"], requiredKeys: ['branch', 'run'] }
+const checkedBranch = await relay({ label: 'branch', phase: 'Worktree', step: 'branch', nonce: 'branch', ...wordRelay, brief: `${laneFacts}\nChange nothing in the files;` })
 const branchRead = checkedBranch?.values?.branch
 let foundBranch = branchRead?.out
 if (!checkedBranch) foundBranch = 'no answer from the check'
@@ -2024,6 +2046,12 @@ else if (branchRead.code !== 0) foundBranch = `git exited ${branchRead.code}: ${
 else if (!RUN_ID.test(checkedBranch.values.run.out ?? '')) foundBranch = 'no run id in the check'
 if (foundBranch !== A.branch) return await openResult('failed', 'input', { reason: `worktree ${A.worktree} must exist with branch ${A.branch} checked out; found ${foundBranch}` })
 runId = checkedBranch.values.run.out
+if (OPERATOR_WORD) {
+  const itemRead = checkedBranch.values.item
+  if (checkedBranch.unreachable) return await openResult('awaiting-head', 'input', { reason: `${checkedBranch.unreachable} The lane could not read item #${A.item} for the operator's word. Start the lane again once it answers.` })
+  if (itemRead.code !== 0) return await openResult('failed', 'input', { reason: `reading item #${A.item} for the operatorWord failed: gh exited ${itemRead.code}: ${itemRead.err}` })
+  if (checkedBranch.values.quoted !== true) return await openResult('failed', 'input', { reason: `the body of item #${A.item} does not quote the operatorWord between quotation marks ("…", „…“ or “…”); quote the operator's words there, then start the lane again` })
+}
 
 // ---------------------------------------------------------------- build
 if (A.build) {
@@ -2495,12 +2523,13 @@ if (finalRecord.problem) return await openResult('awaiting-head', 'record', { re
 const refusedAdd = await addRecord(finalRecord)
 if (refusedAdd) return await openResult('awaiting-head', 'record', { reason: refusedAddReason(refusedAdd, 'ready-to-land') })
 return {
-  status: 'ready-to-land', pr, tip, spent, routing: ROUTING, routingLine: finalRoutingLine, ...recordView(finalRecord, began), history, followups: stillOpen, raisedBeforeTip: raisedBeforeTip(stillOpen), folded: [...folded.values()], disputed,
+  status: 'ready-to-land', pr, tip, spent, routing: ROUTING, ...(OPERATOR_WORD && { operatorWord: OPERATOR_WORD }), routingLine: finalRoutingLine, ...recordView(finalRecord, began), history, followups: stillOpen, raisedBeforeTip: raisedBeforeTip(stillOpen), folded: [...folded.values()], disputed,
   ...gateUnseenView(), pathsOutsideClaim: passedOutsidePaths,
   requiredHeadActions: [
     ...(passedOutsidePaths.length ? [`write these paths into the scope of item #${A.item}'s body (and a one-sentence whole there when the combined scope is wide), then run \`${rescopeCommand}\` from ${A.worktree} before landing: these paths are outside the claim and passed the scope check`] : []),
     ...await checkpointRenameActions(),
     `land with \`aco land ${pr} --head ${tip}\` only while the pull request head is still ${tip}`,
+    ...(OPERATOR_WORD ? [`quote the operatorWord with its source in the body of pull request #${pr}: the lane may have run above the effort cap or on fable on the operator's word`] : []),
     ...(MATERIAL && isGateStandIn('gate', ROUTING.gate.model, ROUTING.gate.effort) ? [`name the Opus 5.5 stand-in as the final gate in the body of pull request #${pr}: the lane ran no Codex gate`] : []),
     ...(gateUnseen ? [`name ${gateUnseen.seenTip}..${tip} in the body of pull request #${pr}: the final gate, at its usage limit, did not see that range`] : []),
     ...(raisedBeforeTip(stillOpen).length ? ['re-check the follow-ups in raisedBeforeTip against the returned tip before routing them'] : []),

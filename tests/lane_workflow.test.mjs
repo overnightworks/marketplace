@@ -840,12 +840,19 @@ for (const [what, item_body] of quotedForms) {
   })
 }
 
+const wordChanged = { typedCommand: (line) => line.replace(encodeURIComponent(operatorWord), encodeURIComponent('another word')) }
+
 test('operatorWord: a printer that received another word than the lane sent fails the step before any builder starts', async () => {
-  const changed = { ...itemQuoting(operatorWord).branch, typedCommand: (line) => line.replace(encodeURIComponent(operatorWord), encodeURIComponent('another word')) }
-  const { result, launchedAgents } = await runLane(wordLane, { ...withWordAnswers, branch: changed })
+  const { result, launchedAgents } = await runLane(wordLane, { ...withWordAnswers, branch: { ...itemQuoting(operatorWord).branch, ...wordChanged, typedAlways: true } })
   assert.deepEqual([result.status, result.stage], ['failed', 'input'])
-  assert.match(result.reason, /word/)
-  assert.deepEqual(launchedAgents, [])
+  assert.match(result.reason, /another operator word/)
+  assert.deepEqual(launchedAgents, ['branch-reread'])
+})
+
+test('operatorWord: a printer run that received another word is read again, and the reread proves the word', async () => {
+  const { result, launchedAgents } = await runLane(wordLane, { ...withWordAnswers, branch: { ...itemQuoting(operatorWord).branch, ...wordChanged } })
+  assert.equal(result.status, 'ready-to-land')
+  assert.ok(launchedAgents.includes('branch-reread'))
 })
 
 test('operatorWord: a failed read of the item body fails at input naming the item and the exit code', async () => {

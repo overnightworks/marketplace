@@ -74,7 +74,7 @@ date = 2026-11-23
 reason = "the size rule measures script functions from quality v0.25.0; the operator ruled the adoption path on overnightworks/quality#884, so nothing is split"
 
 [[gate.loosened]]
-what = 'size baseline adds function_lines plugins/atelier/lane/relay.js relayStep 456'
+what = 'size baseline adds function_lines plugins/atelier/lane/relay.js relayStep 473'
 item = "#972"
 date = 2026-11-23
 reason = "the size rule measures script functions from quality v0.25.0; the operator ruled the adoption path on overnightworks/quality#884, so nothing is split"

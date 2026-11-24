@@ -1,5 +1,5 @@
 claim_id = "59e9e063aa3b4a7db520c95607dddf1d"
-agent = "Claude 1d929eb3-41d2-4e4c-9a0b-334204e51408"
+agent = "Claude eae31c98-fa53-4136-8f80-d4e0a5c133f8"
 role = "builder"
 base = "d0083e773a8014f8c767f9bc3f465c97e24997ba"
 branch = "claude/issue-985-gate-red-own-cause-reaches-fixer"

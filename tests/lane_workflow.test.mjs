@@ -840,6 +840,23 @@ for (const [what, item_body] of quotedForms) {
   })
 }
 
+const hostileWords = [
+  ['an umlaut', 'Opus für den Builder, Fable für das Review'],
+  ['an emoji', 'Opus xhigh 🚀 for the builder'],
+  ['a single quote', "Opus xhigh for the builder, it's the operator's call"],
+  ['a double quote', 'Opus xhigh for the "builder", Fable for the review'],
+  ['a percent sign', 'Opus xhigh at 100% for the builder'],
+  ['a line break', 'Opus xhigh for the builder,\nFable for the review'],
+]
+
+for (const [what, word] of hostileWords) {
+  test(`operatorWord: a word with ${what} that the item quotes reaches ready-to-land`, async () => {
+    const { result } = await runLane({ ...resumeArgs, operatorWord: word }, { ...reachesTheEnd, 'r0-review': APPROVE, ...itemQuoting(word) })
+    assert.equal(result.status, 'ready-to-land')
+    assert.equal(result.operatorWord, word)
+  })
+}
+
 const wordChanged = { typedCommand: (line) => line.replace(encodeURIComponent(operatorWord), encodeURIComponent('another word')) }
 
 test('operatorWord: a printer that received another word than the lane sent fails the step before any builder starts', async () => {

@@ -8,7 +8,7 @@ tools:
   - Bash
   - Skill
 model: opus
-effort: medium
+effort: high
 ---
 
 <!-- atelier-agent {"codex_name":"phase_planner","codex_sandbox_mode":"read-only","codex_nickname_candidates":["Planner","Turing","Meridian"],"codex_effort":"high"} -->

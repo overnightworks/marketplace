@@ -332,8 +332,8 @@ const harnessGhWithRunLog = (t, { logLines, logCode = 0 }) => {
 }
 // The printer's other gh reads (rules, changed files, runs) answer an empty list.
 const emptyGhReads = { FAKE_RULES: '[]', FAKE_RULES_CODE: 0, FAKE_FILES: '[]', FAKE_CHANGED_CODE: 0, FAKE_RUNLIST: '[]', FAKE_RUNLIST_CODE: 0, FAKE_BASE_RUNS: '[]' }
-const printingWith = ({ bin, logCode = 0 }, checks, head = tip) => (prompt) => ({
-  printed: runCommandLine(prompt.split('\n').at(-1).replace(/^cd '[^']*' && /, ''), { cwd: os.tmpdir(), env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, FAKE_PR_HEAD: head, FAKE_VIEW_CODE: 0, FAKE_CHECKS: JSON.stringify(checks), FAKE_CHECKS_CODE: 0, ...emptyGhReads, FAKE_RUN_LOG: path.join(bin, 'log'), FAKE_RUN_VIEW_CODE: logCode } }),
+const printingWith = ({ bin, logCode = 0 }, checks, head = tip, baseRuns = []) => (prompt) => ({
+  printed: runCommandLine(prompt.split('\n').at(-1).replace(/^cd '[^']*' && /, ''), { cwd: os.tmpdir(), env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, FAKE_PR_HEAD: head, FAKE_VIEW_CODE: 0, FAKE_CHECKS: JSON.stringify(checks), FAKE_CHECKS_CODE: 0, ...emptyGhReads, FAKE_BASE_RUNS: JSON.stringify(baseRuns.map(baseRun => ({ check_runs: [baseRun] }))), FAKE_RUN_LOG: path.join(bin, 'log'), FAKE_RUN_VIEW_CODE: logCode } }),
 })
 const redVerdict = [{ name: required, bucket: 'fail', link: verdictLink }, { name: 'Python: tests', bucket: 'pass', link: 'https://github.com/o/n/actions/runs/11/job/23' }]
 const verdictFailing = [{ where: required, kind: 'defect', text: 'red', rule: 'CI check quality / verdict', evidence: 'red' }]
@@ -391,6 +391,32 @@ test('ci-operator-door: a blocking end-to-end finding sends the lane to the fixe
   const blocked = { verdict: 'FAIL', blocking: [{ where: 'x', text: 't', rule: 'r', evidence: 'e', kind: 'defect' }], followups: [], cells: [{ cell: 'c', result: 'failed', command: 'run', exit: '1' }] }
   const { launchedAgents } = await runLane({ ...lane, foldIn: [tidy] }, { ...reachesCi, 'e2e-0': blocked, 'ci-0': verdictRedCi, 'ci-read-0': printingWith(gh, redVerdict) })
   assert.ok(launchedAgents.includes('fix-2'))
+})
+
+// The verdict is red on the base tip too: only its closing line tells whether the lane's own diff adds a cause that exists on a pull request alone.
+const verdictRedOnBase = [run(required, 'failure')]
+const closingLine = (text) => loosenLine(`! red · ${text} · 3s`)
+test('ci-shared-gate: a verdict red on main too whose closing line counts an undeclared loosening goes to a fixer naming the finding', async (t) => {
+  const gh = harnessGhWithRunLog(t, { logLines: [closingLine('1 of 3 mandatory jobs failed · 1 undeclared loosening')] })
+  const failing = [{ where: required, kind: 'defect', text: 'job limit baseline removed', rule: 'CI check quality / verdict', evidence: 'job limit baseline removed' }]
+  const { agentCalls } = await driveCi(ciAnswer([], { green: false, failing }), lane, printingWith(gh, redVerdict, tip, verdictRedOnBase))
+  assert.match(agentCalls['fix-2'].prompt, /job limit baseline removed/)
+})
+
+test('ci-shared-gate: a verdict red on main too with no pull-request-only count ends awaiting-head as shared and launches no fixer', async (t) => {
+  const gh = harnessGhWithRunLog(t, { logLines: [closingLine('1 of 3 mandatory jobs failed')] })
+  const { result, launchedAgents } = await driveCi(verdictRedCi, lane, printingWith(gh, redVerdict, tip, verdictRedOnBase))
+  assert.deepEqual([result.status, result.stage], ['awaiting-head', 'ci'])
+  assert.match(result.reason, /quality \/ verdict/)
+  assert.ok(!launchedAgents.includes('fix-2'))
+})
+
+test('ci-shared-gate: a verdict red on main too whose job log cannot be read fails the lane at ci naming the log read', async (t) => {
+  const gh = harnessGhWithRunLog(t, { logLines: [], logCode: 1 })
+  const { result, launchedAgents } = await driveCi(verdictRedCi, lane, printingWith(gh, redVerdict, tip, verdictRedOnBase))
+  assert.deepEqual([result.status, result.stage], ['failed', 'ci'])
+  assert.match(result.reason, /job log could not be read/)
+  assert.ok(!launchedAgents.includes('fix-2'))
 })
 
 const redWatch = (jobs, checks = jobs.map(job => check(job.name, 'fail'))) => ciAnswer([check(required, 'pass'), ...checks], { green: false, failing: jobs.flatMap(job => job.findings), red: jobs })

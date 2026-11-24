@@ -32,9 +32,9 @@ lists `requiredHeadActions`.
 4. Test and CI run side by side: the explorative end-to-end test and the CI of
    the pull request. A red CI is fixed at once while the tester runs on. A tester
    round after a fix is a delta re-check: it gets the fix range and the findings it
-   raised, still drives the real flow in full, and reports a new finding in a part
-   the fix left unchanged as a follow-up unless it touches security, data or a
-   failing check. The order is review, tester, CI: the review proves what the
+   raised, still drives the real flow in full, and marks a new finding as the
+   contract's Reviews does, against the lane's whole diff rather than the fix
+   range. The order is review, tester, CI: the review proves what the
    diff shows, the tester proves what only the drive shows, CI proves the checks.
    No run ends while its tester runs: an early stop first waits for the tester,
    records a usable verdict and carries its findings in `testerAtStop`; a tester
@@ -299,7 +299,7 @@ The result carries `routingLine`, the one Routing line the head pastes as is,
 `record` is the path of the lane record, `<scratch>/lane-record.json`, which aco reads
 (its `specs/lane-record.spec.md` owns the schema). The script builds the record from its own
 state: per stage the model and effort, the fix rounds and blocking findings by stage
-(`review`, `gate`, `ci`, `test`; a stand-in counts as gate), the risk class, the experiment tag
+(`review`, `gate`, `ci`, `test`; a stand-in counts as gate), the risk class (`material` or `normal`; a lane outside the workflow writes its own record as the aco skill says), the experiment tag
 the misses by stage (never above the blocking findings: a gate, CI or test finding raised after a
 review approved the range counts, except a gate finding of the approving review's own round and a CI finding
 whose check the CI reader marks `deterministic` and whose fix the fixer reports in `noBehaviourChange`; the

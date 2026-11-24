@@ -1,7 +1,0 @@
-claim_id = "59e9e063aa3b4a7db520c95607dddf1d"
-agent = "Claude eae31c98-fa53-4136-8f80-d4e0a5c133f8"
-role = "builder"
-base = "d0083e773a8014f8c767f9bc3f465c97e24997ba"
-branch = "claude/issue-985-gate-red-own-cause-reaches-fixer"
-scope = ["plugins/atelier/lane/relay.js", "plugins/atelier/workflows/lane.js", "tests/lane_workflow_ci.test.mjs"]
-opened_commit = "ce7bb918be465b5048c0c3b1a0333ba7d48db8e9"

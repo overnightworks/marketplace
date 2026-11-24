@@ -11,6 +11,9 @@ matter).
 
 ## 1. Question
 
+Before writing a card, read the repository's `AGENTS.md` and the earlier
+rulings (`aco rulings <n>`), and write no card an existing sentence answers.
+
 One plain sentence about the person's outcome, in the operator's language, short enough
 to read in one breath. It asks what the person gets or loses, never which mechanism to
 pick. Test: a reader who knows nothing of the repository can say what a "yes" changes
@@ -62,6 +65,8 @@ choice.
   one exists.
 - No option text claims to be recommended ("Empfohlen" in `notice`): only `recommended`
   and `reason` say that.
+- No option breaks a law or a ruled sentence; an option that proposes to change a
+  ruling is allowed only on a card that quotes it and says what changed since.
 
 ## 5. Recommendation
 
@@ -70,13 +75,19 @@ verbatim and dated. It carries no process talk ("die Zeile wartet auf dein
 gesprochenes Wort"); the reader decides the card, they do not need to hear how the
 board works.
 
+The recommendation is the cleanest option ([contract, Cleanest solution](https://github.com/overnightworks/marketplace/blob/main/instructions/AGENTS.md#how-to-decide)); a cheaper one
+is recommended only with its limit named. One principle that answers several lines is
+asked once, in one line.
+
 ## 6. What a head never guesses
 
 Material risk, a product choice that is not safely inferable, and the lines that wait
 for the operator's spoken word are listed in the contract's
 [How to work](https://github.com/overnightworks/marketplace/blob/main/instructions/AGENTS.md#how-to-work),
 [Role](https://github.com/overnightworks/marketplace/blob/main/instructions/HEAD.md#role)
-and [Items](https://github.com/overnightworks/marketplace/blob/main/instructions/HEAD.md#items). A card never states them again, and a head never fills such a line itself.
+and [Items](https://github.com/overnightworks/marketplace/blob/main/instructions/HEAD.md#items). A card never states them again, and a head never fills such a line itself. A release of
+reviewed, green work and a landing's hour are never a card: the contract gives them to
+an agent.
 
 ## 7. Unclear
 

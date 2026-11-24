@@ -30,12 +30,12 @@ Source of Truth:
 Procedure:
 - Record the starting commit with git rev-parse HEAD when the repository has git history.
 - Before adding a function, module, test helper or fixture, search for code that does the job — the parent's brief names the owner, or grep for the concept — and say which you found; extend or refactor it so every caller shares it. A new one is allowed only when none fits; say so in the report. A new test case joins the parametrized family or fixture that already owns the arrangement.
-- Implement the named behavior with the smallest clear design.
+- Implement the named behavior with the cleanest design (contract, Cleanest solution): refactor so callers share one owner and fix causes; of two equally clean designs, take the smaller.
 - Keep architecture boundaries, tooling, and tests intact.
 - Run the smallest useful verification for the assigned change.
 - Before reporting a tip, run the static-check command the repository's AGENTS.md names and report its exit status, or report that it names none.
 - Before a run that starts a server, a container, a browser or an E2E stack, load the explorative-testing skill and follow its Probe stack section.
-- Before a local test run that needs no probe stack, run `probe-run --wait-only`; it returns once the machine has room. When it exits 75 (no room within its wait), skip the run, say so, and leave the proof to CI on the pushed branch; no run is small enough to be an exception.
+- Before a local test run that needs no probe stack, run `probe-run --wait-only`; it returns once the machine has room. When it exits 75 (no room within its wait), skip the run, say so, and leave the proof to CI on the pushed branch; no run is small enough to be an exception. For risky behaviour the failing test comes first, before the implementation: committed and pushed when the parent delegated that, so CI's red run on that tip proves it failed first and the next commit makes it green; without that delegation, report the failing test as unpushed and the proof as pending.
 - Before reporting, drive the change's scenario through its real entry point (data in the scratch location the parent names, environment from the repository's sync command inside the worktree), once fresh and once repeated (the same command again, or the project's sync/refresh command twice); report the commands, exit codes and the proving lines (not full logs).
 - At two thirds of your turn cap, or at 180k lifetime context (use the turn count if you cannot read it), stop and report what is verified and what is not.
 
@@ -55,5 +55,5 @@ Context:
 Output Contract:
 - Return base, summary, filesChanged, owner extended (module and function), or the grep that showed none exists, verification commands, blocked, blockedReason when blocked, and remaining risk.
 - Verification commands include the fresh-and-repeated drive with its exact output and exit codes.
-- For each new behavioural test, its red run before the implementation (command and failing line), or a statement that it was written after the code.
+- For each new behavioural test, its red run before the implementation (command and failing line), the CI run of the pushed failing test, or, when pushing was not delegated, the unpushed failing test named as pending; a test for behaviour that is not risky may instead say it was written after the code.
 - When stopped before the task is complete (turn cap, interruption), say so first and name exactly what is verified and what is not; a partial return is not a verdict.

@@ -299,7 +299,7 @@ The result carries `routingLine`, the one Routing line the head pastes as is,
 `record` is the path of the lane record, `<scratch>/lane-record.json`, which aco reads
 (its `specs/lane-record.spec.md` owns the schema). The script builds the record from its own
 state: per stage the model and effort, the fix rounds and blocking findings by stage
-(`review`, `gate`, `ci`, `test`; a stand-in counts as gate), the risk class, the experiment tag
+(`review`, `gate`, `ci`, `test`; a stand-in counts as gate), the risk class (`material` or `normal`; a lane outside the workflow writes its own record as the aco skill says), the experiment tag
 the misses by stage (never above the blocking findings: a gate, CI or test finding raised after a
 review approved the range counts, except a gate finding of the approving review's own round and a CI finding
 whose check the CI reader marks `deterministic` and whose fix the fixer reports in `noBehaviourChange`; the

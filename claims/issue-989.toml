@@ -1,8 +1,0 @@
-claim_id = "20cd783fe86648cb9fb71f2307b5aa69"
-agent = "Claude eae31c98-fa53-4136-8f80-d4e0a5c133f8"
-role = "builder"
-base = "d2dedacf0a32d99e43f78aee6bbd8661bc4a6364"
-branch = "claude/issue-989-the-plan-reviewer-and-the-phase-planner"
-scope = ["plugins/atelier/.codex/agents", "plugins/atelier/agents/phase-planner.md", "plugins/atelier/agents/plan-reviewer.md"]
-opened_commit = "2d830ff4d1d5573fe04dbe49d040f2f6744c8709"
-whole_reason = "The two agent files and their generated Codex copies change together, or the sync check is red."

@@ -82,9 +82,9 @@ The lane needs a repository that coordinates with aco, after the head ran
   Before any builder or reviewer starts, the branch step reads the item body and
   checks that the word equals the whole text between one pair of quotation
   marks (`"…"`, `„…“` or `“…”`, whitespace runs folded), so pass the full
-  quote, not a run from inside a longer one; a body that does not hold it, or a printer
-  that received another word, ends the lane `failed` at `input`. The check
-  proves the item holds the word, not who said it. The result carries
+  quote, not a run from inside a longer one; a body that does not hold it, or a
+  printer that received another word, ends the lane `failed` at `input`. The
+  check proves the item holds the word, not who said it. The result carries
   `operatorWord`, and its `requiredHeadActions` tell the head to quote it with
   its source in the pull request body before landing; the record and the Routing
   line hold no quote.

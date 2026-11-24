@@ -452,7 +452,7 @@ async function relayStep(A) {
     const state = ciState(proven, names)
     const settled = green || failing.length || open.some(c => c.bucket === 'fail')
     const pending = settled ? null : pendingReason([...open.filter(c => c.bucket === 'pending').map(c => c.name), ...(headruns.open || [])])
-    const readError = [runsError && `the workflow runs of the pull request head could not be read: ${runsError}`, changedError && `the changed files of the pull request could not be listed: ${changedError}`, rulesError && `the required checks of the base branch could not be read: ${rulesError}`, sharedGate && jobLog?.code !== 0 && `the verdict check is red on head and on the base tip, but its job log could not be read: ${jobLog?.err || 'it has no job link'}`].find(Boolean)
+    const readError = [runsError && `the workflow runs of the pull request head could not be read: ${runsError}`, changedError && `the changed files of the pull request could not be listed: ${changedError}`, rulesError && `the required checks of the base branch could not be read: ${rulesError}`, sharedGate && jobLog?.code !== 0 && `the verdict check is red on head and on the base tip, but its job log could not be read: ${jobLog ? jobLog.err || `gh run view exited ${jobLog.code}` : 'it has no job link'}`].find(Boolean)
     return {
       head, shared, operatorDoor, failing, ownRed, green, unproven, readError, pending, proven,
       verdict: ciVerdict(proven, pending),

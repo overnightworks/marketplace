@@ -1,0 +1,7 @@
+claim_id = "d9e4da6635af4cc2930931bf79862fb6"
+agent = "Claude eae31c98-fa53-4136-8f80-d4e0a5c133f8"
+role = "builder"
+base = "d0083e773a8014f8c767f9bc3f465c97e24997ba"
+branch = "claude/issue-983-lanes-outside-the-workflow-land-with-a-r"
+scope = ["plugins/atelier/skills/aco/SKILL.md", "plugins/atelier/workflows/lane.md"]
+opened_commit = "869a7440a9ad6c3c29cc69167d73cbb14a1cd74f"

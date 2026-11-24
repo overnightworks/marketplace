@@ -423,6 +423,20 @@ async function relayStep(A) {
 
   const operatorDoorOf = (checks, jobLog) => checks.open?.length === 1 && jobLog?.code === 0 && jobLog.loosenings && jobLog.merge ? jobLog.merge : null
 
+  const verdictLogError = (jobLog) => {
+    if (jobLog?.code === 0) return null
+    const reason = jobLog ? jobLog.err || `gh run view exited ${jobLog.code}` : 'it has no job link'
+    return `the verdict check is red on head and on the base tip, but its job log could not be read: ${reason}`
+  }
+
+  // The first reason the ci step's readings cannot prove the state, in words.
+  const ciReadError = ({ runsError, changedError, rulesError, verdictLogError: logError }) => [
+    runsError && `the workflow runs of the pull request head could not be read: ${runsError}`,
+    changedError && `the changed files of the pull request could not be listed: ${changedError}`,
+    rulesError && `the required checks of the base branch could not be read: ${rulesError}`,
+    logError,
+  ].find(Boolean)
+
   // What the lane reads from the ci step: the head, the checks red on the base branch too, the red a fixer may not remove, why the listing does not prove green,
   // and the watcher's verdict corrected by the printed listing: green, proven, the state in words, the failing checks split into own and shared.
   function readCi({ checks, rules, headruns, changed, head, shared: sharedByName, files, log: jobLog }) {
@@ -452,7 +466,7 @@ async function relayStep(A) {
     const state = ciState(proven, names)
     const settled = green || failing.length || open.some(c => c.bucket === 'fail')
     const pending = settled ? null : pendingReason([...open.filter(c => c.bucket === 'pending').map(c => c.name), ...(headruns.open || [])])
-    const readError = [runsError && `the workflow runs of the pull request head could not be read: ${runsError}`, changedError && `the changed files of the pull request could not be listed: ${changedError}`, rulesError && `the required checks of the base branch could not be read: ${rulesError}`, sharedGate && jobLog?.code !== 0 && `the verdict check is red on head and on the base tip, but its job log could not be read: ${jobLog ? jobLog.err || `gh run view exited ${jobLog.code}` : 'it has no job link'}`].find(Boolean)
+    const readError = ciReadError({ runsError, changedError, rulesError, verdictLogError: sharedGate ? verdictLogError(jobLog) : null })
     return {
       head, shared, operatorDoor, failing, ownRed, green, unproven, readError, pending, proven,
       verdict: ciVerdict(proven, pending),

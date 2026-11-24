@@ -212,7 +212,7 @@ missing, doubled or fenced line (`specs/landing-grammar.spec.md`); a pass proves
 classification, the closing reference, a claim on the head branch and the default-branch
 target, not that the work is reviewed or the checks are green.
 
-The lane writes its record file (`record` in the result, `<scratch>/lane-record.json`) itself and checks it with `aco lane-record check`; a lane whose record fails the check ends `awaiting-head` at `record`. Each run also stores its record on the claim (`aco lane-record begin` and `add`, which aco's `specs/lane-record.spec.md` owns); a refused begin or add ends the run `awaiting-head` at `record`. One more line records the routing, beside the file until the paste is dropped: the head pastes the lane result's `routingLine` as is. Its
+The lane writes its record file (`record` in the result, `<scratch>/lane-record.json`) itself and checks it with `aco lane-record check`; a lane whose record fails the check ends `awaiting-head` at `record`. Each run also stores its record on the claim (`aco lane-record begin` and `add`, which aco's `specs/lane-record.spec.md` owns); a refused begin or add ends the run `awaiting-head` at `record`. A lane outside the workflow (run by hand, issue-less, or an adopted `--no-item` lane) stores no runs, since `aco lane-record begin` needs an item: it writes `lane-record.json` itself, with its independent review's verdict on the landed head and `risk` `material` or `normal`, runs `aco lane-record check` on it and lands with `--record` (Land; schema: `specs/lane-record.spec.md`). One more line records the routing, beside the file until the paste is dropped: the head pastes the lane result's `routingLine` as is. Its
 grammar belongs to aco's `specs/lane-record.spec.md` (LANREC-*), which is not copied here.
 The head writes it before the landing, because a landing agent does not know the routing.
 The fix and gate slots each hold one value, the last model that ran; an earlier fixer or gate stays out.
@@ -232,7 +232,7 @@ becomes its own item first (`aco cut`).
 
 ## Land
 
-Gates are green and you hold the tip the reviewers saw. After a merge of the default branch into a ready-to-land lane the tip changed, so the head re-runs the lane with `pr`, the new `tip` and `deltaFrom` the judged tip, which yields a fresh stored record; a lane that stored its record lands without `--record`, which aco refuses on a claim with stored runs. A run that stopped awaiting-head or was lost may already be approved at the head: the landing path is in `workflows/lane.md`, Awaiting-head results. Landing is delegated as a
+Gates are green and you hold the tip the reviewers saw. After a merge of the default branch into a ready-to-land lane the tip changed, so the head re-runs the lane with `pr`, the new `tip` and `deltaFrom` the judged tip, which yields a fresh stored record; a lane that stored its record lands without `--record`, which aco refuses on a claim with stored runs; a lane without stored runs lands with `--record <file>`, since aco refuses a landing on a claim with neither (`specs/lane-record.spec.md`, LANREC-100). A run that stopped awaiting-head or was lost may already be approved at the head: the landing path is in `workflows/lane.md`, Awaiting-head results. Landing is delegated as a
 named task, but the precondition is aco's. The landing task runs under the claim's
 identity. A subagent of the claiming head's own provider inherits it and passes neither
 `ACO_AGENT` nor `--agent`; an agent started through another provider's CLI (`grok`,
@@ -247,7 +247,7 @@ releases and rescopes it as the holder with no override (specs/handover.spec.md 
 
 1. Stand in a clean checkout of the default branch — the primary checkout, never the
    lane worktree.
-2. `aco land <pr> --head <sha>` (the lane's `requiredHeadActions` spell the command, without `--record` once the lane stored its record) merges only if the PR head is that sha, then runs
+2. `aco land <pr> --head <sha>` (the lane's `requiredHeadActions` spell the command, without `--record` once the lane stored its record; a lane without stored runs adds `--record <file>`) merges only if the PR head is that sha, then runs
    the release for you: claim released, clean merged worktree and branch removed
    (`--keep-worktree` keeps them). `specs/land.spec.md`. `aco land` has already
    released the claim; after a land, the head's release step is verifying that
@@ -270,7 +270,7 @@ releases and rescopes it as the holder with no override (specs/handover.spec.md 
 
 If the merge worked but a step failed, `aco land` prints `follow-up incomplete`
 and the re-run command; re-run it, which resumes and never merges twice.
-Abandoned: `aco release <n> --abandoned REASON`, the item stays open; only a lane that never began a run (it ended at `sync` or at the scope check, or aco refused its begin) passes `--record <file>`, the lane result's `record` path, and its `requiredHeadActions` say so. A lane stopped
+Abandoned: `aco release <n> --abandoned REASON`, the item stays open; only a lane without stored runs (a workflow lane that never began a run: it ended at `sync` or at the scope check, or aco refused its begin; or a lane outside the workflow) passes `--record <file>`, the lane result's `record` path or the lane's own file, and a workflow lane's `requiredHeadActions` say so. A lane stopped
 by the Claude usage limit writes no record, and the release goes without `--record`. Until the routing line is dropped, the head
 starts the reason with the lane's `Routing:` line, on one line within 512 characters, since aco
 parses an abandoned lane's routing only then (the same slots and counting as in the pull request body: on a line too long

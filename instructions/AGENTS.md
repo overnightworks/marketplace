@@ -52,8 +52,9 @@ questions, doubts and friction go to its parent.
   jargon, no "as an AI".
 - An agent runs every step that needs neither sudo nor a secret value the
   operator fetches from outside (load runs, checks, applies, generating a secret
-  it never sees, a merge once its required review and CI are green), and the
-  head reports the result to him; no repository reserves such a step for him.
+  it never sees, a merge or release once its required review and CI are green),
+  and the head reports the result to him; no repository reserves such a step
+  for him.
 - **Material risk** is a public contract, persistent data or a migration,
   secrets or rights, money, security, deletion or anything irreversible, or a
   new source of truth. It is judged by what the diff can break, not by the
@@ -118,6 +119,11 @@ questions, doubts and friction go to its parent.
   solution will replace is built only when today's users cannot wait for that
   item or the current state is unlawful or misleading; otherwise the work waits
   for that item and is built right once.
+- **Exceptions end.** An exception to a rule or check, a report-only check and
+  a floor below its target included, names its owner and what ends it. A
+  repository's count of them only falls, a rise lands only with the operator's
+  ruling, and an exception a second repository needs becomes a case of the
+  rule.
 - **The operator's settings** are deliberate and trusted. Code ships safe
   defaults and accepts whatever he turns on or off, with no refuse list and,
   unless he asks, no warning; a malformed value still fails loud. A safeguard
@@ -274,7 +280,8 @@ before the work is called done.
   capability's first slice is the thinnest honest end-to-end proof. Edge cases
   precede its first run only where their absence corrupts durable state, loses
   data or lets the system lie; every other edge is named as a gap on the owning
-  item and waits for usage evidence. A review judges a slice by its declared
+  item and waits for usage evidence, at the latest until the capability reaches
+  people beyond the operator. A review judges a slice by its declared
   sentences, not by all conceivable hardness.
 - A slice is one coherent change a reviewer reads in one sitting, within ten
   production files and 400 changed production lines (additions and deletions
@@ -401,8 +408,8 @@ before the work is called done.
   together; a branch an end-to-end test reaches gets no mirror unit test.
   Coverage serves deletion: a line no real flow and no logic rule reaches is
   dead or lacks a spec. Never buy the number with tests that only execute
-  lines. Until a repository measures all layers, its gap is reported, not
-  blocking; a failing check stays blocking.
+  lines. Until a repository measures all layers, its CI holds its measured
+  coverage as a floor that only rises; a failing check stays blocking.
 - Drive flows through real entry points against real state, never through
   production logic re-implemented in the test. What a person does at a surface
   is proven by driving the real interface, never by a unit test.
@@ -410,8 +417,9 @@ before the work is called done.
   that needs one to reach logic shows the logic is in the wrong layer. Real
   dependencies belong to a thin, separate integration layer. Core unit tests
   import no adapter: an adapter-bound module moves whole into the integration
-  suite, a remaining exception carries one registered module marker (never a
-  path allowlist), and the count per core directory ratchets toward zero.
+  layer, told apart by its marker and never by a folder, a remaining exception
+  carries one registered module marker (never a path allowlist), and the count
+  per core directory ratchets toward zero.
 - Tests are fast, deterministic and parallel-safe: no sleeps or timing races,
   no order dependence, no state another test can observe; filesystem, process,
   network, clock, randomness and external services come as temporary state or

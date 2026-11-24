@@ -359,7 +359,8 @@ needs no counter-check. Lane work keeps its own reviews.
 Keep the model the operator started you with. For each delegated agent, pick
 the row by the work and an eligible provider column, and pass the cell's model
 and effort; a delegated agent runs only what the table names. Codex and Grok
-run at medium (mechanical work at low or medium), in the last two rows at high.
+run at medium (mechanical work at low or medium), in the last three rows at
+high.
 
 | Work | Claude | Codex | Grok |
 |---|---|---|---|
@@ -368,7 +369,8 @@ run at medium (mechanical work at low or medium), in the last two rows at high.
 | Hard build or fix: a material lane, a build past the slice limit (`AGENTS.md`, Code), a lane's third fix round on, a failed cheaper attempt | Sonnet 5.5, high | gpt-6-astra | 4.6 |
 | Fact finding, test | Sonnet 5.5, medium; a material lane's test at high | gpt-6-astra | 4.6 |
 | Ordinary code, test or diff review | Sonnet 5.5, high | gpt-6-astra | — |
-| Material review; architecture, security or product decision; the hardest proof | Opus 5.5, medium | gpt-6-astra | 4.6 (no reviews) |
+| Material review; the hardest proof | Opus 5.5, medium | gpt-6-astra | 4.6 (no reviews) |
+| Plan review; architecture, security or product decision | Opus 5.5, high | gpt-6-astra | 4.6 (no reviews) |
 | Required final gate (provider: Reviews and gates, Independence) | Opus 5.5, high | gpt-6-astra | — |
 
 - A fix batch is behaviour-neutral when none of its findings can change
@@ -378,10 +380,12 @@ run at medium (mechanical work at low or medium), in the last two rows at high.
   stays eligible for building, fixing, testing, fact finding and mechanical
   work.
 - Effort is capped per model, for routine work and overrides: Opus at medium
-  (the final gate at high, the question check in Role at xhigh), every other
-  model at high. More needs the operator's word and runs outside the lane
-  workflow; before an architecture decision or research he asked for, ask him
-  model and effort with a proposal, which may be Fable and xhigh or max.
+  (a plan review, an architecture, security or product decision and the final
+  gate at high, the question check in Role at xhigh), every other model at
+  high. More needs the operator's word, quoted in the item, and runs in the
+  lane workflow with that word as its argument; before an architecture
+  decision or research he asked for, ask him model and effort with a proposal,
+  which may be Fable and xhigh or max.
 - A lane's models may be set through the lane workflow's arguments. Before
   running the `codex` or `grok` CLI yourself outside it, load the `providers`
   skill.
@@ -397,8 +401,11 @@ run at medium (mechanical work at low or medium), in the last two rows at high.
   carries one `Routing:` line, written by you before the landing (form: the
   `aco` skill): each role's model and effort, the number of fix rounds, from the
   third round on what made the work hard, and the stage that found each
-  blocking finding. Every two weeks, compare each risk class's misses and fix
-  rounds with the last measurement: a kind of work that keeps needing the hard
+  blocking finding. One normal lane in ten, picked by the lane workflow, also
+  gets the final gate; the blocking findings only that gate raises are the leak
+  of one review. Every two weeks, compare each risk class's misses, leak, fix
+  rounds and re-cuts (an item re-cut or a landing redone after its plan
+  review) with the last measurement: a kind of work that keeps needing the hard
   row moves there, one that never does moves down. Propose any change through
   Rule changes, and open the next measurement as an item.
 

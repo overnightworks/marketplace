@@ -1,7 +1,0 @@
-claim_id = "e85cfe1ad9274a9da4cb5f0251ddafd0"
-agent = "Claude eae31c98-fa53-4136-8f80-d4e0a5c133f8"
-role = "builder"
-base = "d0083e773a8014f8c767f9bc3f465c97e24997ba"
-branch = "claude/issue-975-contract-rules-put-the-long-term-product"
-scope = ["instructions/AGENTS.md", "instructions/HEAD.md"]
-opened_commit = "079c717d2dc390d02af6a7d62877fbc8babf882d"

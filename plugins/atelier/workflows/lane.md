@@ -80,8 +80,9 @@ The lane needs a repository that coordinates with aco, after the head ran
   `lane/main.js`, and a Codex role stays at `low`, `medium` or `high`. Provider
   separation, reviewer independence and the stand-in rule hold as without it.
   Before any builder or reviewer starts, the branch step reads the item body and
-  checks that the word stands in it between quotation marks (`"…"`, `„…“` or
-  `“…”`, whitespace runs folded); a body that does not hold it, or a printer
+  checks that the word equals the whole text between one pair of quotation
+  marks (`"…"`, `„…“` or `“…”`, whitespace runs folded), so pass the full
+  quote, not a run from inside a longer one; a body that does not hold it, or a printer
   that received another word, ends the lane `failed` at `input`. The check
   proves the item holds the word, not who said it. The result carries
   `operatorWord`, and its `requiredHeadActions` tell the head to quote it with

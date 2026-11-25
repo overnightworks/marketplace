@@ -184,9 +184,15 @@ contract and this skill.
   shows that one item, open or closed, and refuses a pull request number
   (`specs/rulings.spec.md`).
 - Mark a step only the operator can take with the `step` tool of `aco mcp`, on the item
-  it belongs to, or with a `title` when no open item holds it. It takes `purpose`,
-  `actions` and `expected` (`answer` optional) and refuses a call without them
-  (`specs/mcp.spec.md`). The
+  it belongs to, or with a `title` when no open item holds it. A step is one paste and
+  at most one short action: the tool takes `purpose`, `paste` and `expected`, and the
+  `step` line is the one action. The paste is one command line, with an optional leading
+  `cd`, or one link. The tool refuses what `specs/mcp.spec.md` lists, so a refusal names
+  the field to fix. It does not refuse a placeholder such as `scp <file> host:/x`, so the
+  head keeps the rest: nothing to fill in, no secret, an irreversible paste says so in
+  its step line, and anything longer is a script an agent writes first and the paste
+  calls. `read_inbox` flags a step of the old form (`actions`, `answer`); its head
+  rewrites it with the tool, which keeps its `since`. The
   tool writes the block's `wait.operator`, which alone makes the item wait on him,
   and the label `needs-operator` as its view; it removes neither. An answer he gives
   on the board (`aco serve`) removes the `wait` and the label and writes `now` itself

@@ -1,0 +1,7 @@
+claim_id = "9f1688547e1744858096ee0c6dc19724"
+agent = "Claude dbf28707-8113-4b5c-a429-16991b484b1c"
+role = "builder"
+base = "d14e036fd637075232b8128c68abb34834d44748"
+branch = "claude/issue-1001-work-the-operator-orders-runs-at-xhigh"
+scope = ["instructions/HEAD.md"]
+opened_commit = "fdc24fea6a516d2d06bed4934089db68122a2d2d"

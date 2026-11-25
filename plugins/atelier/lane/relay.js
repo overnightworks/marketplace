@@ -56,6 +56,26 @@ async function waitForRateLimitReset(A, spentBefore, callsBefore) {
   return { stop: 'The refusal held after the most waits the lane makes for the reset.' }
 }
 
+// The CRC32 of a value as the printer computes it over the value it received (JSON with ASCII escapes), with the count of the finding paths or of the characters of the word.
+const asciiJsonHash = (value) => crc32(JSON.stringify(value).replace(/[^\x20-\x7e]/g, char => String.raw`\u` + char.codePointAt(0).toString(16).padStart(4, '0')))
+const pathsDigest = (paths) => ({ count: paths.length, hash: asciiJsonHash(paths) })
+const wordDigest = (word) => ({ count: [...word].length, hash: asciiJsonHash(word) })
+const sameDigest = (echoed, sent) => echoed?.count === sent.count && echoed?.hash === sent.hash
+
+// The printer leaves out the values equal to their default (an empty list, no finding paths), so a copy that drops them is the printed line.
+function withPrinterDefaults(step, values) {
+  if (step === 'ci') return { paths: pathsDigest([]), shared: [], changed_index: [], ...values }
+  if (step === 'fix') return { paths: pathsDigest([]), ...values }
+  return values
+}
+
+// Why a printed line echoes other inputs than the lane sent (the finding paths of the ci and fix steps, the operator word of the branch step), or null.
+function echoedInputProblem(step, sent, values) {
+  if (['ci', 'fix'].includes(step) && sent.paths && !sameDigest(values.paths, pathsDigest(sent.paths))) return 'echoes other finding paths than the lane sent'
+  if (step === 'branch' && sent.word && !sameDigest(values.word, wordDigest(sent.word))) return 'echoes another operator word than the lane sent'
+  return null
+}
+
 // Builds the briefs of the sync and fix steps and owns the schemas of their reports, runs one printer command through an agent and returns the answer of the agent together with the CRC-checked values of the line it relays; for the fix step it judges the fixer's answer against the findings and fold-ins it answered, and for the ci step it reads those values and splits the failing checks into own and shared.
 async function relayStep(A) {
   const { label, phase: phaseName, step, relayArgs, nonce, requiredKeys, agentOptions, reread, before } = A
@@ -479,19 +499,6 @@ async function relayStep(A) {
     }
   }
 
-  // The CRC32 of a value as the printer computes it over the value it received (JSON with ASCII escapes), with the count of the finding paths or of the characters of the word.
-  const asciiJsonHash = (value) => crc32(JSON.stringify(value).replace(/[^\x20-\x7e]/g, char => String.raw`\u` + char.codePointAt(0).toString(16).padStart(4, '0')))
-  const pathsDigest = (paths) => ({ count: paths.length, hash: asciiJsonHash(paths) })
-  const wordDigest = (word) => ({ count: [...word].length, hash: asciiJsonHash(word) })
-  const sameDigest = (echoed, sent) => echoed?.count === sent.count && echoed?.hash === sent.hash
-
-  // The printer leaves out the values equal to their default (an empty list, no finding paths), so a copy that drops them is the printed line.
-  function withPrinterDefaults(values) {
-    if (step === 'ci') return { paths: pathsDigest([]), shared: [], changed_index: [], ...values }
-    if (step === 'fix') return { paths: pathsDigest([]), ...values }
-    return values
-  }
-
   // The head and main commands of the sync and fix steps: head must exit 0, and main (merge-base --is-ancestor) exits 0 or 1.
   const gitCommandFailed = (values) => values.head && values.main ? values.head.code !== 0 || ![0, 1].includes(values.main.code) : undefined
 
@@ -506,10 +513,10 @@ async function relayStep(A) {
     try { values = JSON.parse(printedPayload ?? match[2]) } catch { return printedPayload === undefined ? { problem: 'fails its CRC check' } : { problem: 'does not hold JSON' } }
     if (printedPayload === undefined && crc32(printerText(sortedListing(values))) !== match[1]) return { problem: 'fails its CRC check' }
     if (values?.nonce !== nonce) return { problem: `carries the nonce ${values?.nonce}, not ${nonce}` }
-    values = withPrinterDefaults(values)
-    if (['ci', 'fix'].includes(step) && A.sentPaths && !sameDigest(values.paths, pathsDigest(A.sentPaths))) return { problem: 'echoes other finding paths than the lane sent' }
+    values = withPrinterDefaults(step, values)
+    const echoed = echoedInputProblem(step, { paths: A.sentPaths, word: A.sentWord }, values)
+    if (echoed) return { problem: echoed }
     // The printer leaves out an entry of the ci step that carries only exit code 0, so its absence reads as that code.
-    if (step === 'branch' && A.sentWord && !sameDigest(values.word, wordDigest(A.sentWord))) return { problem: 'echoes another operator word than the lane sent' }
     const complete = step === 'ci' ? { view: { code: 0 }, runs: { code: 0 }, rules: { code: 0 }, changed: { code: 0 }, headruns: { code: 0 }, files: values.changed_index.map(position => A.sentPaths?.[position]).filter(Boolean), ...values } : values
     const missing = requiredKeys.find(key => !complete[key])
     if (missing) return { problem: `lacks the ${missing} entry` }

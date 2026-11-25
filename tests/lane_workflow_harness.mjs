@@ -91,6 +91,11 @@ export const runCommandLine = (line, { cwd, env, shell = 'sh' }) => {
   return (ran.stdout || ran.stderr).trim()
 }
 
+// The fake gh's answer to a read of the item body.
+const itemEnvironment = (scenario) => ({ FAKE_ITEM_BODY: scenario.item_body ?? '', FAKE_ITEM_CODE: scenario.item_code ?? 0, FAKE_ITEM_ERROR: scenario.item_error ?? '' })
+// The printer line a scenario's typedCommand rewrites; a reread keeps the line unless the scenario types it always.
+const typedLine = (scenario, reread, line) => scenario.typedCommand && (!reread || scenario.typedAlways) ? scenario.typedCommand(line) : line
+
 // answers holds each agent's result by its label; an agent without one ends without a result. Without answers only
 // the sync step answers (an up-to-date lane), so a run gets as far as starting its first review round.
 // options.transform rewrites the bundle source, so a test can break one part of it (partReplaced) or change one constant.
@@ -173,12 +178,12 @@ export async function runLane(args, answers = {}, options = {}) {
       ...process.env, PATH: `${fakeCommands()}:${process.env.PATH}`, FAKE_HEAD: scenario.head ?? newestTip, FAKE_BRANCH: scenario.branch ?? args.branch, FAKE_BRANCH_CODE: scenario.branch_code ?? 0, FAKE_REMOTE: scenario.remote_tip ?? newestTip,
       FAKE_HEAD_CODE: scenario.head_code ?? 0, FAKE_PARENTS: (scenario.parents ?? []).join('\n'), FAKE_MAIN_CODE: scenario.main_code ?? 0, FAKE_TREE: scenario.tree ?? 'a1a1a1a1', FAKE_MERGE_TREE: scenario.merge_tree ?? scenario.tree ?? 'a1a1a1a1', FAKE_MERGE_TREE_CODE: scenario.merge_tree_code ?? 0, FAKE_TOUCHED: (scenario.touched_paths ?? []).join('\n'), FAKE_MERGE_PATHS: (scenario.merge_paths ?? []).join('\n'),
       FAKE_PUSH_ERROR: scenario.push_error ?? '', FAKE_NETWORK_ERROR: scenario.network_error ?? '', FAKE_NETWORK_STDOUT: scenario.network_stdout ?? '', FAKE_NETWORK_FAILS: scenario.network_fails ?? 1, FAKE_BRIEF_ERROR: scenario.brief_error ?? '', FAKE_RATE_EXHAUSTED_CALLS: scenario.rate_exhausted_calls ?? 0, FAKE_RATE_EXHAUSTED_AGAIN_AT: scenario.rate_exhausted_again_at ?? 0, FAKE_RATE_RESET_IN: scenario.rate_reset_in ?? 600, FAKE_RATE_ERROR: scenario.rate_error ?? '',
-      FAKE_ITEM_BODY: scenario.item_body ?? '', FAKE_ITEM_CODE: scenario.item_code ?? 0, FAKE_ITEM_ERROR: scenario.item_error ?? '', FAKE_RECORD_ERROR: scenario.record_error ?? '', FAKE_BEGIN_ERROR: scenario.begin_error ?? '', FAKE_ADD_ERROR: scenario.add_error ?? '', FAKE_SHOW_CODE: scenario.show_code ?? 0, FAKE_SHOW_ERROR: scenario.show_error ?? '', FAKE_SHOW_OUTPUT: JSON.stringify({ runs: scenario.stored_runs ?? [...storedBefore(), storedOwnRun()] }), FAKE_RESOLVE_CODE: scenario.resolve_code ?? 0, FAKE_PR_TITLE: scenario.pr_title ?? 'Add the feature', FAKE_ITEM_TITLE: scenario.item_title ?? 'The item title', FAKE_PATCH_CODE: scenario.patch_code ?? 0, FAKE_BRIEF_OUTPUT: JSON.stringify({ outside_claim: 'outside_claim' in scenario ? scenario.outside_claim : [] }), ...ghEnv(scenario),
+      ...itemEnvironment(scenario), FAKE_RECORD_ERROR: scenario.record_error ?? '', FAKE_BEGIN_ERROR: scenario.begin_error ?? '', FAKE_ADD_ERROR: scenario.add_error ?? '', FAKE_SHOW_CODE: scenario.show_code ?? 0, FAKE_SHOW_ERROR: scenario.show_error ?? '', FAKE_SHOW_OUTPUT: JSON.stringify({ runs: scenario.stored_runs ?? [...storedBefore(), storedOwnRun()] }), FAKE_RESOLVE_CODE: scenario.resolve_code ?? 0, FAKE_PR_TITLE: scenario.pr_title ?? 'Add the feature', FAKE_ITEM_TITLE: scenario.item_title ?? 'The item title', FAKE_PATCH_CODE: scenario.patch_code ?? 0, FAKE_BRIEF_OUTPUT: JSON.stringify({ outside_claim: 'outside_claim' in scenario ? scenario.outside_claim : [] }), ...ghEnv(scenario),
     }
     if (label.startsWith('record-')) return recordPrinted(prompt, line, env, scenario)
     const sleepless = line.replace('time.sleep(slept)', '0')
     if (sleepless === line) throw new Error(`the printer line of ${label} no longer holds time.sleep(slept), so the harness cannot skip its sleep`)
-    const typed = scenario.typedCommand && (!reread || scenario.typedAlways) ? scenario.typedCommand(sleepless) : sleepless
+    const typed = typedLine(scenario, reread, sleepless)
     const asked = scenario.printerMode ? typed.replace(/' scope .* ('[^']*')$/, `' ${scenario.printerMode} $1`) : typed
     const printed = runCommandLine(scenario.nonce ? asked.replace(/'[^']*'$/, `'${scenario.nonce}'`) : asked, { cwd: os.tmpdir(), env })
     return scenario.edit ? scenario.edit(printed) : printed

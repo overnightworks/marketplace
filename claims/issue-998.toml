@@ -1,0 +1,7 @@
+claim_id = "bf1d9c81fe49474e8dfea0aa32a9b1bf"
+agent = "Claude dbf28707-8113-4b5c-a429-16991b484b1c"
+role = "builder"
+base = "efaedbbf68cadcff80a088a142f3488f938c508c"
+branch = "claude/issue-998-write-docs-names-the-id-column-table"
+scope = ["plugins/atelier/skills/write-docs/references/document-types.md"]
+opened_commit = "d65ace57f51cffdae59737abd8af62bd419f2721"

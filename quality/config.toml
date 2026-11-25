@@ -1,6 +1,102 @@
 [gate]
 mandatory_jobs = ["Sync check and tests"]
 
+[[gate.loosened]]
+what = 'size baseline adds ccn plugins/atelier/lane/main.js checkpointOrFail 19'
+item = "#972"
+date = 2026-11-23
+reason = "the size rule measures script functions from quality v0.25.0; the operator ruled the adoption path on overnightworks/quality#884, so nothing is split"
+
+[[gate.loosened]]
+what = 'size baseline adds ccn plugins/atelier/lane/main.js pushAndCheckScope 20'
+item = "#972"
+date = 2026-11-23
+reason = "the size rule measures script functions from quality v0.25.0; the operator ruled the adoption path on overnightworks/quality#884, so nothing is split"
+
+[[gate.loosened]]
+what = 'size baseline adds ccn plugins/atelier/lane/main.js roleChoiceRefusal 17'
+item = "#972"
+date = 2026-11-23
+reason = "the size rule measures script functions from quality v0.25.0; the operator ruled the adoption path on overnightworks/quality#884, so nothing is split"
+
+[[gate.loosened]]
+what = 'size baseline adds ccn plugins/atelier/lane/relay.js judgeFix 17'
+item = "#972"
+date = 2026-11-23
+reason = "the size rule measures script functions from quality v0.25.0; the operator ruled the adoption path on overnightworks/quality#884, so nothing is split"
+
+[[gate.loosened]]
+what = 'size baseline adds ccn plugins/atelier/lane/relay.js readCi 29'
+item = "#972"
+date = 2026-11-23
+reason = "the size rule measures script functions from quality v0.25.0; the operator ruled the adoption path on overnightworks/quality#884, so nothing is split"
+
+[[gate.loosened]]
+what = 'size baseline adds ccn plugins/atelier/lane/relay.js readRelay 17'
+item = "#972"
+date = 2026-11-23
+reason = "the size rule measures script functions from quality v0.25.0; the operator ruled the adoption path on overnightworks/quality#884, so nothing is split"
+
+[[gate.loosened]]
+what = 'size baseline adds ccn plugins/atelier/lane/review.js classify 16'
+item = "#972"
+date = 2026-11-23
+reason = "the size rule measures script functions from quality v0.25.0; the operator ruled the adoption path on overnightworks/quality#884, so nothing is split"
+
+[[gate.loosened]]
+what = 'size baseline adds ccn plugins/atelier/lane/review.js firstReviewRange 21'
+item = "#972"
+date = 2026-11-23
+reason = "the size rule measures script functions from quality v0.25.0; the operator ruled the adoption path on overnightworks/quality#884, so nothing is split"
+
+[[gate.loosened]]
+what = 'size baseline adds ccn tests/lane_workflow_harness.mjs answerFor 16'
+item = "#972"
+date = 2026-11-23
+reason = "the size rule measures script functions from quality v0.25.0; the operator ruled the adoption path on overnightworks/quality#884, so nothing is split"
+
+[[gate.loosened]]
+what = 'size baseline adds ccn tests/lane_workflow_harness.mjs ghEnv 17'
+item = "#972"
+date = 2026-11-23
+reason = "the size rule measures script functions from quality v0.25.0; the operator ruled the adoption path on overnightworks/quality#884, so nothing is split"
+
+[[gate.loosened]]
+what = 'size baseline adds ccn tests/lane_workflow_harness.mjs printedBy 42'
+item = "#972"
+date = 2026-11-23
+reason = "the size rule measures script functions from quality v0.25.0; the operator ruled the adoption path on overnightworks/quality#884, so nothing is split"
+
+[[gate.loosened]]
+what = 'size baseline adds function_lines plugins/atelier/lane/ci.js laneCi 94'
+item = "#972"
+date = 2026-11-23
+reason = "the size rule measures script functions from quality v0.25.0; the operator ruled the adoption path on overnightworks/quality#884, so nothing is split"
+
+[[gate.loosened]]
+what = 'size baseline adds function_lines plugins/atelier/lane/relay.js relayStep 473'
+item = "#972"
+date = 2026-11-23
+reason = "the size rule measures script functions from quality v0.25.0; the operator ruled the adoption path on overnightworks/quality#884, so nothing is split"
+
+[[gate.loosened]]
+what = 'size baseline adds function_lines plugins/atelier/lane/review.js laneReview 260'
+item = "#972"
+date = 2026-11-23
+reason = "the size rule measures script functions from quality v0.25.0; the operator ruled the adoption path on overnightworks/quality#884, so nothing is split"
+
+[[gate.loosened]]
+what = 'size baseline adds function_lines plugins/atelier/lane/routing.js laneRouting 62'
+item = "#972"
+date = 2026-11-23
+reason = "the size rule measures script functions from quality v0.25.0; the operator ruled the adoption path on overnightworks/quality#884, so nothing is split"
+
+[[gate.loosened]]
+what = 'size baseline adds function_lines tests/lane_workflow_harness.mjs runLane 126'
+item = "#972"
+date = 2026-11-23
+reason = "the size rule measures script functions from quality v0.25.0; the operator ruled the adoption path on overnightworks/quality#884, so nothing is split"
+
 [[root.allow]]
 entry = ".agents/"
 reason = "the Codex marketplace catalog, read at the root"

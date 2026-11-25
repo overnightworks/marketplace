@@ -1,7 +1,0 @@
-claim_id = "e09e83088fc34477b24090dae5b649c7"
-agent = "Claude dbf28707-8113-4b5c-a429-16991b484b1c"
-role = "builder"
-base = "efaedbbf68cadcff80a088a142f3488f938c508c"
-branch = "claude/issue-999-aco-skill-step-tool-one-paste-form"
-scope = ["plugins/atelier/skills/aco/SKILL.md", "plugins/atelier/skills/board-hygiene/SKILL.md"]
-opened_commit = "9c47751a33c43e57729291b70aa8663684a2f55d"

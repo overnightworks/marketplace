@@ -198,9 +198,11 @@ it from its branch and claims after adoption.
 - **Heads talk.** What another repository's head needs (a release, a fix, a
   changed contract) goes to it live when this session can reach it, and always
   onto its board, where a later head still finds it. A release reaches each
-  dependent as one work item with an aco block, opened or sharpened by the
-  releasing head (the release is its caller), naming the version and what the
-  dependent must change, as its release page lists it. The dependent's head
+  dependent that runs or imports what it changes, or waits for it, as one work
+  item with an aco block, opened or sharpened by the releasing head (the
+  release is its caller), naming the version and what the dependent must
+  change, as its release page lists it; any other dependent gets none, and its
+  pin moves with the next release that reaches it. The dependent's head
   takes it ahead of new feature work (`--out-of-order` when `aco next` names
   another item) and builds the version in unless an open item blocks it, which
   it then records as a dependency.
@@ -382,10 +384,12 @@ high.
 - Effort is capped per model, for routine work and overrides: Opus at medium
   (a plan review, an architecture, security or product decision and the final
   gate at high, the question check in Role at xhigh), every other model at
-  high. More needs the operator's word, quoted in the item, and runs in the
-  lane workflow with that word as its argument; before an architecture
-  decision or research he asked for, ask him model and effort with a proposal,
-  which may be Fable and xhigh or max.
+  high. An architecture decision, its plan review or research the operator
+  ordered runs at xhigh on Fable 5.2, or on Opus 5.5 while Fable is at its
+  usage limit, unless he names another model or effort; a re-check after a
+  revision keeps its row in the table. Other work above the cap needs his word,
+  quoted in the item, and runs in the lane workflow with that word as its
+  argument.
 - A lane's models may be set through the lane workflow's arguments. Before
   running the `codex` or `grok` CLI yourself outside it, load the `providers`
   skill.

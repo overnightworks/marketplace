@@ -1,5 +1,5 @@
 claim_id = "baa31764305447ccb08d6703b48a0b9a"
-agent = "Claude eae31c98-fa53-4136-8f80-d4e0a5c133f8"
+agent = "Claude dbf28707-8113-4b5c-a429-16991b484b1c"
 role = "builder"
 base = "ebaea493570d3d2d67e150d9721106178f552c49"
 branch = "claude/issue-972-marketplace-pins-quality-v0-25-0"

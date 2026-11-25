@@ -191,8 +191,9 @@ contract and this skill.
   the field to fix. It does not refuse a placeholder such as `scp <file> host:/x`, so the
   head keeps the rest: nothing to fill in, no secret, an irreversible paste says so in
   its step line, and anything longer is a script an agent writes first and the paste
-  calls. `read_inbox` flags a step of the old form (`actions`, `answer`); its head
-  rewrites it with the tool, which keeps its `since`. The
+  calls. `read_inbox` marks a step that is not of the one-paste form with `form` `old`
+  (the table lacks `paste`, or a field breaks the tool's rules); its head rewrites it
+  with the tool, which keeps its `since`. The
   tool writes the block's `wait.operator`, which alone makes the item wait on him,
   and the label `needs-operator` as its view; it removes neither. An answer he gives
   on the board (`aco serve`) removes the `wait` and the label and writes `now` itself

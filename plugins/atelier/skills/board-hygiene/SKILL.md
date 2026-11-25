@@ -82,7 +82,8 @@ rest and say so in the report.
   string and `actionable_reason` "waiting on operator", and a date or trigger
   wait is no step): `current`, `stale` with its evidence (the landed change,
   the moved item, the outdated command or an answer already recorded), or
-  `breaks the step rule` naming the part (`HEAD.md`, Role). The head's action:
+  `breaks the step rule` naming the part (`HEAD.md`, Role); a step `read_inbox`
+  shows as old form (`form` `old`) is `breaks the step rule`. The head's action:
   keep, take the step back, or rewrite it as one paste.
 
 A nearly empty board (two open items or fewer, claimed or not) skips Pass 1 detail: run

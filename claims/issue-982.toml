@@ -1,0 +1,7 @@
+claim_id = "b18466bed57a40c3b4aa90438604225f"
+agent = "Claude dbf28707-8113-4b5c-a429-16991b484b1c"
+role = "builder"
+base = "efaedbbf68cadcff80a088a142f3488f938c508c"
+branch = "claude/issue-982-marketplace-pins-quality-v0-27-0"
+scope = [".github/workflows/ci.yml", ".github/workflows/codeql.yml", "docs/standards.md"]
+opened_commit = "169f97ada53946f65a2c4969687998ef80f7d721"

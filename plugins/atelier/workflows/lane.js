@@ -583,6 +583,12 @@ async function waitForRateLimitReset(A, spentBefore, callsBefore) {
   return { stop: 'The refusal held after the most waits the lane makes for the reset.' }
 }
 
+const crc32 = (text) => {
+  let crc = 0xffffffff
+  for (let i = 0; i < text.length; i++) crc = CRC_TABLE[(crc ^ text.codePointAt(i)) & 255] ^ (crc >>> 8)
+  return ((crc ^ 0xffffffff) >>> 0).toString(16).padStart(8, '0')
+}
+
 // The CRC32 of a value as the printer computes it over the value it received (JSON with ASCII escapes), with the count of the finding paths or of the characters of the word.
 const asciiJsonHash = (value) => crc32(JSON.stringify(value).replace(/[^\x20-\x7e]/g, char => String.raw`\u` + char.codePointAt(0).toString(16).padStart(4, '0')))
 const pathsDigest = (paths) => ({ count: paths.length, hash: asciiJsonHash(paths) })
@@ -674,16 +680,6 @@ async function relayStep(A) {
   const relayCommand = (...relayArgs) => `${before ? before + ' && ' : ''}cd '${A.worktree}' && python3 -c '${PRINTER}' ${relayArgs.join(' ')}`
   const RELAY_ASK = 'run this one command line exactly as written with a Bash timeout of 300000 ms, without changing it or its directory, and return the line it prints unchanged as printed; when it prints no line, return its error output as printed:'
   const RELAY_LINE = /^\{"crc":"([0-9a-f]{8})","v":(.*)\}$/
-  const CRC_TABLE = Array.from({ length: 256 }, (_, n) => {
-    let crc = n
-    for (let bit = 0; bit < 8; bit++) crc = crc & 1 ? 0xedb88320 ^ (crc >>> 1) : crc >>> 1
-    return crc >>> 0
-  })
-  const crc32 = (text) => {
-    let crc = 0xffffffff
-    for (let i = 0; i < text.length; i++) crc = CRC_TABLE[(crc ^ text.codePointAt(i)) & 255] ^ (crc >>> 8)
-    return ((crc ^ 0xffffffff) >>> 0).toString(16).padStart(8, '0')
-  }
   // The printer sorts checks.open by name and bucket, because the order of the listing decides nothing and a model that
   // tidies it must not fail the check: a mismatching line is read again with the list in the printer's order, in the printer's JSON form.
   const compareText = (a, b) => Number(a > b) - Number(a < b)

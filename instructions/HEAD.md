@@ -198,9 +198,11 @@ it from its branch and claims after adoption.
 - **Heads talk.** What another repository's head needs (a release, a fix, a
   changed contract) goes to it live when this session can reach it, and always
   onto its board, where a later head still finds it. A release reaches each
-  dependent as one work item with an aco block, opened or sharpened by the
-  releasing head (the release is its caller), naming the version and what the
-  dependent must change, as its release page lists it. The dependent's head
+  dependent that runs or imports what it changes, or waits for it, as one work
+  item with an aco block, opened or sharpened by the releasing head (the
+  release is its caller), naming the version and what the dependent must
+  change, as its release page lists it; any other dependent gets none, and its
+  pin moves with the next release that reaches it. The dependent's head
   takes it ahead of new feature work (`--out-of-order` when `aco next` names
   another item) and builds the version in unless an open item blocks it, which
   it then records as a dependency.

@@ -1,0 +1,7 @@
+claim_id = "13c4b7442b6d4ef88f568d23672f2987"
+agent = "Claude dbf28707-8113-4b5c-a429-16991b484b1c"
+role = "builder"
+base = "d14e036fd637075232b8128c68abb34834d44748"
+branch = "claude/issue-962-a-release-reaches-only-the-dependents-it"
+scope = ["instructions/HEAD.md"]
+opened_commit = "d7bfde198fbcef20ac7fa615993a0235324d98a9"

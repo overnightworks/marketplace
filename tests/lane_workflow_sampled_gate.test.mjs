@@ -77,6 +77,11 @@ test('sampled-gate: a run after a stored gate REVISE re-checks with the gate bes
   assert.deepEqual(launchedAgents.filter(label => /^(r0-|e2e)/.test(label)), ['r0-review', 'r0-gate', 'e2e-0'])
 })
 
+test('sampled-gate: a run after a stored gate REVISE with deltaFrom re-checks the delta only', async () => {
+  const { agentCalls } = await runLane({ ...sampledLane, deltaFrom: olderTip, answers: 'the fix answers it' }, { 'r0-review': APPROVE, 'r0-gate': gateApprove, ...reachesTheEnd, begin: { stored_runs: [storedGateRun(['revise', olderTip]), storedOwnRun()] } })
+  assert.match(agentCalls['r0-gate'].prompt, /only this delta/)
+})
+
 test('sampled-gate: a run after a stored gate approval starts no gate', async () => {
   const { launchedAgents, result } = await runLane(sampledLane, { 'r0-review': APPROVE, ...reachesTheEnd, begin: { stored_runs: [storedGateRun(['approve', olderTip]), storedOwnRun()] } })
   assert.deepEqual([gateLabels(launchedAgents), result.sampled], [[], false])

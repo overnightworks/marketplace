@@ -1,7 +1,0 @@
-claim_id = "ab18d52e94b74472b64f25fe98a10b23"
-agent = "Claude c1d65467-2dcf-4ef5-921f-526bf349a609"
-role = "builder"
-base = "105433055a56628b035ab0b8e3e3013d58a87f42"
-branch = "claude/issue-979-standing-audit-names-largest-baseline"
-scope = [".github/workflows/ci.yml", "plugins/atelier/skills/audit/SKILL.md", "plugins/atelier/skills/board-hygiene/SKILL.md"]
-opened_commit = "b17c76b3e99eba5dfbf94fea2c4ff250d7c61075"

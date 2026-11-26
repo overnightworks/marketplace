@@ -3,12 +3,16 @@
 const RECORD_VERSION = 1
 const RECORD_STAGES = ['build', 'fix', 'review', 'test', 'gate', 'land']
 const FINDING_STAGE_NAMES = ['review', 'gate', 'ci', 'test']
-const FINDING_STAGES = [[/^e2e-/, 'test'], [/^ci-/, 'ci'], [/^(review|gate)$/, null], [/^standin$/, 'gate']]
+const FINDING_STAGES = [[/^e2e-/, 'test'], [/^ci-/, 'ci']]
+// The stage each reviewer key counts as: a stand-in counts as the gate stage.
 const VERDICT_STAGES = { review: 'review', gate: 'gate', standin: 'gate' }
-const RECORD_COUNT_LIMIT = 999
+// The routing row each reviewer key runs on: a stand-in counts as the gate stage but runs on the review row; the stand-in follows the gate in VERDICT_STAGES because it replaces a gate that ran.
+const REVIEWER_ROUTING_ROWS = { review: 'review', gate: 'gate', standin: 'review' }
+const GATE_KEYS = Object.keys(VERDICT_STAGES).filter(key => VERDICT_STAGES[key] === 'gate')
+const RECORD_COUNT_LIMIT = 999  // aco reads a count of one to three digits
 const FULL_SHA = /^[0-9a-f]{40}$/
 
-const stageOf = (reviewer) => FINDING_STAGES.map(([pattern, name]) => pattern.test(reviewer) ? name ?? reviewer : null).find(Boolean)
+const stageOf = (reviewer) => FINDING_STAGES.find(([pattern]) => pattern.test(reviewer))?.[1] ?? VERDICT_STAGES[reviewer]
 
 // The findings of one history entry by text and stage, each with the number of findings that share them and how many of those are misses.
 function findingsOfEntry(entry, stage, isMiss) {
@@ -74,7 +78,7 @@ function blockingStages(history, approvedBefore = []) {
 const historyRan = (history, key) => history.some(entry => entry.by === key || entry.by?.startsWith(`${key}-`))
 
 // The stages the history and the fixers show for fix, test and gate, a tester that started counting as the test; a stand-in review is the gate that ran.
-const stagesOfHistory = ({ history, fixRole, testStarted }) => ({ fix: Boolean(fixRole), test: testStarted || historyRan(history, 'e2e'), gate: historyRan(history, 'standin') || historyRan(history, 'gate') })
+const stagesOfHistory = ({ history, fixRole, testStarted }) => ({ fix: Boolean(fixRole), test: testStarted || historyRan(history, 'e2e'), gate: GATE_KEYS.some(key => historyRan(history, key)) })
 
 // The stages this segment started, in the order aco names them; the record's own slots and the --ran stages of aco lane-record add read this one history.
 function stagesRan({ history, fixRole, testStarted, builderRan, reviewStarted }) {
@@ -89,7 +93,7 @@ function stageChoices({ routing, history, fixRole, testStarted }) {
   const choiceOrNone = (ran, role) => ran ? choiceOf(role) : 'none'
   return {
     build: choiceOf('build'), fix: choiceOrNone(ofHistory.fix, fixRole), review: choiceOf('review'),
-    test: choiceOrNone(ofHistory.test, 'test'), gate: choiceOrNone(ofHistory.gate, historyRan(history, 'standin') ? 'review' : 'gate'), land: choiceOf('mechanical'),
+    test: choiceOrNone(ofHistory.test, 'test'), gate: choiceOrNone(ofHistory.gate, REVIEWER_ROUTING_ROWS[GATE_KEYS.findLast(key => historyRan(history, key)) ?? 'gate']), land: choiceOf('mechanical'),
   }
 }
 
@@ -157,7 +161,7 @@ function laneRecord({ routing, history, since = 0, fixRole, testStarted = false,
 // with the record's, and only then lets the printer run `aco lane-record check` on it. The record has no whitespace, so the comparison over its words is over its bytes.
 function recordCourier({ record, file, scratch, label }) {
   const text = JSON.stringify(record)
-  const checksum = crc32OfUtf8(text)
+  const checksum = crc32(text)
   const token = `${label}-${checksum}`
   const [start, end] = [`BRIEF-START ${token}`, `BRIEF-END ${token}`]
   const brief =

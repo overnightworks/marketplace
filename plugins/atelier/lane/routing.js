@@ -3,7 +3,6 @@ export async function laneRouting(A) {
   // The Routing line aco reads (aco's specs/lane-record.spec.md owns the grammar), built from what the lane used; the head pastes it as is.
   const ROUTING_LINE_LIMIT = 512  // the length the aco skill's abandon step asks of the line
   const LOCATION_LIMIT = 60
-  const COUNT_LIMIT = 999  // aco reads a count of one to three digits
   const PATH_CHARACTERS = /^[\p{L}\p{N}_./@-]+$/u
 
   // One scan over the word: drop wrapping parentheses and trailing punctuation, then a path, a colon, a line and an optional "-end" of a range.
@@ -24,7 +23,7 @@ export async function laneRouting(A) {
   // The findings of the lane's history by location and stage, each with the number that share them (laneRecord's counting, with the location a Routing line prints).
   const blockingLocations = (history) => blockingStages(history).map(({ text, stage, count }) => ({ where: locationOf(text), stage, count }))
 
-  const countParts = (count) => Array.from({ length: Math.ceil(count / COUNT_LIMIT) }, (_, part) => Math.min(COUNT_LIMIT, count - part * COUNT_LIMIT))
+  const countParts = (count) => Array.from({ length: Math.ceil(count / RECORD_COUNT_LIMIT) }, (_, part) => Math.min(RECORD_COUNT_LIMIT, count - part * RECORD_COUNT_LIMIT))
   const printedEntry = (count, location, stage) => {
     const times = count > 1 ? `${count}× ` : ''
     const place = location ? `${location} ` : ''

@@ -7,7 +7,7 @@ const startedStages = { build: false, review: false, test: false }  // the stage
 let segmentNumber = 1
 let segmentBegun = false  // the open segment has begun on the claim and is not added yet
 let segmentStartTip = null  // the tip the open segment begins at: the previous segment's end tip, none for the first segment of a build
-let segmentFrom = { history: 0, fixRoles: 0, fixRounds: { review: 0, gate: 0, ci: 0, test: 0 } }  // what the run held when the open segment started
+let segmentFrom = { history: 0, fixRoles: 0, fixRounds: zeroCounts() }  // what the run held when the open segment started
 let addAttempted = false  // aco lane-record add runs once per segment
 let recordsWritten = 0
 

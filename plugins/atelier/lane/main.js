@@ -25,6 +25,7 @@ const MATERIAL = A.risk === 'material'
 if (A.repo && !/^[\w.-]+\/[\w.-]+$/.test(A.repo)) return { status: 'failed', stage: 'input', reason: 'repo must be owner/name' }
 const R = A.repo ? ` -R ${A.repo}` : ''
 const IN_REPO = A.repo ? ` in ${A.repo}` : ''
+const REPO_API = `repos/${A.repo || '{owner}/{repo}'}`  // the REST path of the repository; the printer derives its own
 const TAG = `wf-${A.item}`
 // Paths whose change re-opens the gate on a material lane and re-runs the end-to-end test: code and public contract.
 // The default fits a src-layout Python repository.
@@ -96,7 +97,7 @@ const FOLLOWUP = {
   properties: {
     where: { type: 'string' }, text: { type: 'string' }, owner: { type: 'string', description: 'owning item #n, or "distributor"' },
     stage: { type: 'string', enum: FINDING_STAGE_NAMES, description: 'the stage that raised it; the lane sets it on every follow-up it reports' },
-    inPlace: { type: 'boolean', description: 'true when it sits in a file the lane already changed, its fix cannot change behaviour outside the reviewed diff and it takes about ten lines: the lane\'s fixer resolves it in place; the head\'s foldIn leaves it out, since naming a follow-up there counts as in place' },
+    inPlace: { type: 'boolean', description: `true when ${IN_PLACE_RULE}: the lane's fixer resolves it in place; the head's foldIn leaves it out, since naming a follow-up there counts as in place` },
   },
 }
 // A reviewer or tester must classify every follow-up it reports; the head's foldIn input check reads FOLLOWUP, which leaves inPlace out of its string fields.
@@ -153,7 +154,7 @@ const driveFacts = `Any drive you run keeps its pidfiles and evidence under ${A.
 
 const BLOCKING_LINE =
   `Mark every finding **blocking** or **follow-up** as the contract's section "Reviews" defines them, the tripwire exception included. ` +
-  `Reproduce a behaviour on origin/main before calling it pre-existing; each follow-up names its owning item (#n) or "distributor" and sets inPlace true only when it sits in a file the lane already changed, its fix cannot change behaviour outside the reviewed diff and it takes about ten lines. ` +
+  `Reproduce a behaviour on origin/main before calling it pre-existing; each follow-up names its owning item (#n) or "distributor" and sets inPlace true only when ${IN_PLACE_RULE}. ` +
   `Every blocking finding names the rule it breaks and the evidence you observed; a finding you cannot back with evidence is not blocking. ` +
   `Every blocking finding names its kind: **defect** when the code breaks a rule or ` +
   `does not do what the contract, its docs or its own text promise — a mismatch between promise and code is defect unless the contract says the code is right, ` +
@@ -184,7 +185,7 @@ const spent = { review: 0, test: 0, ci: 0, total: 0 }
 const fixRolesRun = []  // the role of each fixer that ran, in order
 let syncedTip = null  // the head the sync read: the start tip of a pr/tip run's begin
 let runId = null  // minted by the branch relay step: the id this run has on the claim in aco lane-record begin and add
-const fixRoundsByStage = { review: 0, gate: 0, ci: 0, test: 0 }  // the stage whose findings each fix round answered
+const fixRoundsByStage = zeroCounts()  // the stage whose findings each fix round answered
 const seen = new Map()  // finding key -> how often it came back after a fix
 let productionSinceTest = false  // any fix since the last end-to-end test touched production
 let productionSinceGate = false  // any fix since the last unlimited gate result touched production
@@ -315,7 +316,7 @@ if (A.build) {
     const conflict = syncConflictOf(values, [...LEDGERS, ...GENERATED.map(([path]) => path)])
     if (!conflict) return await openResult('escalated', 'sync', { reason: synced.note || `the lane tip ${values.head.out} does not contain origin/main, and the sync named no cause` })
     syncRaisedConflict = true
-    carriedOver = [syncConflictFinding(conflict), ...carriedOver.filter(f => f.where !== 'mergeable')]
+    carriedOver = [syncConflictFinding(conflict), ...carriedOver.filter(f => f.where !== MERGEABLE_WHERE)]
     carriesBatch = true
     history.push({ after: 0, by: 'sync', conflict: conflict.paths, tip: values.head.out })
   }
@@ -344,7 +345,7 @@ async function reviewRound(which, range, from, sampledLook) {
   // The sampled look is the gate alone and may be skipped, so it never marks the review stage as started.
   if (!sampledLook) startedStages.review = true
   const after = sampledLook?.after ?? spent.total
-  const reviewers = which.map(r => ({ key: r.key, provider: r.provider, role: r.role, isGate: r === GATE, routing: claudeRole(r === GATE ? 'gate' : 'review') }))
+  const reviewers = which.map(r => ({ key: r.key, provider: r.provider, role: r.role, isGate: r === GATE, routing: claudeRole(REVIEWER_ROUTING_ROWS[r.key]) }))
   const answer = await runPart('lane-review', laneReview, { item: A.item, pr, repo: A.repo, repoFlag: R, after, tip, delegatedLine: DELEGATED_LINE, worktree: A.worktree, branch: A.branch, scratch: A.scratch, tag: TAG, label: `r${after}`, range, reuse: buildReuse, e2e: A.e2e, contract: A.contract, blockingLine: BLOCKING_LINE, reviewers, findingKinds: FINDING_KINDS, finding: FINDING, followup: REPORTED_FOLLOWUP, mechanical: MECHANICAL })
   const unfit = unfitRoundAnswer(answer, which.length)
   if (unfit) {
@@ -366,9 +367,9 @@ async function reviewRound(which, range, from, sampledLook) {
 // A conflict with main or a missing CI run is a new event each time, never the same finding; a CI failure is the same
 // only when its evidence (the failing log tail) repeats, because a courier's text for two different failures can match.
 // Log tails often carry timestamps, so this rarely fires for CI; the ci budget is the real stop there.
-const progressKey = (f) => (f.rule || '').startsWith('CI check') ? `${f.where}::${f.evidence}` : findingKey(f)
+const progressKey = (f) => isCiCheckFinding(f) ? `${f.where}::${f.evidence}` : findingKey(f)
 function noProgress(blocking) {
-  const counted = blocking.filter(f => f.where !== 'mergeable' && f.where !== 'checks')
+  const counted = blocking.filter(f => f.where !== MERGEABLE_WHERE && f.where !== CHECKS_WHERE)
   const repeated = counted.filter(f => (seen.get(progressKey(f)) || 0) >= 1)
   counted.forEach(f => seen.set(progressKey(f), (seen.get(progressKey(f)) || 0) + 1))
   return repeated
@@ -511,7 +512,7 @@ async function pushAndCheckScope(label, origin) {
   if (!Array.isArray(paths) || !paths.every(path => typeof path === 'string')) return fail('scope', `aco's outside_claim is neither null nor a list of paths: ${JSON.stringify(paths)}`)
   passedOutsidePaths = []
   if (!paths.length) return null
-  // The relay lists at most 50 paths; the unlisted ones cannot be judged.
+  // The relay lists at most PRINTED_PATH_LIMIT paths; the unlisted ones cannot be judged.
   if (values.count === paths.length) {
     history.push({ by: 'scope', outside: paths, tip, passedOutside: true })
     passedOutsidePaths = [...new Set(paths)]
@@ -587,7 +588,7 @@ async function reviseAfter(rr) {
     const stored = await storeProvenPoint()
     if (stored) return stored
   }
-  const f = await fixRound(blocking, 'the review', ROUND.review, 'review', false, raised.some(r => r === GATE || r === STANDIN) ? 'gate' : 'review')
+  const f = await fixRound(blocking, 'the review', ROUND.review, 'review', false, raised.some(r => VERDICT_STAGES[r.key] === 'gate') ? 'gate' : 'review')
   if (f.stop) return f.stop
   if (!f.range) return openResult('failed', 'review', { reason: 'a review finding was answered by a merge alone', lastBlocking: blocking })
   const next = f.gateAgain && !raised.includes(GATE) ? raised.concat([GATE]) : raised
@@ -644,9 +645,9 @@ const explore = (n, fixRange) => runPart('lane-test', laneTest, { fixRange, dele
 const findingPaths = (failing = []) => [...new Set(failing.map(finding => findingPath(finding.where)).filter(Boolean))]
 // Review and tester both passed on the tip, so a CI read that stays refused leaves only the check runs for the head to read.
 const provenOnTip = () => approvedOn(history, tip) && !testBlocking.length && lastTestedTip === tip
-const restCheckAction = () => `without a new run: read the check runs of ${tip} with \`gh api repos/${A.repo || '{owner}/{repo}'}/commits/${tip}/check-runs --paginate\` (REST, outside the GraphQL budget); once every one is completed and green, land with \`aco land ${pr} --head ${tip}\``
+const restCheckAction = () => `without a new run: read the check runs of ${tip} with \`gh api ${REPO_API}/commits/${tip}/check-runs --paginate\` (REST, outside the GraphQL budget); once every one is completed and green, land with \`aco land ${pr} --head ${tip}\``
 async function watchCi(n, rerun) {
-  const watched = await runPart('lane-ci', laneCi, { delegatedLine: DELEGATED_LINE, pr, n, rerun, repo: A.repo, repoFlag: R, inRepo: IN_REPO, worktree: A.worktree, finding: FINDING, mechanical: MECHANICAL })
+  const watched = await runPart('lane-ci', laneCi, { delegatedLine: DELEGATED_LINE, pr, n, rerun, repo: A.repo, repoFlag: R, inRepo: IN_REPO, repoApi: REPO_API, worktree: A.worktree, finding: FINDING, mechanical: MECHANICAL })
   if (!watched || watched.problem) return watched
   const nonce = `ci-${n}-${tip}`
   const sentPaths = findingPaths(watched.failing)
@@ -758,7 +759,7 @@ async function checkpointRenameActions() {
   const renameProblem = checkpointRenameProblem(relayed, A.item)
   const readyProblem = draftReadyProblem(relayed)
   return [
-    ...(renameProblem ? [`rename pull request #${pr} to the title of item #${A.item} (gh api -X PATCH repos/${A.repo || '{owner}/{repo}'}/pulls/${pr} -f title=...): it still carries the checkpoint title and the lane's write failed: ${renameProblem}`] : []),
+    ...(renameProblem ? [`rename pull request #${pr} to the title of item #${A.item} (gh api -X PATCH ${REPO_API}/pulls/${pr} -f title=...): it still carries the checkpoint title and the lane's write failed: ${renameProblem}`] : []),
     ...(readyProblem ? [`mark pull request #${pr} ready with \`gh pr ready ${pr}\`: aco land refuses a draft, and ${readyProblem}`] : []),
   ]
 }

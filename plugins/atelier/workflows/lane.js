@@ -17,7 +17,7 @@ async function laneBuild(A) {
   const BUILD = {
     type: 'object',
     required: ['pr', 'tip', 'reuse', 'blocked'],
-    properties: { pr: { type: 'number', minimum: 1, description: 'the number of the open pull request you opened for this lane' }, tip: { type: 'string', pattern: '^[0-9a-f]{7,40}$', description: 'a commit sha from git rev-parse, nothing else' }, summary: { type: 'string' }, reuse: { type: 'string', description: 'the owner you extended (module and function), or the search you ran and why nothing found fits' }, blocked: { type: 'boolean' }, blockedReason: { type: 'string' } },
+    properties: { pr: { type: 'number', minimum: 1, description: 'the number of the open pull request you opened for this lane' }, tip: { type: 'string', pattern: SHA.source, description: 'a commit sha from git rev-parse, nothing else' }, summary: { type: 'string' }, reuse: { type: 'string', description: 'the owner you extended (module and function), or the search you ran and why nothing found fits' }, blocked: { type: 'boolean' }, blockedReason: { type: 'string' } },
   }
 
   // An end without a result is a null the lane reports; so is an unblocked answer without an open pull request, which the schema's minimum names but a runtime need not enforce.
@@ -71,12 +71,16 @@ function routingRefusal(overrides) {
 // Watches the CI of one pull request and returns whether it went green with the failing checks quoted; the lane reads the listing itself.
 // The rules the CI watcher writes into its findings; the lane reads a carried batch by them.
 const CI_CHECK_RULE_PREFIX = 'CI check '
+// The `where` of a finding about the merge state and of the one about a missing CI run.
+const MERGEABLE_WHERE = 'mergeable'
+const CHECKS_WHERE = 'checks'
+const isCiCheckFinding = (f) => (f.rule || '').startsWith(CI_CHECK_RULE_PREFIX)
 const CI_MISSING_RULE = 'CI must run on head'
 const CI_CONFLICT_RULE = 'GitHub runs no CI on a conflicting pull request'
 async function laneCi(A) {
   const { pr } = A
   const R = A.repoFlag
-  const { inRepo: IN_REPO } = A
+  const { inRepo: IN_REPO, repoApi: REPO_API } = A
 
   // A job qualifies for the one re-run only when the step it failed in is listed here; any other step, or none known, never does.
   const SETUP_STEPS = new Set(['Set up job'])
@@ -118,17 +122,16 @@ async function laneCi(A) {
 
   function watchCi() {
     const inWorktree = A.repo ? '' : `cd '${A.worktree}' && `
-    const rulesRepoPath = A.repo ? `repos/${A.repo}` : 'repos/{owner}/{repo}'
     return agentAnswer(
       `${A.delegatedLine}\nReport CI for pull request #${pr}${IN_REPO}; change nothing in the repository. ` +
-      `If \`${inWorktree}gh pr view ${pr}${R} --json mergeable --jq .mergeable\` says CONFLICTING, return green false with one failing entry: where "mergeable", kind "defect", text "the pull request conflicts with main", ` +
+      `If \`${inWorktree}gh pr view ${pr}${R} --json mergeable --jq .mergeable\` says CONFLICTING, return green false with one failing entry: where "${MERGEABLE_WHERE}", kind "defect", text "the pull request conflicts with main", ` +
       `rule "${CI_CONFLICT_RULE}", evidence the mergeable value. Otherwise wait in the foreground — you cannot be woken later. First wait until CI has registered the head, because a just-pushed head lists no check yet: run \`${inWorktree}for i in $(seq 1 5); do [ "$(gh pr checks ${pr}${R} --json name --jq length 2>/dev/null)" -gt 0 ] 2>/dev/null && break; sleep 60; done\` (Bash timeout 600000 ms; it ends with status 0 after about 5 minutes even when no check registered, then go on). Then run \`${inWorktree}timeout 540 gh pr checks ${pr}${R} --watch --interval 90\` (Bash timeout 600000 ms) and repeat it until it exits on its own rather than by the timeout, at most 7 times; it exits when every check listed for head has finished, but the listing shows one entry per check name, so a finished run can hide a same-named job of a run still going. After every exit read the head's workflow runs with \`${inWorktree}gh run list --commit "$(gh pr view ${pr}${R} --json headRefOid --jq .headRefOid)" --json status,name --limit 100${R}\`: while any run is not completed, watch again, whatever the listing shows. Never re-run anything: the lane decides that from the facts you return. ` +
       `When it exits on a red check, take every check in the fail bucket of \`${inWorktree}gh pr checks ${pr}${R} --json name,state,bucket,link\`, not only the first; judge only after no check is pending. green is true only when at least one check ran on head ` +
-      `and every check on head succeeded; CI that has not finished is green false with an empty failing, never a failing entry; no checks at all, with no run of head open, is one failing entry: where "checks", kind "defect", text "no CI checks ran on the head commit", rule "${CI_MISSING_RULE}", evidence the gh pr checks output after that wait. For each check in the fail bucket: where = its name, kind = "defect", text = what failed, ` +
+      `and every check on head succeeded; CI that has not finished is green false with an empty failing, never a failing entry; no checks at all, with no run of head open, is one failing entry: where "${CHECKS_WHERE}", kind "defect", text "no CI checks ran on the head commit", rule "${CI_MISSING_RULE}", evidence the gh pr checks output after that wait. For each check in the fail bucket: where = its name, kind = "defect", text = what failed, ` +
       `rule = "${CI_CHECK_RULE_PREFIX}<name>". Take run-id and job-id from the check's link (the link ends …/actions/runs/<run-id>/job/<job-id>). ` +
       `Also return each such check once in red: name, its link as printed, runId, jobId (empty strings when the link is not an Actions job link), findings = the entries you made for that check, and failingStep = the name of the first step whose conclusion is failure in \`${inWorktree}gh run view <run-id>${R} --json jobs --jq '.jobs[]|select(.databaseId==<job-id>)|[.steps[]|select(.conclusion=="failure")|.name][0]'\` (null when it prints nothing or you cannot read it); failing is all findings together. ` +
       evidenceRules(inWorktree) +
-      `Read the required contexts of the base branch only to pace the wait: \`${inWorktree}gh api ${rulesRepoPath}/rules/branches/<base> --jq '[.[]|select(.type=="required_status_checks")|.parameters.required_status_checks[].context]'\`, ` +
+      `Read the required contexts of the base branch only to pace the wait: \`${inWorktree}gh api ${REPO_API}/rules/branches/<base> --jq '[.[]|select(.type=="required_status_checks")|.parameters.required_status_checks[].context]'\`, ` +
       `the base is \`${inWorktree}gh pr view ${pr}${R} --json baseRefName --jq .baseRefName\`. The lane reads them again itself, so neither what you read nor its error is returned or judged; when the read fails, wait as if no required context were missing. ` +
       `If a required context is missing from \`${inWorktree}gh pr checks ${pr}${R} --json name,bucket\` while a run of head is not completed, or a check is still pending after the watch, watch again; re-watching shares the cap of 7 watches and the 540 s timeout per watch. Once every run of head has completed, a missing required context is judged as it stands and is not watched for. ` +
       `When a gh command is refused with "API rate limit" (primary or secondary), wait a few minutes and repeat that command inside the same cap, instead of reporting a red or missing check.`,
@@ -208,6 +211,8 @@ async function fixAnswerStop(answered, blocking, foldIn, tipBeforeFix) {
 // The contract lets the lane's fixer resolve a small follow-up in a file the lane already changed, when its fix cannot change behaviour outside the reviewed diff.
 // A follow-up is in place when its raiser set inPlace or the head named it in foldIn; one the fixer declined is never handed to a fixer again.
 // A fold-in counts as folded only once the fix that carries it is accepted; until then it stays open.
+// The criterion the briefs and the schemas state for a follow-up the fixer resolves in place; the contract's section "Reviews" owns it.
+const IN_PLACE_RULE = 'it sits in a file the lane already changed, its fix cannot change behaviour outside the reviewed diff and it takes about ten lines'
 const inPlaceFollowups = () => {
   const namedByHead = new Set((A.foldIn || []).map(findingKey))
   return openFollowups().filter(f => !declined.has(findingKey(f)) && (namedByHead.has(findingKey(f)) || f.inPlace === true))
@@ -286,12 +291,16 @@ const agentAnswer = async (prompt, opts) => (await settledAgent(prompt, opts)).a
 const RECORD_VERSION = 1
 const RECORD_STAGES = ['build', 'fix', 'review', 'test', 'gate', 'land']
 const FINDING_STAGE_NAMES = ['review', 'gate', 'ci', 'test']
-const FINDING_STAGES = [[/^e2e-/, 'test'], [/^ci-/, 'ci'], [/^(review|gate)$/, null], [/^standin$/, 'gate']]
+const FINDING_STAGES = [[/^e2e-/, 'test'], [/^ci-/, 'ci']]
+// The stage each reviewer key counts as: a stand-in counts as the gate stage.
 const VERDICT_STAGES = { review: 'review', gate: 'gate', standin: 'gate' }
-const RECORD_COUNT_LIMIT = 999
+// The routing row each reviewer key runs on: a stand-in counts as the gate stage but runs on the review row; the stand-in follows the gate in VERDICT_STAGES because it replaces a gate that ran.
+const REVIEWER_ROUTING_ROWS = { review: 'review', gate: 'gate', standin: 'review' }
+const GATE_KEYS = Object.keys(VERDICT_STAGES).filter(key => VERDICT_STAGES[key] === 'gate')
+const RECORD_COUNT_LIMIT = 999  // aco reads a count of one to three digits
 const FULL_SHA = /^[0-9a-f]{40}$/
 
-const stageOf = (reviewer) => FINDING_STAGES.map(([pattern, name]) => pattern.test(reviewer) ? name ?? reviewer : null).find(Boolean)
+const stageOf = (reviewer) => FINDING_STAGES.find(([pattern]) => pattern.test(reviewer))?.[1] ?? VERDICT_STAGES[reviewer]
 
 // The findings of one history entry by text and stage, each with the number of findings that share them and how many of those are misses.
 function findingsOfEntry(entry, stage, isMiss) {
@@ -357,7 +366,7 @@ function blockingStages(history, approvedBefore = []) {
 const historyRan = (history, key) => history.some(entry => entry.by === key || entry.by?.startsWith(`${key}-`))
 
 // The stages the history and the fixers show for fix, test and gate, a tester that started counting as the test; a stand-in review is the gate that ran.
-const stagesOfHistory = ({ history, fixRole, testStarted }) => ({ fix: Boolean(fixRole), test: testStarted || historyRan(history, 'e2e'), gate: historyRan(history, 'standin') || historyRan(history, 'gate') })
+const stagesOfHistory = ({ history, fixRole, testStarted }) => ({ fix: Boolean(fixRole), test: testStarted || historyRan(history, 'e2e'), gate: GATE_KEYS.some(key => historyRan(history, key)) })
 
 // The stages this segment started, in the order aco names them; the record's own slots and the --ran stages of aco lane-record add read this one history.
 function stagesRan({ history, fixRole, testStarted, builderRan, reviewStarted }) {
@@ -372,7 +381,7 @@ function stageChoices({ routing, history, fixRole, testStarted }) {
   const choiceOrNone = (ran, role) => ran ? choiceOf(role) : 'none'
   return {
     build: choiceOf('build'), fix: choiceOrNone(ofHistory.fix, fixRole), review: choiceOf('review'),
-    test: choiceOrNone(ofHistory.test, 'test'), gate: choiceOrNone(ofHistory.gate, historyRan(history, 'standin') ? 'review' : 'gate'), land: choiceOf('mechanical'),
+    test: choiceOrNone(ofHistory.test, 'test'), gate: choiceOrNone(ofHistory.gate, REVIEWER_ROUTING_ROWS[GATE_KEYS.findLast(key => historyRan(history, key)) ?? 'gate']), land: choiceOf('mechanical'),
   }
 }
 
@@ -440,7 +449,7 @@ function laneRecord({ routing, history, since = 0, fixRole, testStarted = false,
 // with the record's, and only then lets the printer run `aco lane-record check` on it. The record has no whitespace, so the comparison over its words is over its bytes.
 function recordCourier({ record, file, scratch, label }) {
   const text = JSON.stringify(record)
-  const checksum = crc32OfUtf8(text)
+  const checksum = crc32(text)
   const token = `${label}-${checksum}`
   const [start, end] = [`BRIEF-START ${token}`, `BRIEF-END ${token}`]
   const brief =
@@ -562,7 +571,7 @@ function draftReadyProblem(relayed) {
   if (typeof draft !== 'boolean') return `the draft flag could not be read (reading the pull request exited ${pull.code}: ${pull.err})`
   return !draft || ready.code === 0 ? null : `gh pr ready exited ${ready.code}: ${ready.err}`
 }
-// Runs one relay step and, when GitHub's rate limit refused a call of a step that changes nothing the lane could not repeat, waits for the reset GitHub names and runs the step again, repeating until the 3600 s total wait or the 16 wait calls end it; the callers see only the final read.
+// Runs one relay step and, when GitHub's rate limit refused a call of a step that changes nothing the lane could not repeat, waits for the reset GitHub names and runs the step again, repeating until the RATE_LIMIT_WAIT_BOUND_SECONDS total wait or the 16 wait calls end it; the callers see only the final read.
 async function laneRelay(A) {
   const relayed = await relayStep(A)
   return A.answerKind ? relayed : relayAfterReset(A, relayed, 0, 0)
@@ -581,6 +590,8 @@ const RATE_LIMIT_WAIT_BOUND_SECONDS = 3600
 const RATE_LIMIT_RESET_SKEW_SECONDS = 60
 const RATE_LIMIT_SLEEP_SECONDS = 240
 const MAX_RATE_LIMIT_WAIT_CALLS = 16
+// The most paths the printer lists of one git answer; the lane's briefs name the cut.
+const PRINTED_PATH_LIMIT = 50
 
 // Runs the wait step, which reads `gh api rate_limit` (it costs no quota) and sleeps toward the named reset, until nothing is exhausted or the reset has passed; returns the seconds slept and the calls made, or why the lane stops waiting.
 async function waitForRateLimitReset(A, spentBefore, callsBefore) {
@@ -595,17 +606,11 @@ async function waitForRateLimitReset(A, spentBefore, callsBefore) {
     const { exhausted, now, reset, slept } = waited.values
     spent += slept
     if (!exhausted.length) return waitCalls === firstOfRound + 1 ? { stop: '`gh api rate_limit` shows nothing exhausted any more, yet the call is still refused.' } : { spent, waitCalls }
-    if (reset - now > RATE_LIMIT_WAIT_BOUND_SECONDS + RATE_LIMIT_RESET_SKEW_SECONDS) return { stop: `The reset ${exhausted.join(', ')} names is more than an hour away.` }
+    if (reset - now > RATE_LIMIT_WAIT_BOUND_SECONDS + RATE_LIMIT_RESET_SKEW_SECONDS) return { stop: `The reset ${exhausted.join(', ')} names is more than ${RATE_LIMIT_WAIT_BOUND_SECONDS} seconds away.` }
     if (now + slept >= reset) return { spent, waitCalls }
     if (spent > RATE_LIMIT_WAIT_BOUND_SECONDS) return { stop: `The refusal held after waiting ${spent} seconds for the reset.` }
   }
   return { stop: 'The refusal held after the most waits the lane makes for the reset.' }
-}
-
-const crc32 = (text) => {
-  let crc = 0xffffffff
-  for (let i = 0; i < text.length; i++) crc = CRC_TABLE[(crc ^ text.codePointAt(i)) & 255] ^ (crc >>> 8)
-  return ((crc ^ 0xffffffff) >>> 0).toString(16).padStart(8, '0')
 }
 
 // The CRC32 of a value as the printer computes it over the value it received (JSON with ASCII escapes), with the count of the finding paths or of the characters of the word.
@@ -635,7 +640,7 @@ async function relayStep(A) {
   // A value a command prints reaches a decision only through one line the PRINTER wrote: the agent runs it and relays the
   // line unchanged, and a retyped or edited line fails its CRC32. The printer holds no single quote, so the shell passes
   // it as one argument. Its first argument names the step whose commands it runs; the branch step reports the branch the worktree has checked out and, when a word is passed, also reads the item body through api(repo) and relays only whether the body quotes the word, that read's exit code and error output, and the word's count and CRC32, and mints the run id the begin and add steps pass to aco, the begin step runs `aco lane-record begin` and the add step `aco lane-record add`, each with the tip resolved by `git rev-parse` to 40 digits and each reporting its exit code and error output; after a begin that exited 0, the begin step runs `aco lane-record show --json` and reports only its exit code and error output, this run's own `follows`, the shas of the earlier runs' stored review verdicts `approve` (the stored runs other than this run's id), whether an earlier run ran the gate (`gateRan`), the verdict of the last stored gate verdict (`lastGate`) and whether a stored run is lost (`lost`: an earlier run without a record, or an earlier run that does not follow), the scope step never forces a push,
-  // relays HEAD's parents and whether its second parent is in origin/main, at most 50 paths and no text of aco brief but its exit code and error output, the record step reports the exit code and error output of `aco lane-record check` on the record file, the sync step reports the lane tip, its parents and whether it contains origin/main and, only when git's own merge of the lane tip and origin/main does not come out clean, that merge's exit code, its tree line and its conflicted paths (at most 50, with their count), the fix step reports those sync values and, per finding path the lane sent, the size in characters of the diff of that path in the first-parent commits between the held tip and HEAD, a merge showing only its conflict resolution, and the same size for the whole range, never the diff text, and the tree of HEAD and the tree git itself produces by merging HEAD's first two parents (the first line of `git merge-tree --write-tree`), and the count and CRC32 of those paths like the ci step, and the paths the first-parent merge commits since the held tip change against their remerge (at most 50, with their count, left out when none), and the ci step reports the pull request head, the count of listed checks, the checks that are neither pass nor skipping, each required context of the base whose bucket is not pass, with its bucket or missing, the exit code of each gh call, left out when it is 0 and the call has nothing else to carry, and its error output where it is not empty, the positions, among the finding paths the lane sent, of those that the pull request changes (the lane passes the finding paths as the last argument but one, each percent-encoded and joined by commas, so the argument holds no quote or backslash a copier could break; the file listing is paginated and never relayed), the exit code and error output of the head's workflow run listing, and the checks red on head that failed on the base tip too; a failed read of the pull request (gh api pulls/<n>, which spends no GraphQL points) ends its reads. A call that fails with a network marker or with GitHub's rate limit is retried (see NETWORK_WAIT_SECONDS) and, still failing, puts its name into unreachable, and into limited when the rate limit refused it. Only when the verdict check (the check named quality / verdict) is red, the ci step also reads that job log with gh run view and relays three values of it, never its text: whether a line says that only declared loosenings made it red and only the operator merges it, whether its closing line counts an undeclared loosening or an unmatched declaration (a cause only a pull request has), and the quality merge command of its next line; the lines come in any order and carry a job name, a step and a timestamp before their text.
+  // relays HEAD's parents and whether its second parent is in origin/main, at most PRINTED_PATH_LIMIT paths and no text of aco brief but its exit code and error output, the record step reports the exit code and error output of `aco lane-record check` on the record file, the sync step reports the lane tip, its parents and whether it contains origin/main and, only when git's own merge of the lane tip and origin/main does not come out clean, that merge's exit code, its tree line and its conflicted paths (at most PRINTED_PATH_LIMIT, with their count), the fix step reports those sync values and, per finding path the lane sent, the size in characters of the diff of that path in the first-parent commits between the held tip and HEAD, a merge showing only its conflict resolution, and the same size for the whole range, never the diff text, and the tree of HEAD and the tree git itself produces by merging HEAD's first two parents (the first line of `git merge-tree --write-tree`), and the count and CRC32 of those paths like the ci step, and the paths the first-parent merge commits since the held tip change against their remerge (at most PRINTED_PATH_LIMIT, with their count, left out when none), and the ci step reports the pull request head, the count of listed checks, the checks that are neither pass nor skipping, each required context of the base whose bucket is not pass, with its bucket or missing, the exit code of each gh call, left out when it is 0 and the call has nothing else to carry, and its error output where it is not empty, the positions, among the finding paths the lane sent, of those that the pull request changes (the lane passes the finding paths as the last argument but one, each percent-encoded and joined by commas, so the argument holds no quote or backslash a copier could break; the file listing is paginated and never relayed), the exit code and error output of the head's workflow run listing, and the checks red on head that failed on the base tip too; a failed read of the pull request (gh api pulls/<n>, which spends no GraphQL points) ends its reads. A call that fails with a network marker or with GitHub's rate limit is retried (see NETWORK_WAIT_SECONDS) and, still failing, puts its name into unreachable, and into limited when the rate limit refused it. Only when the verdict check (the check named quality / verdict) is red, the ci step also reads that job log with gh run view and relays three values of it, never its text: whether a line says that only declared loosenings made it red and only the operator merges it, whether its closing line counts an undeclared loosening or an unmatched declaration (a cause only a pull request has), and the quality merge command of its next line; the lines come in any order and carry a job name, a step and a timestamp before their text.
   // A git or gh call that fails with one of these untranslated network or rate-limit markers, or an aco brief call whose stdout JSON has the reason unreachable, is run again after this many seconds; the tests rewrite the constant to 0.
   const NETWORK_WAIT_SECONDS = 30
   // The printer waits at most twice, gives each call 60 s and stops retrying once its run nears 240 s, inside the 300 s Bash timeout RELAY_ASK asks for.
@@ -644,7 +649,7 @@ async function relayStep(A) {
     'step,*rest,nonce=sys.argv[1:]',
     'received=[urllib.parse.unquote(p) for p in rest[2].split(",") if p] if step=="ci" else []',
     'diffed=[urllib.parse.unquote(p) for p in rest[1].split(",") if p] if step=="fix" else []',
-    `wait=${NETWORK_WAIT_SECONDS}`,
+    `wait=${NETWORK_WAIT_SECONDS};path_limit=${PRINTED_PATH_LIMIT}`,
     `sleep_most=${RATE_LIMIT_SLEEP_SECONDS}`,
     `sleep_within=${RATE_LIMIT_WAIT_BOUND_SECONDS + RATE_LIMIT_RESET_SKEW_SECONDS}`,
     'start=time.monotonic();waits=[];unreachable=set()',
@@ -667,7 +672,7 @@ async function relayStep(A) {
     'claim=brief and brief["outside_claim"]',
     'values={n:{"code":p.returncode,**({"err":e} if ((e:=" ".join(l for l in p.stderr.splitlines() if l[:5]!="hint:")[-300:]) or step!="ci") and (n!="log" or p.returncode) else {}),**({} if n in("brief","view","check","checks","rules","runs","log","changed","headruns","lane","rate","conflict","merged","item") else {"out":p.stdout.strip()[:100]} if n[:4]!="diff" else {"size":len(p.stdout.strip())})} for n,p in ran.items()}',
     'listed=lambda n,skip:list(dict.fromkeys(l for l in ran[n].stdout.splitlines()[skip:] if l))',
-    'values.update(**({"conflict":dict(code=ran["conflict"].returncode,tree=(ran["conflict"].stdout.splitlines() or [""])[0],paths=listed("conflict",1)[:50],count=len(listed("conflict",1)))} if "conflict" in ran and ran["conflict"].returncode else {}),**({"merged":dict(code=ran["merged"].returncode,paths=listed("merged",0)[:50],count=len(listed("merged",0)))} if "merged" in ran and listed("merged",0) else {}))',
+    'values.update(**({"conflict":dict(code=ran["conflict"].returncode,tree=(ran["conflict"].stdout.splitlines() or [""])[0],paths=listed("conflict",1)[:path_limit],count=len(listed("conflict",1)))} if "conflict" in ran and ran["conflict"].returncode else {}),**({"merged":dict(code=ran["merged"].returncode,paths=listed("merged",0)[:path_limit],count=len(listed("merged",0)))} if "merged" in ran and listed("merged",0) else {}))',
     'parsed=lambda n:json.loads(ran[n].stdout) if n in ran and ran[n].returncode==0 else None',
     'exhausted={n:r["reset"] for n,r in ((parsed("rate") or {}).get("resources") or {}).items() if r.get("remaining")==0}',
     'now=int(time.time());slept=max(0,min(max(exhausted.values())-now,sleep_most-int(time.monotonic()-start))) if exhausted and max(exhausted.values())-now<=sleep_within else 0;time.sleep(slept)',
@@ -685,7 +690,7 @@ async function relayStep(A) {
     'values.update(**(dict(head=view["headRefOid"],changed_index=[i for i,p in enumerate(received) if p in {f["filename"] for page in parsed("changed") or [] for f in page}],shared=[c["name"] for c in listing or [] if c["bucket"]=="fail" and c["name"] in failed_on_base]) if view else {}))',
     'values.update(**({"lane":{**values["lane"],**laneview(ran["lane"].stdout,rest[1])}} if "lane" in ran and ran["lane"].returncode==0 else {}))',
     String.raw`values.update(**({"log":{**values["log"],"pull_only":any(re.search(r"^! red .*[0-9]+ (undeclared loosenings?|declarations? unmatched)\b",re.sub(r"^[^\t]*\t[^\t]*\t\S+ ","",re.sub(r"\x1b\[[0-9;]*m","",l))) for l in ran["log"].stdout.splitlines()),"loosenings":any("only declared loosenings \u00b7 only the operator merges it" in l for l in ran["log"].stdout.splitlines()),"merge":next((m[1] for l in ran["log"].stderr.splitlines()+ran["log"].stdout.splitlines() if "next:" in l and (m:=re.search("(quality merge [A-Za-z0-9._-]+/[A-Za-z0-9._-]+#[0-9]+)",l))),"")}} if "log" in ran else {}))`,
-    'values.update(nonce=nonce,**({"unreachable":sorted(n for n,p in ran.items() if getattr(p,"down",0))} if any(getattr(p,"down",0) for p in ran.values()) else {}),**({"limited":sorted(n for n,p in ran.items() if getattr(p,"down",0) and limit.search(p.stderr))} if any(getattr(p,"down",0) and limit.search(p.stderr) for p in ran.values()) else {}),**(dict(outside_claim=claim[:50] if isinstance(claim,list) else claim,count=len(claim) if isinstance(claim,list) else None) if "brief" in ran else {}))',
+    'values.update(nonce=nonce,**({"unreachable":sorted(n for n,p in ran.items() if getattr(p,"down",0))} if any(getattr(p,"down",0) for p in ran.values()) else {}),**({"limited":sorted(n for n,p in ran.items() if getattr(p,"down",0) and limit.search(p.stderr))} if any(getattr(p,"down",0) and limit.search(p.stderr) for p in ran.values()) else {}),**(dict(outside_claim=claim[:path_limit] if isinstance(claim,list) else claim,count=len(claim) if isinstance(claim,list) else None) if "brief" in ran else {}))',
     'values={n:v for n,v in values.items() if v!={"code":0} and not(n in("shared","changed_index") and v==[])}',
     'values.update(**(dict(paths=dict(count=len(received or diffed),hash="%08x"%zlib.crc32(json.dumps(received or diffed,ensure_ascii=True,separators=(",",":")).encode()))) if step in("ci","fix") and (received or diffed) else {}))',
     // The item body quotes the word when it stands between quotation marks, whitespace runs folded to one space on both sides; only the outcome and the word's count and CRC32 leave the printer, never the body.
@@ -738,7 +743,7 @@ async function relayStep(A) {
         description: 'fold-ins you found already done: left in the worktree by an earlier fixer whose fix was not accepted, or already satisfied by the lane tip; a blocking finding the tip already meets carries its number',
         items: { type: 'object', required: ['where', 'text', 'evidence'], properties: { finding: { type: 'integer', minimum: 1, description: 'the number of the blocking finding in the list you were given' }, where: { type: 'string' }, text: { type: 'string' }, evidence: { type: 'string', description: 'the test, probe cell or line that already satisfies it' } } },
       },
-      declined: { type: 'array', description: 'fold-ins you leave undone because the fix would change behaviour outside the reviewed diff, take more than about ten lines or sit in a file this lane did not change; each with the reason', items: { type: 'object', required: ['where', 'reason'], properties: { where: { type: 'string' }, reason: { type: 'string' } } } },
+      declined: { type: 'array', description: `fold-ins you leave undone because they do not meet the in-place rule (${IN_PLACE_RULE}); each with the reason`, items: { type: 'object', required: ['where', 'reason'], properties: { where: { type: 'string' }, reason: { type: 'string' } } } },
       outside: { type: 'array', description: 'blocking findings and fold-ins you answered by editing the item body or the pull request body or posting an item comment, with no commit: a blocking finding by its number in the blocking list (finding), a fold-in by its where (foldIn), and the body section or comment URL', items: { type: 'object', required: ['where'], properties: { finding: { type: 'integer', minimum: 1 }, foldIn: { type: 'string' }, where: { type: 'string' } } } },
       regression: {
         type: 'array',
@@ -796,7 +801,7 @@ async function relayStep(A) {
     const foldInBrief = foldIns
       ? `\n\nAlso fold in these follow-ups, only because each sits in a file this lane already changed and cannot change behaviour; one commit for all of them. ` +
       `One that is already done — left in the worktree by an earlier fixer, or already satisfied by the lane tip — you do not redo; list it in resolved with its evidence (the test, probe cell or line that satisfies it). ` +
-      `One that the item body, the pull request body or an item comment answers goes in outside with foldIn set to its where; commit nothing for it. One whose fix would change behaviour outside the reviewed diff, take more than about ten lines or sit in a file this lane did not change you leave undone and list in declined with the reason. When that leaves you nothing to change, change nothing:\n${foldIns}`
+      `One that the item body, the pull request body or an item comment answers goes in outside with foldIn set to its where; commit nothing for it. One that does not meet the in-place rule (${IN_PLACE_RULE}) you leave undone and list in declined with the reason. When that leaves you nothing to change, change nothing:\n${foldIns}`
       : ''
     const mergeBrief = mergeInstruction(blocking, isCiRound(round))
     const answersBrief = A.answers ? `The head's answers on findings it settled, to read before you answer one of them:\n${A.answers}\n` : ''
@@ -910,7 +915,7 @@ async function relayStep(A) {
     if (findingNumbers) return { ...rejection, lastBlocking: findingNumbers.map(number => blocking[number - 1]) }
     // Settled fold-ins leave the lane at the held tip; a round without blocking findings asks for no merge of main, so a merge there is unasked work.
     if (fixed.unchanged) return everyFoldInSettled(fixed, blocking, foldIn) || answeredOutside(fixed, blocking, foldIn) || everyBlockingResolved(fixed, blocking) || checkpointMet(fixed, blocking) ? null : { reason: 'the fixer changed nothing', lastBlocking: blocking }
-    const mergeWasTheFinding = blocking.length === 1 && blocking[0].where === 'mergeable'
+    const mergeWasTheFinding = blocking.length === 1 && blocking[0].where === MERGEABLE_WHERE
     if (fixed.mergeOnly && !mergeWasTheFinding) return { reason: 'the fixer only merged main and fixed nothing', lastBlocking: blocking }
     return null
   }
@@ -1018,7 +1023,7 @@ async function relayStep(A) {
     const sharedRerun = Boolean(A.rerun) && watched.green && open.length > 0 && open.every(c => c.bucket === 'fail' && shared?.includes(c.name))
     // Unfinished CI is no finding: a watcher entry the listing does not back (nothing failed, something still runs) waits unless it is the merge conflict.
     const stillRunning = open.some(c => c.bucket === 'pending') || (headruns.open || []).length > 0
-    const unbackedFinding = stillRunning && !open.some(c => c.bucket === 'fail') && !watched.failing?.some(f => f.where === 'mergeable')
+    const unbackedFinding = stillRunning && !open.some(c => c.bucket === 'fail') && !watched.failing?.some(f => f.where === MERGEABLE_WHERE)
     const watcherDecides = !sharedRerun && (watched.green || (watched.failing?.length && !unbackedFinding))
     const failing = watcherDecides ? watched.failing : failedCheckFindings(open)
     const ownRed = ownFailing({ shared, red: watched.red, failing, files })
@@ -1114,7 +1119,7 @@ function pendingReason(waiting) {
 const ROUND = { review: 'review', head: 'head', ci: 'ci', mixed: 'mixed' }
 const isCiRound = (round) => round === ROUND.ci || round === ROUND.mixed
 // The rules the CI reader writes itself and the watcher's "CI check <name>"; a carried batch holding one is a CI round.
-const isCiFinding = (f) => (f.rule || '').startsWith(CI_CHECK_RULE_PREFIX) || [CI_MISSING_RULE, CI_CONFLICT_RULE].includes(f.rule)
+const isCiFinding = (f) => isCiCheckFinding(f) || [CI_MISSING_RULE, CI_CONFLICT_RULE].includes(f.rule)
 
 const RESOLVE_CONFLICTS = `resolve conflicts so both sides' behaviour holds, and set mergeResolvedLaneConflict true when files this lane changed needed resolution`
 // How a fixer resolves the merge, for every branch that merges main: a merge commit stays a pure merge, and sides that cannot both hold go back to the head.
@@ -1124,7 +1129,7 @@ const MERGE_RULES = `Keep both sides' intent in every hunk. The merge commit hol
 // A round without blocking findings is no integration step: a CI fixer's mergeable finding owns the merge of main.
 function mergeInstruction(blocking, ciRound) {
   if (!blocking) return 'Do not merge origin/main: this round asks for the follow-ups only.'
-  if (ciRound) return `Merge origin/main only for a finding whose where is "mergeable" (a merge commit; ${RESOLVE_CONFLICTS}). ${MERGE_RULES} For any other CI finding, fix the red in commits; when it lies outside the diff or passed on your own re-run, dispute it with your evidence (name the main commit that fixes it, if one does), commit nothing and never answer it with a merge of main: the head decides whether a merge answers it.`
+  if (ciRound) return `Merge origin/main only for a finding whose where is "${MERGEABLE_WHERE}" (a merge commit; ${RESOLVE_CONFLICTS}). ${MERGE_RULES} For any other CI finding, fix the red in commits; when it lies outside the diff or passed on your own re-run, dispute it with your evidence (name the main commit that fixes it, if one does), commit nothing and never answer it with a merge of main: the head decides whether a merge answers it.`
   return `Merge origin/main if it moved, before or after your fixes (a merge commit; ${RESOLVE_CONFLICTS}). ${MERGE_RULES}`
 }
 
@@ -1248,7 +1253,7 @@ async function laneReview(A) {
   // Only the first round names the tester: later rounds judge a delta the first review already framed.
   function testerParagraph() {
     if (A.after !== 0) return ''
-    const drive = A.e2e.length > 1500 ? `${A.e2e.slice(0, 1500)}\n[cut here: the lane's e2e argument is longer]` : A.e2e
+    const drive = A.e2e.length > TESTER_DRIVE_LIMIT ? `${A.e2e.slice(0, TESTER_DRIVE_LIMIT)}\n[cut here: the lane's e2e argument is longer]` : A.e2e
     return `This is the first review: a tester drives the change through its real entry point after this review; the lane asks it to drive:\n${drive}\n` +
       `A proof only that drive produces (a browser proof, a live run, a screenshot) is not a finding at review: name that line as "left to the tester" in your report. ` +
       `A line neither the diff nor that drive proves stays blocking.\n\n`
@@ -1325,7 +1330,7 @@ async function laneReview(A) {
     const brief = `${A.delegatedLine}\nRead-only sandbox: read files and run read-only commands freely; do not run tests. The item body and the pull request body follow this brief: they are the contract core and the verification evidence. The sandbox has no network and cannot write, /tmp included; report a command you cannot run as not verified, never as a blocking finding.\n` + reviewerBrief(role, range) +
       `\nGive every finding its file:line in "where".`
     // The token carries the brief's checksum, so one marker pair names one text. The courier prompt holds the brief between the two marker lines and the courier's command cuts it out of the courier's own transcript.
-    const briefChecksum = crc32OfUtf8(brief.split(/[ \t\n\r\f\v]+/).filter(Boolean).join(' '))
+    const briefChecksum = crc32(brief.split(/[ \t\n\r\f\v]+/).filter(Boolean).join(' '))
     const token = `${A.tag}-${label}-${briefChecksum}`
     const markers = { start: `BRIEF-START ${token}`, end: `BRIEF-END ${token}` }
     const checkBrief = `{ [ "$(python3 -c '${BRIEF_CRC_PRINTER}' < ${base}-brief.md)" = ${briefChecksum} ] || { echo '${BRIEF_MISMATCH}' >&2; false; }; }`
@@ -1412,7 +1417,7 @@ async function laneReview(A) {
     return {
       history: { after: A.after, by: reviewer.key, tip: A.tip, verdict, blocking: blocking.map(f => f.where), reportPath },
       gateRounds: reviewer.isGate && !result.limit ? [{ after: A.after, verdict, blocking, reportPath, tip: A.tip }] : [],
-      followups: (result.followups || []).map(f => ({ ...f, stage: reviewer.key === 'review' ? 'review' : 'gate', tip: A.tip })),
+      followups: (result.followups || []).map(f => ({ ...f, stage: VERDICT_STAGES[reviewer.key], tip: A.tip })),
     }
   }
 
@@ -1434,6 +1439,9 @@ async function laneReview(A) {
   return { ...outcome, verdict: classify(results, A.reviewers.length) }
 }
 
+// The most characters of the lane's e2e argument the first review's brief quotes.
+const TESTER_DRIVE_LIMIT = 1500
+
 // What the courier's start command prints when the brief file is not the brief the script wrote.
 const BRIEF_MISMATCH = 'brief file differs from the brief the script wrote'
 // What the courier's extraction command prints when no transcript record of the courier holds both marker lines of the brief.
@@ -1445,7 +1453,7 @@ const CRC_TABLE = Array.from({ length: 256 }, (_, n) => {
   return crc >>> 0
 })
 // CRC32 over the UTF-8 bytes, as Python's zlib.crc32 computes it for the file the courier wrote.
-function crc32OfUtf8(text) {
+function crc32(text) {
   let crc = 0xffffffff
   for (const byte of utf8BytesOf(text)) crc = CRC_TABLE[(crc ^ byte) & 255] ^ (crc >>> 8)
   return ((crc ^ 0xffffffff) >>> 0).toString(16).padStart(8, '0')
@@ -1521,7 +1529,6 @@ async function laneRouting(A) {
   // The Routing line aco reads (aco's specs/lane-record.spec.md owns the grammar), built from what the lane used; the head pastes it as is.
   const ROUTING_LINE_LIMIT = 512  // the length the aco skill's abandon step asks of the line
   const LOCATION_LIMIT = 60
-  const COUNT_LIMIT = 999  // aco reads a count of one to three digits
   const PATH_CHARACTERS = /^[\p{L}\p{N}_./@-]+$/u
 
   // One scan over the word: drop wrapping parentheses and trailing punctuation, then a path, a colon, a line and an optional "-end" of a range.
@@ -1542,7 +1549,7 @@ async function laneRouting(A) {
   // The findings of the lane's history by location and stage, each with the number that share them (laneRecord's counting, with the location a Routing line prints).
   const blockingLocations = (history) => blockingStages(history).map(({ text, stage, count }) => ({ where: locationOf(text), stage, count }))
 
-  const countParts = (count) => Array.from({ length: Math.ceil(count / COUNT_LIMIT) }, (_, part) => Math.min(COUNT_LIMIT, count - part * COUNT_LIMIT))
+  const countParts = (count) => Array.from({ length: Math.ceil(count / RECORD_COUNT_LIMIT) }, (_, part) => Math.min(RECORD_COUNT_LIMIT, count - part * RECORD_COUNT_LIMIT))
   const printedEntry = (count, location, stage) => {
     const times = count > 1 ? `${count}× ` : ''
     const place = location ? `${location} ` : ''
@@ -1627,7 +1634,7 @@ const startedStages = { build: false, review: false, test: false }  // the stage
 let segmentNumber = 1
 let segmentBegun = false  // the open segment has begun on the claim and is not added yet
 let segmentStartTip = null  // the tip the open segment begins at: the previous segment's end tip, none for the first segment of a build
-let segmentFrom = { history: 0, fixRoles: 0, fixRounds: { review: 0, gate: 0, ci: 0, test: 0 } }  // what the run held when the open segment started
+let segmentFrom = { history: 0, fixRoles: 0, fixRounds: zeroCounts() }  // what the run held when the open segment started
 let addAttempted = false  // aco lane-record add runs once per segment
 let recordsWritten = 0
 
@@ -1689,20 +1696,19 @@ async function storeProvenPoint() {
 
 // A merge conflict the sync could not resolve by its own rules (ledgers, generated files) becomes a finding for a fresh fixer, the way CI's conflict finding does.
 const SYNC_CONFLICT_RULE = 'the lane contains origin/main before its review'
-const TREE_LINE = /^[0-9a-f]{40}$/
-const isSyncConflictFinding = (f) => f.where === 'mergeable' && f.rule === SYNC_CONFLICT_RULE
+const isSyncConflictFinding = (f) => f.where === MERGEABLE_WHERE && f.rule === SYNC_CONFLICT_RULE
 const conflictedPathsOf = (blocking) => blocking.filter(isSyncConflictFinding).flatMap(f => f.paths ?? [])
 
 // The conflict of the sync's merge-tree read, or null when the sync keeps its escalation: no conflict read (an error, a clean merge, a first line that is no tree),
 // or every conflicted path is one the sync's own rules resolve and the list is complete.
 function syncConflictOf(values, covered) {
   const read = values.conflict
-  if (read?.code !== 1 || !TREE_LINE.test(read.tree || '') || !read.paths?.length) return null
+  if (read?.code !== 1 || !FULL_SHA.test(read.tree || '') || !read.paths?.length) return null
   const cut = read.count > read.paths.length
   return !cut && read.paths.every(path => covered.includes(path)) ? null : { paths: read.paths, cut }
 }
 
-const syncConflictFinding = ({ paths, cut }) => ({ where: 'mergeable', kind: 'defect', text: `the lane conflicts with origin/main in ${paths.join(', ')}${cut ? ' and more' : ''}`, rule: SYNC_CONFLICT_RULE, evidence: paths.join(', '), paths })
+const syncConflictFinding = ({ paths, cut }) => ({ where: MERGEABLE_WHERE, kind: 'defect', text: `the lane conflicts with origin/main in ${paths.join(', ')}${cut ? ' and more' : ''}`, rule: SYNC_CONFLICT_RULE, evidence: paths.join(', '), paths })
 
 // The sentences that make a reviewer read a merge fix as the merge it is: each conflicted path against both sides, and every other path the merge commits change.
 function mergeReading({ conflicted, merged, mergedCut, generatedPaths }) {
@@ -1710,7 +1716,7 @@ function mergeReading({ conflicted, merged, mergedCut, generatedPaths }) {
   const others = merged.filter(path => !conflicted.includes(path) && !generatedPaths.includes(path))
   return ` The fix merges origin/main, which conflicted in ${conflicted.join(', ')}: for each of those paths check that main's change survives (git diff M^1 M -- <path>) and that the lane's survives (git diff M^2 M -- <path>), M being the merge commit; a lost intent or behaviour neither side had is blocking.` +
     others.map(path => ` The merge commit also changes ${path}; check that it keeps main's change and adds no behaviour.`).join('') +
-    (mergedCut ? ' The list of paths the merge commits change is cut at 50: read the rest with git log --first-parent --merges --remerge-diff --name-only --format=.' : '')
+    (mergedCut ? ` The list of paths the merge commits change is cut at ${PRINTED_PATH_LIMIT}: read the rest with git log --first-parent --merges --remerge-diff --name-only --format=.` : '')
 }
 
 // Runs the explorative end-to-end tester of one pull request tip, with a fallback agent, and returns its answer with the history entry, the follow-ups at the tested tip and the reason an empty verdict is unusable; the lane judges the rest itself.
@@ -1860,6 +1866,7 @@ const MATERIAL = A.risk === 'material'
 if (A.repo && !/^[\w.-]+\/[\w.-]+$/.test(A.repo)) return { status: 'failed', stage: 'input', reason: 'repo must be owner/name' }
 const R = A.repo ? ` -R ${A.repo}` : ''
 const IN_REPO = A.repo ? ` in ${A.repo}` : ''
+const REPO_API = `repos/${A.repo || '{owner}/{repo}'}`  // the REST path of the repository; the printer derives its own
 const TAG = `wf-${A.item}`
 // Paths whose change re-opens the gate on a material lane and re-runs the end-to-end test: code and public contract.
 // The default fits a src-layout Python repository.
@@ -1931,7 +1938,7 @@ const FOLLOWUP = {
   properties: {
     where: { type: 'string' }, text: { type: 'string' }, owner: { type: 'string', description: 'owning item #n, or "distributor"' },
     stage: { type: 'string', enum: FINDING_STAGE_NAMES, description: 'the stage that raised it; the lane sets it on every follow-up it reports' },
-    inPlace: { type: 'boolean', description: 'true when it sits in a file the lane already changed, its fix cannot change behaviour outside the reviewed diff and it takes about ten lines: the lane\'s fixer resolves it in place; the head\'s foldIn leaves it out, since naming a follow-up there counts as in place' },
+    inPlace: { type: 'boolean', description: `true when ${IN_PLACE_RULE}: the lane's fixer resolves it in place; the head's foldIn leaves it out, since naming a follow-up there counts as in place` },
   },
 }
 // A reviewer or tester must classify every follow-up it reports; the head's foldIn input check reads FOLLOWUP, which leaves inPlace out of its string fields.
@@ -1988,7 +1995,7 @@ const driveFacts = `Any drive you run keeps its pidfiles and evidence under ${A.
 
 const BLOCKING_LINE =
   `Mark every finding **blocking** or **follow-up** as the contract's section "Reviews" defines them, the tripwire exception included. ` +
-  `Reproduce a behaviour on origin/main before calling it pre-existing; each follow-up names its owning item (#n) or "distributor" and sets inPlace true only when it sits in a file the lane already changed, its fix cannot change behaviour outside the reviewed diff and it takes about ten lines. ` +
+  `Reproduce a behaviour on origin/main before calling it pre-existing; each follow-up names its owning item (#n) or "distributor" and sets inPlace true only when ${IN_PLACE_RULE}. ` +
   `Every blocking finding names the rule it breaks and the evidence you observed; a finding you cannot back with evidence is not blocking. ` +
   `Every blocking finding names its kind: **defect** when the code breaks a rule or ` +
   `does not do what the contract, its docs or its own text promise — a mismatch between promise and code is defect unless the contract says the code is right, ` +
@@ -2019,7 +2026,7 @@ const spent = { review: 0, test: 0, ci: 0, total: 0 }
 const fixRolesRun = []  // the role of each fixer that ran, in order
 let syncedTip = null  // the head the sync read: the start tip of a pr/tip run's begin
 let runId = null  // minted by the branch relay step: the id this run has on the claim in aco lane-record begin and add
-const fixRoundsByStage = { review: 0, gate: 0, ci: 0, test: 0 }  // the stage whose findings each fix round answered
+const fixRoundsByStage = zeroCounts()  // the stage whose findings each fix round answered
 const seen = new Map()  // finding key -> how often it came back after a fix
 let productionSinceTest = false  // any fix since the last end-to-end test touched production
 let productionSinceGate = false  // any fix since the last unlimited gate result touched production
@@ -2150,7 +2157,7 @@ if (A.build) {
     const conflict = syncConflictOf(values, [...LEDGERS, ...GENERATED.map(([path]) => path)])
     if (!conflict) return await openResult('escalated', 'sync', { reason: synced.note || `the lane tip ${values.head.out} does not contain origin/main, and the sync named no cause` })
     syncRaisedConflict = true
-    carriedOver = [syncConflictFinding(conflict), ...carriedOver.filter(f => f.where !== 'mergeable')]
+    carriedOver = [syncConflictFinding(conflict), ...carriedOver.filter(f => f.where !== MERGEABLE_WHERE)]
     carriesBatch = true
     history.push({ after: 0, by: 'sync', conflict: conflict.paths, tip: values.head.out })
   }
@@ -2179,7 +2186,7 @@ async function reviewRound(which, range, from, sampledLook) {
   // The sampled look is the gate alone and may be skipped, so it never marks the review stage as started.
   if (!sampledLook) startedStages.review = true
   const after = sampledLook?.after ?? spent.total
-  const reviewers = which.map(r => ({ key: r.key, provider: r.provider, role: r.role, isGate: r === GATE, routing: claudeRole(r === GATE ? 'gate' : 'review') }))
+  const reviewers = which.map(r => ({ key: r.key, provider: r.provider, role: r.role, isGate: r === GATE, routing: claudeRole(REVIEWER_ROUTING_ROWS[r.key]) }))
   const answer = await runPart('lane-review', laneReview, { item: A.item, pr, repo: A.repo, repoFlag: R, after, tip, delegatedLine: DELEGATED_LINE, worktree: A.worktree, branch: A.branch, scratch: A.scratch, tag: TAG, label: `r${after}`, range, reuse: buildReuse, e2e: A.e2e, contract: A.contract, blockingLine: BLOCKING_LINE, reviewers, findingKinds: FINDING_KINDS, finding: FINDING, followup: REPORTED_FOLLOWUP, mechanical: MECHANICAL })
   const unfit = unfitRoundAnswer(answer, which.length)
   if (unfit) {
@@ -2201,9 +2208,9 @@ async function reviewRound(which, range, from, sampledLook) {
 // A conflict with main or a missing CI run is a new event each time, never the same finding; a CI failure is the same
 // only when its evidence (the failing log tail) repeats, because a courier's text for two different failures can match.
 // Log tails often carry timestamps, so this rarely fires for CI; the ci budget is the real stop there.
-const progressKey = (f) => (f.rule || '').startsWith('CI check') ? `${f.where}::${f.evidence}` : findingKey(f)
+const progressKey = (f) => isCiCheckFinding(f) ? `${f.where}::${f.evidence}` : findingKey(f)
 function noProgress(blocking) {
-  const counted = blocking.filter(f => f.where !== 'mergeable' && f.where !== 'checks')
+  const counted = blocking.filter(f => f.where !== MERGEABLE_WHERE && f.where !== CHECKS_WHERE)
   const repeated = counted.filter(f => (seen.get(progressKey(f)) || 0) >= 1)
   counted.forEach(f => seen.set(progressKey(f), (seen.get(progressKey(f)) || 0) + 1))
   return repeated
@@ -2346,7 +2353,7 @@ async function pushAndCheckScope(label, origin) {
   if (!Array.isArray(paths) || !paths.every(path => typeof path === 'string')) return fail('scope', `aco's outside_claim is neither null nor a list of paths: ${JSON.stringify(paths)}`)
   passedOutsidePaths = []
   if (!paths.length) return null
-  // The relay lists at most 50 paths; the unlisted ones cannot be judged.
+  // The relay lists at most PRINTED_PATH_LIMIT paths; the unlisted ones cannot be judged.
   if (values.count === paths.length) {
     history.push({ by: 'scope', outside: paths, tip, passedOutside: true })
     passedOutsidePaths = [...new Set(paths)]
@@ -2422,7 +2429,7 @@ async function reviseAfter(rr) {
     const stored = await storeProvenPoint()
     if (stored) return stored
   }
-  const f = await fixRound(blocking, 'the review', ROUND.review, 'review', false, raised.some(r => r === GATE || r === STANDIN) ? 'gate' : 'review')
+  const f = await fixRound(blocking, 'the review', ROUND.review, 'review', false, raised.some(r => VERDICT_STAGES[r.key] === 'gate') ? 'gate' : 'review')
   if (f.stop) return f.stop
   if (!f.range) return openResult('failed', 'review', { reason: 'a review finding was answered by a merge alone', lastBlocking: blocking })
   const next = f.gateAgain && !raised.includes(GATE) ? raised.concat([GATE]) : raised
@@ -2479,9 +2486,9 @@ const explore = (n, fixRange) => runPart('lane-test', laneTest, { fixRange, dele
 const findingPaths = (failing = []) => [...new Set(failing.map(finding => findingPath(finding.where)).filter(Boolean))]
 // Review and tester both passed on the tip, so a CI read that stays refused leaves only the check runs for the head to read.
 const provenOnTip = () => approvedOn(history, tip) && !testBlocking.length && lastTestedTip === tip
-const restCheckAction = () => `without a new run: read the check runs of ${tip} with \`gh api repos/${A.repo || '{owner}/{repo}'}/commits/${tip}/check-runs --paginate\` (REST, outside the GraphQL budget); once every one is completed and green, land with \`aco land ${pr} --head ${tip}\``
+const restCheckAction = () => `without a new run: read the check runs of ${tip} with \`gh api ${REPO_API}/commits/${tip}/check-runs --paginate\` (REST, outside the GraphQL budget); once every one is completed and green, land with \`aco land ${pr} --head ${tip}\``
 async function watchCi(n, rerun) {
-  const watched = await runPart('lane-ci', laneCi, { delegatedLine: DELEGATED_LINE, pr, n, rerun, repo: A.repo, repoFlag: R, inRepo: IN_REPO, worktree: A.worktree, finding: FINDING, mechanical: MECHANICAL })
+  const watched = await runPart('lane-ci', laneCi, { delegatedLine: DELEGATED_LINE, pr, n, rerun, repo: A.repo, repoFlag: R, inRepo: IN_REPO, repoApi: REPO_API, worktree: A.worktree, finding: FINDING, mechanical: MECHANICAL })
   if (!watched || watched.problem) return watched
   const nonce = `ci-${n}-${tip}`
   const sentPaths = findingPaths(watched.failing)
@@ -2593,7 +2600,7 @@ async function checkpointRenameActions() {
   const renameProblem = checkpointRenameProblem(relayed, A.item)
   const readyProblem = draftReadyProblem(relayed)
   return [
-    ...(renameProblem ? [`rename pull request #${pr} to the title of item #${A.item} (gh api -X PATCH repos/${A.repo || '{owner}/{repo}'}/pulls/${pr} -f title=...): it still carries the checkpoint title and the lane's write failed: ${renameProblem}`] : []),
+    ...(renameProblem ? [`rename pull request #${pr} to the title of item #${A.item} (gh api -X PATCH ${REPO_API}/pulls/${pr} -f title=...): it still carries the checkpoint title and the lane's write failed: ${renameProblem}`] : []),
     ...(readyProblem ? [`mark pull request #${pr} ready with \`gh pr ready ${pr}\`: aco land refuses a draft, and ${readyProblem}`] : []),
   ]
 }

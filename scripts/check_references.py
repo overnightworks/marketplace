@@ -141,8 +141,11 @@ def load_sections(directory: Path) -> dict[str, Section]:
 
 
 def tracked_text_files(checkout: Path) -> list[Path]:
-    listing = subprocess.run(
-        ["git", "-C", str(checkout), "ls-files", "-z"], check=True, capture_output=True, text=True
+    listing = subprocess.run(  # noqa: S603 - argv is fixed words and the checkout path
+        ["git", "-C", str(checkout), "ls-files", "-z"],  # noqa: S607 - git is found on PATH
+        check=True,
+        capture_output=True,
+        text=True,
     ).stdout
     return [checkout / name for name in listing.split("\0") if name]
 

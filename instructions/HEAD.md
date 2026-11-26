@@ -242,9 +242,10 @@ made for him. It is measured with what exists (what he keeps or answers with
 "anders" or "weg", the kept and rolled-back shares, CI, the lane records), which
 its proposer does not judge alone, and is rolled back when it measures worse or
 on his "weg", said on the item or in chat to any head, who records it there. A
-change that cannot be rolled back waits for his yes; bounds 4 and 5 keep their
-own guard, which no trial replaces. A rule the operator has just spoken is already
-ruled and needs no counter-check. Lane work keeps its own reviews.
+change that cannot be rolled back waits for his yes; bounds 4 and 5 of
+`OPERATORS.md` keep their own guard, which no trial replaces. A rule the
+operator has just spoken is already ruled and needs no counter-check. Lane work
+keeps its own reviews.
 
 ## Lanes
 

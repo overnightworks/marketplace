@@ -13,6 +13,7 @@ oom_first = load_script("oom_first", HOOKS_DIRECTORY)
 SESSION_PID = 100
 SHELL_PID = 200
 HOOK_PID = 300
+UNRELATED_PID = 400
 DEFAULT_SCORE = "200"
 
 
@@ -25,10 +26,11 @@ def add_process(proc_root: Path, pid: int, parent: int) -> None:
 
 @pytest.fixture
 def proc_root(tmp_path: Path) -> Path:
-    """A fake /proc: the session, a shell layer and the hook below it."""
+    """A fake /proc: the session, a shell layer and the hook below it, and a process outside that chain."""
     add_process(tmp_path, SESSION_PID, 1)
     add_process(tmp_path, SHELL_PID, SESSION_PID)
     add_process(tmp_path, HOOK_PID, SHELL_PID)
+    add_process(tmp_path, UNRELATED_PID, 1)
     return tmp_path
 
 
@@ -53,12 +55,12 @@ def test_the_session_behind_a_shell_layer_gets_the_first_rank(proc_root, monkeyp
     assert printed == ""
 
 
-@pytest.mark.parametrize("claude_pid", [None, "not-a-pid", "999", str(HOOK_PID + 1)], ids=["absent", "malformed", "unknown", "not-an-ancestor"])
+@pytest.mark.parametrize("claude_pid", [None, "not-a-pid", "999", str(UNRELATED_PID)], ids=["absent", "malformed", "unknown", "not-an-ancestor"])
 def test_a_missing_or_foreign_session_pid_is_said_and_writes_nothing(proc_root, monkeypatch, capsys, claude_pid):
     printed = run_hook(proc_root, monkeypatch, capsys, claude_pid)
 
     assert "no session process found" in json.loads(printed)["systemMessage"]
-    assert {score_of(proc_root, pid) for pid in (SESSION_PID, SHELL_PID, HOOK_PID)} == {DEFAULT_SCORE}
+    assert {score_of(proc_root, pid) for pid in (SESSION_PID, SHELL_PID, HOOK_PID, UNRELATED_PID)} == {DEFAULT_SCORE}
 
 
 def test_a_refused_write_is_said(proc_root, monkeypatch, capsys):

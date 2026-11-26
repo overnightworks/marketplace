@@ -83,7 +83,7 @@ test('sampled-gate: a run after a stored gate approval starts no gate', async ()
 })
 
 const lostRun = { ...storedEarlierRun(), end_tip: null, ran: null, record: null }
-for (const [what, begin] of [['fails', { show_code: 2, show_error: 'bad shape' }], ['reports a lost run', { stored_runs: [lostRun, storedOwnRun()] }]]) {
+for (const [what, begin] of [['fails', { show_code: 2, show_error: 'bad shape' }], ['reports a lost run', { stored_runs: [lostRun, storedOwnRun()] }], ['reports a run that does not follow', { stored_runs: [{ ...storedEarlierRun(), follows: false }, storedOwnRun()] }]]) {
   test(`sampled-gate: a lane whose read of the stored runs ${what} awaits the head and starts no gate`, async () => {
     const { launchedAgents, result } = await runLane(sampledLane, { 'r0-review': APPROVE, 'r0-gate': gateApprove, ...reachesTheEnd, begin })
     assert.deepEqual([result.status, result.sampled, gateLabels(launchedAgents)], ['awaiting-head', false, []])

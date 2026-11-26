@@ -59,6 +59,12 @@ test('run-misses: the printer relays only the exit code, the error, this run\'s 
   assert.deepEqual(JSON.parse(lines[0]).v.lane, { code: 0, err: '', follows: true, approved: [olderTip], gateRan: false, lastGate: 'approve', lost: false })
 })
 
+test('run-misses: the printer reports lost for an earlier run that does not follow', async () => {
+  const lines = []
+  await runLane(materialRun, { ...gateAfterNoOwnApproval, begin: { stored_runs: [{ ...storedEarlierRun(), follows: false }, storedOwnRun(true)], edit: (printed) => { lines.push(printed); return printed } } })
+  assert.equal(JSON.parse(lines[0]).v.lane.lost, true)
+})
+
 test('run-misses: stored runs the printer cannot read count as a failed read', async () => {
   const run = await runLane(materialRun, { ...gateAfterNoOwnApproval, begin: { stored_runs: [storedEarlierRun(['approve', olderTip])] } })
   const record = JSON.parse(run.writtenRecords[0])

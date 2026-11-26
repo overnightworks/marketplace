@@ -1,0 +1,8 @@
+claim_id = "7f75308bdd1a414d8c076016dc288f8f"
+agent = "Claude c1d65467-2dcf-4ef5-921f-526bf349a609"
+role = "builder"
+base = "286b4d6c542e02bc550c7502c6a30069cfc9712c"
+branch = "claude/issue-1016-fix-outside-approval-stored"
+scope = ["plugins/atelier/lane/main.js", "plugins/atelier/lane/record.js", "plugins/atelier/workflows/lane.js", "tests/lane_workflow_fix_outside.test.mjs", "tests/lane_workflow_run_record.test.mjs"]
+opened_commit = "4ccd19b2a05bbc0c3abd94b4f57a53c9cbceb683"
+whole_reason = "The fix round's history entry, the store guard that reads it, the generated bundle and the two tests that drive the case change together."

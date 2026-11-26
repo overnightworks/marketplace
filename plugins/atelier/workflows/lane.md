@@ -213,6 +213,8 @@ A head that finds a run stopped awaiting-head, or lost, reads `aco lane-record s
   ends awaiting-head at `record` before any review and takes no sample: start a new run once the
   stored runs can be read. A sampled gate's re-check that gives no verdict ends awaiting-head at
   `review` with the resume arguments of the usage limit.
+- A refused Codex gate never ends awaiting-head: its stand-in runs in the same round, and a
+  stand-in that ends without a verdict fails the lane (`failed` at `review`).
 - A Codex courier that wrote a different brief than the script composed is
   started once more. A second mismatch returns awaiting-head at stage `review`
   with the resume arguments of the usage limit (`pr`, `tip`, and on a delta round

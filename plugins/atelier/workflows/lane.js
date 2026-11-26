@@ -2686,7 +2686,7 @@ return {
     ...await checkpointRenameActions(),
     `land with \`aco land ${pr} --head ${tip}\` only while the pull request head is still ${tip}`,
     ...(OPERATOR_WORD ? [`quote the operatorWord with its source in the body of pull request #${pr}: the lane may have run above the effort cap or on fable on the operator's word`] : []),
-    ...(MATERIAL && isGateStandIn('gate', ROUTING.gate.model, ROUTING.gate.effort) ? [`name the Opus 5.5 stand-in as the final gate in the body of pull request #${pr}: the lane ran no Codex gate`] : []),
+    ...(MATERIAL && isGateStandIn('gate', ROUTING.gate.model, ROUTING.gate.effort) ? [`name the Opus 5.5 stand-in as the final gate in the body of pull request #${pr}: Codex refused the gate model`] : []),
     ...(gateUnseen ? [`name ${gateUnseen.seenTip}..${tip} in the body of pull request #${pr}: the final gate, at its usage limit, did not see that range`] : []),
     ...(raisedBeforeTip(stillOpen).length ? ['re-check the follow-ups in raisedBeforeTip against the returned tip before routing them'] : []),
     ...(stillOpen.length ? [`route ${stillOpen.length} follow-up(s) to their owning items before landing`] : []),

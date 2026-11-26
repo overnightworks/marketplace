@@ -2091,15 +2091,10 @@ let gateUnseen = null  // the range a stand-in reviewer re-checked for a gate at
 const folded = new Map()  // follow-up key -> the follow-up, with the tip of the accepted fix that folded it in
 const declined = new Map()  // follow-up key -> the reason the fixer gave for leaving it; it stays open and no fixer is handed it again
 const REVIEW = { key: 'review', provider: REVIEWER_PROVIDER, role: 'independent reviewer' }
-const GATE = { key: 'gate', provider: MODEL_PROVIDER[ROUTING.gate.model], role: 'final gate (architecture, data safety, public contract)' }
+// The provider follows the routed gate, which a refused Codex gate changes to the stand-in for the rest of the run.
+const GATE = { key: 'gate', get provider() { return MODEL_PROVIDER[ROUTING.gate.model] }, role: 'final gate (architecture, data safety, public contract)' }
 const STANDIN = { key: 'standin', provider: 'claude', role: "stand-in reviewer (the final gate's provider is at its usage limit)" }
 const ALL = MATERIAL ? [REVIEW, GATE] : [REVIEW]
-// A Codex gate that refused its model was replaced in its round by the stand-in; the run keeps it, so a re-check has the gate's row and provider column and the record names the one gate that ran.
-function holdGateOnStandIn() {
-  ROUTING.gate = { ...GATE_STAND_IN }
-  GATE.provider = MODEL_PROVIDER[GATE_STAND_IN.model]
-}
-
 function openFollowups() {
   const open = new Map()
   followups.forEach(f => { if (!folded.has(findingKey(f)) && !open.has(findingKey(f))) open.set(findingKey(f), declined.has(findingKey(f)) ? { ...f, declined: declined.get(findingKey(f)) } : f) })
@@ -2250,7 +2245,8 @@ async function reviewRound(which, range, from, sampledLook) {
   const after = sampledLook?.after ?? spent.total
   const reviewers = which.map(r => ({ key: r.key, provider: r.provider, role: r.role, isGate: r === GATE, routing: claudeRole(REVIEWER_ROUTING_ROWS[r.key]) }))
   const answer = await runPart('lane-review', laneReview, { item: A.item, pr, repo: A.repo, repoFlag: R, after, tip, delegatedLine: DELEGATED_LINE, worktree: A.worktree, branch: A.branch, scratch: A.scratch, tag: TAG, label: `r${after}`, range, reuse: buildReuse, e2e: A.e2e, contract: A.contract, blockingLine: BLOCKING_LINE, reviewers, findingKinds: FINDING_KINDS, finding: FINDING, followup: REPORTED_FOLLOWUP, mechanical: MECHANICAL, gateStandIn: MATERIAL && !sampledLook ? GATE_STAND_IN : null })
-  if ((answer?.results ?? answer?.finished?.results ?? []).some(result => result?.gateRefusal)) holdGateOnStandIn()
+  // A Codex gate that refused its model was replaced in its round by the stand-in; the run keeps it, so a re-check has the gate's row and the record names the one gate that ran.
+  if ((answer?.results ?? answer?.finished?.results ?? []).some(result => result?.gateRefusal)) ROUTING.gate = { ...GATE_STAND_IN }
   const unfit = unfitRoundAnswer(answer, which.length)
   if (unfit) {
     // The reviewers that finished before a usage limit keep their records, so the resume carries their findings.

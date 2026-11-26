@@ -205,15 +205,15 @@ The design skill is advice and never blocks a landing:
 
 ## Awaiting-head results
 
-A head that finds a run stopped awaiting-head, or lost, reads `aco lane-record show <n> --json`. The lane is approved at a tip when its stored runs hold an approving verdict at that sha for every stage its risk requires: review, and the gate on a material lane. Land with `aco land <pr> --head <sha>` only when the lane is approved at the pull request's head, a stored run that ran `test` ends at that tip with `blocking.test` 0, and CI is green there. Otherwise start a new run: with `pr`, `tip` and `deltaFrom` the last approved tip when it is an ancestor of the head, not the head itself, and the head has no approving review; with `pr` and `tip` and no `deltaFrom` when the head has an approving review but its gate, test segment or CI is missing or red (a head with a review approval only is not yet approved on a material lane, and the repeated review is the cost of that rarer case); when only CI is red there, the run takes `deltaFrom` equal to `tip` and `fixFirst` holding the CI finding, so its review reads only the fixer's commits. Known case: a CI finding read after the tester's pass begins a segment before it is known whether a fixer follows, so a run that ends ci-red there leaves a begun run without a record; the path above still holds, since CI is not green and the new run fixes it.
+A head that finds a run stopped awaiting-head, or lost, reads `aco lane-record show <n> --json`. The lane is approved at a tip when its stored runs hold an approving verdict at that sha for every stage its risk requires: review, and the gate on a material lane. Land with `aco land <pr> --head <sha>` only when the lane is approved at the pull request's head, a stored run that ran `test` ends at that tip with `blocking.test` 0, and CI is green there. Otherwise start a new run: with `pr`, `tip` and `deltaFrom` the last approved tip when it is an ancestor of the head, not the head itself, and the head has no approving review; with `pr` and `tip` and no `deltaFrom` when the head has an approving review but its gate, test segment or CI is missing or red (a head with a review approval only is not yet approved on a material lane, and the repeated review is the cost of that rarer case); when only CI is red there, the run takes `deltaFrom` equal to `tip` and `fixFirst` holding the CI finding, so its review reads only the fixer's commits. A run killed in the middle of a segment leaves a begun run without a record; the path above still holds. A CI finding read after the tester's pass begins no segment until a stage of it starts, so a run that ends ci-red without a fixer leaves none.
 
 - A normal lane whose item number is divisible by ten reads its begin step's
   `aco lane-record show` for the sample: it takes the sample only when no stored run ran
-  `gate`, and a stored run whose last gate verdict is REVISE owes the gate's re-check, which
-  runs beside the review of the run's range and ends awaiting-head like a material lane's gate
-  when it gives no verdict, never skipped. When the read fails or a stored run is lost, the lane
-  ends awaiting-head at `record` before any review and takes no sample: start a new run once the
-  stored runs can be read. A sampled gate's re-check that gives no verdict ends awaiting-head at
+  `gate`, and a stored run whose last gate verdict is REVISE, or a lost stored run, owes the
+  gate on the whole lane: it runs beside the review of the run's range and ends awaiting-head
+  like a material lane's gate when it gives no verdict, never skipped. When the read fails, the
+  lane ends awaiting-head at `record` before any review and takes no sample: start a new run once
+  the stored runs can be read. A sampled gate's re-check that gives no verdict ends awaiting-head at
   `review` with the resume arguments of the usage limit.
 - A refused Codex gate never ends awaiting-head: its stand-in runs in the same round, and a
   stand-in that ends without a verdict fails the lane (`failed` at `review`).

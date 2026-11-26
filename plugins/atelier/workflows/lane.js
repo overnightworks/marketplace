@@ -1620,15 +1620,15 @@ let sampled = false  // the lane's gate ran as the sample or as the re-check an 
 let sampledSkip = null  // why the sampled look was skipped
 const sampledView = () => ({ sampled: sampledSkip ? 'skipped' : sampled, ...(sampledSkip && { sampledReason: sampledSkip }) })
 
-// What the first begin's read of the stored runs leaves the lane to do: a stop that ends the lane, or whether to take the sample or to re-check the gate's REVISE an earlier run stored.
+// What the first begin's read of the stored runs leaves the lane to do: a stop when the read failed, or whether to take the sample or to re-check the gate: owed after a stored REVISE or a lost run.
 async function sampledDuty(read) {
   const none = { take: false, owed: false }
   if (MATERIAL || Number(A.item) % SAMPLE_EVERY !== 0) return none
-  const unknown = read.gap ?? (read.lost && 'a stored run of the lane is lost, so it may have run the gate')
-  if (unknown) return { stop: await openResult('awaiting-head', 'record', { reason: `item #${A.item} is sampled for the final gate, but the stored runs cannot show whether the gate ran: ${unknown}. A sampled lane takes no sample and skips no owed re-check. Start a new run with pr ${pr} and tip ${tip} once the stored runs can be read.` }) }
-  const owed = read.lastGate === 'revise'
+  if (read.gap) return { stop: await openResult('awaiting-head', 'record', { reason: `item #${A.item} is sampled for the final gate, but the stored runs cannot show whether the gate ran: ${read.gap}. A sampled lane takes no sample and skips no owed re-check. Start a new run with pr ${pr} and tip ${tip} once the stored runs can be read.` }) }
+  // A lost run may have run the gate and said anything, so the lane owes the gate on the whole lane like a stored REVISE: its look is never skipped.
+  const owed = read.lastGate === 'revise' || Boolean(read.lost)
   sampled = owed
-  return { take: !read.gateRan, owed }
+  return { take: !owed && !read.gateRan, owed }
 }
 
 // The one look at the whole lane on the tip the review approved, in the round of that approval so the existing miss rule counts no miss for it.
@@ -1680,7 +1680,7 @@ const REPORTED_FOLLOWUP = { ...FOLLOWUP, required: [...FOLLOWUP.required, 'inPla
 
 // A run stores its stages on the claim as segments: a segment is one aco run, the span of the run's stages between two proven points (a review that approves the tip, a gate that approves it on a material lane, the tester's pass).
 // aco sums the counts and joins the verdicts over the stored runs, so each segment's record holds only its own slice of the history for the verdicts and the --ran stages, and the run's counts since the segment's start; the approvals of the earlier segments stay in the history.
-// The first segment begins with the run. A later one begins right before its first stage, or at once when a tester still runs or a CI finding was read, so a run that stops at a proven point leaves no begun run without a record, and a run killed in the middle of a segment, or ending after a CI finding with no stage, leaves one, which aco counts as lost.
+// The first segment begins with the run. A later one begins right before its first stage, or at once when a tester still runs, so a run that stops at a proven point, or ends after a CI finding with no fixer, leaves no begun run without a record, and a run killed in the middle of a segment leaves one, which aco counts as lost.
 let began = null  // set once aco lane-record begin ran for a segment, so the records go to the claim and landing or release takes no --record: what its read of the stored runs found
 let firstBegan = null  // the read of the run's first begin: the earlier runs' approvals and the gap the misses of every segment's record are judged by, never the later reads that hold this run's own approvals
 const startedStages = { build: false, review: false, test: false }  // the stages the open segment started that the history does not show yet
@@ -1694,7 +1694,7 @@ let recordsWritten = 0
 const segmentRunIdNow = () => segmentRunId(runId, segmentNumber)
 // A tester that has not answered belongs to the segment its answer lands in, so it counts as started only once it is judged.
 const segmentSlice = () => ({ history: history.slice(segmentFrom.history), fixRole: fixRolesRun.slice(segmentFrom.fixRoles).at(-1) ?? null, testStarted: startedStages.test && !pendingTest })
-// The stages the open segment started, in aco's order; a segment that started none (a CI finding read after a proven point, the run then ending without a fixer) stores nothing, since aco takes no empty --ran and a stage that did not run is never claimed.
+// The stages the open segment started, in aco's order; a segment that started none (the run ending after a CI finding read at a proven point, with no fixer) stores nothing, since aco takes no empty --ran and a stage that did not run is never claimed.
 const stagesStarted = () => stagesRan({ ...segmentSlice(), builderRan: startedStages.build, reviewStarted: startedStages.review })
 
 // The lane record reaches <scratch>/lane-record.json through a courier that cuts it out of its own transcript; the printer then runs aco lane-record check on it and a CRC-signed line brings the exit back.
@@ -2626,9 +2626,6 @@ while (true) {
     if (stop) return stop
   }
   history.push({ after: spent.total, by: `ci-${n - 1}`, verdict: ci.verdict, blocking: (ci.failing || []).map(f => f.where), deterministic: (ci.failing || []).filter(f => f.deterministic === true).map(f => f.where) })
-  // A CI finding read after a proven point opens the next segment; a stop without a fixer stores no stage-less segment, so aco counts the lane's findings unknown instead of the run dropping this one unseen.
-  const afterCiStop = (ci.failing || []).length ? await beginRun() : null
-  if (afterCiStop) return afterCiStop
   if (ci.readError) return await openResult('failed', 'ci', { reason: ci.readError })
   if (ci.pending) return await openResult('awaiting-head', 'ci', { reason: `${ci.pending} Start a new run with pr ${pr} and tip ${tip} once CI has finished.` })
   if (unproven) return await openResult('failed', 'ci', { reason: `CI reported green, but the check listing does not prove it: ${unproven}` })

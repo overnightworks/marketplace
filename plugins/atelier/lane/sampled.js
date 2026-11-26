@@ -7,15 +7,15 @@ let sampled = false  // the lane's gate ran as the sample or as the re-check an 
 let sampledSkip = null  // why the sampled look was skipped
 const sampledView = () => ({ sampled: sampledSkip ? 'skipped' : sampled, ...(sampledSkip && { sampledReason: sampledSkip }) })
 
-// What the first begin's read of the stored runs leaves the lane to do: a stop that ends the lane, or whether to take the sample or to re-check the gate's REVISE an earlier run stored.
+// What the first begin's read of the stored runs leaves the lane to do: a stop when the read failed, or whether to take the sample or to re-check the gate: owed after a stored REVISE or a lost run.
 async function sampledDuty(read) {
   const none = { take: false, owed: false }
   if (MATERIAL || Number(A.item) % SAMPLE_EVERY !== 0) return none
-  const unknown = read.gap ?? (read.lost && 'a stored run of the lane is lost, so it may have run the gate')
-  if (unknown) return { stop: await openResult('awaiting-head', 'record', { reason: `item #${A.item} is sampled for the final gate, but the stored runs cannot show whether the gate ran: ${unknown}. A sampled lane takes no sample and skips no owed re-check. Start a new run with pr ${pr} and tip ${tip} once the stored runs can be read.` }) }
-  const owed = read.lastGate === 'revise'
+  if (read.gap) return { stop: await openResult('awaiting-head', 'record', { reason: `item #${A.item} is sampled for the final gate, but the stored runs cannot show whether the gate ran: ${read.gap}. A sampled lane takes no sample and skips no owed re-check. Start a new run with pr ${pr} and tip ${tip} once the stored runs can be read.` }) }
+  // A lost run may have run the gate and said anything, so the lane owes the gate on the whole lane like a stored REVISE: its look is never skipped.
+  const owed = read.lastGate === 'revise' || Boolean(read.lost)
   sampled = owed
-  return { take: !read.gateRan, owed }
+  return { take: !owed && !read.gateRan, owed }
 }
 
 // The one look at the whole lane on the tip the review approved, in the round of that approval so the existing miss rule counts no miss for it.

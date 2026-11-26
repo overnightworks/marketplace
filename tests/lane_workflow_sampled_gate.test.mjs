@@ -83,12 +83,26 @@ test('sampled-gate: a run after a stored gate approval starts no gate', async ()
 })
 
 const lostRun = { ...storedEarlierRun(), end_tip: null, ran: null, record: null }
-for (const [what, begin] of [['fails', { show_code: 2, show_error: 'bad shape' }], ['reports a lost run', { stored_runs: [lostRun, storedOwnRun()] }], ['reports a run that does not follow', { stored_runs: [{ ...storedEarlierRun(), follows: false }, storedOwnRun()] }]]) {
-  test(`sampled-gate: a lane whose read of the stored runs ${what} awaits the head and starts no gate`, async () => {
+for (const [what, begin] of [['fails', { show_code: 2, show_error: 'bad shape' }]]) {
+  test(`sampled-gate: a lane whose read of the stored runs ${what} awaits the head at record and starts no gate`, async () => {
     const { launchedAgents, result } = await runLane(sampledLane, { 'r0-review': APPROVE, 'r0-gate': gateApprove, ...reachesTheEnd, begin })
-    assert.deepEqual([result.status, result.sampled, gateLabels(launchedAgents)], ['awaiting-head', false, []])
+    assert.deepEqual([result.status, result.stage, result.sampled, gateLabels(launchedAgents)], ['awaiting-head', 'record', false, []])
   })
 }
+
+for (const [what, lost] of [['a run without a record', lostRun], ['a run that does not follow', { ...storedEarlierRun(), follows: false }]]) {
+  test(`sampled-gate: a lane whose stored runs show ${what} owes the gate on the whole lane, beside the review, and takes no second sample`, async () => {
+    const { launchedAgents, agentCalls, result } = await runLane(sampledLane, { 'r0-review': APPROVE, 'r0-gate': gateApprove, ...reachesTheEnd, begin: { stored_runs: [lost, storedOwnRun()] } })
+    assert.deepEqual([result.status, result.sampled, gateLabels(launchedAgents)], ['ready-to-land', true, ['r0-gate']])
+    assert.match(agentCalls['r0-gate'].prompt, /the whole lane: git diff origin\/main\.\.\.HEAD/)
+  })
+}
+
+test('sampled-gate: a lane with a lost run whose gate gives no verdict awaits the head at review, never skipped', async () => {
+  const { launchedAgents, result } = await runLane(sampledLane, { 'r0-review': APPROVE, 'r0-gate': limitedCourier, ...reachesTheEnd, begin: { stored_runs: [lostRun, storedOwnRun()] } })
+  assert.deepEqual([result.status, result.stage, result.sampled], ['awaiting-head', 'review', true])
+  assert.ok(!launchedAgents.some(label => /^(e2e|ci)/.test(label)))
+})
 
 test('sampled-gate: a resumed run with no earlier stored run, whose own entry does not follow, takes the sample', async () => {
   const { launchedAgents, result } = await runLane(sampledLane, { 'r0-review': APPROVE, 'r0-gate': gateApprove, ...reachesTheEnd, begin: { stored_runs: [storedOwnRun(false)] } })

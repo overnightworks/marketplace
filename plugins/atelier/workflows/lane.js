@@ -559,6 +559,7 @@ function checkpointRenameProblem(relayed, item) {
   if (stepProblem) return stepProblem
   const { pull, item: itemTitle, retitle } = relayed.values
   if (pull.code !== 0) return `reading the pull request exited ${pull.code}: ${pull.err}`
+  if (typeof pull.title !== 'string') return `the pull request title could not be read (reading the pull request exited ${pull.code}: ${pull.err})`
   if (pull.title !== checkpointTitle(item)) return null
   if (itemTitle.code !== 0) return `reading the item title exited ${itemTitle.code}: ${itemTitle.err}`
   return retitle.code === 0 ? null : `the title write exited ${retitle.code}: ${retitle.err}`

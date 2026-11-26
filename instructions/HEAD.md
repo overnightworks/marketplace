@@ -286,7 +286,7 @@ keeps its own reviews.
 - **Width.** Run as many lanes as there are pieces of work with settled
   dependencies, each with its own item, exact claim, worktree, branch and
   builder; the lever is slice size, not lane count. Prefer slices within the
-  slice limit (`CODE.md`, Code); findings in the dozens mean the lane was cut
+  slice limit (`AGENTS.md`, Code); findings in the dozens mean the lane was cut
   too big. Prefer disjoint work; overlapping work may run in parallel: the first
   to finish lands, the others merge it when they sync. Never parallelize an
   unresolved shared decision; two lanes needing one contract are a cut problem,
@@ -404,7 +404,7 @@ high.
 |---|---|---|---|
 | Mechanical: landing, body edits, search, repetition, a behaviour-neutral fix batch | Haiku 5.5, low or medium | — | 4.6 |
 | Build, fix | Sonnet 5.5, medium | gpt-6-astra | 4.6 |
-| Hard build or fix: a material lane, a build past the slice limit (`CODE.md`, Code), a lane's third fix round on, a failed cheaper attempt | Sonnet 5.5, high | gpt-6-astra | 4.6 |
+| Hard build or fix: a material lane, a build past the slice limit (`AGENTS.md`, Code), a lane's third fix round on, a failed cheaper attempt | Sonnet 5.5, high | gpt-6-astra | 4.6 |
 | Fact finding, test | Sonnet 5.5, medium; a material lane's test at high | gpt-6-astra | 4.6 |
 | Ordinary code, test or diff review | Sonnet 5.5, high | gpt-6-astra | — |
 | Material review; the hardest proof | Opus 5.5, medium | gpt-6-astra | 4.6 (no reviews) |

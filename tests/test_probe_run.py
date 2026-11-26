@@ -21,6 +21,7 @@ ARGUMENT_ECHO = '#!/bin/sh\nprintf "%s\\n" "$@"\n'
 MAXIMUM_TOTAL_SECONDS = 1830
 BAD_INPUT_STATUS = 2
 LOAD_TIMEOUT_STATUS = 75
+ENVIRONMENT_ERROR_STATUS = 69
 
 
 @pytest.fixture
@@ -121,7 +122,7 @@ def test_fails_loud_without_starting_when_pasta_is_missing(real_machine, tmp_pat
 
     result = probe_run({**real_machine, "PATH": str(bin_directory)}, "my-stack")
 
-    assert result.returncode != 0
+    assert result.returncode == ENVIRONMENT_ERROR_STATUS
     assert "pasta" in result.stderr
     assert "no probe stack was started" in result.stderr
 

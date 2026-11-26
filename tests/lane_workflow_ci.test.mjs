@@ -5,7 +5,7 @@ import path from 'node:path'
 import { spawnSync } from 'node:child_process'
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { runLane, FAKE_GH, resumeTip, resumeFixedTip, partReplaced, runCommandLine, installFake, resumeArgs, resumeFix, defectWithoutDraft, roundTip, roundRed, roundFix, reviewedRoundFix, roundReviews, heldTester, PASS, APPROVE, greenCi, tidy, redOnHead, run, redJob, tip, lane, reachesCi, required, check, ciAnswer, driveCi } from './lane_workflow_harness.mjs'
+import { runLane, FAKE_GH, resumeTip, resumeFixedTip, partReplaced, runCommandLine, installFake, resumeArgs, resumeFix, defectWithoutDraft, roundTip, roundRed, roundFix, reviewedRoundFix, roundReviews, heldTester, PASS, APPROVE, greenCi, tidy, redOnHead, run, redJob, tip, lane, reachesCi, required, check, ciAnswer, driveCi, tolerates } from './lane_workflow_harness.mjs'
 
 const unproven = [
   ['a pending check', [check(required, 'pass'), check('Python: tests', 'pending')], /Python: tests/],
@@ -537,7 +537,6 @@ test('ci-flake-rerun: a disputed non-CI finding goes to the head without a re-ru
 // The fixer starts at once when CI is red; the tester is awaited only when CI has nothing of its own to fix.
 const testerLabels = (launchedAgents) => launchedAgents.filter(label => /^e2e-\d+$/.test(label))
 const ciWatches = (launchedAgents) => launchedAgents.filter(label => /^ci-\d+$/.test(label))
-const tolerates = { timeout: 5000 }
 
 test('ci-fixer-at-once: CI red for several rounds starts a fixer each round and issues exactly one tester call', tolerates, async () => {
   const tester = heldTester()
@@ -654,7 +653,7 @@ for (const [what, answers, expected] of testerRounds) {
     const { agentCalls, result } = await runLane(resumeArgs, { 'r0-review': APPROVE, ...answers() })
     assert.equal(result.status, 'ready-to-land', result.reason)
     for (const text of expected) assert.ok(agentCalls['e2e-1'].prompt.includes(text), `the second tester prompt lacks ${text}`)
-    assert.doesNotMatch(agentCalls['e2e-1'].prompt, /left unchanged/)
+    assert.match(agentCalls['e2e-1'].prompt, /Mark a new finding against the lane's whole diff, `git diff origin\/main\.\.\.HEAD`/)
   })
 }
 

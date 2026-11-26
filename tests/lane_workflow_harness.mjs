@@ -414,8 +414,30 @@ export function answersWith(replay, { kind, mutation, testDraft = false, passesA
   return answers
 }
 
+// Sets the named number constants of the bundle; a name the bundle does not declare throws, so a rename never leaves a test waiting for real.
+export const withConstants = (constants) => ({
+  transform: (source) => Object.entries(constants).reduce((text, [name, value]) => {
+    const declaration = new RegExp(`^(\\s*const ${name} = )\\d+$`, 'm')
+    if (!declaration.test(text)) throw new Error(`the bundle declares no number constant ${name}`)
+    return text.replace(declaration, `$1${value}`)
+  }, source),
+})
 // Zeroes the wait before a retry of an unreachable forge and the sleep of the rate-limit wait step.
-export const noWait = { transform: (source) => source.replace(/const (NETWORK_WAIT_SECONDS|RATE_LIMIT_SLEEP_SECONDS) = \d+$/gm, 'const $1 = 0') }
+export const NO_WAIT = { NETWORK_WAIT_SECONDS: 0, RATE_LIMIT_SLEEP_SECONDS: 0 }
+export const noWait = withConstants(NO_WAIT)
+
+// The value a top-level constant of the bundle holds, such as a brief sentence the lane prints or a bound it keeps; a name the bundle does not declare throws.
+export const bundleConstant = async (name) => {
+  const declaration = `const ${name} = `
+  const source = laneSource()
+  if (!new RegExp(`^${declaration}`, 'm').test(source)) throw new Error(`the bundle declares no top-level constant ${name}`)
+  const context = vm.createContext({})
+  const reading = vm.runInContext(`(async function (args, agent) {\n${source.replace(new RegExp(`^${declaration}`, 'm'), `${declaration}__constant = `)}\n})`, context)
+  // The constant is assigned while the script's top level runs, before its first agent call, which this stand-in refuses.
+  await reading({}, async () => { throw new Error('no agent runs') }).catch(() => {})
+  if (context.__constant === undefined) throw new Error(`the bundle never assigned the constant ${name}`)
+  return context.__constant
+}
 
 export const resumeTip = 'c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0'
 
@@ -488,3 +510,11 @@ export const required = 'quality / verdict'
 export const check = (name, bucket) => ({ name, bucket })
 export const ciAnswer = (checks, extra = {}) => ({ head: tip, green: true, failing: [], checks, requiredChecks: [required], ...extra })
 export const driveCi = (ci, args = lane, read, more = {}) => runLane({ ...args, foldIn: [tidy] }, { ...reachesCi, 'ci-0': ci, ...(read && { 'ci-read-0': read }), ...more })
+
+// The arguments of a lane that still has to build, and a test option that lets a long scripted run take a few seconds.
+export const builtLane = { ...resumedLane, pr: undefined, tip: undefined, build: 'b' }
+export const tolerates = { timeout: 5000 }
+// The relay lists at most 50 paths, so only a longer list cannot be judged and stops the scope check.
+export const unjudgeableOutside = ['board.py', ...Array.from({ length: 50 }, (_, index) => `src/mod_${index}.py`)]
+// A gate verdict that raises one blocking finding.
+export const gateRaises = { verdict: 'REVISE', blocking: [defectWithoutDraft], followups: [] }

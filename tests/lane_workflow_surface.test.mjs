@@ -1,10 +1,9 @@
 // Drives the design advice of a lane that changes a surface: which agents are told, and that a design observation never blocks.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { runLane, resumedLane, resumeArgs, resumeFixedTip, resumeFix, APPROVE, PASS, greenCi, defectWithoutDraft, built } from './lane_workflow_harness.mjs'
+import { runLane, resumedLane, resumeArgs, resumeFixedTip, resumeFix, APPROVE, PASS, greenCi, defectWithoutDraft, built, builtLane } from './lane_workflow_harness.mjs'
 
 const SKILL = /atelier:design-interface/
-const builtLane = { ...resumedLane, pr: undefined, tip: undefined, build: 'b' }
 const surfaceLane = { touched_surfaces: ['frontend/src/app.tsx'] }
 const lanes = [
   ['a lane with touched surfaces', surfaceLane, true],

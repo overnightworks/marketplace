@@ -1,13 +1,11 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { runLane, resumeArgs, defectWithoutDraft, roundTip, roundRed, reviewedRoundFix, roundReviews, APPROVE, PASS, greenCi } from './lane_workflow_harness.mjs'
-
-const tolerates = { timeout: 5000 }
+import { runLane, resumeArgs, roundTip, roundRed, reviewedRoundFix, roundReviews, APPROVE, PASS, greenCi, tolerates, gateRaises } from './lane_workflow_harness.mjs'
 
 // A lane that ends on a spent budget names the arguments of the run that continues it.
 const spentRun = {
   'ci-red': [{ ci: 1 }, { ...roundReviews, 'r0-review': APPROVE, 'e2e-0': PASS, 'ci-0': roundRed(0), 'ci-1': roundRed(1), 'fix-1': reviewedRoundFix(1) }],
-  unresolved: [{ review: 0 }, { 'r0-review': { verdict: 'REVISE', blocking: [defectWithoutDraft], followups: [] } }],
+  unresolved: [{ review: 0 }, { 'r0-review': gateRaises }],
 }
 for (const [status, [budgets, answers]] of Object.entries(spentRun)) {
   test(`budget-resume: a lane whose budget is spent ends ${status} with the resume that starts a new run at the fixer`, tolerates, async () => {

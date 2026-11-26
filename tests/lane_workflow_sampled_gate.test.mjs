@@ -1,12 +1,12 @@
 // One normal lane in ten, the one whose item number is divisible by ten, gets the final gate on the tip its review approved, as a measurement of what one review lets through.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { runLane, storedLane, storedOwnRun, storedEarlierRun, storedGateRun, resumeArgs, resumeFix, resumeFixedTip, resumeTip, olderTip, APPROVE, PASS, greenCi, defectWithoutDraft } from './lane_workflow_harness.mjs'
+import { runLane, storedLane, storedOwnRun, storedEarlierRun, storedGateRun, resumeArgs, resumeFix, resumeFixedTip, resumeTip, olderTip, APPROVE, PASS, greenCi, gateRaises } from './lane_workflow_harness.mjs'
 
 const sampledLane = { ...resumeArgs, item: 10 }
 // The gate is a Codex courier, whose clean exit comes with its verdict.
 const gateApprove = { ...APPROVE, codexExit: 0 }
-const gateRevise = { verdict: 'REVISE', blocking: [defectWithoutDraft], followups: [], codexExit: 0 }
+const gateRevise = { ...gateRaises, codexExit: 0 }
 const fixedForGate = { ...resumeFix, regression: [{ finding: 1, test: 't.py::test_rule', failedBefore: true, passesAfter: true }] }
 const reachesTheEnd = { 'e2e-0': PASS, 'ci-0': greenCi(resumeTip) }
 const afterFix = { 'fix-1': fixedForGate, 'e2e-0': PASS, 'ci-0': greenCi(resumeFixedTip) }

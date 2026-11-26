@@ -1,7 +1,7 @@
 // Drives the atelier lane workflow script through a fixer that only merged main, with a stub agent runner.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { runLane, APPROVE, PASS, greenCi, conflictsWithMain, mergedOnlyTip, resumeArgs, mergeOnlyFix, defectWithoutDraft, resumeTip, reachesTheEnd } from './lane_workflow_harness.mjs'
+import { runLane, APPROVE, PASS, greenCi, conflictsWithMain, mergedOnlyTip, resumeArgs, mergeOnlyFix, defectWithoutDraft, resumeTip, reachesTheEnd, bundleConstant } from './lane_workflow_harness.mjs'
 
 // The relay reads the merge commit's tree and the tree git itself produces for its parents; only equal trees are a clean merge.
 const mergeShapes = [
@@ -51,10 +51,10 @@ test('the CI round fixer brief merges main only for a mergeable finding and disp
   assert.doesNotMatch(ci.agentCalls['fix-1'].prompt, /Merge origin\/main if it moved/)
   const review = await runLane({ ...resumeArgs, fixFirst: [defectWithoutDraft] }, { 'fix-1': mergeOnlyFix })
   assert.match(review.agentCalls['fix-1'].prompt, /Merge origin\/main if it moved/)
+  const [mergeRules, resolveConflicts] = [await bundleConstant('MERGE_RULES'), await bundleConstant('RESOLVE_CONFLICTS')]
   for (const prompt of [ci.agentCalls['fix-1'].prompt, review.agentCalls['fix-1'].prompt]) {
-    assert.match(prompt, /Keep both sides' intent in every hunk/)
-    assert.match(prompt, /merge commit holds only conflict resolutions and regenerated generated files; adaptations to main's change and fixes the static checks ask for go in commits after the merge, and the static checks run after the last merge/)
-    assert.match(prompt, /incompatibly, run `git merge --abort`, commit nothing and answer blocked, naming the path, the hunk and both sides' intent/)
+    assert.ok(prompt.includes(mergeRules))
+    assert.ok(prompt.includes(resolveConflicts))
   }
 })
 

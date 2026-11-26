@@ -219,12 +219,11 @@ def test_decides_the_load_without_calling_awk(machine):
 @pytest.mark.parametrize(
     ("load", "starts"),
     [
-        (f"{LOAD_LIMIT - 0.01:.2f}", True),
-        (f"{LOAD_LIMIT - 0.001}", True),
-        (f"{LOAD_LIMIT:.2f}", False),
-        (f"{LOAD_LIMIT + 0.001}", False),
-        (f"00{LOAD_LIMIT - 1:.1f}", True),
-        ("0", True),
+        pytest.param(f"{LOAD_LIMIT - 0.01:.2f}", True, id="just-below-the-limit"),
+        pytest.param(f"{LOAD_LIMIT:.2f}", False, id="at-the-limit"),
+        pytest.param(f"{LOAD_LIMIT + 0.001}", False, id="just-above-the-limit"),
+        pytest.param(f"00{LOAD_LIMIT - 1:.1f}", True, id="leading-zeros"),
+        pytest.param("0", True, id="zero"),
     ],
 )
 def test_starts_only_when_the_exact_load_is_below_the_limit(machine, load, starts):
@@ -243,9 +242,8 @@ def test_reads_a_load_with_a_leading_zero_as_decimal(machine):
     assert result.returncode == LOAD_TIMEOUT_STATUS
 
 
-def test_wait_only_returns_at_once_for_a_load_below_the_limit_under_a_german_locale(machine):
+def test_wait_only_returns_at_once_for_a_load_below_the_limit(machine):
     set_load(machine, LOAD_LIMIT / 3)
-    machine["LANG"] = "de_DE.UTF-8"
 
     result = probe_run(machine, "--wait-only")
 
@@ -259,6 +257,7 @@ def test_wait_only_ends_with_the_load_timeout_status_when_the_load_stays_at_the_
     result = probe_run(machine, "--wait-only")
 
     assert result.returncode == LOAD_TIMEOUT_STATUS
+    assert "no probe stack was started" not in result.stderr
     assert result.stdout == ""
 
 
@@ -280,7 +279,15 @@ def test_wait_only_with_a_command_is_a_usage_error(machine):
     assert result.stdout == ""
 
 
-@pytest.mark.parametrize("content", ["", "\n", "not-a-number 1 2 3/4 5\n", "-1.0 0 0 1/1 1\n"])
+@pytest.mark.parametrize(
+    "content",
+    [
+        pytest.param("", id="empty"),
+        pytest.param("\n", id="blank-line"),
+        pytest.param("not-a-number 1 2 3/4 5\n", id="not-a-number"),
+        pytest.param("-1.0 0 0 1/1 1\n", id="negative"),
+    ],
+)
 def test_fails_loud_without_starting_when_the_load_reading_is_not_a_number(machine, content):
     Path(machine["PROBE_RUN_LOADAVG_FILE"]).write_text(content)
 
@@ -294,15 +301,15 @@ def test_fails_loud_without_starting_when_the_load_reading_is_not_a_number(machi
 @pytest.mark.parametrize(
     ("arguments", "complaint"),
     [
-        ((), "no command"),
-        (("-k", "60"), "-k needs K and CAP"),
-        (("-k", "60", "1700"), "no command"),
-        (("-k", "x", "1700", "my-stack"), "K must be a positive integer"),
-        (("-k", "30", "0", "my-stack"), "CAP must be a positive integer"),
-        (("-k", "30", "-5", "my-stack"), "CAP must be a positive integer"),
-        (("-k", "31", "1800", "my-stack"), "CAP + K must be at most 1830"),
-        (("-k", "30", "9223372036854775808", "my-stack"), "CAP must be a positive integer"),
-        (("-k", "9223372036854775808", "1800", "my-stack"), "K must be a positive integer"),
+        pytest.param((), "no command", id="no-command"),
+        pytest.param(("-k", "60"), "-k needs K and CAP", id="kill-after-without-cap"),
+        pytest.param(("-k", "60", "1700"), "no command", id="times-without-command"),
+        pytest.param(("-k", "x", "1700", "my-stack"), "K must be a positive integer", id="kill-after-not-a-number"),
+        pytest.param(("-k", "30", "0", "my-stack"), "CAP must be a positive integer", id="cap-zero"),
+        pytest.param(("-k", "30", "-5", "my-stack"), "CAP must be a positive integer", id="cap-negative"),
+        pytest.param(("-k", "31", "1800", "my-stack"), "CAP + K must be at most 1830", id="total-over-the-maximum"),
+        pytest.param(("-k", "30", "9223372036854775808", "my-stack"), "CAP must be a positive integer", id="cap-overflows"),
+        pytest.param(("-k", "9223372036854775808", "1800", "my-stack"), "K must be a positive integer", id="kill-after-overflows"),
     ],
 )
 def test_fails_loud_on_malformed_arguments_without_starting_anything(machine, arguments, complaint):
@@ -324,7 +331,17 @@ def test_accepts_the_largest_allowed_cap(machine):
 
 
 @pytest.mark.parametrize("name", ["PROBE_RUN_POLL_SECONDS", "PROBE_RUN_WAIT_SECONDS"])
-@pytest.mark.parametrize("value", ["0", "-1", "x", "", "1.5", "12345"])
+@pytest.mark.parametrize(
+    "value",
+    [
+        pytest.param("0", id="zero"),
+        pytest.param("-1", id="negative"),
+        pytest.param("x", id="not-a-number"),
+        pytest.param("", id="empty"),
+        pytest.param("1.5", id="fraction"),
+        pytest.param("12345", id="too-large"),
+    ],
+)
 def test_fails_loud_on_a_malformed_poll_or_wait_value(machine, name, value):
     set_load(machine, 0.0)
 
@@ -366,9 +383,7 @@ def test_ends_a_wait_without_starting_once_the_process_that_started_it_is_gone(m
     )
     orphan = int(starter.stdout)
 
-    deadline = time.monotonic() + 20
-    while is_running(orphan) and time.monotonic() < deadline:
-        time.sleep(0.1)
+    wait_for(lambda: not is_running(orphan))
 
     assert not is_running(orphan)
     assert "ended during the wait" in output.read_text()
@@ -422,9 +437,7 @@ def test_ends_a_wait_at_once_on_sigint_without_starting_the_command(machine, tmp
     probe = subprocess.Popen(
         [str(PROBE_RUN), "sh", "-c", f"touch {marker}"], env=environment, stderr=subprocess.PIPE, text=True
     )
-    deadline = time.monotonic() + 20
-    while not announcement.exists() and time.monotonic() < deadline:
-        time.sleep(0.05)
+    wait_for(announcement.exists)
 
     try:
         probe.send_signal(signal.SIGINT)

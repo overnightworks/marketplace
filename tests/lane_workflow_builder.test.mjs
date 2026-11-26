@@ -1,9 +1,7 @@
 // The builder runs as laneBuild inside the lane script; a crash fails the lane at build naming it.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { runLane, resumedLane, built, partReplaced, resumeArgs, resumeFixedTip, resumeTip, olderTip, defectWithoutDraft, unchangedFix, reachesTheEnd, APPROVE } from './lane_workflow_harness.mjs'
-
-const builtLane = { ...resumedLane, pr: undefined, tip: undefined, build: 'b' }
+import { runLane, resumedLane, built, partReplaced, resumeArgs, resumeFixedTip, resumeTip, olderTip, defectWithoutDraft, unchangedFix, reachesTheEnd, APPROVE, builtLane, unjudgeableOutside } from './lane_workflow_harness.mjs'
 
 test('a builder part that throws fails the lane at build naming the error', async () => {
   const { result } = await runLane(builtLane, { build: built }, { transform: partReplaced('laneBuild', "throw new Error('the builder part exploded')") })
@@ -25,8 +23,6 @@ test('the builder prompt asks for the owner extended or the search that found no
 // A builder or fixer without a result: the lane's checkpoint step saves what the worktree holds.
 const checkpointTip = 'c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1'
 const blocking = defectWithoutDraft
-// The relay lists at most 50 paths, so only a longer list cannot be judged and stops the scope check.
-const unjudgeableOutside = ['board.py', ...Array.from({ length: 50 }, (_, index) => `src/mod_${index}.py`)]
 
 test('a builder without a result and with work in the worktree returns awaiting-head with the checkpoint tip and the resume arguments', async () => {
   const { result } = await runLane(builtLane, { build: null, 'checkpoint-build': { work: true, pr: 7, head: checkpointTip } })
@@ -170,3 +166,10 @@ for (const [behaviour, scenario, named, unnamed] of unreachableWrites) {
     assert.ok(!result.requiredHeadActions.some(action => unnamed.test(action)))
   })
 }
+
+// A builder may report an abbreviated sha; the lane expands it once, so the verdicts that name the full sha count for it.
+test('a build reported with a short tip whose review approves ends ready-to-land at the full sha', async () => {
+  const { result } = await runLane(builtLane, { build: { ...built, tip: resumeTip.slice(0, 7) }, ...reachesTheEnd, 'scope-0': { remote_tip: resumeTip, head: resumeTip }, 'r0-review': APPROVE })
+  assert.equal(result.status, 'ready-to-land', result.reason)
+  assert.equal(result.tip, resumeTip)
+})

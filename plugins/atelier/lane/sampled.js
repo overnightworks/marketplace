@@ -20,6 +20,13 @@ async function sampledDuty(read) {
   return { take: !owed && !read.gateRan, owed }
 }
 
+// The range a lost run owes the gate, handed out once: the first review round takes it, whatever range that round reads.
+function takeOwedGateRange() {
+  const owed = gateOwesWholeLane
+  gateOwesWholeLane = false
+  return owed ? WHOLE_LANE : undefined
+}
+
 // The one look at the whole lane on the tip the review approved, in the round of that approval so the existing miss rule counts no miss for it.
 async function sampledLook() {
   if (MODEL_PROVIDER[ROUTING.build.model] === GATE.provider) {

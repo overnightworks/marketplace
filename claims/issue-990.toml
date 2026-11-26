@@ -1,8 +1,0 @@
-claim_id = "53081371f6a14af6b71fa0d4783e3b63"
-agent = "Claude c1d65467-2dcf-4ef5-921f-526bf349a609"
-role = "builder"
-base = "d14e036fd637075232b8128c68abb34834d44748"
-branch = "claude/issue-990-the-lane-workflow-takes-the-operator-s-q"
-scope = ["plugins/atelier/lane", "plugins/atelier/workflows/lane.js", "plugins/atelier/workflows/lane.md", "quality/baseline.toml", "tests"]
-opened_commit = "3ad47b36f0d93bb6ac97b99eb621bd2c5995a0d3"
-whole_reason = "The argument is read by the lane's entry, its routing and its record, which share one source in lane/."

@@ -1,7 +1,7 @@
 // A material lane whose Codex gate is refused for its routed model runs the opus/high stand-in in the same round and keeps it for the run; nothing else that fails a gate counts as a refusal.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { runLane, storedLane, resumeArgs, resumeFix, resumeFixedTip, resumeTip, APPROVE, PASS, greenCi, finding } from './lane_workflow_harness.mjs'
+import { runLane, storedLane, storedGateRun, storedOwnRun, olderTip, resumeArgs, resumeFix, resumeFixedTip, resumeTip, APPROVE, PASS, greenCi, finding } from './lane_workflow_harness.mjs'
 
 const materialLane = { ...resumeArgs, risk: 'material', productionPaths: ['src/'] }
 const sampledLane = { ...resumeArgs, item: 10 }
@@ -89,4 +89,12 @@ test('gate-refusal: the sampled look of a normal lane with a refused gate stays 
   assert.deepEqual([result.status, result.sampled], ['ready-to-land', 'skipped'])
   assert.ok(!launchedAgents.includes('r0-gate-standin'))
   assert.match(result.routingLine, /gate none/)
+})
+
+test('gate-refusal: the owed gate re-check of a normal lane refused for its model starts no stand-in and fails at review', async () => {
+  const stored = { stored_runs: [storedGateRun(['revise', olderTip]), storedOwnRun()] }
+  const { result, launchedAgents } = await runLane(sampledLane, { 'r0-review': APPROVE, 'r0-gate': refused(), 'r0-gate-standin': APPROVE, begin: stored })
+  assert.deepEqual([result.status, result.stage], ['failed', 'review'])
+  assert.ok(!launchedAgents.includes('r0-gate-standin'))
+  assert.match(result.reason, /tail/)
 })

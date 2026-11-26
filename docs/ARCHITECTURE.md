@@ -2,8 +2,9 @@
 
 Reader: a human operator or engineer asking where agent guidance lives and why
 it is never copied. Install and verification commands live in the
-[README](../README.md), rules in the [contract](../instructions/AGENTS.md) and
-its [head part](../instructions/HEAD.md), and
+[README](../README.md), rules in the [contract](../instructions/AGENTS.md),
+its [head part](../instructions/HEAD.md) and the operator's
+[bounds](../instructions/OPERATORS.md), and
 the list of documents a repository carries in the
 [write-docs skill](../plugins/atelier/skills/write-docs/references/document-types.md#repository-document-set).
 The [fleet standards](standards.md) index names each standard that covers
@@ -23,6 +24,7 @@ flowchart LR
     subgraph marketplace["overnightworks/marketplace"]
         contract["instructions/AGENTS.md<br/>contract + code policy"]
         headfile["instructions/HEAD.md<br/>head contract"]
+        bounds["instructions/OPERATORS.md<br/>operator's bounds"]
         plugin["plugins/atelier<br/>skills, agents, workflows"]
         codexagents["plugins/atelier/.codex/agents<br/>generated from agents/"]
     end
@@ -36,6 +38,7 @@ flowchart LR
     end
     contract -- symlink --> userfiles --> host
     headfile -- head reads beside the link --> host
+    bounds -- read beside the link --> host
     plugin -- plugin install --> host
     plugin -- sync_agents --> codexagents
     facts -- git --> host
@@ -45,7 +48,8 @@ flowchart LR
 ## 2. Building Block View
 
 - `instructions/` holds the contract and code policy (`AGENTS.md`, for every
-  agent) and the head contract (`HEAD.md`, for the head alone).
+  agent), the head contract (`HEAD.md`, for the head alone) and the operator's
+  bounds (`OPERATORS.md`).
 - `plugins/atelier/` is the plugin: skills shared by both hosts, the Markdown
   source of every agent, and the Claude Code workflows. The Codex agent files
   are generated from that source.

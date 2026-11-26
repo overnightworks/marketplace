@@ -26,3 +26,4 @@
 - `docs/standards.md`: read when you need to find which fleet standards cover a repository.
 - `instructions/AGENTS.md`: read when you need the contract and code policy every agent follows.
 - `instructions/HEAD.md`: read when you are the head, for the coordination only the head reads.
+- `instructions/OPERATORS.md`: read when you change the fleet, a rule or a process, for the operator's bounds.

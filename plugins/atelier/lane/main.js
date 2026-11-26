@@ -25,6 +25,7 @@ const MATERIAL = A.risk === 'material'
 if (A.repo && !/^[\w.-]+\/[\w.-]+$/.test(A.repo)) return { status: 'failed', stage: 'input', reason: 'repo must be owner/name' }
 const R = A.repo ? ` -R ${A.repo}` : ''
 const IN_REPO = A.repo ? ` in ${A.repo}` : ''
+const REPO_API = `repos/${A.repo || '{owner}/{repo}'}`  // the REST path of the repository; the printer derives its own
 const TAG = `wf-${A.item}`
 // Paths whose change re-opens the gate on a material lane and re-runs the end-to-end test: code and public contract.
 // The default fits a src-layout Python repository.
@@ -644,9 +645,9 @@ const explore = (n, fixRange) => runPart('lane-test', laneTest, { fixRange, dele
 const findingPaths = (failing = []) => [...new Set(failing.map(finding => findingPath(finding.where)).filter(Boolean))]
 // Review and tester both passed on the tip, so a CI read that stays refused leaves only the check runs for the head to read.
 const provenOnTip = () => approvedOn(history, tip) && !testBlocking.length && lastTestedTip === tip
-const restCheckAction = () => `without a new run: read the check runs of ${tip} with \`gh api repos/${A.repo || '{owner}/{repo}'}/commits/${tip}/check-runs --paginate\` (REST, outside the GraphQL budget); once every one is completed and green, land with \`aco land ${pr} --head ${tip}\``
+const restCheckAction = () => `without a new run: read the check runs of ${tip} with \`gh api ${REPO_API}/commits/${tip}/check-runs --paginate\` (REST, outside the GraphQL budget); once every one is completed and green, land with \`aco land ${pr} --head ${tip}\``
 async function watchCi(n, rerun) {
-  const watched = await runPart('lane-ci', laneCi, { delegatedLine: DELEGATED_LINE, pr, n, rerun, repo: A.repo, repoFlag: R, inRepo: IN_REPO, worktree: A.worktree, finding: FINDING, mechanical: MECHANICAL })
+  const watched = await runPart('lane-ci', laneCi, { delegatedLine: DELEGATED_LINE, pr, n, rerun, repo: A.repo, repoFlag: R, inRepo: IN_REPO, repoApi: REPO_API, worktree: A.worktree, finding: FINDING, mechanical: MECHANICAL })
   if (!watched || watched.problem) return watched
   const nonce = `ci-${n}-${tip}`
   const sentPaths = findingPaths(watched.failing)
@@ -758,7 +759,7 @@ async function checkpointRenameActions() {
   const renameProblem = checkpointRenameProblem(relayed, A.item)
   const readyProblem = draftReadyProblem(relayed)
   return [
-    ...(renameProblem ? [`rename pull request #${pr} to the title of item #${A.item} (gh api -X PATCH repos/${A.repo || '{owner}/{repo}'}/pulls/${pr} -f title=...): it still carries the checkpoint title and the lane's write failed: ${renameProblem}`] : []),
+    ...(renameProblem ? [`rename pull request #${pr} to the title of item #${A.item} (gh api -X PATCH ${REPO_API}/pulls/${pr} -f title=...): it still carries the checkpoint title and the lane's write failed: ${renameProblem}`] : []),
     ...(readyProblem ? [`mark pull request #${pr} ready with \`gh pr ready ${pr}\`: aco land refuses a draft, and ${readyProblem}`] : []),
   ]
 }

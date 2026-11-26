@@ -1,14 +1,12 @@
-# Measured by `quality baseline write`. Entries only ever go down.
+# Measured by `quality check --fix`. Entries only ever go down.
 
 [ccn."plugins/atelier/lane/main.js"]
 "checkpointOrFail" = 19
 "pushAndCheckScope" = 20
-"roleChoiceRefusal" = 17
 
 [ccn."plugins/atelier/lane/relay.js"]
 "judgeFix" = 17
 "readCi" = 29
-"readRelay" = 17
 
 [ccn."plugins/atelier/lane/review.js"]
 "classify" = 16
@@ -17,13 +15,13 @@
 [ccn."tests/lane_workflow_harness.mjs"]
 "answerFor" = 16
 "ghEnv" = 17
-"printedBy" = 42
+"printedBy" = 40
 
 [function_lines."plugins/atelier/lane/ci.js"]
 "laneCi" = 94
 
 [function_lines."plugins/atelier/lane/relay.js"]
-"relayStep" = 473
+"relayStep" = 457
 
 [function_lines."plugins/atelier/lane/review.js"]
 "laneReview" = 260

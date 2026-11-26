@@ -50,7 +50,8 @@ case "$1 $2" in
   "run view") printf '%s\\n' "$*" >> "$0.run-view"; [ "$FAKE_RUN_VIEW_CODE" = 0 ] || fail "$FAKE_RUN_VIEW_CODE" "HTTP 410: logs expired"; cat "$FAKE_RUN_LOG" ;;
   "pr checks") [ "$FAKE_CHECKS_CODE" = 0 ] || fail "$FAKE_CHECKS_CODE" "$FAKE_CHECKS_ERROR"; printf '%s' "$FAKE_CHECKS" ;;
   "api -X") [ "$FAKE_PATCH_CODE" = 0 ] || fail "$FAKE_PATCH_CODE" "the title write was refused"; printf '%s\\n' "$6" >> "$0.patched" ;;
-  "api repos/"*) [ "$4" != .title ] || { case "$2" in */pulls/*) printf '%s\\n' "$FAKE_PR_TITLE" ;; *) printf '%s\\n' "$FAKE_ITEM_TITLE" ;; esac; exit 0; }
+  "api repos/"*) [ "$4" != .body ] || { [ "$FAKE_ITEM_CODE" = 0 ] || fail "$FAKE_ITEM_CODE" "$FAKE_ITEM_ERROR"; printf '%s\\n' "$FAKE_ITEM_BODY"; exit 0; }
+    [ "$4" != .title ] || { case "$2" in */pulls/*) printf '%s\\n' "$FAKE_PR_TITLE" ;; *) printf '%s\\n' "$FAKE_ITEM_TITLE" ;; esac; exit 0; }
     case "$2" in
     */rules/branches/main) [ "$FAKE_RULES_CODE" = 0 ] || fail "$FAKE_RULES_CODE" "$FAKE_RULES_ERROR"; printf '%s' "$FAKE_RULES" ;;
     */pulls/*/files) [ "$FAKE_CHANGED_CODE" = 0 ] || fail "$FAKE_CHANGED_CODE" "$FAKE_CHANGED_ERROR"; printf '%s' "$FAKE_FILES" ;;
@@ -89,6 +90,11 @@ export const runCommandLine = (line, { cwd, env, shell = 'sh' }) => {
   const ran = spawnSync(shell, ['-c', line], { cwd, env, encoding: 'utf8' })
   return (ran.stdout || ran.stderr).trim()
 }
+
+// The fake gh's answer to a read of the item body.
+const itemEnvironment = (scenario) => ({ FAKE_ITEM_BODY: scenario.item_body ?? '', FAKE_ITEM_CODE: scenario.item_code ?? 0, FAKE_ITEM_ERROR: scenario.item_error ?? '' })
+// The printer line a scenario's typedCommand rewrites; a reread keeps the line unless the scenario types it always.
+const typedLine = (scenario, reread, line) => scenario.typedCommand && (!reread || scenario.typedAlways) ? scenario.typedCommand(line) : line
 
 // answers holds each agent's result by its label; an agent without one ends without a result. Without answers only
 // the sync step answers (an up-to-date lane), so a run gets as far as starting its first review round.
@@ -172,12 +178,12 @@ export async function runLane(args, answers = {}, options = {}) {
       ...process.env, PATH: `${fakeCommands()}:${process.env.PATH}`, FAKE_HEAD: scenario.head ?? newestTip, FAKE_BRANCH: scenario.branch ?? args.branch, FAKE_BRANCH_CODE: scenario.branch_code ?? 0, FAKE_REMOTE: scenario.remote_tip ?? newestTip,
       FAKE_HEAD_CODE: scenario.head_code ?? 0, FAKE_PARENTS: (scenario.parents ?? []).join('\n'), FAKE_MAIN_CODE: scenario.main_code ?? 0, FAKE_TREE: scenario.tree ?? 'a1a1a1a1', FAKE_MERGE_TREE: scenario.merge_tree ?? scenario.tree ?? 'a1a1a1a1', FAKE_MERGE_TREE_CODE: scenario.merge_tree_code ?? 0, FAKE_TOUCHED: (scenario.touched_paths ?? []).join('\n'), FAKE_MERGE_PATHS: (scenario.merge_paths ?? []).join('\n'),
       FAKE_PUSH_ERROR: scenario.push_error ?? '', FAKE_NETWORK_ERROR: scenario.network_error ?? '', FAKE_NETWORK_STDOUT: scenario.network_stdout ?? '', FAKE_NETWORK_FAILS: scenario.network_fails ?? 1, FAKE_BRIEF_ERROR: scenario.brief_error ?? '', FAKE_RATE_EXHAUSTED_CALLS: scenario.rate_exhausted_calls ?? 0, FAKE_RATE_EXHAUSTED_AGAIN_AT: scenario.rate_exhausted_again_at ?? 0, FAKE_RATE_RESET_IN: scenario.rate_reset_in ?? 600, FAKE_RATE_ERROR: scenario.rate_error ?? '',
-      FAKE_RECORD_ERROR: scenario.record_error ?? '', FAKE_BEGIN_ERROR: scenario.begin_error ?? '', FAKE_ADD_ERROR: scenario.add_error ?? '', FAKE_SHOW_CODE: scenario.show_code ?? 0, FAKE_SHOW_ERROR: scenario.show_error ?? '', FAKE_SHOW_OUTPUT: JSON.stringify({ runs: scenario.stored_runs ?? [...storedBefore(), storedOwnRun()] }), FAKE_RESOLVE_CODE: scenario.resolve_code ?? 0, FAKE_PR_TITLE: scenario.pr_title ?? 'Add the feature', FAKE_ITEM_TITLE: scenario.item_title ?? 'The item title', FAKE_PATCH_CODE: scenario.patch_code ?? 0, FAKE_BRIEF_OUTPUT: JSON.stringify({ outside_claim: 'outside_claim' in scenario ? scenario.outside_claim : [] }), ...ghEnv(scenario),
+      ...itemEnvironment(scenario), FAKE_RECORD_ERROR: scenario.record_error ?? '', FAKE_BEGIN_ERROR: scenario.begin_error ?? '', FAKE_ADD_ERROR: scenario.add_error ?? '', FAKE_SHOW_CODE: scenario.show_code ?? 0, FAKE_SHOW_ERROR: scenario.show_error ?? '', FAKE_SHOW_OUTPUT: JSON.stringify({ runs: scenario.stored_runs ?? [...storedBefore(), storedOwnRun()] }), FAKE_RESOLVE_CODE: scenario.resolve_code ?? 0, FAKE_PR_TITLE: scenario.pr_title ?? 'Add the feature', FAKE_ITEM_TITLE: scenario.item_title ?? 'The item title', FAKE_PATCH_CODE: scenario.patch_code ?? 0, FAKE_BRIEF_OUTPUT: JSON.stringify({ outside_claim: 'outside_claim' in scenario ? scenario.outside_claim : [] }), ...ghEnv(scenario),
     }
     if (label.startsWith('record-')) return recordPrinted(prompt, line, env, scenario)
     const sleepless = line.replace('time.sleep(slept)', '0')
     if (sleepless === line) throw new Error(`the printer line of ${label} no longer holds time.sleep(slept), so the harness cannot skip its sleep`)
-    const typed = scenario.typedCommand && !reread ? scenario.typedCommand(sleepless) : sleepless
+    const typed = typedLine(scenario, reread, sleepless)
     const asked = scenario.printerMode ? typed.replace(/' scope .* ('[^']*')$/, `' ${scenario.printerMode} $1`) : typed
     const printed = runCommandLine(scenario.nonce ? asked.replace(/'[^']*'$/, `'${scenario.nonce}'`) : asked, { cwd: os.tmpdir(), env })
     return scenario.edit ? scenario.edit(printed) : printed
@@ -194,7 +200,7 @@ export async function runLane(args, answers = {}, options = {}) {
     const printed = printedBy(prompt, answer, reread, label)
     if (/-wait-\d+$/.test(label)) rateLimitSleeps.push(JSON.parse(printed).v.slept)
     if (answer.head && !base.startsWith('scope-')) newestTip = answer.head
-    const { pr_title: _prTitle, item_title: _itemTitle, patch_code: _patchCode, pr_head: _prHead, checks: _checks, required: _required, base_runs: _baseRuns, changed_files: _changedFiles, changed_code: _changedCode, changed_error: _changedError, head_runs: _headRuns, runlist_code: _runlistCode, runlist_error: _runlistError, head: _head, parents: _parents, head_code: _headCode, branch_code: _branchCode, main_code: _mainCode, touched_paths: _touchedPaths, nonce: _nonce, edit: _edit, typedCommand: _typedCommand, printerMode: _printerMode, push_error: _pushError, network_error: _networkError, network_fails: _networkFails, remote_tip: _remoteTip, brief_error: _briefError, rate_exhausted_calls: _rateExhaustedCalls, rate_exhausted_again_at: _rateExhaustedAgainAt, rate_reset_in: _rateResetIn, rate_error: _rateError, outside_claim: _outsideClaim, printed: _printed, ...report } = answer
+    const { pr_title: _prTitle, item_title: _itemTitle, item_body: _itemBody, item_code: _itemCode, item_error: _itemError, patch_code: _patchCode, pr_head: _prHead, checks: _checks, required: _required, base_runs: _baseRuns, changed_files: _changedFiles, changed_code: _changedCode, changed_error: _changedError, head_runs: _headRuns, runlist_code: _runlistCode, runlist_error: _runlistError, head: _head, parents: _parents, head_code: _headCode, branch_code: _branchCode, main_code: _mainCode, touched_paths: _touchedPaths, nonce: _nonce, edit: _edit, typedCommand: _typedCommand, typedAlways: _typedAlways, printerMode: _printerMode, push_error: _pushError, network_error: _networkError, network_fails: _networkFails, remote_tip: _remoteTip, brief_error: _briefError, rate_exhausted_calls: _rateExhaustedCalls, rate_exhausted_again_at: _rateExhaustedAgainAt, rate_reset_in: _rateResetIn, rate_error: _rateError, outside_claim: _outsideClaim, printed: _printed, ...report } = answer
     return reread ? { printed } : { ...report, printed }
   }
   // The worktree check and the begin of the run come before every lane's work and the add and the record courier after every lane that leaves one, so the launch lists hold only the agents between them; agentCalls keeps both.

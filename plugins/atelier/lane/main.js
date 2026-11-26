@@ -17,6 +17,9 @@ if (A.risk !== undefined && !['normal', 'material'].includes(A.risk)) return { s
 if (A.reviewer !== undefined && !['claude', 'codex'].includes(A.reviewer)) return { status: 'failed', stage: 'input', reason: 'reviewer must be "claude" or "codex"' }
 // The tag is a token of the routing line (aco's specs/lane-record.spec.md owns the grammar), so a malformed one fails here.
 if (A.experiment !== undefined && !/^[a-z0-9-]{1,40}$/.test(A.experiment)) return { status: 'failed', stage: 'input', reason: 'experiment must be 1 to 40 lowercase letters, digits or hyphens' }
+// The operator's words, as the item quotes them; the lane's one entry to routing above the effort cap and to models the table lacks.
+if (A.operatorWord !== undefined && !(typeof A.operatorWord === 'string' && /\S/.test(A.operatorWord))) return { status: 'failed', stage: 'input', reason: 'operatorWord must be a non-empty string: the operator\'s words as the item quotes them' }
+const OPERATOR_WORD = A.operatorWord
 const MATERIAL = A.risk === 'material'
 // Every gh call names the repository explicitly: agents start in the head's own checkout, which may be another repository.
 if (A.repo && !/^[\w.-]+\/[\w.-]+$/.test(A.repo)) return { status: 'failed', stage: 'input', reason: 'repo must be owner/name' }
@@ -33,10 +36,16 @@ const LEDGERS = A.ledgers || []
 // Only the newest scope check counts: a path a later fixer reverted is no longer outside.
 let passedOutsidePaths = []
 const GENERATED = Object.entries(A.generated || {})
-// The one table of every role's model and effort (instructions/HEAD.md, "Model routing"), by the lane's risk; effort is capped per model (opus medium, others high).
-const MODEL_PROVIDER = { haiku: 'claude', sonnet: 'claude', opus: 'claude', 'gpt-6-astra': 'codex' }
-const EFFORTS = ['low', 'medium', 'high']
+// The one table of every role's model and effort (instructions/HEAD.md, "Model routing"), by the lane's risk: the models and the efforts each provider accepts,
+// with what the operator's word adds, and the effort cap per model that the word lifts (opus medium, others high).
+const LANE_MODEL_PROVIDER = { haiku: 'claude', sonnet: 'claude', opus: 'claude', 'gpt-6-astra': 'codex' }
+const OPERATOR_WORD_MODEL_PROVIDER = { fable: 'claude' }
+const LANE_PROVIDER_EFFORTS = { claude: ['low', 'medium', 'high'], codex: ['low', 'medium', 'high'] }
+const OPERATOR_WORD_PROVIDER_EFFORTS = { claude: ['low', 'medium', 'high', 'xhigh', 'max'] }
+const MODEL_PROVIDER = OPERATOR_WORD ? { ...LANE_MODEL_PROVIDER, ...OPERATOR_WORD_MODEL_PROVIDER } : LANE_MODEL_PROVIDER
+const PROVIDER_EFFORTS = OPERATOR_WORD ? { ...LANE_PROVIDER_EFFORTS, ...OPERATOR_WORD_PROVIDER_EFFORTS } : LANE_PROVIDER_EFFORTS
 const EFFORT_CAP = { opus: 'medium' }
+const WORD_HINT = OPERATOR_WORD ? '' : '; more needs the operator\'s word, passed as operatorWord and quoted in the item'
 // The one Claude gate: opus at high stands in while Codex is at its usage limit (instructions/HEAD.md, Reviews and gates); it is the one effort above medium opus may have.
 const isGateStandIn = (role, model, effort) => role === 'gate' && model === 'opus' && effort === 'high'
 const REVIEWER_PROVIDER = A.reviewer || 'claude'
@@ -52,32 +61,6 @@ const DEFAULT_ROUTING = {
   test: { model: 'sonnet', effort: MATERIAL ? 'high' : 'medium' },
   review: REVIEWER_PROVIDER === 'codex' ? CODEX_REVIEW : CLAUDE_REVIEW,
   gate: { model: 'gpt-6-astra', effort: 'high' },
-}
-// The provider each role must run on: reviews on the reviewer provider, the gate on any provider but the builder's or the Opus stand-in, every other role on Claude.
-function providerAllowed(role, model, effort) {
-  const provider = MODEL_PROVIDER[model]
-  if (role === 'gate') return provider !== 'claude' || isGateStandIn(role, model, effort)
-  return provider === (role === 'review' ? REVIEWER_PROVIDER : 'claude')
-}
-
-// Why one role's override is refused, or null.
-function roleChoiceRefusal(role, choice) {
-  if (!Object.hasOwn(DEFAULT_ROUTING, role)) return `routing names an unknown role "${role}"`
-  if (typeof choice !== 'object' || choice === null) return `routing for ${role} must be {model, effort}`
-  const knownModel = typeof choice.model === 'string' && Object.hasOwn(MODEL_PROVIDER, choice.model)
-  if (choice.model !== undefined && !knownModel) return `routing for ${role} names an unknown model "${choice.model}"`
-  if (choice.effort !== undefined && !EFFORTS.includes(choice.effort)) return `routing for ${role} sets effort "${choice.effort}"; the efforts are ${EFFORTS.join(', ')}`
-  const model = choice.model || DEFAULT_ROUTING[role].model
-  const effort = choice.effort || DEFAULT_ROUTING[role].effort
-  if (EFFORTS.indexOf(effort) > EFFORTS.indexOf(EFFORT_CAP[model] || 'high') && !isGateStandIn(role, model, effort)) return `routing for ${role} sets ${model} to effort "${effort}"; ${model} is capped at ${EFFORT_CAP[model] || 'high'}`
-  if (providerAllowed(role, model, effort)) return null
-  return `routing for ${role} puts it on ${MODEL_PROVIDER[model]}, which breaks ${role === 'gate' ? 'gate provider separation from the builder; the one Claude gate is the stand-in opus at high effort' : 'the role\'s provider'}`
-}
-
-// Why a routing override is refused, or null. An override never bypasses reviewer independence, gate provider separation beyond the Opus stand-in, or the per-model effort caps.
-function routingRefusal(overrides) {
-  if (typeof overrides !== 'object' || overrides === null || Array.isArray(overrides)) return 'routing must be an object of roles'
-  return Object.entries(overrides).map(([role, choice]) => roleChoiceRefusal(role, choice)).find(Boolean) ?? null
 }
 const routingProblem = A.routing === undefined ? null : routingRefusal(A.routing)
 if (routingProblem) return { status: 'failed', stage: 'input', reason: routingProblem }
@@ -244,7 +227,7 @@ const openResult = async (status, stage, extra = {}) => {
   const { status: endStatus, stage: endStage, extra: endExtra } = openEnd({ status, stage, extra, refusedAdd, abandon: abandonActions(A.item, written, began) })
   const open = openFollowups()
   return {
-    status: endStatus, stage: endStage, pr, tip, spent, routing: ROUTING, routingLine: line, ...recordView(written, began), history,
+    status: endStatus, stage: endStage, pr, tip, spent, routing: ROUTING, ...(OPERATOR_WORD && { operatorWord: OPERATOR_WORD }), routingLine: line, ...recordView(written, began), history,
     followups: open, raisedBeforeTip: raisedBeforeTip(open), folded: [...folded.values()], disputed, ...gateUnseenView(), ...tester, ...endExtra,
     ...(unusable && { reason: [endExtra.reason, unusable].filter(Boolean).join('; ') }),
   }
@@ -290,7 +273,9 @@ async function checkpointOrFail(stage, startRef, failure, fixer) {
 // ------------------------------------------------------- worktree and branch
 // A worktree that is missing or holds another branch costs a whole builder run before the scope step notices, so the relay reads it first.
 phase('Worktree')
-const checkedBranch = await relay({ label: 'branch', phase: 'Worktree', step: 'branch', relayArgs: ["'branch'"], nonce: 'branch', requiredKeys: ['branch', 'run'], brief: `${laneFacts}\nChange nothing in the files;` })
+// With the operator's word the same printer run reads the item body, so a forgotten or mistyped quote stops the lane before any builder or reviewer starts.
+const wordRelay = OPERATOR_WORD ? { relayArgs: [A.item, `'${A.repo || ''}'`, `'${wordArgument(OPERATOR_WORD)}'`, "'branch'"], sentWord: OPERATOR_WORD, requiredKeys: ['branch', 'run', 'item'] } : { relayArgs: ["'branch'"], requiredKeys: ['branch', 'run'] }
+const checkedBranch = await relay({ label: 'branch', phase: 'Worktree', step: 'branch', nonce: 'branch', ...wordRelay, brief: `${laneFacts}\nChange nothing in the files;` })
 const branchRead = checkedBranch?.values?.branch
 let foundBranch = branchRead?.out
 if (!checkedBranch) foundBranch = 'no answer from the check'
@@ -299,6 +284,12 @@ else if (branchRead.code !== 0) foundBranch = `git exited ${branchRead.code}: ${
 else if (!RUN_ID.test(checkedBranch.values.run.out ?? '')) foundBranch = 'no run id in the check'
 if (foundBranch !== A.branch) return await openResult('failed', 'input', { reason: `worktree ${A.worktree} must exist with branch ${A.branch} checked out; found ${foundBranch}` })
 runId = checkedBranch.values.run.out
+if (OPERATOR_WORD) {
+  const itemRead = checkedBranch.values.item
+  if (checkedBranch.unreachable) return await openResult('awaiting-head', 'input', { reason: `${checkedBranch.unreachable} The lane could not read item #${A.item} for the operator's word. Start the lane again once it answers.` })
+  if (itemRead.code !== 0) return await openResult('failed', 'input', { reason: `reading item #${A.item} for the operatorWord failed: gh exited ${itemRead.code}: ${itemRead.err}` })
+  if (checkedBranch.values.quoted !== true) return await openResult('failed', 'input', { reason: `the body of item #${A.item} does not quote the operatorWord between quotation marks ("…", „…“ or “…”); quote the operator's words there, then start the lane again` })
+}
 
 // ---------------------------------------------------------------- build
 if (A.build) {
@@ -770,12 +761,13 @@ if (finalRecord.problem) return await openResult('awaiting-head', 'record', { re
 const refusedAdd = await addRecord(finalRecord)
 if (refusedAdd) return await openResult('awaiting-head', 'record', { reason: refusedAddReason(refusedAdd, 'ready-to-land') })
 return {
-  status: 'ready-to-land', pr, tip, spent, routing: ROUTING, routingLine: finalRoutingLine, ...recordView(finalRecord, began), history, followups: stillOpen, raisedBeforeTip: raisedBeforeTip(stillOpen), folded: [...folded.values()], disputed,
+  status: 'ready-to-land', pr, tip, spent, routing: ROUTING, ...(OPERATOR_WORD && { operatorWord: OPERATOR_WORD }), routingLine: finalRoutingLine, ...recordView(finalRecord, began), history, followups: stillOpen, raisedBeforeTip: raisedBeforeTip(stillOpen), folded: [...folded.values()], disputed,
   ...gateUnseenView(), pathsOutsideClaim: passedOutsidePaths,
   requiredHeadActions: [
     ...(passedOutsidePaths.length ? [`write these paths into the scope of item #${A.item}'s body (and a one-sentence whole there when the combined scope is wide), then run \`${rescopeCommand}\` from ${A.worktree} before landing: these paths are outside the claim and passed the scope check`] : []),
     ...await checkpointRenameActions(),
     `land with \`aco land ${pr} --head ${tip}\` only while the pull request head is still ${tip}`,
+    ...(OPERATOR_WORD ? [`quote the operatorWord with its source in the body of pull request #${pr}: the lane may have run above the effort cap or on fable on the operator's word`] : []),
     ...(MATERIAL && isGateStandIn('gate', ROUTING.gate.model, ROUTING.gate.effort) ? [`name the Opus 5.5 stand-in as the final gate in the body of pull request #${pr}: the lane ran no Codex gate`] : []),
     ...(gateUnseen ? [`name ${gateUnseen.seenTip}..${tip} in the body of pull request #${pr}: the final gate, at its usage limit, did not see that range`] : []),
     ...(raisedBeforeTip(stillOpen).length ? ['re-check the follow-ups in raisedBeforeTip against the returned tip before routing them'] : []),

@@ -56,13 +56,39 @@ async function waitForRateLimitReset(A, spentBefore, callsBefore) {
   return { stop: 'The refusal held after the most waits the lane makes for the reset.' }
 }
 
+const crc32 = (text) => {
+  let crc = 0xffffffff
+  for (let i = 0; i < text.length; i++) crc = CRC_TABLE[(crc ^ text.codePointAt(i)) & 255] ^ (crc >>> 8)
+  return ((crc ^ 0xffffffff) >>> 0).toString(16).padStart(8, '0')
+}
+
+// The CRC32 of a value as the printer computes it over the value it received (JSON with ASCII escapes), with the count of the finding paths or of the characters of the word.
+const asciiJsonHash = (value) => crc32(JSON.stringify(value).replace(/[^\x20-\x7e]/g, char => String.raw`\u` + char.codePointAt(0).toString(16).padStart(4, '0')))
+const pathsDigest = (paths) => ({ count: paths.length, hash: asciiJsonHash(paths) })
+const wordDigest = (word) => ({ count: [...word].length, hash: asciiJsonHash(word) })
+const sameDigest = (echoed, sent) => echoed?.count === sent.count && echoed?.hash === sent.hash
+
+// The printer leaves out the values equal to their default (an empty list, no finding paths), so a copy that drops them is the printed line.
+function withPrinterDefaults(step, values) {
+  if (step === 'ci') return { paths: pathsDigest([]), shared: [], changed_index: [], ...values }
+  if (step === 'fix') return { paths: pathsDigest([]), ...values }
+  return values
+}
+
+// Why a printed line echoes other inputs than the lane sent (the finding paths of the ci and fix steps, the operator word of the branch step), or null.
+function echoedInputProblem(step, sent, values) {
+  if (['ci', 'fix'].includes(step) && sent.paths && !sameDigest(values.paths, pathsDigest(sent.paths))) return 'echoes other finding paths than the lane sent'
+  if (step === 'branch' && sent.word && !sameDigest(values.word, wordDigest(sent.word))) return 'echoes another operator word than the lane sent'
+  return null
+}
+
 // Builds the briefs of the sync and fix steps and owns the schemas of their reports, runs one printer command through an agent and returns the answer of the agent together with the CRC-checked values of the line it relays; for the fix step it judges the fixer's answer against the findings and fold-ins it answered, and for the ci step it reads those values and splits the failing checks into own and shared.
 async function relayStep(A) {
   const { label, phase: phaseName, step, relayArgs, nonce, requiredKeys, agentOptions, reread, before } = A
 
   // A value a command prints reaches a decision only through one line the PRINTER wrote: the agent runs it and relays the
   // line unchanged, and a retyped or edited line fails its CRC32. The printer holds no single quote, so the shell passes
-  // it as one argument. Its first argument names the step whose commands it runs; the branch step reports the branch the worktree has checked out and mints the run id the begin and add steps pass to aco, the begin step runs `aco lane-record begin` and the add step `aco lane-record add`, each with the tip resolved by `git rev-parse` to 40 digits and each reporting its exit code and error output; after a begin that exited 0, the begin step runs `aco lane-record show --json` and reports only its exit code and error output, this run's own `follows`, and the shas of the earlier runs' stored review verdicts `approve` (the stored runs other than this run's id), the scope step never forces a push,
+  // it as one argument. Its first argument names the step whose commands it runs; the branch step reports the branch the worktree has checked out and, when a word is passed, also reads the item body through api(repo) and relays only whether the body quotes the word, that read's exit code and error output, and the word's count and CRC32, and mints the run id the begin and add steps pass to aco, the begin step runs `aco lane-record begin` and the add step `aco lane-record add`, each with the tip resolved by `git rev-parse` to 40 digits and each reporting its exit code and error output; after a begin that exited 0, the begin step runs `aco lane-record show --json` and reports only its exit code and error output, this run's own `follows`, and the shas of the earlier runs' stored review verdicts `approve` (the stored runs other than this run's id), the scope step never forces a push,
   // relays HEAD's parents and whether its second parent is in origin/main, at most 50 paths and no text of aco brief but its exit code and error output, the record step reports the exit code and error output of `aco lane-record check` on the record file, the sync step reports the lane tip, its parents and whether it contains origin/main and, only when git's own merge of the lane tip and origin/main does not come out clean, that merge's exit code, its tree line and its conflicted paths (at most 50, with their count), the fix step reports those sync values and, per finding path the lane sent, the size in characters of the diff of that path in the first-parent commits between the held tip and HEAD, a merge showing only its conflict resolution, and the same size for the whole range, never the diff text, and the tree of HEAD and the tree git itself produces by merging HEAD's first two parents (the first line of `git merge-tree --write-tree`), and the count and CRC32 of those paths like the ci step, and the paths the first-parent merge commits since the held tip change against their remerge (at most 50, with their count, left out when none), and the ci step reports the pull request head, the count of listed checks, the checks that are neither pass nor skipping, each required context of the base whose bucket is not pass, with its bucket or missing, the exit code of each gh call, left out when it is 0 and the call has nothing else to carry, and its error output where it is not empty, the positions, among the finding paths the lane sent, of those that the pull request changes (the lane passes the finding paths as the last argument but one, each percent-encoded and joined by commas, so the argument holds no quote or backslash a copier could break; the file listing is paginated and never relayed), the exit code and error output of the head's workflow run listing, and the checks red on head that failed on the base tip too; a failed read of the pull request (gh api pulls/<n>, which spends no GraphQL points) ends its reads. A call that fails with a network marker or with GitHub's rate limit is retried (see NETWORK_WAIT_SECONDS) and, still failing, puts its name into unreachable, and into limited when the rate limit refused it. Only when the verdict check (the check named quality / verdict) is red, the ci step also reads that job log with gh run view and relays three values of it, never its text: whether a line says that only declared loosenings made it red and only the operator merges it, whether its closing line counts an undeclared loosening or an unmatched declaration (a cause only a pull request has), and the quality merge command of its next line; the lines come in any order and carry a job name, a step and a timestamp before their text.
   // A git or gh call that fails with one of these untranslated network or rate-limit markers, or an aco brief call whose stdout JSON has the reason unreachable, is run again after this many seconds; the tests rewrite the constant to 0.
   const NETWORK_WAIT_SECONDS = 30
@@ -86,14 +112,14 @@ async function relayStep(A) {
     'api=lambda repo:"repos/"+(repo or "{owner}/{repo}")',
     'base=lambda r:json.loads(r["view"].stdout)["baseRefName"]',
     `retitle=lambda pr,item,repo:(("title",("gh","api",api(repo)+"/pulls/"+pr,"--jq",".title")),("item",("gh","api",api(repo)+"/issues/"+item,"--jq",".title")),("retitle",lambda r:("gh","api","-X","PATCH",api(repo)+"/pulls/"+pr,"-f","title="+r["item"].stdout.strip()) if r["title"].stdout.strip()==${JSON.stringify(CHECKPOINT_TITLE_PREFIX)}+item and r["item"].stdout.strip() else ("true",)))`,
-    'steps=dict(wait=lambda:(("rate",("gh","api","rate_limit")),),retitle=retitle,branch=lambda:(("branch",("git","branch","--show-current")),),scope=lambda item,branch:(("push",("git","push","origin",branch)),("remote",("git","rev-parse","origin/"+branch)),("head",("git","rev-parse","HEAD")),("parents",("git","rev-parse","HEAD^@")),("second_parent_in_main",("git","merge-base","--is-ancestor","HEAD^2","origin/main")),("brief",("aco","brief",item,"--json"))),record=lambda file:(("check",("aco","lane-record","check",file)),),begin=lambda item,run,*ref:((("start",("git","rev-parse","--verify",ref[0]+"^{commit}")),) if ref else ())+(("begin",lambda r:("aco","lane-record","begin",item,"--run",run,*(("--start-tip",r["start"].stdout.strip()) if ref else ()))),("lane",("aco","lane-record","show",item,"--json"))),add=lambda item,file,run,ref,*stages:(("end",("git","rev-parse","--verify",ref+"^{commit}")),("add",lambda r:("aco","lane-record","add",item,file,"--run",run,"--end-tip",r["end"].stdout.strip(),"--ran",*stages))),sync=lambda:(("head",("git","rev-parse","HEAD")),("parents",("git","rev-parse","HEAD^@")),("main",("git","merge-base","--is-ancestor","origin/main","HEAD")),("conflict",("git","-c","core.quotePath=false","merge-tree","--write-tree","--name-only","--no-messages","HEAD","origin/main"))),fix=lambda start,paths:(*steps["sync"]()[:3],*((f"diff{i}",("git","log","-p","--first-parent","--remerge-diff","--format=","%s..HEAD"%start,"--",p)) for i,p in enumerate(diffed)),("diffall",("git","log","-p","--first-parent","--remerge-diff","--format=","%s..HEAD"%start)),("tree",("git","rev-parse","HEAD^{tree}")),("mergetree",("git","merge-tree","--write-tree","HEAD^1","HEAD^2")),("merged",("git","-c","core.quotePath=false","log","--first-parent","--merges","--remerge-diff","--name-only","--format=","%s..HEAD"%start))),ci=lambda pr,repo,paths:(("view",("gh","api",api(repo)+"/pulls/"+pr,"--jq","{headRefOid:.head.sha,baseRefName:.base.ref}")),("changed",("gh","api",api(repo)+"/pulls/"+pr+"/files","--paginate","--slurp")),("headruns",lambda r:("gh","run","list","--commit",json.loads(r["view"].stdout)["headRefOid"],"--json","status,name","--limit","100",*target(repo))),("checks",("gh","pr","checks",pr,"--json","name,bucket,link",*target(repo))),("rules",lambda r:("gh","api",api(repo)+"/rules/branches/"+base(r))),("runs",lambda r:("gh","api",api(repo)+"/commits/"+base(r)+"/check-runs","--paginate","--slurp"))))',
+    'steps=dict(wait=lambda:(("rate",("gh","api","rate_limit")),),retitle=retitle,branch=lambda*word:(("branch",("git","branch","--show-current")),)+((("item",("gh","api",api(word[1])+"/issues/"+word[0],"--jq",".body")),) if word else ()),scope=lambda item,branch:(("push",("git","push","origin",branch)),("remote",("git","rev-parse","origin/"+branch)),("head",("git","rev-parse","HEAD")),("parents",("git","rev-parse","HEAD^@")),("second_parent_in_main",("git","merge-base","--is-ancestor","HEAD^2","origin/main")),("brief",("aco","brief",item,"--json"))),record=lambda file:(("check",("aco","lane-record","check",file)),),begin=lambda item,run,*ref:((("start",("git","rev-parse","--verify",ref[0]+"^{commit}")),) if ref else ())+(("begin",lambda r:("aco","lane-record","begin",item,"--run",run,*(("--start-tip",r["start"].stdout.strip()) if ref else ()))),("lane",("aco","lane-record","show",item,"--json"))),add=lambda item,file,run,ref,*stages:(("end",("git","rev-parse","--verify",ref+"^{commit}")),("add",lambda r:("aco","lane-record","add",item,file,"--run",run,"--end-tip",r["end"].stdout.strip(),"--ran",*stages))),sync=lambda:(("head",("git","rev-parse","HEAD")),("parents",("git","rev-parse","HEAD^@")),("main",("git","merge-base","--is-ancestor","origin/main","HEAD")),("conflict",("git","-c","core.quotePath=false","merge-tree","--write-tree","--name-only","--no-messages","HEAD","origin/main"))),fix=lambda start,paths:(*steps["sync"]()[:3],*((f"diff{i}",("git","log","-p","--first-parent","--remerge-diff","--format=","%s..HEAD"%start,"--",p)) for i,p in enumerate(diffed)),("diffall",("git","log","-p","--first-parent","--remerge-diff","--format=","%s..HEAD"%start)),("tree",("git","rev-parse","HEAD^{tree}")),("mergetree",("git","merge-tree","--write-tree","HEAD^1","HEAD^2")),("merged",("git","-c","core.quotePath=false","log","--first-parent","--merges","--remerge-diff","--name-only","--format=","%s..HEAD"%start))),ci=lambda pr,repo,paths:(("view",("gh","api",api(repo)+"/pulls/"+pr,"--jq","{headRefOid:.head.sha,baseRefName:.base.ref}")),("changed",("gh","api",api(repo)+"/pulls/"+pr+"/files","--paginate","--slurp")),("headruns",lambda r:("gh","run","list","--commit",json.loads(r["view"].stdout)["headRefOid"],"--json","status,name","--limit","100",*target(repo))),("checks",("gh","pr","checks",pr,"--json","name,bucket,link",*target(repo))),("rules",lambda r:("gh","api",api(repo)+"/rules/branches/"+base(r))),("runs",lambda r:("gh","api",api(repo)+"/commits/"+base(r)+"/check-runs","--paginate","--slurp"))))',
     'ran={"run":subprocess.CompletedProcess(("uuid",),0,uuid.uuid4().hex,"")} if step=="branch" else {}',
     '[ran.__setitem__(n,run(*(c(ran) if callable(c) else c))) for n,c in steps[step](*rest) if not any(ran[k].returncode for k in("view","start","end","begin") if k in ran)]',
     `verdict_jobs=[m[1] for c in (json.loads(ran["checks"].stdout) if step=="ci" and "checks" in ran and ran["checks"].returncode==0 else []) if c["name"]==${JSON.stringify(VERDICT_CHECK)} and c["bucket"]=="fail" and (m:=re.search("/job/([0-9]+)",c.get("link") or ""))]`,
     'ran.update({"log":run("gh","run","view","--job",verdict_jobs[0],*target(rest[1]),"--log")} if verdict_jobs else {})',
     'brief=json.loads(ran["brief"].stdout) if "brief" in ran and ran["brief"].returncode==0 else None',
     'claim=brief and brief["outside_claim"]',
-    'values={n:{"code":p.returncode,**({"err":e} if ((e:=" ".join(l for l in p.stderr.splitlines() if l[:5]!="hint:")[-300:]) or step!="ci") and (n!="log" or p.returncode) else {}),**({} if n in("brief","view","check","checks","rules","runs","log","changed","headruns","lane","rate","conflict","merged") else {"out":p.stdout.strip()[:100]} if n[:4]!="diff" else {"size":len(p.stdout.strip())})} for n,p in ran.items()}',
+    'values={n:{"code":p.returncode,**({"err":e} if ((e:=" ".join(l for l in p.stderr.splitlines() if l[:5]!="hint:")[-300:]) or step!="ci") and (n!="log" or p.returncode) else {}),**({} if n in("brief","view","check","checks","rules","runs","log","changed","headruns","lane","rate","conflict","merged","item") else {"out":p.stdout.strip()[:100]} if n[:4]!="diff" else {"size":len(p.stdout.strip())})} for n,p in ran.items()}',
     'listed=lambda n,skip:list(dict.fromkeys(l for l in ran[n].stdout.splitlines()[skip:] if l))',
     'values.update(**({"conflict":dict(code=ran["conflict"].returncode,tree=(ran["conflict"].stdout.splitlines() or [""])[0],paths=listed("conflict",1)[:50],count=len(listed("conflict",1)))} if "conflict" in ran and ran["conflict"].returncode else {}),**({"merged":dict(code=ran["merged"].returncode,paths=listed("merged",0)[:50],count=len(listed("merged",0)))} if "merged" in ran and listed("merged",0) else {}))',
     'parsed=lambda n:json.loads(ran[n].stdout) if n in ran and ran[n].returncode==0 else None',
@@ -116,6 +142,10 @@ async function relayStep(A) {
     'values.update(nonce=nonce,**({"unreachable":sorted(n for n,p in ran.items() if getattr(p,"down",0))} if any(getattr(p,"down",0) for p in ran.values()) else {}),**({"limited":sorted(n for n,p in ran.items() if getattr(p,"down",0) and limit.search(p.stderr))} if any(getattr(p,"down",0) and limit.search(p.stderr) for p in ran.values()) else {}),**(dict(outside_claim=claim[:50] if isinstance(claim,list) else claim,count=len(claim) if isinstance(claim,list) else None) if "brief" in ran else {}))',
     'values={n:v for n,v in values.items() if v!={"code":0} and not(n in("shared","changed_index") and v==[])}',
     'values.update(**(dict(paths=dict(count=len(received or diffed),hash="%08x"%zlib.crc32(json.dumps(received or diffed,ensure_ascii=True,separators=(",",":")).encode()))) if step in("ci","fix") and (received or diffed) else {}))',
+    // The item body quotes the word when it stands between quotation marks, whitespace runs folded to one space on both sides; only the outcome and the word's count and CRC32 leave the printer, never the body.
+    String.raw`exec("def folded(s):return \" \".join(s.split())\nquotes=((\"\\\"\",\"\\\"\"),(\"\\u201e\",\"\\u201c\"),(\"\\u201c\",\"\\u201d\"))")`,
+    'word=urllib.parse.unquote(rest[2]) if step=="branch" and len(rest)>2 else None',
+    'values.update(**(dict(quoted=ran["item"].returncode==0 and any(o+folded(word)+c in folded(ran["item"].stdout) for o,c in quotes),word=dict(count=len(word),hash="%08x"%zlib.crc32(json.dumps(word,ensure_ascii=True).encode()))) if word is not None and "item" in ran else {}))',
     'payload=json.dumps(values,ensure_ascii=True,separators=(",",":"),sort_keys=True)',
     'print("""{"crc":"%08x","v":%s}"""%(zlib.crc32(payload.encode()),payload))',
   ].join(';')
@@ -123,16 +153,6 @@ async function relayStep(A) {
   const relayCommand = (...relayArgs) => `${before ? before + ' && ' : ''}cd '${A.worktree}' && python3 -c '${PRINTER}' ${relayArgs.join(' ')}`
   const RELAY_ASK = 'run this one command line exactly as written with a Bash timeout of 300000 ms, without changing it or its directory, and return the line it prints unchanged as printed; when it prints no line, return its error output as printed:'
   const RELAY_LINE = /^\{"crc":"([0-9a-f]{8})","v":(.*)\}$/
-  const CRC_TABLE = Array.from({ length: 256 }, (_, n) => {
-    let crc = n
-    for (let bit = 0; bit < 8; bit++) crc = crc & 1 ? 0xedb88320 ^ (crc >>> 1) : crc >>> 1
-    return crc >>> 0
-  })
-  const crc32 = (text) => {
-    let crc = 0xffffffff
-    for (let i = 0; i < text.length; i++) crc = CRC_TABLE[(crc ^ text.codePointAt(i)) & 255] ^ (crc >>> 8)
-    return ((crc ^ 0xffffffff) >>> 0).toString(16).padStart(8, '0')
-  }
   // The printer sorts checks.open by name and bucket, because the order of the listing decides nothing and a model that
   // tidies it must not fail the check: a mismatching line is read again with the list in the printer's order, in the printer's JSON form.
   const compareText = (a, b) => Number(a > b) - Number(a < b)
@@ -475,17 +495,6 @@ async function relayStep(A) {
     }
   }
 
-  // The count and CRC32 of the finding paths, as the printer computes them over the list it received (JSON with ASCII escapes).
-  const pathsDigest = (paths) => ({ count: paths.length, hash: crc32(JSON.stringify(paths).replace(/[^\x20-\x7e]/g, char => String.raw`\u` + char.codePointAt(0).toString(16).padStart(4, '0'))) })
-  const sameDigest = (echoed, sent) => echoed?.count === sent.count && echoed?.hash === sent.hash
-
-  // The printer leaves out the values equal to their default (an empty list, no finding paths), so a copy that drops them is the printed line.
-  function withPrinterDefaults(values) {
-    if (step === 'ci') return { paths: pathsDigest([]), shared: [], changed_index: [], ...values }
-    if (step === 'fix') return { paths: pathsDigest([]), ...values }
-    return values
-  }
-
   // The head and main commands of the sync and fix steps: head must exit 0, and main (merge-base --is-ancestor) exits 0 or 1.
   const gitCommandFailed = (values) => values.head && values.main ? values.head.code !== 0 || ![0, 1].includes(values.main.code) : undefined
 
@@ -500,8 +509,9 @@ async function relayStep(A) {
     try { values = JSON.parse(printedPayload ?? match[2]) } catch { return printedPayload === undefined ? { problem: 'fails its CRC check' } : { problem: 'does not hold JSON' } }
     if (printedPayload === undefined && crc32(printerText(sortedListing(values))) !== match[1]) return { problem: 'fails its CRC check' }
     if (values?.nonce !== nonce) return { problem: `carries the nonce ${values?.nonce}, not ${nonce}` }
-    values = withPrinterDefaults(values)
-    if (['ci', 'fix'].includes(step) && A.sentPaths && !sameDigest(values.paths, pathsDigest(A.sentPaths))) return { problem: 'echoes other finding paths than the lane sent' }
+    values = withPrinterDefaults(step, values)
+    const echoed = echoedInputProblem(step, { paths: A.sentPaths, word: A.sentWord }, values)
+    if (echoed) return { problem: echoed }
     // The printer leaves out an entry of the ci step that carries only exit code 0, so its absence reads as that code.
     const complete = step === 'ci' ? { view: { code: 0 }, runs: { code: 0 }, rules: { code: 0 }, changed: { code: 0 }, headruns: { code: 0 }, files: values.changed_index.map(position => A.sentPaths?.[position]).filter(Boolean), ...values } : values
     const missing = requiredKeys.find(key => !complete[key])
@@ -610,5 +620,8 @@ function mergedOnto(values, base) {
   const [firstParent, mergedIn] = values.parents.out.split('\n')
   return Boolean(mergedIn) && sameCommit(firstParent, base)
 }
+const percentEncoded = (text) => encodeURIComponent(text).replace(/[!'()*]/g, char => '%' + char.codePointAt(0).toString(16).toUpperCase())
 // The paths as one argument of unreserved characters only, so no quoting a copier applies to the command can change it: each path percent-encoded, joined by commas, with the slash kept.
-const pathsArgument = (paths) => paths.map(path => encodeURIComponent(path).replace(/[!'()*]/g, char => '%' + char.codePointAt(0).toString(16).toUpperCase()).replaceAll('%2F', '/')).join(',')
+const pathsArgument = (paths) => paths.map(path => percentEncoded(path).replaceAll('%2F', '/')).join(',')
+// The operator's word as one argument of unreserved characters, so the prompt's indentation and a copier's quoting cannot change it.
+const wordArgument = percentEncoded

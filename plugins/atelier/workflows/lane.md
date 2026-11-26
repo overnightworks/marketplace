@@ -73,6 +73,21 @@ The lane needs a repository that coordinates with aco, after the head ran
   table at the top of the script, for `build`, `fix`, `rework`, `test`, `review`,
   `gate`, `mechanical` and `copy` (the agent that reads a relay line again after
   an unreadable copy).
+- `operatorWord`: none by default. A non-empty string, the operator's words as
+  the item quotes them. With it, a `routing` override may name a Claude role
+  at `xhigh` or `max` and the model `fable`, and the per-model effort cap does
+  not apply; the efforts each provider accepts are `PROVIDER_EFFORTS` in
+  `lane/main.js`, and a Codex role stays at `low`, `medium` or `high`. Provider
+  separation, reviewer independence and the stand-in rule hold as without it.
+  Before any builder or reviewer starts, the branch step reads the item body and
+  checks that the word equals the whole text between one pair of quotation
+  marks (`"…"`, `„…“` or `“…”`, whitespace runs folded), so pass the full
+  quote, not a run from inside a longer one; a body that does not hold it, or a
+  printer that received another word, ends the lane `failed` at `input`. The
+  check proves the item holds the word, not who said it. The result carries
+  `operatorWord`, and its `requiredHeadActions` tell the head to quote it with
+  its source in the pull request body before landing; the record and the Routing
+  line hold no quote.
 - `repo`: none by default; every `gh` call then targets the worktree's own
   repository. Pass `owner/name` when the head runs elsewhere.
 - `productionPaths`: `PRODUCTION` in `lane/main.js` is the default. Path prefixes whose change re-opens the gate on
@@ -148,9 +163,9 @@ The lane needs a repository that coordinates with aco, after the head ran
 - A fix batch whose blocking findings are all docs and that carries no fold-ins
   runs as `mechanical` in every round.
 - Effort is capped per model: opus at medium (except the stand-in gate) and every
-  other model at high. An override above its cap, or a model the lane's routing
-  lacks (such as Fable), is refused; more needs the operator's word and runs
-  outside the lane workflow (`HEAD.md`, "Model routing").
+  other model at high. Without `operatorWord`, an override above its cap, or a
+  model the lane's routing lacks (such as Fable), is refused, and the refusal
+  names `operatorWord`; with it, see Optional args (`HEAD.md`, "Model routing").
 - The gate runs on another provider than the builder, except the one Claude gate
   opus/high, which `routing.gate` may name while Codex is at its usage limit and
   which runs as a fresh Claude reviewer. Any other Claude gate is refused at

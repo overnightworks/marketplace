@@ -115,7 +115,7 @@ def test_hook_prints_nothing_while_the_contract_is_unchanged(machine: Machine, e
     assert read_events(machine)[event]() == ""
 
 
-def test_a_commit_that_leaves_both_contract_files_alone_prints_nothing(machine: Machine) -> None:
+def test_a_commit_that_leaves_the_contract_files_alone_prints_nothing(machine: Machine) -> None:
     machine.running_head()
     (machine.checkout / "README.md").write_text("elsewhere\n")
     machine.git("add", "-A")

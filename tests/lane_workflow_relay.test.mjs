@@ -5,7 +5,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { execFileSync, spawnSync } from 'node:child_process'
-import { runLane, partReplaced, runCommandLine, installFake, FAKE_ACO, resumedLane, resumeArgs, resumeTip, resumeFix, defectWithoutDraft, finding, reachesTheEnd, greenCi, APPROVE, PASS, resumeFixedTip, tidy, unchangedFix, satisfied } from './lane_workflow_harness.mjs'
+import { runLane, partReplaced, runCommandLine, installFake, FAKE_ACO, resumedLane, resumeArgs, resumeTip, resumeFix, defectWithoutDraft, finding, reachesTheEnd, greenCi, APPROVE, PASS, resumeFixedTip, tidy, unchangedFix, satisfied, builtLane } from './lane_workflow_harness.mjs'
 
 const BRANCH = 'lane'
 const LONGEST_PATH_COMPONENT = 255
@@ -341,7 +341,6 @@ test('AC-merge-only-real-git: a fixer that only merged main fixes nothing for a 
 })
 
 // The lane starts sync and scope through laneRelay, and a crash of it stops the lane at the step that asked.
-const builtLane = { ...resumedLane, pr: undefined, tip: undefined, build: 'b' }
 const builtAnswer = { pr: 2, tip: 'abcdef1', blocked: false }
 
 test('a relay part that throws fails a resumed lane at sync and a built lane at scope, naming the error', async () => {

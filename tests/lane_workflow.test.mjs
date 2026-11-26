@@ -4,7 +4,7 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import { runLane, storedLane, partReplaced, courierBriefOf, resumedLane, APPROVE, PASS, resumeFixedTip, greenCi, finding, webauthTips, webauthReplay, agentProvidersReplay, answersWith, resumeTip, olderTip, tidy, defectWithoutDraft, resumeFix, resumeArgs, unchangedFix, satisfied, reachesTheEnd, secondFix, mergedOnlyTip, conflictsWithMain, mergeOnlyFix, delegatedLineOfContract, noWait } from './lane_workflow_harness.mjs'
+import { runLane, storedLane, partReplaced, courierBriefOf, resumedLane, APPROVE, PASS, resumeFixedTip, greenCi, finding, webauthTips, webauthReplay, agentProvidersReplay, answersWith, resumeTip, olderTip, tidy, defectWithoutDraft, resumeFix, resumeArgs, unchangedFix, satisfied, reachesTheEnd, secondFix, mergedOnlyTip, conflictsWithMain, mergeOnlyFix, delegatedLineOfContract, noWait, gateRaises } from './lane_workflow_harness.mjs'
 
 const misspelledChoices = [
   ['risk', 'Material'], ['risk', 'MATERIAL'], ['risk', 'high'],
@@ -650,7 +650,6 @@ test('lane-record: a test finding after an approving review is a miss', async ()
   assert.deepEqual([record.blocking.test, record.misses.test], [1, 1])
 })
 
-const gateRaises = { verdict: 'REVISE', blocking: [defectWithoutDraft], followups: [] }
 const materialMissLane = { ...resumeArgs, risk: 'material', productionPaths: ['src/'], routing: { gate: { model: 'opus', effort: 'high' } }, foldIn: [tidy] }
 const fixProof = { regression: [{ finding: 1, test: 't.py::test_rule', failedBefore: true, passesAfter: true }] }
 
@@ -665,7 +664,7 @@ test('lane-record: a finding only the gate raised in the round of the approving 
 })
 
 test('lane-record: a later review round is the same stage, so its finding is no miss', async () => {
-  const record = writtenRecord(await runLane({ ...resumeArgs, foldIn: [tidy] }, { 'fix-1': resumeFix, 'r1-review': { verdict: 'REVISE', blocking: [defectWithoutDraft], followups: [] }, 'fix-2': { ...resumeFix, ...fixProof } }))
+  const record = writtenRecord(await runLane({ ...resumeArgs, foldIn: [tidy] }, { 'fix-1': resumeFix, 'r1-review': gateRaises, 'fix-2': { ...resumeFix, ...fixProof } }))
   assert.deepEqual([record.blocking.review, record.misses.review], [1, 0])
 })
 

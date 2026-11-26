@@ -1,9 +1,8 @@
 // Each run stores its record on the claim as segments through aco lane-record begin and add: the first begins right after the run's input checks, each segment is added at a proven point or at the run's end, and the next begins right before its first stage.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { runLane, partReplaced, resumedLane, built, resumeArgs, resumeTip, tidy, reachesTheEnd, APPROVE, satisfied, unchangedFix, PASS, greenCi, noWait, resumeFix, roundTip, roundRed, reviewedRoundFix, roundReviews, heldTester, defectWithoutDraft, storedLane } from './lane_workflow_harness.mjs'
+import { runLane, partReplaced, resumedLane, built, resumeArgs, resumeTip, tidy, reachesTheEnd, APPROVE, satisfied, unchangedFix, PASS, greenCi, noWait, resumeFix, roundTip, roundRed, reviewedRoundFix, roundReviews, heldTester, defectWithoutDraft, storedLane, builtLane, gateRaises } from './lane_workflow_harness.mjs'
 
-const builtLane = { ...resumedLane, pr: undefined, tip: undefined, build: 'b' }
 const worktreeHead = 'ab'.repeat(20)
 const FULL_SHA = /^[0-9a-f]{40}$/
 const RUN_ID = /^[0-9a-f]{32}$/
@@ -299,7 +298,7 @@ test('run-record: a finding that comes back after a proven point counts once in 
 })
 
 test('run-record: a review approval beside a gate revision on a material lane is stored before the fixer starts', async () => {
-  const answers = { 'r0-review': APPROVE, 'r0-gate': { verdict: 'REVISE', blocking: [defectWithoutDraft], followups: [] } }
+  const answers = { 'r0-review': APPROVE, 'r0-gate': gateRaises }
   const run = await runLane(materialArgs, answers, { killAt: 'fix-1' })
   assert.equal(run.killed, true)
   assert.deepEqual(run.laneRecordCalls.map(call => call[1]), ['begin', 'add', 'begin'])
@@ -307,7 +306,7 @@ test('run-record: a review approval beside a gate revision on a material lane is
 })
 
 test('run-record: a review revision beside a gate approval on a material lane is not stored before the fixer starts, so a killed run lands on no approval of the revised tip', async () => {
-  const answers = { 'r0-review': { verdict: 'REVISE', blocking: [defectWithoutDraft], followups: [] }, 'r0-gate': APPROVE }
+  const answers = { 'r0-review': gateRaises, 'r0-gate': APPROVE }
   const run = await runLane(materialArgs, answers, { killAt: 'fix-1' })
   assert.equal(run.killed, true)
   assert.deepEqual(run.laneRecordCalls.map(call => call[1]), ['begin'])
@@ -315,7 +314,7 @@ test('run-record: a review revision beside a gate approval on a material lane is
 })
 
 test('run-record: a review revision beside a gate approval on a material lane stores no approval of the revised tip when the review budget ends the run before a fixer', async () => {
-  const answers = { 'r0-review': { verdict: 'REVISE', blocking: [defectWithoutDraft], followups: [] }, 'r0-gate': APPROVE }
+  const answers = { 'r0-review': gateRaises, 'r0-gate': APPROVE }
   const run = await runLane({ ...materialArgs, budgets: { review: 0 } }, answers)
   assert.equal(run.result.status, 'unresolved', run.result.reason)
   assert.deepEqual(run.laneRecordCalls.map(call => call[1]), ['begin'])

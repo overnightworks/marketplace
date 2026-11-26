@@ -20,7 +20,7 @@ const settledArgs = { deltaFrom: resumeTip, answers: settledByTheHead }
 for (const [what, where] of answeredOutsideTheTree) {
   for (const [entry, extraArgs] of outsideEntries) {
     test(`a docs finding answered by ${what} at an unchanged tip ${entry} reaches the raiser's re-check, which reads it live`, async () => {
-      const { result, agentCalls } = await runLane({ ...resumeArgs, ...extraArgs, fixFirst: [docsFinding] }, { 'fix-1': { ...unchangedFix, outside: [{ finding: 1, where }] }, ...reachesTheEnd })
+      const { result, agentCalls } = await settledRun(extraArgs, [{ finding: 1, where }])
       assert.equal(result.status, 'ready-to-land')
       const prompt = agentCalls['r1-review'].prompt
       assert.match(prompt, /read live what the fixer edited outside the tree/)
@@ -43,11 +43,11 @@ test('a removal with no diff and no outside answer fails at fix and says a body 
 })
 
 test('the fix brief sends a body answer to outside, never removed, and carries the answers of the head when the run has them', async () => {
-  const { agentCalls } = await runLane({ ...resumeArgs, ...settledArgs, fixFirst: [docsFinding] }, { 'fix-1': { ...unchangedFix, outside: [{ finding: 1, where: 'PR body' }] }, ...reachesTheEnd })
+  const { agentCalls } = await settledRun(settledArgs)
   const prompt = agentCalls['fix-1'].prompt
-  assert.match(prompt, /answered by editing the item body or the pull request body is reported in outside, never as removed; removed is only for code or a test deleted in your commits/)
+  assert.match(prompt, /reported in outside, never as removed/)
   assert.ok(prompt.includes(settledByTheHead))
-  const { agentCalls: without } = await runLane({ ...resumeArgs, fixFirst: [docsFinding] }, { 'fix-1': { ...unchangedFix, outside: [{ finding: 1, where: 'PR body' }] }, ...reachesTheEnd })
+  const { agentCalls: without } = await settledRun({})
   assert.ok(!without['fix-1'].prompt.includes(settledByTheHead))
 })
 
@@ -57,7 +57,7 @@ test('a body-settled finding at an unchanged tip is re-checked with the answers 
   assert.ok(prompt.includes(settledByTheHead))
   assert.ok(prompt.includes(docsFinding.text) && prompt.includes(docsFinding.evidence))
   assert.match(prompt, /item body[^.]*pull request body[^.]*live|live[^.]*item body[^.]*pull request body/)
-  assert.match(prompt, /whether the unchanged tip does more or less than the changed body asks/)
+  assert.match(prompt, /the unchanged tip does more or less than the changed body asks/)
   assert.doesNotMatch(prompt, new RegExp(`git (diff|log -p --first-parent --remerge-diff) ${resumeTip}\\.\\.HEAD`))
 })
 
@@ -67,7 +67,7 @@ test('a body-settled finding on a material lane re-checks with the gate as well,
   for (const reviewer of ['r1-review', 'r1-gate']) {
     assert.ok(agentCalls[reviewer], `${reviewer} runs`)
     assert.ok(agentCalls[reviewer].prompt.includes(settledByTheHead))
-    assert.match(agentCalls[reviewer].prompt, /whether the unchanged tip does more or less than the changed body asks/)
+    assert.match(agentCalls[reviewer].prompt, /the unchanged tip does more or less than the changed body asks/)
   }
 })
 

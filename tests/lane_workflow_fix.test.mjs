@@ -2,7 +2,7 @@
 import fs from 'node:fs'
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { runLane, APPROVE, PASS, greenCi, finding, followup, webauthTips, webauthReplay, agentProvidersReplay, replays, answersWith, outOfRange, mainMovedTip, mergedOnlyTip, resumeTip, olderTip, resumeFixedTip, tidy, defectWithoutDraft, resumeFix, mergeOnlyFix, resumeArgs, unchangedFix, satisfied, reachesTheEnd, testGap, built, secondFix, docsFinding, proofOf } from './lane_workflow_harness.mjs'
+import { runLane, APPROVE, PASS, greenCi, finding, followup, webauthTips, webauthReplay, agentProvidersReplay, replays, answersWith, outOfRange, mainMovedTip, mergedOnlyTip, resumeTip, olderTip, resumeFixedTip, tidy, defectWithoutDraft, resumeFix, mergeOnlyFix, resumeArgs, unchangedFix, satisfied, reachesTheEnd, testGap, built, secondFix, docsFinding, proofOf, gateRaises } from './lane_workflow_harness.mjs'
 
 const proofsByKind = [
   ['a resumed run whose findings carry no kind stops at the fix as before', { kind: undefined, testDraft: true, mutation: true }, false],
@@ -202,7 +202,7 @@ for (const [what, resolved, disputed, status, reason, findings = [defectWithoutD
 }
 
 test('a fixer that changes nothing and shows a review finding resolved with evidence stops with the fixer changed nothing', async () => {
-  const answers = { 'r0-review': { verdict: 'REVISE', blocking: [defectWithoutDraft], followups: [] }, 'fix-1': { ...unchangedFix, resolved: [satisfied(defectWithoutDraft, undefined, 1)] } }
+  const answers = { 'r0-review': gateRaises, 'fix-1': { ...unchangedFix, resolved: [satisfied(defectWithoutDraft, undefined, 1)] } }
   const { result } = await runLane(resumeArgs, answers)
   assert.deepEqual([result.status, result.stage], ['failed', 'fix'])
   assert.match(result.reason, /the fixer changed nothing/)
@@ -700,8 +700,8 @@ test('the batch fixer that only merged main is rejected as unasked work, with ev
 })
 
 test('a gate follow-up on a material lane is re-checked by the gate as well', async () => {
-  const gateRaises = { ...APPROVE, followups: [polish], codexExit: 0 }
-  const { result, launchedAgents } = await runLane({ ...resumeArgs, risk: 'material' }, { 'r0-review': APPROVE, 'r0-gate': gateRaises, 'fix-1': resumeFix, 'r1-review': APPROVE, 'r1-gate': { ...APPROVE, codexExit: 0 }, 'e2e-0': PASS, 'ci-0': greenCi(resumeFixedTip) })
+  const gateApprovesWithPolish = { ...APPROVE, followups: [polish], codexExit: 0 }
+  const { result, launchedAgents } = await runLane({ ...resumeArgs, risk: 'material' }, { 'r0-review': APPROVE, 'r0-gate': gateApprovesWithPolish, 'fix-1': resumeFix, 'r1-review': APPROVE, 'r1-gate': { ...APPROVE, codexExit: 0 }, 'e2e-0': PASS, 'ci-0': greenCi(resumeFixedTip) })
   assert.equal(result.status, 'ready-to-land', result.reason)
   assert.ok(launchedAgents.includes('r1-review') && launchedAgents.includes('r1-gate'))
 })
@@ -767,7 +767,7 @@ test('a declined follow-up is not offered to a later fix round', async () => {
 })
 
 test('a batch re-check that revises enters the normal fix loop', async () => {
-  const { result, launchedAgents } = await runLane(resumeArgs, { ...approvedWith(polish), ...batchReachesTheEnd, 'r1-review': { verdict: 'REVISE', blocking: [defectWithoutDraft], followups: [] }, 'fix-2': secondFix, 'r2-review': APPROVE, 'ci-0': greenCi(secondFix.head) })
+  const { result, launchedAgents } = await runLane(resumeArgs, { ...approvedWith(polish), ...batchReachesTheEnd, 'r1-review': gateRaises, 'fix-2': secondFix, 'r2-review': APPROVE, 'ci-0': greenCi(secondFix.head) })
   assert.equal(result.status, 'ready-to-land', result.reason)
   assert.ok(launchedAgents.includes('fix-2') && launchedAgents.includes('r2-review'))
 })

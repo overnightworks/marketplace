@@ -11,7 +11,7 @@ function retitleStepProblem(relayed, ownSteps) {
   if (!relayed || relayed.problem) return `the title step ${relayed ? relayed.problem : 'returned no result'}`
   return relayed.unreachable && relayed.values.unreachable.some(name => ownSteps.includes(name)) ? relayed.unreachable : null
 }
-// The pull request's title and draft flag from the step's one REST read; draft is not a boolean when the read failed or the flag is missing.
+// The pull request's title from the step's one REST read, as the printer's 100-character cut left it; the draft flag arrives whole as its own value, not a boolean when the read failed or the flag is missing.
 function pulledRequest(pull) {
   try { return pull.code === 0 ? JSON.parse(pull.out) : {} } catch { return {} }
 }
@@ -30,7 +30,7 @@ function draftReadyProblem(relayed) {
   const stepProblem = retitleStepProblem(relayed, ['pull', 'ready'])
   if (stepProblem) return stepProblem
   const { pull, ready } = relayed.values
-  const { draft } = pulledRequest(pull)
+  const { draft } = pull
   if (typeof draft !== 'boolean') return `the draft flag could not be read (reading the pull request exited ${pull.code}: ${pull.err})`
   return !draft || ready.code === 0 ? null : `gh pr ready exited ${ready.code}: ${ready.err}`
 }
@@ -134,6 +134,7 @@ async function relayStep(A) {
     'brief=json.loads(ran["brief"].stdout) if "brief" in ran and ran["brief"].returncode==0 else None',
     'claim=brief and brief["outside_claim"]',
     'values={n:{"code":p.returncode,**({"err":e} if ((e:=" ".join(l for l in p.stderr.splitlines() if l[:5]!="hint:")[-300:]) or step!="ci") and (n!="log" or p.returncode) else {}),**({} if n in("brief","view","check","checks","rules","runs","log","changed","headruns","lane","rate","conflict","merged","item") else {"out":p.stdout.strip()[:100]} if n[:4]!="diff" else {"size":len(p.stdout.strip())})} for n,p in ran.items()}',
+    'values.update(**({"pull":{**values["pull"],"draft":pulled(ran).get("draft")}} if "pull" in ran else {}))',
     'listed=lambda n,skip:list(dict.fromkeys(l for l in ran[n].stdout.splitlines()[skip:] if l))',
     'values.update(**({"conflict":dict(code=ran["conflict"].returncode,tree=(ran["conflict"].stdout.splitlines() or [""])[0],paths=listed("conflict",1)[:path_limit],count=len(listed("conflict",1)))} if "conflict" in ran and ran["conflict"].returncode else {}),**({"merged":dict(code=ran["merged"].returncode,paths=listed("merged",0)[:path_limit],count=len(listed("merged",0)))} if "merged" in ran and listed("merged",0) else {}))',
     'parsed=lambda n:json.loads(ran[n].stdout) if n in ran and ran[n].returncode==0 else None',

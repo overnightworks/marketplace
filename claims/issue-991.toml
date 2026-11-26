@@ -1,0 +1,8 @@
+claim_id = "8ea0c59ded044bd99b073a915b4325ff"
+agent = "Claude c1d65467-2dcf-4ef5-921f-526bf349a609"
+role = "builder"
+base = "105433055a56628b035ab0b8e3e3013d58a87f42"
+branch = "claude/issue-991-one-normal-lane-in-ten-gets-the-gate"
+scope = ["plugins/atelier/lane", "plugins/atelier/workflows/lane.js", "plugins/atelier/workflows/lane.md", "quality/baseline.toml", "tests"]
+opened_commit = "226e8ed640245f2810c2c84d2b7da8a08f472786"
+whole_reason = "Pick, gate and record live in lane/ and share the lane's routing."

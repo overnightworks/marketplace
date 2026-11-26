@@ -116,9 +116,3 @@ def test_main_exits_one_on_a_problem_and_zero_on_a_clean_checkout(tmp_path: Path
     assert check_references.main([str(broken)]) == 1
     assert "README.md:1" in capsys.readouterr().err
     assert check_references.main([str(clean)]) == 0
-
-
-@pytest.mark.parametrize("argument", ["--help", "-C", "line\nbreak"], ids=["option", "short-option", "control-character"])
-def test_main_refuses_an_argument_git_would_not_read_as_a_path(argument: str, capsys: pytest.CaptureFixture) -> None:
-    assert check_references.main([argument]) == 2
-    assert "not a checkout path" in capsys.readouterr().err

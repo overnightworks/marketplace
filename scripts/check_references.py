@@ -34,8 +34,6 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 CONTRACT_DIRECTORY = "instructions"
 CONTRACT_FILES = ("AGENTS.md", "HEAD.md", "OPERATORS.md")
 
-# A path git takes as its -C value: no control character and no leading dash, which git would read as an option.
-CHECKOUT_PATTERN = r"[^\x00-\x1f-][^\x00-\x1f]*"
 CONTRACT_FILE = r"(?P<file>AGENTS\.md|HEAD\.md|OPERATORS\.md)`?"
 # Each form captures the whole target text as `target`; the first matching form wins.
 QUOTED = r'"[^"]+"'
@@ -144,8 +142,9 @@ def load_sections(directory: Path) -> dict[str, Section]:
 
 
 def tracked_text_files(checkout: Path) -> list[Path]:
-    listing = subprocess.run(  # noqa: S603 - argv is fixed words and the checkout path
-        ["git", "-C", str(checkout), "ls-files", "-z"],  # noqa: S607 - git is found on PATH
+    listing = subprocess.run(  # noqa: S603 - argv is fixed words
+        ["git", "ls-files", "-z"],  # noqa: S607 - git is found on PATH
+        cwd=checkout,
         check=True,
         capture_output=True,
         text=True,
@@ -167,9 +166,6 @@ def check_checkout(checkout: Path, contract_root: Path = REPOSITORY_ROOT) -> lis
 
 
 def main(arguments: list[str]) -> int:
-    if arguments and re.fullmatch(CHECKOUT_PATTERN, arguments[0]) is None:
-        print(f"not a checkout path: {arguments[0]!r}", file=sys.stderr)
-        return 2
     checkout = Path(arguments[0]) if arguments else REPOSITORY_ROOT
     problems = check_checkout(checkout)
     if problems:

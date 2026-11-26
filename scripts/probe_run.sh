@@ -22,14 +22,14 @@
 # The namespace comes from pasta (package passt), IPv4 only: the host's listening TCP ports are
 # reachable on 127.0.0.1 and localhost in it, outbound traffic and DNS work, and the bridge and veth
 # changes other sessions' containers cause never reach it, so Chromium reports no
-# net::ERR_NETWORK_CHANGED. The command runs as uid 0 there, mapped to the starter's uid. A host
-# listener on ::1 alone and a container that calls back to a server in the namespace are not
-# reached. IPv6 stays off because pasta would accept a client that tries ::1 first (curl,
-# Playwright) and reset it when the host listens on IPv4 only; with IPv4 only the client is refused
-# at once and falls back to 127.0.0.1. timeout runs inside the namespace. pasta ends at once on
-# TERM, leaves its child running and clears the death signal on its exec, so a relay between the
-# supervisor and pasta keeps the death signal and passes the TERM to timeout, which keeps the
-# teardown within K.
+# net::ERR_NETWORK_CHANGED. The command keeps the starter's uid and gid there, through a user
+# namespace nested in pasta's. A host listener on ::1 alone and a container that calls back to a
+# server in the namespace are not reached. IPv6 stays off because pasta would accept a client
+# that tries ::1 first (curl, Playwright) and reset it when the host listens on IPv4 only; with
+# IPv4 only the client is refused at once and falls back to 127.0.0.1. timeout runs inside the
+# namespace. pasta ends at once on TERM, leaves its child running and clears the death signal on
+# its exec, so a relay between the supervisor and pasta keeps the death signal and passes the
+# TERM to timeout, which keeps the teardown within K.
 #
 # The command gets probe-run's stdin and the default INT and QUIT handling.
 #
@@ -38,11 +38,12 @@
 # group) reach the command as one TERM through timeout, so its teardown runs and KILL follows
 # only after K. timeout itself would KILL the command at once on a received INT or HUP.
 #
-# Exit status: 0 with --wait-only once the load has room, 2 bad arguments or an unreadable load, 75 the load stayed at or
-# above the limit for the whole wait (no command was started), 4 the starting process died
-# before the command started, 69 pasta or pgrep is missing (no command was started), 130 interrupted during
-# the wait (no command was started). After the start the status is the command's, except 130 after a SIGINT and 129 after a SIGHUP to
-# probe-run.
+# Exit status: 0 with --wait-only once the load has room, 2 bad arguments or an unreadable
+# load, 75 the load stayed at or above the limit for the whole wait (no command was started),
+# 4 the starting process died before the command started, 69 pasta, pgrep or an unshare with
+# --map-user is missing (no command was started), 130 interrupted during the wait (no command
+# was started). After the start the status is the command's, except 130 after a SIGINT and 129
+# after a SIGHUP to probe-run.
 #
 # The tests inject PROBE_RUN_LOADAVG_FILE (the load source, default /proc/loadavg),
 # PROBE_RUN_POLL_SECONDS (default 5) and PROBE_RUN_WAIT_SECONDS (default 3600); both
@@ -124,9 +125,13 @@ launch_relay() {
   exec setpriv --pdeathsig TERM env --default-signal=INT,QUIT bash -c "$PARENT_GUARD" probe-run \
     "$$" "$EXIT_PARENT_GONE" "$guard_refused_message" "${BASH_SOURCE[0]}" "$RELAY_MARKER" "$@"
 }
+# pasta maps the starter to uid 0; a nested user namespace gives the command the starter's uid and
+# gid again. unshare does not fork without --fork, so pasta's child stays the one timeout process.
+readonly IN_NAMESPACE_START='uid=$1 gid=$2; shift 2
+exec env --default-signal=INT,HUP,QUIT unshare --user --map-user="$uid" --map-group="$gid" timeout -k "$@"'
 launch_in_namespace() {
   exec env --default-signal=QUIT --ignore-signal=INT,HUP \
-    pasta --ipv4-only --config-net -- /bin/bash -c 'exec env --default-signal=INT,HUP,QUIT timeout -k "$@"' probe-run "$@"
+    pasta --ipv4-only --config-net -- /bin/bash -c "$IN_NAMESPACE_START" probe-run "$(id -u)" "$(id -g)" "$@"
 }
 
 supervise() {
@@ -186,6 +191,9 @@ if [[ -z $wait_only ]]; then
     fail "pasta is missing (package passt), which gives the command its own network; no probe stack was started" "$EXIT_NO_NAMESPACE_TOOL"
   command -v pgrep >/dev/null ||
     fail "pgrep is missing (package procps), which finds the command inside its network; no probe stack was started" "$EXIT_NO_NAMESPACE_TOOL"
+  unshare_help=$(unshare --help 2>&1) || unshare_help=""
+  [[ $unshare_help == *--map-user* ]] ||
+    fail "unshare with --map-user is missing (package util-linux 2.38 or newer), which keeps the command's uid; no probe stack was started" "$EXIT_NO_NAMESPACE_TOOL"
 fi
 
 loadavg_file=${PROBE_RUN_LOADAVG_FILE:-/proc/loadavg}

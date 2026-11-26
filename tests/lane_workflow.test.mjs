@@ -4,6 +4,8 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+import { spawnSync } from 'node:child_process'
+import { BRIEF_CRC_PRINTER } from '../plugins/atelier/lane/review.js'
 import { runLane, storedLane, partReplaced, courierBriefOf, resumedLane, APPROVE, PASS, resumeFixedTip, greenCi, finding, webauthTips, webauthReplay, agentProvidersReplay, answersWith, resumeTip, olderTip, tidy, defectWithoutDraft, resumeFix, resumeArgs, unchangedFix, satisfied, reachesTheEnd, secondFix, mergedOnlyTip, conflictsWithMain, mergeOnlyFix, delegatedLineOfContract, noWait, gateRaises } from './lane_workflow_harness.mjs'
 
 const misspelledChoices = [
@@ -594,6 +596,8 @@ test('lane-record: a record whose CRC32 ends in cd still reaches the file throug
   const run = await runLane({ ...resumeArgs, experiment: 'trial-216' }, { ...reachesTheEnd, 'r0-review': APPROVE })
   assert.equal(run.result.status, 'ready-to-land', run.result.reason)
   assert.equal(writtenRecord(run).experiment, 'trial-216')
+  const checksums = run.writtenRecords.map(text => spawnSync('python3', ['-c', BRIEF_CRC_PRINTER], { input: text, encoding: 'utf8' }).stdout.trim())
+  assert.ok(checksums.some(checksum => checksum.endsWith('cd')), `no written record has a checksum ending in cd: ${checksums}`)
 })
 
 test('lane-record: the experiment tag of the run is written to the record', async () => {

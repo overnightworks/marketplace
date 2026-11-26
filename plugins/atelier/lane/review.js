@@ -297,7 +297,7 @@ function crc32(text) {
   return ((crc ^ 0xffffffff) >>> 0).toString(16).padStart(8, '0')
 }
 // Both sides compare the words of the brief: the Workflow runtime indents every line of a computed prompt and a model retyping the text adds blank lines, and neither changes what Codex reads.
-const BRIEF_CRC_PRINTER = 'import sys,zlib;print("%08x"%zlib.crc32(b" ".join(sys.stdin.buffer.read().split())))'
+export const BRIEF_CRC_PRINTER = 'import sys,zlib;print("%08x"%zlib.crc32(b" ".join(sys.stdin.buffer.read().split())))'
 // Cuts the brief out of the courier's own transcript, so no model copies it. The workflow host keeps the transcript of every workflow agent at
 // ~/.claude/projects/<project>/<session>/subagents/workflows/<run>/agent-<id>.jsonl and its first record holds the prompt; a head session's transcript lies one level up and is never read.
 // The marker lines are built from the token and count only as whole lines, so the command's own text and a brief that mentions a marker never match; the host indents every line of a prompt, which dedent removes, and a line that is not JSON, the host still writing it, is skipped.

@@ -134,6 +134,7 @@ for (const [what, scenario, renamed] of titledRuns) {
 const unwrittenTitleRuns = [
   ['a failed title write', { pr_title: `Unfinished checkpoint of #${resumedLane.item}`, patch_code: 1 }],
   ['a title that cannot be read', { pr_title: null }],
+  ['a pull read that prints malformed JSON', { pull_output: '{"title":' }],
 ]
 
 for (const [what, scenario] of unwrittenTitleRuns) {
@@ -152,6 +153,7 @@ const draftRuns = [
   ['a draft with a title longer than the relay cap is marked ready', { draft: true, pr_title: LONG_TITLE }, ['1'], false],
   ['a pull request that is not a draft, with a title longer than the relay cap, gets no ready write and no head action', { draft: false, pr_title: LONG_TITLE }, [], false],
   ['a draft flag that cannot be read names gh pr ready among the head actions', { draft: null }, [], true],
+  ['a pull read that prints malformed JSON names gh pr ready among the head actions', { pull_output: '{"title":' }, [], true],
 ]
 
 for (const [behaviour, scenario, readied, named] of draftRuns) {

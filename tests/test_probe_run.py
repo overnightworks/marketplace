@@ -5,6 +5,7 @@ import ctypes
 import os
 import shutil
 import signal
+import socket
 import subprocess
 import time
 from pathlib import Path
@@ -16,12 +17,7 @@ from hook_fixtures import install_fake
 PROBE_RUN = Path(__file__).resolve().parents[1] / "scripts" / "probe_run.sh"
 CORES = int(subprocess.run(["nproc"], capture_output=True, text=True, check=True).stdout)
 LOAD_LIMIT = 1.5 * CORES
-ARGUMENT_ECHO_FOR_TIMEOUT = """#!/bin/sh
-case " $* " in
-  *" timeout "*) printf "%s\\n" "$@" ;;
-  *) shift 2; exec "$@" ;;
-esac
-"""
+ARGUMENT_ECHO = '#!/bin/sh\nprintf "%s\\n" "$@"\n'
 MAXIMUM_TOTAL_SECONDS = 1830
 BAD_INPUT_STATUS = 2
 LOAD_TIMEOUT_STATUS = 75
@@ -41,10 +37,10 @@ def real_machine(tmp_path: Path) -> dict[str, str]:
 
 @pytest.fixture
 def machine(tmp_path: Path, real_machine: dict[str, str]) -> dict[str, str]:
-    """An environment whose setpriv prints what it is asked to run under timeout and whose load is a file."""
+    """An environment whose timeout prints what it is asked to run and whose load is a file."""
     bin_directory = tmp_path / "bin"
     bin_directory.mkdir()
-    install_fake(bin_directory, "setpriv", ARGUMENT_ECHO_FOR_TIMEOUT)
+    install_fake(bin_directory, "timeout", ARGUMENT_ECHO)
     install_fake(bin_directory, "sleep", "#!/bin/sh\n")
     return {**real_machine, "PATH": f"{bin_directory}:{real_machine['PATH']}"}
 
@@ -54,9 +50,8 @@ def set_load(machine: dict[str, str], load: float) -> None:
 
 
 def timeout_arguments(result: subprocess.CompletedProcess[str]) -> list[str]:
-    """What the fake setpriv was asked to run, from the timeout on."""
-    tokens = result.stdout.split()
-    return tokens[tokens.index("timeout") + 1 :]
+    """What the fake timeout was asked to run."""
+    return result.stdout.split()
 
 
 def probe_run(
@@ -82,7 +77,6 @@ def test_starts_the_command_capped_within_the_total_limit_when_the_load_is_below
     result = probe_run(machine, "my-stack", "--flag")
 
     assert result.returncode == 0
-    assert result.stdout.split()[:2] == ["--pdeathsig", "TERM"]
     dash_k, kill_after, cap, command, flag = timeout_arguments(result)
     assert dash_k == "-k"
     kill_after, cap = int(kill_after), int(cap)
@@ -98,6 +92,38 @@ def test_starts_the_command_with_the_given_kill_after_and_cap(machine):
     result = probe_run(machine, "-k", "60", "1700", "--", "my-stack")
 
     assert timeout_arguments(result) == ["-k", "60", "1700", "my-stack"]
+
+
+def test_runs_the_command_in_a_network_namespace_of_its_own(real_machine):
+    starters_namespace = os.readlink("/proc/self/ns/net")
+
+    result = probe_run(real_machine, "readlink", "/proc/self/ns/net")
+
+    assert result.returncode == 0
+    assert result.stdout.strip().startswith("net:[")
+    assert result.stdout.strip() != starters_namespace
+
+
+def test_the_command_reaches_a_port_the_host_listens_on_through_localhost(real_machine):
+    with socket.create_server(("127.0.0.1", 0)) as listener:
+        port = listener.getsockname()[1]
+        connect = f"import socket; socket.create_connection(('127.0.0.1', {port}), timeout=10).close()"
+
+        result = probe_run(real_machine, "python3", "-c", connect)
+
+    assert result.returncode == 0, result.stderr
+
+
+def test_fails_loud_without_starting_when_pasta_is_missing(real_machine, tmp_path):
+    bin_directory = tmp_path / "bare-bin"
+    bin_directory.mkdir()
+    (bin_directory / "bash").symlink_to(shutil.which("bash"))
+
+    result = probe_run({**real_machine, "PATH": str(bin_directory)}, "my-stack")
+
+    assert result.returncode != 0
+    assert "pasta" in result.stderr
+    assert "no probe stack was started" in result.stderr
 
 
 def test_ends_without_starting_when_the_load_stays_at_the_limit(machine):
@@ -330,7 +356,7 @@ def test_ends_without_starting_when_the_starter_ends_before_the_signal_is_armed(
 def test_ends_a_wait_at_once_on_sigint_without_starting_the_command(machine, tmp_path):
     set_load(machine, LOAD_LIMIT + 5)
     bin_directory = Path(machine["PATH"].split(":")[0])
-    (bin_directory / "setpriv").unlink()
+    (bin_directory / "timeout").unlink()
     announcement, marker = tmp_path / "waiting", tmp_path / "command-ran"
     install_fake(bin_directory, "sleep", SLEEPS_AFTER_ANNOUNCING.format(announcement=announcement))
     environment = {**machine, "PROBE_RUN_WAIT_SECONDS": "3600"}
@@ -356,7 +382,7 @@ def test_ends_a_wait_at_once_on_sigint_without_starting_the_command(machine, tmp
 
 def test_runs_the_command_under_timeout_while_the_starter_lives(machine, tmp_path):
     set_load(machine, 0.0)
-    (Path(machine["PATH"].split(":")[0]) / "setpriv").unlink()
+    (Path(machine["PATH"].split(":")[0]) / "timeout").unlink()
     marker = tmp_path / "command-ran"
 
     result = probe_run(machine, "sh", "-c", f"touch {marker}")

@@ -1,0 +1,7 @@
+claim_id = "62afa2a857c44357b07a527ae5036911"
+agent = "Claude c1d65467-2dcf-4ef5-921f-526bf349a609"
+role = "builder"
+base = "85e8b6c073b7fffea0599eef032280d1a54e7c5f"
+branch = "claude/issue-1051-the-live-store-s-read-bullet-names-a-rea"
+scope = ["instructions/AGENTS.md"]
+opened_commit = "972213fbe332301019a8738be5ccfd854d36984c"

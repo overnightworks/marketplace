@@ -3,12 +3,14 @@
 const RECORD_VERSION = 1
 const RECORD_STAGES = ['build', 'fix', 'review', 'test', 'gate', 'land']
 const FINDING_STAGE_NAMES = ['review', 'gate', 'ci', 'test']
-const FINDING_STAGES = [[/^e2e-/, 'test'], [/^ci-/, 'ci'], [/^(review|gate)$/, null], [/^standin$/, 'gate']]
+const FINDING_STAGES = [[/^e2e-/, 'test'], [/^ci-/, 'ci']]
+// The stage each reviewer key counts as: a stand-in counts as the gate stage.
 const VERDICT_STAGES = { review: 'review', gate: 'gate', standin: 'gate' }
+const GATE_KEYS = Object.keys(VERDICT_STAGES).filter(key => VERDICT_STAGES[key] === 'gate')
 const RECORD_COUNT_LIMIT = 999
 const FULL_SHA = /^[0-9a-f]{40}$/
 
-const stageOf = (reviewer) => FINDING_STAGES.map(([pattern, name]) => pattern.test(reviewer) ? name ?? reviewer : null).find(Boolean)
+const stageOf = (reviewer) => FINDING_STAGES.find(([pattern]) => pattern.test(reviewer))?.[1] ?? VERDICT_STAGES[reviewer]
 
 // The findings of one history entry by text and stage, each with the number of findings that share them and how many of those are misses.
 function findingsOfEntry(entry, stage, isMiss) {
@@ -74,7 +76,7 @@ function blockingStages(history, approvedBefore = []) {
 const historyRan = (history, key) => history.some(entry => entry.by === key || entry.by?.startsWith(`${key}-`))
 
 // The stages the history and the fixers show for fix, test and gate, a tester that started counting as the test; a stand-in review is the gate that ran.
-const stagesOfHistory = ({ history, fixRole, testStarted }) => ({ fix: Boolean(fixRole), test: testStarted || historyRan(history, 'e2e'), gate: historyRan(history, 'standin') || historyRan(history, 'gate') })
+const stagesOfHistory = ({ history, fixRole, testStarted }) => ({ fix: Boolean(fixRole), test: testStarted || historyRan(history, 'e2e'), gate: GATE_KEYS.some(key => historyRan(history, key)) })
 
 // The stages this segment started, in the order aco names them; the record's own slots and the --ran stages of aco lane-record add read this one history.
 function stagesRan({ history, fixRole, testStarted, builderRan, reviewStarted }) {

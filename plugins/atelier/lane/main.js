@@ -184,7 +184,7 @@ const spent = { review: 0, test: 0, ci: 0, total: 0 }
 const fixRolesRun = []  // the role of each fixer that ran, in order
 let syncedTip = null  // the head the sync read: the start tip of a pr/tip run's begin
 let runId = null  // minted by the branch relay step: the id this run has on the claim in aco lane-record begin and add
-const fixRoundsByStage = { review: 0, gate: 0, ci: 0, test: 0 }  // the stage whose findings each fix round answered
+const fixRoundsByStage = zeroCounts()  // the stage whose findings each fix round answered
 const seen = new Map()  // finding key -> how often it came back after a fix
 let productionSinceTest = false  // any fix since the last end-to-end test touched production
 let productionSinceGate = false  // any fix since the last unlimited gate result touched production
@@ -587,7 +587,7 @@ async function reviseAfter(rr) {
     const stored = await storeProvenPoint()
     if (stored) return stored
   }
-  const f = await fixRound(blocking, 'the review', ROUND.review, 'review', false, raised.some(r => r === GATE || r === STANDIN) ? 'gate' : 'review')
+  const f = await fixRound(blocking, 'the review', ROUND.review, 'review', false, raised.some(r => VERDICT_STAGES[r.key] === 'gate') ? 'gate' : 'review')
   if (f.stop) return f.stop
   if (!f.range) return openResult('failed', 'review', { reason: 'a review finding was answered by a merge alone', lastBlocking: blocking })
   const next = f.gateAgain && !raised.includes(GATE) ? raised.concat([GATE]) : raised

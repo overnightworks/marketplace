@@ -238,7 +238,7 @@ export async function laneReview(A) {
     return {
       history: { after: A.after, by: reviewer.key, tip: A.tip, verdict, blocking: blocking.map(f => f.where), reportPath },
       gateRounds: reviewer.isGate && !result.limit ? [{ after: A.after, verdict, blocking, reportPath, tip: A.tip }] : [],
-      followups: (result.followups || []).map(f => ({ ...f, stage: reviewer.key === 'review' ? 'review' : 'gate', tip: A.tip })),
+      followups: (result.followups || []).map(f => ({ ...f, stage: VERDICT_STAGES[reviewer.key], tip: A.tip })),
     }
   }
 

@@ -589,6 +589,13 @@ test('lane-record: a lane that is ready to land writes the stages it ran, no fin
   assert.match(result.routingLine, /^Routing: /)
 })
 
+// The tag makes the record's CRC32 end in "cd", which the harness once cut out of the courier command together with the file argument after it.
+test('lane-record: a record whose CRC32 ends in cd still reaches the file through the courier command', async () => {
+  const run = await runLane({ ...resumeArgs, experiment: 'trial-216' }, { ...reachesTheEnd, 'r0-review': APPROVE })
+  assert.equal(run.result.status, 'ready-to-land', run.result.reason)
+  assert.equal(writtenRecord(run).experiment, 'trial-216')
+})
+
 test('lane-record: the experiment tag of the run is written to the record', async () => {
   const run = await runLane({ ...resumeArgs, experiment: 'trial-1' }, { ...reachesTheEnd, 'r0-review': APPROVE })
   assert.equal(writtenRecord(run).experiment, 'trial-1')

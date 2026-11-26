@@ -106,6 +106,8 @@ const pullEnvironment = (scenario) => ({
 const briefOutput = (scenario) => JSON.stringify({ outside_claim: 'outside_claim' in scenario ? scenario.outside_claim : [], ...('touched_surfaces' in scenario && { touched_surfaces: scenario.touched_surfaces }) })
 // The lines a fake command appended to its log, or none.
 const loggedLines = (fakeBin, name) => fakeBin && fs.existsSync(path.join(fakeBin, name)) ? fs.readFileSync(path.join(fakeBin, name), 'utf8').trim().split('\n') : []
+// How many times each fake program was called.
+const callsOf = (fakeBin) => Object.fromEntries(['aco', 'gh'].map(program => [program, fakeBin && fs.existsSync(path.join(fakeBin, `${program}.calls`)) ? Number(fs.readFileSync(path.join(fakeBin, `${program}.calls`), 'utf8')) : 0]))
 // The printer line a scenario's typedCommand rewrites; a reread keeps the line unless the scenario types it always.
 const typedLine = (scenario, reread, line) => scenario.typedCommand && (!reread || scenario.typedAlways) ? scenario.typedCommand(line) : line
 
@@ -230,10 +232,9 @@ export async function runLane(args, answers = {}, options = {}) {
   // A thunk that throws resolves to null, as in the Workflow runtime.
   const parallel = async thunks => Promise.all(thunks.map(thunk => thunk().catch(() => null)))
   const ignore = () => {}
-  const callsOf = () => Object.fromEntries(['aco', 'gh'].map(program => [program, fakeBin && fs.existsSync(path.join(fakeBin, `${program}.calls`)) ? Number(fs.readFileSync(path.join(fakeBin, `${program}.calls`), 'utf8')) : 0]))
   try {
     const result = await Promise.race([compileLane(source, options.transform)(args, agent, parallel, async () => [], ignore, ignore), runEnded])
-    return { killed, result: structuredClone(result), patchedTitles: loggedLines(fakeBin, 'gh.patched'), readiedPulls: loggedLines(fakeBin, 'gh.readied'), laneRecordCalls: loggedLines(fakeBin, 'aco.lane-record').map(line => line.split(' ')), calls: callsOf(), launchedAgents, launchedPrompts, agentCalls, writtenRecords, rateLimitSleeps }
+    return { killed, result: structuredClone(result), patchedTitles: loggedLines(fakeBin, 'gh.patched'), readiedPulls: loggedLines(fakeBin, 'gh.readied'), laneRecordCalls: loggedLines(fakeBin, 'aco.lane-record').map(line => line.split(' ')), calls: callsOf(fakeBin), launchedAgents, launchedPrompts, agentCalls, writtenRecords, rateLimitSleeps }
   } finally {
     if (fakeBin) fs.rmSync(fakeBin, { recursive: true })
     recordDirectories.forEach(directory => fs.rmSync(directory, { recursive: true, force: true }))

@@ -96,7 +96,7 @@ const FOLLOWUP = {
   properties: {
     where: { type: 'string' }, text: { type: 'string' }, owner: { type: 'string', description: 'owning item #n, or "distributor"' },
     stage: { type: 'string', enum: FINDING_STAGE_NAMES, description: 'the stage that raised it; the lane sets it on every follow-up it reports' },
-    inPlace: { type: 'boolean', description: 'true when it sits in a file the lane already changed, its fix cannot change behaviour outside the reviewed diff and it takes about ten lines: the lane\'s fixer resolves it in place; the head\'s foldIn leaves it out, since naming a follow-up there counts as in place' },
+    inPlace: { type: 'boolean', description: `true when ${IN_PLACE_RULE}: the lane's fixer resolves it in place; the head's foldIn leaves it out, since naming a follow-up there counts as in place` },
   },
 }
 // A reviewer or tester must classify every follow-up it reports; the head's foldIn input check reads FOLLOWUP, which leaves inPlace out of its string fields.
@@ -153,7 +153,7 @@ const driveFacts = `Any drive you run keeps its pidfiles and evidence under ${A.
 
 const BLOCKING_LINE =
   `Mark every finding **blocking** or **follow-up** as the contract's section "Reviews" defines them, the tripwire exception included. ` +
-  `Reproduce a behaviour on origin/main before calling it pre-existing; each follow-up names its owning item (#n) or "distributor" and sets inPlace true only when it sits in a file the lane already changed, its fix cannot change behaviour outside the reviewed diff and it takes about ten lines. ` +
+  `Reproduce a behaviour on origin/main before calling it pre-existing; each follow-up names its owning item (#n) or "distributor" and sets inPlace true only when ${IN_PLACE_RULE}. ` +
   `Every blocking finding names the rule it breaks and the evidence you observed; a finding you cannot back with evidence is not blocking. ` +
   `Every blocking finding names its kind: **defect** when the code breaks a rule or ` +
   `does not do what the contract, its docs or its own text promise — a mismatch between promise and code is defect unless the contract says the code is right, ` +

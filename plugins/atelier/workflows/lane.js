@@ -71,6 +71,10 @@ function routingRefusal(overrides) {
 // Watches the CI of one pull request and returns whether it went green with the failing checks quoted; the lane reads the listing itself.
 // The rules the CI watcher writes into its findings; the lane reads a carried batch by them.
 const CI_CHECK_RULE_PREFIX = 'CI check '
+// The `where` of a finding about the merge state and of the one about a missing CI run.
+const MERGEABLE_WHERE = 'mergeable'
+const CHECKS_WHERE = 'checks'
+const isCiCheckFinding = (f) => (f.rule || '').startsWith(CI_CHECK_RULE_PREFIX)
 const CI_MISSING_RULE = 'CI must run on head'
 const CI_CONFLICT_RULE = 'GitHub runs no CI on a conflicting pull request'
 async function laneCi(A) {
@@ -124,7 +128,7 @@ async function laneCi(A) {
       `If \`${inWorktree}gh pr view ${pr}${R} --json mergeable --jq .mergeable\` says CONFLICTING, return green false with one failing entry: where "mergeable", kind "defect", text "the pull request conflicts with main", ` +
       `rule "${CI_CONFLICT_RULE}", evidence the mergeable value. Otherwise wait in the foreground — you cannot be woken later. First wait until CI has registered the head, because a just-pushed head lists no check yet: run \`${inWorktree}for i in $(seq 1 5); do [ "$(gh pr checks ${pr}${R} --json name --jq length 2>/dev/null)" -gt 0 ] 2>/dev/null && break; sleep 60; done\` (Bash timeout 600000 ms; it ends with status 0 after about 5 minutes even when no check registered, then go on). Then run \`${inWorktree}timeout 540 gh pr checks ${pr}${R} --watch --interval 90\` (Bash timeout 600000 ms) and repeat it until it exits on its own rather than by the timeout, at most 7 times; it exits when every check listed for head has finished, but the listing shows one entry per check name, so a finished run can hide a same-named job of a run still going. After every exit read the head's workflow runs with \`${inWorktree}gh run list --commit "$(gh pr view ${pr}${R} --json headRefOid --jq .headRefOid)" --json status,name --limit 100${R}\`: while any run is not completed, watch again, whatever the listing shows. Never re-run anything: the lane decides that from the facts you return. ` +
       `When it exits on a red check, take every check in the fail bucket of \`${inWorktree}gh pr checks ${pr}${R} --json name,state,bucket,link\`, not only the first; judge only after no check is pending. green is true only when at least one check ran on head ` +
-      `and every check on head succeeded; CI that has not finished is green false with an empty failing, never a failing entry; no checks at all, with no run of head open, is one failing entry: where "checks", kind "defect", text "no CI checks ran on the head commit", rule "${CI_MISSING_RULE}", evidence the gh pr checks output after that wait. For each check in the fail bucket: where = its name, kind = "defect", text = what failed, ` +
+      `and every check on head succeeded; CI that has not finished is green false with an empty failing, never a failing entry; no checks at all, with no run of head open, is one failing entry: where "${CHECKS_WHERE}", kind "defect", text "no CI checks ran on the head commit", rule "${CI_MISSING_RULE}", evidence the gh pr checks output after that wait. For each check in the fail bucket: where = its name, kind = "defect", text = what failed, ` +
       `rule = "${CI_CHECK_RULE_PREFIX}<name>". Take run-id and job-id from the check's link (the link ends …/actions/runs/<run-id>/job/<job-id>). ` +
       `Also return each such check once in red: name, its link as printed, runId, jobId (empty strings when the link is not an Actions job link), findings = the entries you made for that check, and failingStep = the name of the first step whose conclusion is failure in \`${inWorktree}gh run view <run-id>${R} --json jobs --jq '.jobs[]|select(.databaseId==<job-id>)|[.steps[]|select(.conclusion=="failure")|.name][0]'\` (null when it prints nothing or you cannot read it); failing is all findings together. ` +
       evidenceRules(inWorktree) +
@@ -208,6 +212,8 @@ async function fixAnswerStop(answered, blocking, foldIn, tipBeforeFix) {
 // The contract lets the lane's fixer resolve a small follow-up in a file the lane already changed, when its fix cannot change behaviour outside the reviewed diff.
 // A follow-up is in place when its raiser set inPlace or the head named it in foldIn; one the fixer declined is never handed to a fixer again.
 // A fold-in counts as folded only once the fix that carries it is accepted; until then it stays open.
+// The criterion the briefs and the schemas state for a follow-up the fixer resolves in place; the contract's section "Reviews" owns it.
+const IN_PLACE_RULE = 'it sits in a file the lane already changed, its fix cannot change behaviour outside the reviewed diff and it takes about ten lines'
 const inPlaceFollowups = () => {
   const namedByHead = new Set((A.foldIn || []).map(findingKey))
   return openFollowups().filter(f => !declined.has(findingKey(f)) && (namedByHead.has(findingKey(f)) || f.inPlace === true))
@@ -286,12 +292,14 @@ const agentAnswer = async (prompt, opts) => (await settledAgent(prompt, opts)).a
 const RECORD_VERSION = 1
 const RECORD_STAGES = ['build', 'fix', 'review', 'test', 'gate', 'land']
 const FINDING_STAGE_NAMES = ['review', 'gate', 'ci', 'test']
-const FINDING_STAGES = [[/^e2e-/, 'test'], [/^ci-/, 'ci'], [/^(review|gate)$/, null], [/^standin$/, 'gate']]
+const FINDING_STAGES = [[/^e2e-/, 'test'], [/^ci-/, 'ci']]
+// The stage each reviewer key counts as: a stand-in counts as the gate stage.
 const VERDICT_STAGES = { review: 'review', gate: 'gate', standin: 'gate' }
+const GATE_KEYS = Object.keys(VERDICT_STAGES).filter(key => VERDICT_STAGES[key] === 'gate')
 const RECORD_COUNT_LIMIT = 999
 const FULL_SHA = /^[0-9a-f]{40}$/
 
-const stageOf = (reviewer) => FINDING_STAGES.map(([pattern, name]) => pattern.test(reviewer) ? name ?? reviewer : null).find(Boolean)
+const stageOf = (reviewer) => FINDING_STAGES.find(([pattern]) => pattern.test(reviewer))?.[1] ?? VERDICT_STAGES[reviewer]
 
 // The findings of one history entry by text and stage, each with the number of findings that share them and how many of those are misses.
 function findingsOfEntry(entry, stage, isMiss) {
@@ -357,7 +365,7 @@ function blockingStages(history, approvedBefore = []) {
 const historyRan = (history, key) => history.some(entry => entry.by === key || entry.by?.startsWith(`${key}-`))
 
 // The stages the history and the fixers show for fix, test and gate, a tester that started counting as the test; a stand-in review is the gate that ran.
-const stagesOfHistory = ({ history, fixRole, testStarted }) => ({ fix: Boolean(fixRole), test: testStarted || historyRan(history, 'e2e'), gate: historyRan(history, 'standin') || historyRan(history, 'gate') })
+const stagesOfHistory = ({ history, fixRole, testStarted }) => ({ fix: Boolean(fixRole), test: testStarted || historyRan(history, 'e2e'), gate: GATE_KEYS.some(key => historyRan(history, key)) })
 
 // The stages this segment started, in the order aco names them; the record's own slots and the --ran stages of aco lane-record add read this one history.
 function stagesRan({ history, fixRole, testStarted, builderRan, reviewStarted }) {
@@ -738,7 +746,7 @@ async function relayStep(A) {
         description: 'fold-ins you found already done: left in the worktree by an earlier fixer whose fix was not accepted, or already satisfied by the lane tip; a blocking finding the tip already meets carries its number',
         items: { type: 'object', required: ['where', 'text', 'evidence'], properties: { finding: { type: 'integer', minimum: 1, description: 'the number of the blocking finding in the list you were given' }, where: { type: 'string' }, text: { type: 'string' }, evidence: { type: 'string', description: 'the test, probe cell or line that already satisfies it' } } },
       },
-      declined: { type: 'array', description: 'fold-ins you leave undone because the fix would change behaviour outside the reviewed diff, take more than about ten lines or sit in a file this lane did not change; each with the reason', items: { type: 'object', required: ['where', 'reason'], properties: { where: { type: 'string' }, reason: { type: 'string' } } } },
+      declined: { type: 'array', description: `fold-ins you leave undone because they do not meet the in-place rule (${IN_PLACE_RULE}); each with the reason`, items: { type: 'object', required: ['where', 'reason'], properties: { where: { type: 'string' }, reason: { type: 'string' } } } },
       outside: { type: 'array', description: 'blocking findings and fold-ins you answered by editing the item body or the pull request body or posting an item comment, with no commit: a blocking finding by its number in the blocking list (finding), a fold-in by its where (foldIn), and the body section or comment URL', items: { type: 'object', required: ['where'], properties: { finding: { type: 'integer', minimum: 1 }, foldIn: { type: 'string' }, where: { type: 'string' } } } },
       regression: {
         type: 'array',
@@ -796,7 +804,7 @@ async function relayStep(A) {
     const foldInBrief = foldIns
       ? `\n\nAlso fold in these follow-ups, only because each sits in a file this lane already changed and cannot change behaviour; one commit for all of them. ` +
       `One that is already done — left in the worktree by an earlier fixer, or already satisfied by the lane tip — you do not redo; list it in resolved with its evidence (the test, probe cell or line that satisfies it). ` +
-      `One that the item body, the pull request body or an item comment answers goes in outside with foldIn set to its where; commit nothing for it. One whose fix would change behaviour outside the reviewed diff, take more than about ten lines or sit in a file this lane did not change you leave undone and list in declined with the reason. When that leaves you nothing to change, change nothing:\n${foldIns}`
+      `One that the item body, the pull request body or an item comment answers goes in outside with foldIn set to its where; commit nothing for it. One that does not meet the in-place rule (${IN_PLACE_RULE}) you leave undone and list in declined with the reason. When that leaves you nothing to change, change nothing:\n${foldIns}`
       : ''
     const mergeBrief = mergeInstruction(blocking, isCiRound(round))
     const answersBrief = A.answers ? `The head's answers on findings it settled, to read before you answer one of them:\n${A.answers}\n` : ''
@@ -910,7 +918,7 @@ async function relayStep(A) {
     if (findingNumbers) return { ...rejection, lastBlocking: findingNumbers.map(number => blocking[number - 1]) }
     // Settled fold-ins leave the lane at the held tip; a round without blocking findings asks for no merge of main, so a merge there is unasked work.
     if (fixed.unchanged) return everyFoldInSettled(fixed, blocking, foldIn) || answeredOutside(fixed, blocking, foldIn) || everyBlockingResolved(fixed, blocking) || checkpointMet(fixed, blocking) ? null : { reason: 'the fixer changed nothing', lastBlocking: blocking }
-    const mergeWasTheFinding = blocking.length === 1 && blocking[0].where === 'mergeable'
+    const mergeWasTheFinding = blocking.length === 1 && blocking[0].where === MERGEABLE_WHERE
     if (fixed.mergeOnly && !mergeWasTheFinding) return { reason: 'the fixer only merged main and fixed nothing', lastBlocking: blocking }
     return null
   }
@@ -1018,7 +1026,7 @@ async function relayStep(A) {
     const sharedRerun = Boolean(A.rerun) && watched.green && open.length > 0 && open.every(c => c.bucket === 'fail' && shared?.includes(c.name))
     // Unfinished CI is no finding: a watcher entry the listing does not back (nothing failed, something still runs) waits unless it is the merge conflict.
     const stillRunning = open.some(c => c.bucket === 'pending') || (headruns.open || []).length > 0
-    const unbackedFinding = stillRunning && !open.some(c => c.bucket === 'fail') && !watched.failing?.some(f => f.where === 'mergeable')
+    const unbackedFinding = stillRunning && !open.some(c => c.bucket === 'fail') && !watched.failing?.some(f => f.where === MERGEABLE_WHERE)
     const watcherDecides = !sharedRerun && (watched.green || (watched.failing?.length && !unbackedFinding))
     const failing = watcherDecides ? watched.failing : failedCheckFindings(open)
     const ownRed = ownFailing({ shared, red: watched.red, failing, files })
@@ -1114,7 +1122,7 @@ function pendingReason(waiting) {
 const ROUND = { review: 'review', head: 'head', ci: 'ci', mixed: 'mixed' }
 const isCiRound = (round) => round === ROUND.ci || round === ROUND.mixed
 // The rules the CI reader writes itself and the watcher's "CI check <name>"; a carried batch holding one is a CI round.
-const isCiFinding = (f) => (f.rule || '').startsWith(CI_CHECK_RULE_PREFIX) || [CI_MISSING_RULE, CI_CONFLICT_RULE].includes(f.rule)
+const isCiFinding = (f) => isCiCheckFinding(f) || [CI_MISSING_RULE, CI_CONFLICT_RULE].includes(f.rule)
 
 const RESOLVE_CONFLICTS = `resolve conflicts so both sides' behaviour holds, and set mergeResolvedLaneConflict true when files this lane changed needed resolution`
 // How a fixer resolves the merge, for every branch that merges main: a merge commit stays a pure merge, and sides that cannot both hold go back to the head.
@@ -1412,7 +1420,7 @@ async function laneReview(A) {
     return {
       history: { after: A.after, by: reviewer.key, tip: A.tip, verdict, blocking: blocking.map(f => f.where), reportPath },
       gateRounds: reviewer.isGate && !result.limit ? [{ after: A.after, verdict, blocking, reportPath, tip: A.tip }] : [],
-      followups: (result.followups || []).map(f => ({ ...f, stage: reviewer.key === 'review' ? 'review' : 'gate', tip: A.tip })),
+      followups: (result.followups || []).map(f => ({ ...f, stage: VERDICT_STAGES[reviewer.key], tip: A.tip })),
     }
   }
 
@@ -1627,7 +1635,7 @@ const startedStages = { build: false, review: false, test: false }  // the stage
 let segmentNumber = 1
 let segmentBegun = false  // the open segment has begun on the claim and is not added yet
 let segmentStartTip = null  // the tip the open segment begins at: the previous segment's end tip, none for the first segment of a build
-let segmentFrom = { history: 0, fixRoles: 0, fixRounds: { review: 0, gate: 0, ci: 0, test: 0 } }  // what the run held when the open segment started
+let segmentFrom = { history: 0, fixRoles: 0, fixRounds: zeroCounts() }  // what the run held when the open segment started
 let addAttempted = false  // aco lane-record add runs once per segment
 let recordsWritten = 0
 
@@ -1690,7 +1698,7 @@ async function storeProvenPoint() {
 // A merge conflict the sync could not resolve by its own rules (ledgers, generated files) becomes a finding for a fresh fixer, the way CI's conflict finding does.
 const SYNC_CONFLICT_RULE = 'the lane contains origin/main before its review'
 const TREE_LINE = /^[0-9a-f]{40}$/
-const isSyncConflictFinding = (f) => f.where === 'mergeable' && f.rule === SYNC_CONFLICT_RULE
+const isSyncConflictFinding = (f) => f.where === MERGEABLE_WHERE && f.rule === SYNC_CONFLICT_RULE
 const conflictedPathsOf = (blocking) => blocking.filter(isSyncConflictFinding).flatMap(f => f.paths ?? [])
 
 // The conflict of the sync's merge-tree read, or null when the sync keeps its escalation: no conflict read (an error, a clean merge, a first line that is no tree),
@@ -1702,7 +1710,7 @@ function syncConflictOf(values, covered) {
   return !cut && read.paths.every(path => covered.includes(path)) ? null : { paths: read.paths, cut }
 }
 
-const syncConflictFinding = ({ paths, cut }) => ({ where: 'mergeable', kind: 'defect', text: `the lane conflicts with origin/main in ${paths.join(', ')}${cut ? ' and more' : ''}`, rule: SYNC_CONFLICT_RULE, evidence: paths.join(', '), paths })
+const syncConflictFinding = ({ paths, cut }) => ({ where: MERGEABLE_WHERE, kind: 'defect', text: `the lane conflicts with origin/main in ${paths.join(', ')}${cut ? ' and more' : ''}`, rule: SYNC_CONFLICT_RULE, evidence: paths.join(', '), paths })
 
 // The sentences that make a reviewer read a merge fix as the merge it is: each conflicted path against both sides, and every other path the merge commits change.
 function mergeReading({ conflicted, merged, mergedCut, generatedPaths }) {
@@ -1931,7 +1939,7 @@ const FOLLOWUP = {
   properties: {
     where: { type: 'string' }, text: { type: 'string' }, owner: { type: 'string', description: 'owning item #n, or "distributor"' },
     stage: { type: 'string', enum: FINDING_STAGE_NAMES, description: 'the stage that raised it; the lane sets it on every follow-up it reports' },
-    inPlace: { type: 'boolean', description: 'true when it sits in a file the lane already changed, its fix cannot change behaviour outside the reviewed diff and it takes about ten lines: the lane\'s fixer resolves it in place; the head\'s foldIn leaves it out, since naming a follow-up there counts as in place' },
+    inPlace: { type: 'boolean', description: `true when ${IN_PLACE_RULE}: the lane's fixer resolves it in place; the head's foldIn leaves it out, since naming a follow-up there counts as in place` },
   },
 }
 // A reviewer or tester must classify every follow-up it reports; the head's foldIn input check reads FOLLOWUP, which leaves inPlace out of its string fields.
@@ -1988,7 +1996,7 @@ const driveFacts = `Any drive you run keeps its pidfiles and evidence under ${A.
 
 const BLOCKING_LINE =
   `Mark every finding **blocking** or **follow-up** as the contract's section "Reviews" defines them, the tripwire exception included. ` +
-  `Reproduce a behaviour on origin/main before calling it pre-existing; each follow-up names its owning item (#n) or "distributor" and sets inPlace true only when it sits in a file the lane already changed, its fix cannot change behaviour outside the reviewed diff and it takes about ten lines. ` +
+  `Reproduce a behaviour on origin/main before calling it pre-existing; each follow-up names its owning item (#n) or "distributor" and sets inPlace true only when ${IN_PLACE_RULE}. ` +
   `Every blocking finding names the rule it breaks and the evidence you observed; a finding you cannot back with evidence is not blocking. ` +
   `Every blocking finding names its kind: **defect** when the code breaks a rule or ` +
   `does not do what the contract, its docs or its own text promise — a mismatch between promise and code is defect unless the contract says the code is right, ` +
@@ -2019,7 +2027,7 @@ const spent = { review: 0, test: 0, ci: 0, total: 0 }
 const fixRolesRun = []  // the role of each fixer that ran, in order
 let syncedTip = null  // the head the sync read: the start tip of a pr/tip run's begin
 let runId = null  // minted by the branch relay step: the id this run has on the claim in aco lane-record begin and add
-const fixRoundsByStage = { review: 0, gate: 0, ci: 0, test: 0 }  // the stage whose findings each fix round answered
+const fixRoundsByStage = zeroCounts()  // the stage whose findings each fix round answered
 const seen = new Map()  // finding key -> how often it came back after a fix
 let productionSinceTest = false  // any fix since the last end-to-end test touched production
 let productionSinceGate = false  // any fix since the last unlimited gate result touched production
@@ -2150,7 +2158,7 @@ if (A.build) {
     const conflict = syncConflictOf(values, [...LEDGERS, ...GENERATED.map(([path]) => path)])
     if (!conflict) return await openResult('escalated', 'sync', { reason: synced.note || `the lane tip ${values.head.out} does not contain origin/main, and the sync named no cause` })
     syncRaisedConflict = true
-    carriedOver = [syncConflictFinding(conflict), ...carriedOver.filter(f => f.where !== 'mergeable')]
+    carriedOver = [syncConflictFinding(conflict), ...carriedOver.filter(f => f.where !== MERGEABLE_WHERE)]
     carriesBatch = true
     history.push({ after: 0, by: 'sync', conflict: conflict.paths, tip: values.head.out })
   }
@@ -2201,9 +2209,9 @@ async function reviewRound(which, range, from, sampledLook) {
 // A conflict with main or a missing CI run is a new event each time, never the same finding; a CI failure is the same
 // only when its evidence (the failing log tail) repeats, because a courier's text for two different failures can match.
 // Log tails often carry timestamps, so this rarely fires for CI; the ci budget is the real stop there.
-const progressKey = (f) => (f.rule || '').startsWith('CI check') ? `${f.where}::${f.evidence}` : findingKey(f)
+const progressKey = (f) => isCiCheckFinding(f) ? `${f.where}::${f.evidence}` : findingKey(f)
 function noProgress(blocking) {
-  const counted = blocking.filter(f => f.where !== 'mergeable' && f.where !== 'checks')
+  const counted = blocking.filter(f => f.where !== MERGEABLE_WHERE && f.where !== CHECKS_WHERE)
   const repeated = counted.filter(f => (seen.get(progressKey(f)) || 0) >= 1)
   counted.forEach(f => seen.set(progressKey(f), (seen.get(progressKey(f)) || 0) + 1))
   return repeated
@@ -2422,7 +2430,7 @@ async function reviseAfter(rr) {
     const stored = await storeProvenPoint()
     if (stored) return stored
   }
-  const f = await fixRound(blocking, 'the review', ROUND.review, 'review', false, raised.some(r => r === GATE || r === STANDIN) ? 'gate' : 'review')
+  const f = await fixRound(blocking, 'the review', ROUND.review, 'review', false, raised.some(r => VERDICT_STAGES[r.key] === 'gate') ? 'gate' : 'review')
   if (f.stop) return f.stop
   if (!f.range) return openResult('failed', 'review', { reason: 'a review finding was answered by a merge alone', lastBlocking: blocking })
   const next = f.gateAgain && !raised.includes(GATE) ? raised.concat([GATE]) : raised

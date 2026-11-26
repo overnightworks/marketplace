@@ -151,9 +151,8 @@ The lane needs a repository that coordinates with aco, after the head ran
   that raised it; every follow-up the lane reports carries it. A round that fixes
   only fold-ins counts as a fix round under the first of their stages in that
   order, and under the stage it would count under without one when none names a stage.
-  The fixer may answer `declined: [{ where, reason }]` for a fold-in whose fix would
-  change behaviour outside the reviewed diff, take more than about ten lines or sit in
-  a file the lane did not change: it is not folded in, stays in `followups` with its
+  The fixer may answer `declined: [{ where, reason }]` for a fold-in that does not
+  meet `IN_PLACE_RULE`: it is not folded in, stays in `followups` with its
   `declined` reason and is handed to no later fixer, and a fixer that changes nothing
   with every fold-in satisfied or declined is accepted. A round without blocking
   findings asks the fixer for no merge of main; its review range
@@ -322,8 +321,7 @@ A head that finds a run stopped awaiting-head, or lost, reads `aco lane-record s
 `sampledReason`.
 
 Every follow-up a reviewer, the gate or the tester reports carries a required
-boolean `inPlace`: true when it sits in a file the lane already changed, its fix
-cannot change behaviour outside the reviewed diff and it takes about ten lines.
+boolean `inPlace`: true when it meets `IN_PLACE_RULE`.
 `followups` holds each follow-up the lane left open, one the fixer declined with
 its `declined` reason; `folded` holds those a fixer resolved.
 

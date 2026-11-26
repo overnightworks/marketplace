@@ -1,6 +1,8 @@
 // The contract lets the lane's fixer resolve a small follow-up in a file the lane already changed, when its fix cannot change behaviour outside the reviewed diff.
 // A follow-up is in place when its raiser set inPlace or the head named it in foldIn; one the fixer declined is never handed to a fixer again.
 // A fold-in counts as folded only once the fix that carries it is accepted; until then it stays open.
+// The criterion the briefs and the schemas state for a follow-up the fixer resolves in place; the contract's section "Reviews" owns it.
+const IN_PLACE_RULE = 'it sits in a file the lane already changed, its fix cannot change behaviour outside the reviewed diff and it takes about ten lines'
 const inPlaceFollowups = () => {
   const namedByHead = new Set((A.foldIn || []).map(findingKey))
   return openFollowups().filter(f => !declined.has(findingKey(f)) && (namedByHead.has(findingKey(f)) || f.inPlace === true))

@@ -52,7 +52,9 @@ The same command serves a first install and every later update;
 It also links the contract into each provider's user-level instructions (see
 [Architecture](docs/ARCHITECTURE.md)) and `scripts/probe_run.sh` as `probe-run`, which starts a
 probe stack once the machine's load allows (`probe-run --wait-only` waits for that room alone), into `~/.local/bin`, which must be on your `PATH`
-(the script warns when it is not).
+(the script warns when it is not). `probe-run` runs the stack in a network namespace of its own, so the
+bridge and veth changes other sessions' containers cause never reach a browser proof; that needs
+`pasta` from the `passt` package (`sudo apt install passt`), and `probe-run` fails without it.
 
 The install also validates `settings/claude-managed.json` and copies it to
 `~/.local/share/marketplace/claude-managed.json`; a file that is not valid

@@ -212,7 +212,7 @@ Documentation is proven by review.
   threshold's sample outlasts the change it judges, so measurement may warn or
   take back, and the operator's reaction judges. Pointer:
   overnightworks/atelier-2#106. Reopen if a trial (a rule change landed on
-  probation, `instructions/HEAD.md`, Rule changes) reaches the sample size set
+  probation, `instructions/HEAD.md`, Rule changes) reaches the measure it named
   before it began within a few weeks.
 
 ## 8. Risks and Technical Debt

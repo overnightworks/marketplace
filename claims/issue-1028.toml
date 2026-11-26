@@ -1,0 +1,8 @@
+claim_id = "bc717f95919f4057b912d0055fcd6f41"
+agent = "Claude c1d65467-2dcf-4ef5-921f-526bf349a609"
+role = "builder"
+base = "e070b6ce6d0f8ef149ece6a76f86e9b47477813c"
+branch = "claude/issue-1028-refused-gate-runs-stand-in"
+scope = ["plugins/atelier/lane", "plugins/atelier/workflows/lane.js", "plugins/atelier/workflows/lane.md", "tests"]
+opened_commit = "e3fcb182e659d9701c7b44274d7c29b83e8ccc05"
+whole_reason = "The refusal is read in the Codex courier, the stand-in runs in the lane's gate path, both are proven in the lane tests and described in lane.md."

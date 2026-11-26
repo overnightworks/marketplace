@@ -100,9 +100,15 @@ send_term_once() {
   [[ -n $child && -z $term_sent ]] || return 0
   term_sent=1
   local target=$child
-  # pasta would end at once on TERM, so the TERM goes to what runs inside the namespace.
-  [[ -z $relay_through_pasta ]] || target=$(pgrep -P "$child" || true)
-  kill -TERM "${target:-$child}" 2>/dev/null || true
+  # pasta would end at once on TERM, so the TERM waits for what runs inside the namespace and goes
+  # to it; a pasta that ended has nothing left to wait for.
+  if [[ -n $relay_through_pasta ]]; then
+    until target=$(pgrep -P "$child"); do
+      kill -0 "$child" 2>/dev/null || return 0
+      sleep 0.01
+    done
+  fi
+  kill -TERM "$target" 2>/dev/null || true
 }
 stop_stack() {
   [[ -z ${1:-} ]] || requested_status=$1
@@ -178,6 +184,8 @@ if [[ -z $wait_only ]]; then
     fail "CAP + K must be at most $MAXIMUM_TOTAL_SECONDS, got $((cap + kill_after))"
   command -v pasta >/dev/null ||
     fail "pasta is missing (package passt), which gives the command its own network; no probe stack was started" "$EXIT_NO_NAMESPACE_TOOL"
+  command -v pgrep >/dev/null ||
+    fail "pgrep is missing (package procps), which finds the command inside its network; no probe stack was started" "$EXIT_NO_NAMESPACE_TOOL"
 fi
 
 loadavg_file=${PROBE_RUN_LOADAVG_FILE:-/proc/loadavg}

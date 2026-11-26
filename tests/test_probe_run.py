@@ -529,6 +529,35 @@ def test_tears_the_stack_down_on_an_interrupt_or_hangup_and_reports_it(
     assert stack.torn_down.exists()
 
 
+HIDES_CHILDREN_UNTIL_VISIBLE = """#!/bin/sh
+[ -e {visible} ] || exit 1
+exec /usr/bin/pgrep "$@"
+"""
+
+
+def test_a_term_before_pasta_has_a_visible_child_still_reaches_the_command(real_machine, tmp_path):
+    """The TERM must not end pasta, which would leave the command running until the cap."""
+    stack = Stack(tmp_path, TEARS_DOWN_ON_EXIT_AND_TERM)
+    visible = tmp_path / "children-visible"
+    bin_directory = tmp_path / "bin"
+    bin_directory.mkdir()
+    install_fake(bin_directory, "pgrep", HIDES_CHILDREN_UNTIL_VISIBLE.format(visible=visible))
+    probe = start_stack_under_probe_run({**real_machine, "PATH": f"{bin_directory}:{real_machine['PATH']}"}, stack)
+
+    try:
+        probe.send_signal(signal.SIGTERM)
+        time.sleep(0.5)
+        visible.touch()
+        probe.communicate(timeout=10)
+        wait_for(lambda: not live_session_members(probe.pid), DEATH_SIGNAL_WINDOW)
+        left_running = live_session_members(probe.pid)
+    finally:
+        end_probe_run(probe)
+
+    assert left_running == []
+    assert stack.torn_down.exists()
+
+
 def test_sends_one_term_however_many_stop_signals_arrive(real_machine, tmp_path):
     """A timeout forwards every TERM it gets, so the one it is sent must stay one."""
     stack = Stack(tmp_path, COUNTS_TERM_FOR_TWO_SECONDS)

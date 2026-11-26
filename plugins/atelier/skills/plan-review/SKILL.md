@@ -17,7 +17,9 @@ decomposing into verified phases.
 2. Read the guidance that constrains the plan: the global contract's code policy
    (`~/.claude/CLAUDE.md`, or `~/.codex/AGENTS.md` for Codex), and the
    repository's `AGENTS.md` and `CLAUDE.md` for its facts.
-   Skip a file that does not exist and say so.
+   Skip a file that does not exist and say so. Before judging a direction, read
+   the owning repository's "Not chosen" entries and cite any that rule the
+   direction out.
 3. Check the plan against the checklist below.
 4. Return a verdict; do not edit unless explicitly asked.
 

@@ -234,17 +234,16 @@ it from its branch and claims after adoption.
 Before anchoring a new or changed standing rule (in either contract file, a
 doctrine document or the coordination process), write the problem, the
 proposed rule and its cost as a proposal, and have a fresh independent agent
-counter-check whether it solves the problem in the best way (bound 3 of
-`OPERATORS.md`); rebuild what does not survive. A change that can be rolled back
+on another provider counter-check whether it solves the problem in the best
+way; rebuild what does not survive. A change that can be rolled back
 then lands at once as a trial: an open item naming what it changed, how it is
 measured and how it is rolled back, which is its entry in the list of decisions
 made for him. It is measured with what exists (what he keeps or answers with
 "anders" or "weg", the kept and rolled-back shares, CI, the lane records), which
 its proposer does not judge alone, and is rolled back when it measures worse or
 on his "weg", said on the item or in chat to any head, who records it there. A
-change that cannot be rolled back, or that loosens, removes or reinterprets a
-bound, waits for his yes, a bound's on a card; bounds 4 and 5 keep their own
-guard, which no trial replaces. A rule the operator has just spoken is already
+change that cannot be rolled back waits for his yes; bounds 4 and 5 keep their
+own guard, which no trial replaces. A rule the operator has just spoken is already
 ruled and needs no counter-check. Lane work keeps its own reviews.
 
 ## Lanes

@@ -690,7 +690,7 @@ async function relayStep(A) {
     'values.update(**(dict(head=view["headRefOid"],changed_index=[i for i,p in enumerate(received) if p in {f["filename"] for page in parsed("changed") or [] for f in page}],shared=[c["name"] for c in listing or [] if c["bucket"]=="fail" and c["name"] in failed_on_base]) if view else {}))',
     'values.update(**({"lane":{**values["lane"],**laneview(ran["lane"].stdout,rest[1])}} if "lane" in ran and ran["lane"].returncode==0 else {}))',
     String.raw`values.update(**({"log":{**values["log"],"pull_only":any(re.search(r"^! red .*[0-9]+ (undeclared loosenings?|declarations? unmatched)\b",re.sub(r"^[^\t]*\t[^\t]*\t\S+ ","",re.sub(r"\x1b\[[0-9;]*m","",l))) for l in ran["log"].stdout.splitlines()),"loosenings":any("only declared loosenings \u00b7 only the operator merges it" in l for l in ran["log"].stdout.splitlines()),"merge":next((m[1] for l in ran["log"].stderr.splitlines()+ran["log"].stdout.splitlines() if "next:" in l and (m:=re.search("(quality merge [A-Za-z0-9._-]+/[A-Za-z0-9._-]+#[0-9]+)",l))),"")}} if "log" in ran else {}))`,
-    'values.update(nonce=nonce,**({"unreachable":sorted(n for n,p in ran.items() if getattr(p,"down",0))} if any(getattr(p,"down",0) for p in ran.values()) else {}),**({"limited":sorted(n for n,p in ran.items() if getattr(p,"down",0) and limit.search(p.stderr))} if any(getattr(p,"down",0) and limit.search(p.stderr) for p in ran.values()) else {}),**(dict(outside_claim=claim[:path_limit] if isinstance(claim,list) else claim,count=len(claim) if isinstance(claim,list) else None) if "brief" in ran else {}))',
+    'values.update(nonce=nonce,**({"unreachable":sorted(n for n,p in ran.items() if getattr(p,"down",0))} if any(getattr(p,"down",0) for p in ran.values()) else {}),**({"limited":sorted(n for n,p in ran.items() if getattr(p,"down",0) and limit.search(p.stderr))} if any(getattr(p,"down",0) and limit.search(p.stderr) for p in ran.values()) else {}),**(dict(outside_claim=claim[:path_limit] if isinstance(claim,list) else claim,count=len(claim) if isinstance(claim,list) else None,surfaces=len(s) if isinstance(s:=(brief or {}).get("touched_surfaces"),list) else None) if "brief" in ran else {}))',
     'values={n:v for n,v in values.items() if v!={"code":0} and not(n in("shared","changed_index") and v==[])}',
     'values.update(**(dict(paths=dict(count=len(received or diffed),hash="%08x"%zlib.crc32(json.dumps(received or diffed,ensure_ascii=True,separators=(",",":")).encode()))) if step in("ci","fix") and (received or diffed) else {}))',
     // The item body quotes the word when it stands between quotation marks, whitespace runs folded to one space on both sides; only the outcome and the word's count and CRC32 leave the printer, never the body.
@@ -1694,6 +1694,39 @@ async function storeProvenPoint() {
   return pendingTest ? await beginRun() : null
 }
 
+// Design advice for a lane that changes a surface: nothing here blocks a landing. The count is what the scope check relays from `aco brief --json`
+// (the length of touched_surfaces); it is undefined before the first check and null when the key is absent or malformed, which means unknown.
+const DESIGN_SKILL = 'atelier:design-interface'
+let surfaces
+const noteSurfaces = (relayed) => { surfaces = Number.isInteger(relayed) ? relayed : null }
+const surfaced = () => surfaces > 0
+
+// The sentence the builder and the fixers are briefed with, leading space included, or nothing.
+function surfaceFacts() {
+  if (surfaces === undefined) return ` After each commit, until \`aco brief ${A.item} --json\` lists a path under touched_surfaces, check it; once it does, load the ${DESIGN_SKILL} skill before changing what a person sees there.`
+  return surfaced() ? ` This lane changes a surface: load the ${DESIGN_SKILL} skill before changing what a person sees there.` : ''
+}
+
+// The tester's paragraph, opening with a line break, while the lane changes a surface.
+const surfaceTesterFacts = () => !surfaced() ? '' : `\nThis lane changes a surface. Only after every cell is judged, capture each changed view in a real browser at the two widths the ${DESIGN_SKILL} skill names (the repository's own UI rules may name others) and judge it against that skill. ` +
+  `Bound each capture on its own; a capture never decides a cell or the run's exit. Run it inside your probe-run drive, or in a probe-run of its own when no live drive runs, on an instance you start from ${A.worktree}, never the operator's live stack. ` +
+  `Report it in design: capture is captured, test-only (every touched surface path is a test or fixture file) or gap (with a note); each observation is advice for a person, never a blocking finding.`
+
+const DESIGN_RESULT = {
+  type: 'object', required: ['capture'], description: 'only when the lane changes a surface',
+  properties: {
+    capture: { type: 'string', enum: ['captured', 'test-only', 'gap'] }, note: { type: 'string', description: 'why a capture is a gap' },
+    observations: { type: 'array', items: { type: 'object', required: ['where', 'text'], properties: { where: { type: 'string', description: 'the view and width' }, text: { type: 'string' } } } },
+  },
+}
+
+// The tester's history entry and follow-ups for its design report; a surface lane that reports none is recorded as not reported, and no observation is ever in place or blocking.
+function designRecord(answer, onSurface, tip) {
+  if (!onSurface) return { entry: {}, followups: [] }
+  const { capture = 'not reported', note, observations = [] } = answer.design || {}
+  return { entry: { design: { capture, ...(note && { note }) } }, followups: observations.map(o => ({ where: o.where, text: o.text, owner: 'distributor', inPlace: false, stage: 'test', tip })) }
+}
+
 // A merge conflict the sync could not resolve by its own rules (ledgers, generated files) becomes a finding for a fresh fixer, the way CI's conflict finding does.
 const SYNC_CONFLICT_RULE = 'the lane contains origin/main before its review'
 const isSyncConflictFinding = (f) => f.where === MERGEABLE_WHERE && f.rule === SYNC_CONFLICT_RULE
@@ -1738,6 +1771,7 @@ async function laneTest(A) {
         items: { type: 'object', required: ['cell', 'result', 'command', 'exit'], properties: { cell: { type: 'string', description: 'what was driven' }, result: { type: 'string', enum: ['held', 'failed', 'not driven'] }, command: { type: 'string', description: 'the command or action' }, exit: { type: 'string', description: 'its exit code or observed outcome' } } },
       },
       evidencePath: { type: 'string' },
+      design: DESIGN_RESULT,
       lockBusy: { type: 'boolean', description: 'true when probe-run exited 75 without starting the stack because the load stayed above the limit, and the live part could not run' },
     },
   }
@@ -1747,7 +1781,7 @@ async function laneTest(A) {
       `Judge whether the repair holds and opened nothing new, and still drive the real flow in full. Mark a new finding against the lane's whole diff, \`git diff origin/main...HEAD\`, not the fix range.\n\n`
     const prompt =
       `${A.laneFacts}\nYou test PR #${pr} at its lane tip ${tip} through the real entry point, like a curious user, before it lands. ` +
-      `Run the lane's code, not the installed tool (from ${A.worktree}). What to drive:\n${A.e2e}\n\nContract:\n${A.contract}\n\n${fixRange || ''}${A.blockingLine}\n` +
+      `Run the lane's code, not the installed tool (from ${A.worktree}). What to drive:\n${A.e2e}\n\nContract:\n${A.contract}\n\n${fixRange || ''}${A.blockingLine}${A.surfaceFacts}\n` +
       `For every blocking finding give a scenario name in where, unique within your report, the command that shows it in repro, and — when it can be automated stably — a failing test draft ` +
       `under your scratch path in testDraft (a live or UI case stays a manual proof; leave testDraft empty then). ` +
       `First create your own directory with \`mktemp -d ${A.scratch}/${A.tag}-e2e-${A.n}-XXXXXX\` and write only there, besides the environment the repository's own sync command creates in ${A.worktree}. For any server, browser or E2E run load the atelier:explorative-testing skill and follow its Probe stack section; use a free port above 8790 and keep your pid files in your directory. ` +
@@ -1766,11 +1800,12 @@ async function laneTest(A) {
   function recordedAnswer(answer) {
     if (!answer) return answer
     const blocking = answer.blocking || []
+    const design = designRecord(answer, A.surfaced, tip)
     return {
       ...answer,
       emptyVerdictReason: emptyVerdictReason(answer),
-      historyEntry: { by: `e2e-${A.n}`, verdict: blocking.length ? 'FAIL' : 'PASS', blocking: blocking.map(f => f.where), cells: answer.cells || [], reportPath: answer.evidencePath || '' },
-      followups: (answer.followups || []).map(f => ({ ...f, stage: 'test', tip })),
+      historyEntry: { by: `e2e-${A.n}`, verdict: blocking.length ? 'FAIL' : 'PASS', blocking: blocking.map(f => f.where), cells: answer.cells || [], reportPath: answer.evidencePath || '', ...design.entry },
+      followups: [...(answer.followups || []).map(f => ({ ...f, stage: 'test', tip })), ...design.followups],
     }
   }
 
@@ -2139,7 +2174,7 @@ if (A.build) {
   if (beginStop) return beginStop
   phase('Build')
   startedStages.build = true
-  const built = await runPart('lane-build', laneBuild, { delegatedLine: DELEGATED_LINE, laneFacts, driveFacts, rescopeFacts, localCheckFacts: `${localCheckFacts} ${turnFacts('build')}`, build: A.build, routing: claudeRole('build') })
+  const built = await runPart('lane-build', laneBuild, { delegatedLine: DELEGATED_LINE, laneFacts, driveFacts, rescopeFacts, localCheckFacts: `${localCheckFacts} ${turnFacts('build')}${surfaceFacts()}`, build: A.build, routing: claudeRole('build') })
   if (built?.problem && !claudeLimit) return await openResult('failed', 'build', { reason: `the builder step ${built.problem}` })
   if (!built || built.problem) return await checkpointOrFail('build', 'origin/main', { reason: `the builder returned no result; inspect ${A.worktree} for uncommitted work, checkpoint it, and hand it to a fresh finisher` })
   if (built.blocked) return await openResult('escalated', 'build', { reason: built.blockedReason })
@@ -2297,7 +2332,7 @@ async function fixRound(blocking, source, round, budgetKey, carried, stage = bud
   const nonce = `fix-${spent.total}-${tipBeforeFix}`
   const answeredPaths = [...new Set(blocking.map(f => findingPath(f.where)).filter(Boolean))]
   const answered = await relay({ label: `fix-${spent.total}`, phase: 'Fix', step: 'fix', relayArgs: [`'${tipBeforeFix}'`, `'${pathsArgument(answeredPaths)}'`, `'${nonce}'`], sentPaths: answeredPaths, nonce, requiredKeys: ['head', 'parents', 'main'], answerKind: 'fix', agentOptions: { agentType: 'atelier:code-fixer', ...claudeRole(role) },
-    facts: `${laneFacts} ${driveFacts} ${rescopeFacts} ${localCheckFacts} ${turnFacts('fix')}`, pr, tip, source, round, branch: A.branch, blocking: listFindings(blocking), findings: blocking.map(f => ({ ...f, kind: kindOf(f) })), foldIns: listFoldIns(foldIn), foldInEntries: foldIn, productionPaths: PRODUCTION, flakeRerunUsed, carried: Boolean(carried), answers: A.answers })
+    facts: `${laneFacts} ${driveFacts} ${rescopeFacts} ${localCheckFacts} ${turnFacts('fix')}${surfaceFacts()}`, pr, tip, source, round, branch: A.branch, blocking: listFindings(blocking), findings: blocking.map(f => ({ ...f, kind: kindOf(f) })), foldIns: listFoldIns(foldIn), foldInEntries: foldIn, productionPaths: PRODUCTION, flakeRerunUsed, carried: Boolean(carried), answers: A.answers })
   if (!answered || (claudeLimit && answered.problem)) return { stop: await checkpointOrFail('fix', tipBeforeFix, { reason: `the fixer returned no result; inspect ${A.worktree} for commits past ${tip} and uncommitted work, then start a new run with pr and tip (and fixFirst for what is left)`, lastBlocking: blocking }, { blocking, carried, tipBeforeFix, foldIn }) }
   const early = await fixAnswerStop(answered, blocking, foldIn, tipBeforeFix)
   if (early) return early
@@ -2348,6 +2383,7 @@ async function pushAndCheckScope(label, origin) {
   // A builder may report a short sha; the verdicts and the record keep full ones, so the tip becomes git's full form once, here.
   tip = adoptedMerge ? head.out : remote.out
   if (brief.code !== 0) return fail('scope', `aco brief ${A.item} --json exited ${brief.code}: ${brief.err}`)
+  noteSurfaces(values.surfaces)
   const paths = values.outside_claim
   if (paths === null) return fail('scope', 'the lane holds no live claim (outside_claim is null); a lane without a claim does not reach review')
   if (!Array.isArray(paths) || !paths.every(path => typeof path === 'string')) return fail('scope', `aco's outside_claim is neither null nor a list of paths: ${JSON.stringify(paths)}`)
@@ -2481,7 +2517,7 @@ if (lookStop) return lookStop
 
 // ---------------------------- end-to-end test and CI side by side
 // laneTest returns the tester's answer, null when both agents ended without a result, or a problem the lane stops on.
-const explore = (n, fixRange) => runPart('lane-test', laneTest, { fixRange, delegatedLine: DELEGATED_LINE, n, pr, tip, worktree: A.worktree, scratch: A.scratch, tag: TAG, e2e: A.e2e, contract: A.contract, laneFacts, blockingLine: BLOCKING_LINE, finding: FINDING, followup: REPORTED_FOLLOWUP, routing: claudeRole('test') })
+const explore = (n, fixRange) => runPart('lane-test', laneTest, { fixRange, delegatedLine: DELEGATED_LINE, n, pr, tip, worktree: A.worktree, scratch: A.scratch, tag: TAG, e2e: A.e2e, contract: A.contract, laneFacts, surfaceFacts: surfaceTesterFacts(), surfaced: surfaced(), blockingLine: BLOCKING_LINE, finding: FINDING, followup: REPORTED_FOLLOWUP, routing: claudeRole('test') })
 // The paths the watcher's findings name; the printer keeps those among the pull request's changed files.
 const findingPaths = (failing = []) => [...new Set(failing.map(finding => findingPath(finding.where)).filter(Boolean))]
 // Review and tester both passed on the tip, so a CI read that stays refused leaves only the check runs for the head to read.

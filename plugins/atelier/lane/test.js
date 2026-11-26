@@ -17,6 +17,7 @@ export async function laneTest(A) {
         items: { type: 'object', required: ['cell', 'result', 'command', 'exit'], properties: { cell: { type: 'string', description: 'what was driven' }, result: { type: 'string', enum: ['held', 'failed', 'not driven'] }, command: { type: 'string', description: 'the command or action' }, exit: { type: 'string', description: 'its exit code or observed outcome' } } },
       },
       evidencePath: { type: 'string' },
+      design: DESIGN_RESULT,
       lockBusy: { type: 'boolean', description: 'true when probe-run exited 75 without starting the stack because the load stayed above the limit, and the live part could not run' },
     },
   }
@@ -26,7 +27,7 @@ export async function laneTest(A) {
       `Judge whether the repair holds and opened nothing new, and still drive the real flow in full. Mark a new finding against the lane's whole diff, \`git diff origin/main...HEAD\`, not the fix range.\n\n`
     const prompt =
       `${A.laneFacts}\nYou test PR #${pr} at its lane tip ${tip} through the real entry point, like a curious user, before it lands. ` +
-      `Run the lane's code, not the installed tool (from ${A.worktree}). What to drive:\n${A.e2e}\n\nContract:\n${A.contract}\n\n${fixRange || ''}${A.blockingLine}\n` +
+      `Run the lane's code, not the installed tool (from ${A.worktree}). What to drive:\n${A.e2e}\n\nContract:\n${A.contract}\n\n${fixRange || ''}${A.blockingLine}${A.surfaceFacts}\n` +
       `For every blocking finding give a scenario name in where, unique within your report, the command that shows it in repro, and — when it can be automated stably — a failing test draft ` +
       `under your scratch path in testDraft (a live or UI case stays a manual proof; leave testDraft empty then). ` +
       `First create your own directory with \`mktemp -d ${A.scratch}/${A.tag}-e2e-${A.n}-XXXXXX\` and write only there, besides the environment the repository's own sync command creates in ${A.worktree}. For any server, browser or E2E run load the atelier:explorative-testing skill and follow its Probe stack section; use a free port above 8790 and keep your pid files in your directory. ` +
@@ -45,11 +46,12 @@ export async function laneTest(A) {
   function recordedAnswer(answer) {
     if (!answer) return answer
     const blocking = answer.blocking || []
+    const design = designRecord(answer, A.surfaced, tip)
     return {
       ...answer,
       emptyVerdictReason: emptyVerdictReason(answer),
-      historyEntry: { by: `e2e-${A.n}`, verdict: blocking.length ? 'FAIL' : 'PASS', blocking: blocking.map(f => f.where), cells: answer.cells || [], reportPath: answer.evidencePath || '' },
-      followups: (answer.followups || []).map(f => ({ ...f, stage: 'test', tip })),
+      historyEntry: { by: `e2e-${A.n}`, verdict: blocking.length ? 'FAIL' : 'PASS', blocking: blocking.map(f => f.where), cells: answer.cells || [], reportPath: answer.evidencePath || '', ...design.entry },
+      followups: [...(answer.followups || []).map(f => ({ ...f, stage: 'test', tip })), ...design.followups],
     }
   }
 

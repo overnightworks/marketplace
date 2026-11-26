@@ -298,7 +298,7 @@ if (A.build) {
   if (beginStop) return beginStop
   phase('Build')
   startedStages.build = true
-  const built = await runPart('lane-build', laneBuild, { delegatedLine: DELEGATED_LINE, laneFacts, driveFacts, rescopeFacts, localCheckFacts: `${localCheckFacts} ${turnFacts('build')}`, build: A.build, routing: claudeRole('build') })
+  const built = await runPart('lane-build', laneBuild, { delegatedLine: DELEGATED_LINE, laneFacts, driveFacts, rescopeFacts, localCheckFacts: `${localCheckFacts} ${turnFacts('build')}${surfaceFacts()}`, build: A.build, routing: claudeRole('build') })
   if (built?.problem && !claudeLimit) return await openResult('failed', 'build', { reason: `the builder step ${built.problem}` })
   if (!built || built.problem) return await checkpointOrFail('build', 'origin/main', { reason: `the builder returned no result; inspect ${A.worktree} for uncommitted work, checkpoint it, and hand it to a fresh finisher` })
   if (built.blocked) return await openResult('escalated', 'build', { reason: built.blockedReason })
@@ -456,7 +456,7 @@ async function fixRound(blocking, source, round, budgetKey, carried, stage = bud
   const nonce = `fix-${spent.total}-${tipBeforeFix}`
   const answeredPaths = [...new Set(blocking.map(f => findingPath(f.where)).filter(Boolean))]
   const answered = await relay({ label: `fix-${spent.total}`, phase: 'Fix', step: 'fix', relayArgs: [`'${tipBeforeFix}'`, `'${pathsArgument(answeredPaths)}'`, `'${nonce}'`], sentPaths: answeredPaths, nonce, requiredKeys: ['head', 'parents', 'main'], answerKind: 'fix', agentOptions: { agentType: 'atelier:code-fixer', ...claudeRole(role) },
-    facts: `${laneFacts} ${driveFacts} ${rescopeFacts} ${localCheckFacts} ${turnFacts('fix')}`, pr, tip, source, round, branch: A.branch, blocking: listFindings(blocking), findings: blocking.map(f => ({ ...f, kind: kindOf(f) })), foldIns: listFoldIns(foldIn), foldInEntries: foldIn, productionPaths: PRODUCTION, flakeRerunUsed, carried: Boolean(carried), answers: A.answers })
+    facts: `${laneFacts} ${driveFacts} ${rescopeFacts} ${localCheckFacts} ${turnFacts('fix')}${surfaceFacts()}`, pr, tip, source, round, branch: A.branch, blocking: listFindings(blocking), findings: blocking.map(f => ({ ...f, kind: kindOf(f) })), foldIns: listFoldIns(foldIn), foldInEntries: foldIn, productionPaths: PRODUCTION, flakeRerunUsed, carried: Boolean(carried), answers: A.answers })
   if (!answered || (claudeLimit && answered.problem)) return { stop: await checkpointOrFail('fix', tipBeforeFix, { reason: `the fixer returned no result; inspect ${A.worktree} for commits past ${tip} and uncommitted work, then start a new run with pr and tip (and fixFirst for what is left)`, lastBlocking: blocking }, { blocking, carried, tipBeforeFix, foldIn }) }
   const early = await fixAnswerStop(answered, blocking, foldIn, tipBeforeFix)
   if (early) return early
@@ -507,6 +507,7 @@ async function pushAndCheckScope(label, origin) {
   // A builder may report a short sha; the verdicts and the record keep full ones, so the tip becomes git's full form once, here.
   tip = adoptedMerge ? head.out : remote.out
   if (brief.code !== 0) return fail('scope', `aco brief ${A.item} --json exited ${brief.code}: ${brief.err}`)
+  noteSurfaces(values.surfaces)
   const paths = values.outside_claim
   if (paths === null) return fail('scope', 'the lane holds no live claim (outside_claim is null); a lane without a claim does not reach review')
   if (!Array.isArray(paths) || !paths.every(path => typeof path === 'string')) return fail('scope', `aco's outside_claim is neither null nor a list of paths: ${JSON.stringify(paths)}`)
@@ -640,7 +641,7 @@ if (lookStop) return lookStop
 
 // ---------------------------- end-to-end test and CI side by side
 // laneTest returns the tester's answer, null when both agents ended without a result, or a problem the lane stops on.
-const explore = (n, fixRange) => runPart('lane-test', laneTest, { fixRange, delegatedLine: DELEGATED_LINE, n, pr, tip, worktree: A.worktree, scratch: A.scratch, tag: TAG, e2e: A.e2e, contract: A.contract, laneFacts, blockingLine: BLOCKING_LINE, finding: FINDING, followup: REPORTED_FOLLOWUP, routing: claudeRole('test') })
+const explore = (n, fixRange) => runPart('lane-test', laneTest, { fixRange, delegatedLine: DELEGATED_LINE, n, pr, tip, worktree: A.worktree, scratch: A.scratch, tag: TAG, e2e: A.e2e, contract: A.contract, laneFacts, surfaceFacts: surfaceTesterFacts(), surfaced: surfaced(), blockingLine: BLOCKING_LINE, finding: FINDING, followup: REPORTED_FOLLOWUP, routing: claudeRole('test') })
 // The paths the watcher's findings name; the printer keeps those among the pull request's changed files.
 const findingPaths = (failing = []) => [...new Set(failing.map(finding => findingPath(finding.where)).filter(Boolean))]
 // Review and tester both passed on the tip, so a CI read that stays refused leaves only the check runs for the head to read.

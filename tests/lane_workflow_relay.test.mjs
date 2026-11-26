@@ -663,3 +663,19 @@ test('AC-push-by-name: the sync and fixer briefs push the lane branch by name an
   assert.ok(fixed['fix-1'].prompt.includes(`push origin '${branch}'`), 'fixer brief')
   for (const call of Object.values({ ...clean, ...ledger, ...fixed })) assert.doesNotMatch(call.prompt, /git (?:-C '[^']*' )?push(?! origin '[^']+')/)
 })
+
+const designSkill = /atelier:design-interface/
+const surfaceCases = [
+  ['a touched surface path makes the tester load the design skill', { touched_surfaces: ['frontend/src/app.tsx'] }, true],
+  ['an empty touched_surfaces leaves the tester without the design skill', { touched_surfaces: [] }, false],
+  ['an absent touched_surfaces leaves the tester without the design skill', {}, false],
+  ['a non-list touched_surfaces leaves the tester without the design skill', { touched_surfaces: 'frontend/src/app.tsx' }, false],
+]
+for (const [name, briefExtras, told] of surfaceCases) {
+  test(`AC-surface-relay: the real printer relays the surface count, so ${name}`, async (t) => {
+    const lane = laneRepository(t)
+    const { agentCalls, result } = await runLane(laneArgs(lane), { 'scope-resume': agentRunning(lane, [], [], briefExtras), 'r0-review': APPROVE, 'e2e-0': PASS, 'ci-0': greenCi(lane.tip) })
+    assert.ok(agentCalls['e2e-0'], result.reason)
+    assert.equal(designSkill.test(agentCalls['e2e-0'].prompt), told)
+  })
+}

@@ -40,7 +40,7 @@
 #
 # Exit status: 0 with --wait-only once the load has room, 2 bad arguments or an unreadable load, 75 the load stayed at or
 # above the limit for the whole wait (no command was started), 4 the starting process died
-# before the command started, 69 pasta is missing (no command was started), 130 interrupted during
+# before the command started, 69 pasta or pgrep is missing (no command was started), 130 interrupted during
 # the wait (no command was started). After the start the status is the command's, except 130 after a SIGINT and 129 after a SIGHUP to
 # probe-run.
 #

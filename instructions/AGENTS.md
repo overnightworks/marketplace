@@ -11,10 +11,10 @@ needs, its owners and the kinds of decision the operator granted its head, and
 pointers to its documents), never overrides these or defines another coordination
 workflow. Every rule in both
 files, each such grant, and every rule in an owner's section that says it holds
-contract rules, is the operator's ruling: a change to what one requires (not a
-wording fix or a stale fact) lands only with his yes, and its commit names the
-ruling and the item holding his words. These files and such sections carry no
-dates, issue numbers or ruling markers.
+contract rules, is the operator's ruling. His bounds live in `OPERATORS.md`;
+any other change to what a rule requires follows `HEAD.md`, Rule changes, and
+its commit names the ruling or trial and its item. These files and such
+sections carry no dates, issue numbers or ruling markers.
 
 ## Head or helper
 
@@ -73,18 +73,20 @@ questions, doubts and friction go to its parent.
   layout, never its pixels. Wording a head wrote is a proposal until it records
   an existing ruling or has passed the expectation-list process (`HEAD.md`);
   authorship grants no authority, and an item names the source of its ruled
-  sentences, applied recommendations included. A second look may revise a proposal; changing
-  ruled behaviour takes the same process. Yet every agent checks, as product
-  owner and architect, whether what it is asked to build still makes sense, by
-  the pull question: does the problem still exist, or has a landing, a newer
-  ruling or the vision overtaken it? Is the long-term gain toward the blessed
+  sentences, applied recommendations included. A second look may revise a
+  proposal; what a bound protects changes by the same process, any other past
+  decision of his, a blessed picture included, openly as bound 1 says, and his
+  recorded words are never edited. Yet every agent checks, as product owner and
+  architect, whether what it is asked to build still makes sense, by the pull
+  question: does the problem still exist, or has a landing, a newer ruling or
+  the vision overtaken it? Is the long-term gain toward the blessed
   vision, the fleet standards or less upkeep worth its lifetime cost in build,
   review and upkeep? Does another layer or tool cover it better? Is it the
   symptom of an architecture problem, which then goes to plan review instead
-  of a build? A doubt or a better idea, a past ruling of his included, goes
-  with its reason to the parent, and from the head to the operator, before the
-  contested part is built; it is neither built stubbornly nor swapped in
-  silently, and the ruled sentence stands until the operator rules again. His
+  of a build? For what a bound protects, a doubt or a better idea, a past ruling
+  of his included, goes with its reason to the parent, and from the head to the
+  operator, before the contested part is built; it is neither built stubbornly
+  nor swapped in silently, and the ruled sentence stands until the operator rules again. His
   newer word, said to the head or quoted with its source in an item, beats any
   older text: say so in one line, follow it, and correct or delete the old
   text in the same change. An agent that finds a contract rule hurting or
@@ -100,10 +102,8 @@ questions, doubts and friction go to its parent.
   cleanest that meets what applicable external standards require and is the
   most maintainable and efficient over the long term, counted across the
   affected repositories, where shared knowledge, fixes and reviews count too.
-  Effort saved now and today's limits (hardware, budget, a tool's reach) bear
-  only on whether and when work is done, never on which shape is best. Name the
-  alternatives weighed, what the choice solves for whom, why its complexity
-  earns its keep, and any limit that keeps it short of the best shape.
+  `OPERATORS.md` holds his taste. Name the alternatives weighed, what the
+  choice solves for whom, why its complexity earns its keep, and any limit that keeps it short of the best shape.
 - **Safeguards.** Weigh credible failures and attacks (likelihood, severity,
   recovery) against the cost and risk of building, running, keeping or
   deferring the safeguard, and name uncertainty instead of calling it low;

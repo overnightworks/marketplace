@@ -332,3 +332,11 @@ for (const [name, budget, answers, storedRan] of [
     assert.equal(run.laneRecordCalls.at(-1)[1], 'begin')
   })
 }
+
+test('run-record: a review that answers APPROVE with a blocking finding is stored as a revision of its tip when the fixer stops without a commit', async () => {
+  const answers = { 'r0-review': { verdict: 'APPROVE', blocking: [defectWithoutDraft], followups: [] }, 'fix-1': { ...resumeFix, printed: '', blocked: true, blockedReason: 'out of turns' } }
+  const run = await runLane(resumeArgs, answers)
+  assert.equal(run.result.status, 'escalated', run.result.reason)
+  assert.deepEqual(run.writtenRecords.map(written => JSON.parse(written).verdicts), [[{ stage: 'review', verdict: 'revise', sha: resumeTip }]])
+  assert.deepEqual(run.laneRecordCalls.map(call => call[1]), ['begin', 'add'])
+})

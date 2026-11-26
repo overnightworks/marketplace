@@ -37,7 +37,7 @@ function fixProofEntries(answered, blocking, after) {
   return unchanged.length ? [{ after, by: 'fix-proof', unchanged }] : []
 }
 
-const approvesRange = (entry) => entry.by === 'review' && entry.verdict === 'APPROVE' && entry.blocking?.length === 0
+const approvesRange = (entry) => entry.by === 'review' && entry.verdict === 'APPROVE'
 
 // A finding of the gate, CI or the tester is a miss when a review approved the range before it (HEAD.md's Misses rule), in this run or, when the run follows, in an earlier run stored on the claim (approvedBefore holds those shas).
 // A gate finding in the round of the approving review, or on a sha an earlier run approved, is no miss; a CI finding is none either when its check is deterministic and the fixer's proof for it reports no behaviour change. The review stage has no misses.
@@ -186,13 +186,14 @@ function storeProblem(verb, relayed, printedLine) {
   const { code, err } = relayed.values[verb]
   return code === 0 ? null : `aco lane-record ${verb} exited ${code}: ${err}`
 }
-// What the begin step relayed of `aco lane-record show`: whether this run follows and the shas the earlier runs' stored review verdicts approve, or the gap that a failed or unreadable read leaves.
+// What the begin step relayed of `aco lane-record show`: whether this run follows, the shas the earlier runs' stored review verdicts approve, whether an earlier run ran the gate with its last gate verdict and whether a run is lost,
+// or the gap that a failed or unreadable read leaves.
 function storedRunsRead(values) {
-  const { code, err, follows, approved } = values.lane ?? {}
+  const { code, err, follows, approved, gateRan, lastGate, lost } = values.lane ?? {}
   if (code === undefined) return { gap: 'the begin step relayed no read of the stored runs' }
   if (code !== 0) return { gap: `aco lane-record show exited ${code}: ${err}` }
-  if (typeof follows !== 'boolean' || !Array.isArray(approved)) return { gap: 'aco lane-record show printed stored runs the lane cannot read' }
-  return { follows, approved }
+  if (typeof follows !== 'boolean' || !Array.isArray(approved) || typeof gateRan !== 'boolean' || typeof lost !== 'boolean' || ![null, 'approve', 'revise'].includes(lastGate)) return { gap: 'aco lane-record show printed stored runs the lane cannot read' }
+  return { follows, approved, gateRan, lastGate, lost }
 }
 // The outcome of a begin: the problem that ends the run, or what the run read of the stored runs.
 function beganRun(relayed, printedLine) {

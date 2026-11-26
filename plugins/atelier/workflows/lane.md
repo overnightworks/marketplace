@@ -14,7 +14,16 @@ lists `requiredHeadActions`.
    say, so a head's build brief never forbids it; an answer without an open pull
    request ends like a builder without a result (checkpoint, below).
 2. Review: a fresh Claude reviewer (model and effort from `DEFAULT_ROUTING`). A
-   material lane adds a Codex final gate, or a Claude gate through `routing.gate`. A Claude reviewer that fails
+   material lane adds a Codex final gate, or a Claude gate through `routing.gate`. One normal lane in
+   ten, the one whose item number is divisible by ten, gets the gate once, after its review approved
+   a tip and before the tester and CI start: it reads the whole lane (`git diff origin/main...HEAD`,
+   also on a run started with `deltaFrom`) on its own, in the round of that approval, so every blocking
+   finding of the look is one the review let through and counts under `gate` with risk `normal` and no
+   miss. Its findings go to a fix round and the gate re-checks them, as on a material lane; the gate
+   is not repeated after later fixes. The look is a measurement: one that ends without a verdict (the
+   courier's `limited`, `hung`, `brief-mismatch`, `no-brief-record` or `failed`) or whose `routing.gate`
+   is on the builder's provider is skipped, the lane goes on, the history holds no gate entry, and the record and the Routing
+   line show `gate none`. A re-check owed after a REVISE is never skipped. A Claude reviewer that fails
    is started once more; only a second failure ends the round, with both texts
    in the reason. The first review is told that a tester drives the lane's `e2e`
    text (quoted, cut at 1500 characters) after it: a proof only that drive
@@ -175,6 +184,14 @@ The lane needs a repository that coordinates with aco, after the head ran
 
 A head that finds a run stopped awaiting-head, or lost, reads `aco lane-record show <n> --json`. The lane is approved at a tip when its stored runs hold an approving verdict at that sha for every stage its risk requires: review, and the gate on a material lane. Land with `aco land <pr> --head <sha>` only when the lane is approved at the pull request's head, a stored run that ran `test` ends at that tip with `blocking.test` 0, and CI is green there. Otherwise start a new run: with `pr`, `tip` and `deltaFrom` the last approved tip when it is an ancestor of the head, not the head itself, and the head has no approving review; with `pr` and `tip` and no `deltaFrom` when the head has an approving review but its gate, test segment or CI is missing or red (a head with a review approval only is not yet approved on a material lane, and the repeated review is the cost of that rarer case); when only CI is red there, the run takes `deltaFrom` equal to `tip` and `fixFirst` holding the CI finding, so its review reads only the fixer's commits. Known case: a CI finding read after the tester's pass begins a segment before it is known whether a fixer follows, so a run that ends ci-red there leaves a begun run without a record; the path above still holds, since CI is not green and the new run fixes it.
 
+- A normal lane whose item number is divisible by ten reads its begin step's
+  `aco lane-record show` for the sample: it takes the sample only when no stored run ran
+  `gate`, and a stored run whose last gate verdict is REVISE owes the gate's re-check, which
+  runs beside the review of the run's range and ends awaiting-head like a material lane's gate
+  when it gives no verdict, never skipped. When the read fails or a stored run is lost, the lane
+  ends awaiting-head at `record` before any review and takes no sample: start a new run once the
+  stored runs can be read. A sampled gate's re-check that gives no verdict ends awaiting-head at
+  `review` with the resume arguments of the usage limit.
 - A Codex courier that wrote a different brief than the script composed is
   started once more. A second mismatch returns awaiting-head at stage `review`
   with the resume arguments of the usage limit (`pr`, `tip`, and on a delta round
@@ -293,9 +310,16 @@ A head that finds a run stopped awaiting-head, or lost, reads `aco lane-record s
   given. Any other finding a fixer leaves without a change still fails the
   run at `fix`. Before `ready-to-land`, a pull request still titled
   `Unfinished checkpoint of #<n>` gets the item's title by a relay step over
-  REST; when that write fails, `requiredHeadActions` name the rename.
+  REST, and a pull request that is still a draft (read in the same call) is
+  marked ready with `gh pr ready <n>`, because `aco land` refuses a draft; a
+  pull request that is no draft gets no write. When a write fails, or the draft
+  flag cannot be read, `requiredHeadActions` name the rename or `gh pr ready <n>`.
 
 ## Result
+
+`sampled` is `true` when the lane's gate ran as the sample or as the re-check an earlier run owed,
+`false` when none was due and `"skipped"` when the sampled look gave no verdict, with the reason in
+`sampledReason`.
 
 Every follow-up a reviewer, the gate or the tester reports carries a required
 boolean `inPlace`: true when it sits in a file the lane already changed, its fix

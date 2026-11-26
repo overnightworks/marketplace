@@ -228,7 +228,7 @@ const openResult = async (status, stage, extra = {}) => {
   const open = openFollowups()
   return {
     status: endStatus, stage: endStage, pr, tip, spent, routing: ROUTING, ...(OPERATOR_WORD && { operatorWord: OPERATOR_WORD }), routingLine: line, ...recordView(written, began), history,
-    followups: open, raisedBeforeTip: raisedBeforeTip(open), folded: [...folded.values()], disputed, ...gateUnseenView(), ...tester, ...endExtra,
+    followups: open, raisedBeforeTip: raisedBeforeTip(open), folded: [...folded.values()], disputed, ...gateUnseenView(), ...sampledView(), ...tester, ...endExtra,
     ...(unusable && { reason: [endExtra.reason, unusable].filter(Boolean).join('; ') }),
   }
 }
@@ -338,12 +338,14 @@ function unfitRoundAnswer(answer, expectedResults) {
   return null
 }
 // from is the tip where the round's delta starts (none for a whole-lane round); a limited round hands it back for the resume.
-async function reviewRound(which, range, from) {
+async function reviewRound(which, range, from, sampledLook) {
   const beginStop = await beginRun()
   if (beginStop) return { which, results: [], verdict: { state: 'stopped', stop: beginStop }, range, from }
-  startedStages.review = true
+  // The sampled look is the gate alone and may be skipped, so it never marks the review stage as started.
+  if (!sampledLook) startedStages.review = true
+  const after = sampledLook?.after ?? spent.total
   const reviewers = which.map(r => ({ key: r.key, provider: r.provider, role: r.role, isGate: r === GATE, routing: claudeRole(r === GATE ? 'gate' : 'review') }))
-  const answer = await runPart('lane-review', laneReview, { item: A.item, pr, repo: A.repo, repoFlag: R, after: spent.total, tip, delegatedLine: DELEGATED_LINE, worktree: A.worktree, branch: A.branch, scratch: A.scratch, tag: TAG, label: `r${spent.total}`, range, reuse: buildReuse, e2e: A.e2e, contract: A.contract, blockingLine: BLOCKING_LINE, reviewers, findingKinds: FINDING_KINDS, finding: FINDING, followup: REPORTED_FOLLOWUP, mechanical: MECHANICAL })
+  const answer = await runPart('lane-review', laneReview, { item: A.item, pr, repo: A.repo, repoFlag: R, after, tip, delegatedLine: DELEGATED_LINE, worktree: A.worktree, branch: A.branch, scratch: A.scratch, tag: TAG, label: `r${after}`, range, reuse: buildReuse, e2e: A.e2e, contract: A.contract, blockingLine: BLOCKING_LINE, reviewers, findingKinds: FINDING_KINDS, finding: FINDING, followup: REPORTED_FOLLOWUP, mechanical: MECHANICAL })
   const unfit = unfitRoundAnswer(answer, which.length)
   if (unfit) {
     // The reviewers that finished before a usage limit keep their records, so the resume carries their findings.
@@ -352,11 +354,12 @@ async function reviewRound(which, range, from) {
     return { which, results: finished?.results ?? [], verdict: { state: 'failed', reason: unfit }, range, from }
   }
   const { results, verdict } = answer
+  if (sampledLook && LOOK_WITHOUT_VERDICT.has(verdict.state)) return { which, results, verdict, range, from, unrecorded: true }
   history.push(...answer.history)
   followups.push(...answer.followups)
   if (answer.gateRounds.length) productionSinceGate = false
   gateRounds.push(...answer.gateRounds)
-  return { which, results, verdict, range, from }
+  return { which, results, verdict, range, from, history: answer.history }
 }
 
 // A finding that comes back unchanged after a fix meant for it is no progress; the second return stops the lane.
@@ -519,9 +522,12 @@ async function pushAndCheckScope(label, origin) {
 
 // Review until clean. After every fix the delta goes back to whoever raised a finding, and the gate returns on a
 // material lane when the fix touched production or resolved lane conflicts. REVISE is handled one way everywhere.
-async function reviewUntilClean(which, range, from) {
+// A sampled look passes its own round settings and is skipped when the round gave no verdict.
+async function reviewUntilClean(which, range, from, sampledLook) {
   phase('Review')
-  return await settleReview(await reviewRound(which, range, from)) ?? await storeProvenPoint() ?? await followUpBatch()
+  const round = await reviewRound(which, range, from, sampledLook)
+  if (round.unrecorded) return skipSampledLook(round)
+  return await settleReview(round) ?? await storeProvenPoint() ?? await followUpBatch()
 }
 
 // A round the head resumes (a Codex reviewer out of usage, a courier whose brief never matched) repeats its range, so the review never moves to another provider.
@@ -577,7 +583,7 @@ async function reviseAfter(rr) {
   }
   // A reviewer that approved the tip has proven it, whichever other reviewer revises it; its verdict goes to the claim before the fixer can die.
   // Not when the approval follows a revision of the same tip: aco lands the last stored verdict, so that segment stays unstored until the fixer's commits are judged.
-  if (rr.results.some(v => v?.verdict === 'APPROVE' && !(v.blocking || []).length) && !approvesRevisedTip(history)) {
+  if (rr.history.some(entry => entry.verdict === 'APPROVE') && !approvesRevisedTip(history)) {
     const stored = await storeProvenPoint()
     if (stored) return stored
   }
@@ -608,6 +614,8 @@ if (!carriesBatch && A.build) {
 if (firstScopeCheck?.stop) return firstScopeCheck.stop
 const synchronizedBeginStop = syncedTip && !carriesBatch ? await beginRun(syncedTip) : null
 if (synchronizedBeginStop) return synchronizedBeginStop
+const dutyOfGate = await sampledDuty(firstBegan)
+if (dutyOfGate.stop) return dutyOfGate.stop
 // Re-entry after the head settled an awaiting-head result: review only the fix commits no reviewer has seen yet.
 // Re-entry at the fix: the head hands over blocking findings from an earlier run (for example the tester's), and
 // in-place follow-ups to fold in. The delta the fixer makes is reviewed before the test and CI run again.
@@ -624,8 +632,10 @@ if (carriesBatch) {
 } else {
   firstReview = firstReviewRange({ deltaFrom: A.deltaFrom, answers: A.answers })
 }
-const firstStop = await reviewUntilClean(ALL, firstReview.range, firstReview.from)
+const firstStop = await reviewUntilClean(dutyOfGate.owed ? [REVIEW, GATE] : ALL, firstReview.range, firstReview.from)
 if (firstStop) return firstStop
+const lookStop = dutyOfGate.take ? await sampledLook() : null
+if (lookStop) return lookStop
 
 // ---------------------------- end-to-end test and CI side by side
 // laneTest returns the tester's answer, null when both agents ended without a result, or a problem the lane stops on.
@@ -742,11 +752,15 @@ while (true) {
   needTest ||= taken.length > 0 || productionSinceTest
 }
 
-// A pull request still titled as the unfinished checkpoint gets the item's title by a relay step over REST; a failed write is the head's.
+// A pull request still titled as the unfinished checkpoint gets the item's title and a draft is marked ready, by one relay step; a failed write or an unreadable draft flag is the head's, because aco land refuses a draft.
 async function checkpointRenameActions() {
-  const relayed = await relay({ label: 'retitle', phase: 'Title', step: 'retitle', relayArgs: [pr, A.item, `'${A.repo || ''}'`, "'retitle'"], nonce: 'retitle', requiredKeys: ['title'], brief: `${laneFacts}\nChange nothing in the files;` })
-  const problem = checkpointRenameProblem(relayed, A.item)
-  return problem ? [`rename pull request #${pr} to the title of item #${A.item} (gh api -X PATCH repos/${A.repo || '{owner}/{repo}'}/pulls/${pr} -f title=...): it still carries the checkpoint title and the lane's write failed: ${problem}`] : []
+  const relayed = await relay({ label: 'retitle', phase: 'Title', step: 'retitle', relayArgs: [pr, A.item, `'${A.repo || ''}'`, "'retitle'"], nonce: 'retitle', requiredKeys: ['pull'], brief: `${laneFacts}\nChange nothing in the files;` })
+  const renameProblem = checkpointRenameProblem(relayed, A.item)
+  const readyProblem = draftReadyProblem(relayed)
+  return [
+    ...(renameProblem ? [`rename pull request #${pr} to the title of item #${A.item} (gh api -X PATCH repos/${A.repo || '{owner}/{repo}'}/pulls/${pr} -f title=...): it still carries the checkpoint title and the lane's write failed: ${renameProblem}`] : []),
+    ...(readyProblem ? [`mark pull request #${pr} ready with \`gh pr ready ${pr}\`: aco land refuses a draft, and ${readyProblem}`] : []),
+  ]
 }
 
 const rescopeCommand = 'aco rescope ' + A.item + ' ' + passedOutsidePaths.map(path => '--add ' + shellQuoted(path)).join(' ')
@@ -762,7 +776,7 @@ const refusedAdd = await addRecord(finalRecord)
 if (refusedAdd) return await openResult('awaiting-head', 'record', { reason: refusedAddReason(refusedAdd, 'ready-to-land') })
 return {
   status: 'ready-to-land', pr, tip, spent, routing: ROUTING, ...(OPERATOR_WORD && { operatorWord: OPERATOR_WORD }), routingLine: finalRoutingLine, ...recordView(finalRecord, began), history, followups: stillOpen, raisedBeforeTip: raisedBeforeTip(stillOpen), folded: [...folded.values()], disputed,
-  ...gateUnseenView(), pathsOutsideClaim: passedOutsidePaths,
+  ...gateUnseenView(), ...sampledView(), pathsOutsideClaim: passedOutsidePaths,
   requiredHeadActions: [
     ...(passedOutsidePaths.length ? [`write these paths into the scope of item #${A.item}'s body (and a one-sentence whole there when the combined scope is wide), then run \`${rescopeCommand}\` from ${A.worktree} before landing: these paths are outside the claim and passed the scope check`] : []),
     ...await checkpointRenameActions(),

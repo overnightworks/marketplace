@@ -18,13 +18,13 @@ When a repository has no `AGENTS.md`, or one that is not facts-only, seed:
 - `CLAUDE.md` containing exactly `@AGENTS.md`.
 
 Generic rules live in the global contract (`instructions/AGENTS.md` for every
-agent, `instructions/HEAD.md` for the head, `instructions/OPERATORS.md` for
-the operator's bounds, in the marketplace repository, installed per machine) and are never copied into a repository. When migrating an
-existing file, keep every repository fact and remove each generic rule the
-contract already states. A local policy that differs from the contract is not
-kept as a second owner: report it to the parent, who brings it to the operator,
-and leave it in place only until that ruling. Report what was kept and what was
-removed.
+agent, `instructions/HEAD.md` for the head, `instructions/OPERATORS.md` for the
+operator's bounds, in the marketplace repository, installed per machine) and are
+never copied into a repository. When migrating an existing file, keep every
+repository fact and remove each generic rule the contract already states. A
+local policy that differs from the contract is not kept as a second owner:
+report it to the parent, who brings it to the operator, and leave it in place
+only until that ruling. Report what was kept and what was removed.
 
 ## Procedure
 

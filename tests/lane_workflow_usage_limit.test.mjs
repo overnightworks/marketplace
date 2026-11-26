@@ -5,8 +5,12 @@ import { runLane, resumedLane, builtLane, APPROVE, PASS, greenCi, finding } from
 
 const weeklyLimit = "You've hit your weekly limit · resets Nov 20"
 const limitWordings = [
-  "You've hit your limit · resets 5pm (Europe/Berlin)",
-  'Opus limit reached',
+  ["You've hit your limit · resets 5pm (Europe/Berlin)", '5pm (Europe/Berlin)'],
+  ['Opus limit reached', null],
+  ["You've hit your 5-hour limit · resets 4:30pm (Europe/Berlin)", '4:30pm (Europe/Berlin)'],
+  ["You've hit your Fable limit · resets Nov 29, 8pm (Europe/Berlin)", 'Nov 29, 8pm (Europe/Berlin)'],
+  ["You've hit your Zephyr 2.1 limit · resets Dec 1, 3am (Europe/Berlin)", 'Dec 1, 3am (Europe/Berlin)'],
+  ["You're out of usage credits. Run /usage-credits to keep using Fable 5.1 or /model to switch models.", null],
 ]
 const failing = (message) => () => { throw new Error(message) }
 const blocking = finding('a.py:1', 'defect')
@@ -49,10 +53,11 @@ test('a usage limit of a builder with nothing to save resumes with the build bri
   assert.match(result.reason, /resets Nov 20/)
 })
 
-for (const wording of limitWordings) {
+for (const [wording, resetsAt] of limitWordings) {
   test(`the wording "${wording}" is a usage limit`, async () => {
     const { result } = await runLane(resumedLane, { 'r0-review': failing(wording) })
     assert.equal(result.status, 'awaiting-head')
+    assert.equal(result.claudeLimit.resetsAt, resetsAt)
   })
 }
 

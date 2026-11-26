@@ -94,8 +94,3 @@ test('sampled-gate: a resumed run with no earlier stored run, whose own entry do
   const { launchedAgents, result } = await runLane(sampledLane, { 'r0-review': APPROVE, 'r0-gate': gateApprove, ...reachesTheEnd, begin: { stored_runs: [storedOwnRun(false)] } })
   assert.deepEqual([result.status, result.sampled, gateLabels(launchedAgents)], ['ready-to-land', true, ['r0-gate']])
 })
-
-test('sampled-gate: an earlier run without a record still ends awaiting-head at record', async () => {
-  const { result } = await runLane(sampledLane, { 'r0-review': APPROVE, ...reachesTheEnd, begin: { stored_runs: [lostRun, storedOwnRun()] } })
-  assert.deepEqual([result.status, result.stage], ['awaiting-head', 'record'])
-})

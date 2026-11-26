@@ -1448,7 +1448,7 @@ async function laneReview(A) {
   // parallel() turns a throwing reviewer into null, so a usage limit is kept and rethrown for the lane once every reviewer ended,
   // carrying what the reviewers that finished returned.
   let usageLimitError = null
-  const results = await parallel(A.reviewers.map(reviewer => () => reviewBy(reviewer, A.range).catch(error => {
+  const results = await parallel(A.reviewers.map(reviewer => () => reviewBy(reviewer, reviewer.range ?? A.range).catch(error => {
     if (claudeUsageLimitOf(error)) usageLimitError ??= error
     throw error
   })))
@@ -1618,6 +1618,7 @@ const SAMPLE_EVERY = 10
 const LOOK_WITHOUT_VERDICT = new Set(['limited', 'hung', 'brief-mismatch', 'no-brief-record', 'failed'])
 let sampled = false  // the lane's gate ran as the sample or as the re-check an earlier run owed
 let sampledSkip = null  // why the sampled look was skipped
+let gateOwesWholeLane = false  // a lost run owes the gate on the whole lane in the first review round, whatever range the review reads
 const sampledView = () => ({ sampled: sampledSkip ? 'skipped' : sampled, ...(sampledSkip && { sampledReason: sampledSkip }) })
 
 // What the first begin's read of the stored runs leaves the lane to do: a stop when the read failed, or whether to take the sample or to re-check the gate: owed after a stored REVISE or a lost run.
@@ -1628,6 +1629,7 @@ async function sampledDuty(read) {
   // A lost run may have run the gate and said anything, so the lane owes the gate on the whole lane like a stored REVISE: its look is never skipped.
   const owed = read.lastGate === 'revise' || Boolean(read.lost)
   sampled = owed
+  gateOwesWholeLane = Boolean(read.lost)
   return { take: !owed && !read.gateRan, owed }
 }
 
@@ -2248,7 +2250,8 @@ async function reviewRound(which, range, from, sampledLook) {
   // The sampled look is the gate alone and may be skipped, so it never marks the review stage as started.
   if (!sampledLook) startedStages.review = true
   const after = sampledLook?.after ?? spent.total
-  const reviewers = which.map(r => ({ key: r.key, provider: r.provider, role: r.role, isGate: r === GATE, routing: claudeRole(REVIEWER_ROUTING_ROWS[r.key]) }))
+  const reviewers = which.map(r => ({ key: r.key, provider: r.provider, role: r.role, isGate: r === GATE, routing: claudeRole(REVIEWER_ROUTING_ROWS[r.key]), ...(r === GATE && gateOwesWholeLane && { range: WHOLE_LANE }) }))
+  gateOwesWholeLane = false
   const answer = await runPart('lane-review', laneReview, { item: A.item, pr, repo: A.repo, repoFlag: R, after, tip, delegatedLine: DELEGATED_LINE, worktree: A.worktree, branch: A.branch, scratch: A.scratch, tag: TAG, label: `r${after}`, range, reuse: buildReuse, e2e: A.e2e, contract: A.contract, blockingLine: BLOCKING_LINE, reviewers, findingKinds: FINDING_KINDS, finding: FINDING, followup: REPORTED_FOLLOWUP, mechanical: MECHANICAL, gateStandIn: MATERIAL && !sampledLook ? GATE_STAND_IN : null })
   // A Codex gate that refused its model was replaced in its round by the stand-in; the run keeps it, so a re-check has the gate's row and the record names the one gate that ran.
   if ((answer?.results ?? answer?.finished?.results ?? []).some(result => result?.gateRefusal)) { gateRefused = true; ROUTING.gate = { ...GATE_STAND_IN } }

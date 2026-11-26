@@ -210,7 +210,7 @@ A head that finds a run stopped awaiting-head, or lost, reads `aco lane-record s
 - A normal lane whose item number is divisible by ten reads its begin step's
   `aco lane-record show` for the sample: it takes the sample only when no stored run ran
   `gate`, and a stored run whose last gate verdict is REVISE, or a lost stored run, owes the
-  gate on the whole lane: it runs beside the review of the run's range and ends awaiting-head
+  gate: a lost run's gate reads the whole lane, a REVISE's re-check the run's range, and it runs beside the review and ends awaiting-head
   like a material lane's gate when it gives no verdict, never skipped. When the read fails, the
   lane ends awaiting-head at `record` before any review and takes no sample: start a new run once
   the stored runs can be read. A sampled gate's re-check that gives no verdict ends awaiting-head at

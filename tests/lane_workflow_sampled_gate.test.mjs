@@ -83,12 +83,10 @@ test('sampled-gate: a run after a stored gate approval starts no gate', async ()
 })
 
 const lostRun = { ...storedEarlierRun(), end_tip: null, ran: null, record: null }
-for (const [what, begin] of [['fails', { show_code: 2, show_error: 'bad shape' }]]) {
-  test(`sampled-gate: a lane whose read of the stored runs ${what} awaits the head at record and starts no gate`, async () => {
-    const { launchedAgents, result } = await runLane(sampledLane, { 'r0-review': APPROVE, 'r0-gate': gateApprove, ...reachesTheEnd, begin })
-    assert.deepEqual([result.status, result.stage, result.sampled, gateLabels(launchedAgents)], ['awaiting-head', 'record', false, []])
-  })
-}
+test('sampled-gate: a lane whose read of the stored runs fails awaits the head at record and starts no gate', async () => {
+  const { launchedAgents, result } = await runLane(sampledLane, { 'r0-review': APPROVE, 'r0-gate': gateApprove, ...reachesTheEnd, begin: { show_code: 2, show_error: 'bad shape' } })
+  assert.deepEqual([result.status, result.stage, result.sampled, gateLabels(launchedAgents)], ['awaiting-head', 'record', false, []])
+})
 
 for (const [what, lost] of [['a run without a record', lostRun], ['a run that does not follow', { ...storedEarlierRun(), follows: false }]]) {
   test(`sampled-gate: a lane whose stored runs show ${what} owes the gate on the whole lane, beside the review, and takes no second sample`, async () => {
@@ -97,6 +95,13 @@ for (const [what, lost] of [['a run without a record', lostRun], ['a run that do
     assert.match(agentCalls['r0-gate'].prompt, /the whole lane: git diff origin\/main\.\.\.HEAD/)
   })
 }
+
+test('sampled-gate: a lane with a lost run and deltaFrom hands the gate the whole lane and the review the delta', async () => {
+  const { agentCalls } = await runLane({ ...sampledLane, deltaFrom: olderTip, answers: 'the fix answers it' }, { 'r0-review': APPROVE, 'r0-gate': gateApprove, ...reachesTheEnd, begin: { stored_runs: [lostRun, storedOwnRun()] } })
+  assert.match(agentCalls['r0-review'].prompt, new RegExp(`only this delta: .*${olderTip}\\.\\.HEAD`))
+  assert.match(agentCalls['r0-gate'].prompt, /the whole lane: git diff origin\/main\.\.\.HEAD/)
+  assert.doesNotMatch(agentCalls['r0-gate'].prompt, /only this delta/)
+})
 
 test('sampled-gate: a lane with a lost run whose gate gives no verdict awaits the head at review, never skipped', async () => {
   const { launchedAgents, result } = await runLane(sampledLane, { 'r0-review': APPROVE, 'r0-gate': limitedCourier, ...reachesTheEnd, begin: { stored_runs: [lostRun, storedOwnRun()] } })

@@ -155,6 +155,12 @@ for (const [behaviour, scenario, readied, named] of draftRuns) {
   })
 }
 
+test('a pull request whose title is longer than the relay cap is no checkpoint and gets no rename', async () => {
+  const { result } = await runLane(resumeArgs, { ...reachesTheEnd, 'r0-review': APPROVE, retitle: { draft: false, pr_title: LONG_TITLE, patch_code: 1, item_title: 'The item title' } })
+  assert.equal(result.status, 'ready-to-land')
+  assert.ok(!result.requiredHeadActions.some(action => /rename pull request/.test(action)))
+})
+
 // One failed write of the retitle step names only its own head action.
 const unreachableWrites = [
   ['an unreachable ready write names gh pr ready and no rename', { draft: true, ready_code: 1, ready_error: 'Could not resolve host: api.github.com' }, /gh pr ready 1/, /rename pull request/],

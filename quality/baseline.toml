@@ -30,6 +30,6 @@
 "laneRouting" = 62
 
 [function_lines."tests/lane_workflow_harness.mjs"]
-"runLane" = 124
+"runLane" = 122
 
 [clones]

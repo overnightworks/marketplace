@@ -74,6 +74,8 @@ jobs:
         run: node scripts/build_lane.mjs --check
       - name: Check the plugin skills
         run: python3 scripts/check_skills.py
+      - name: Check the references to the contract
+        run: python3 scripts/check_references.py
       # The Workflow tool refuses a script whose `meta` is not a pure literal,
       # so a workflow that parses fine still cannot start.
       - name: Check that workflow meta is a pure literal

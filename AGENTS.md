@@ -4,6 +4,7 @@
 
 - `python3 scripts/sync_agents.py`: regenerates `plugins/atelier/.codex/agents/` from `plugins/atelier/agents/`; add `--check` to fail on a difference.
 - `python3 scripts/check_skills.py`: validates the skills.
+- `python3 scripts/check_references.py [CHECKOUT]`: fails on a reference to a contract section or sentence that no longer resolves; run it over a dependent checkout before a contract change lands.
 - `node scripts/build_lane.mjs`: regenerates `plugins/atelier/workflows/lane.js` from `plugins/atelier/lane/`; add `--check` to fail on a difference.
 - `node scripts/check_workflow_meta.mjs plugins/*/workflows/*.js`: validates the workflow metadata.
 - `python3 scripts/install.py`: installs or updates the plugin and the contract on this machine; precondition: no Codex job runs. `--from-checkout` installs this checkout, which a lane started from a checkout needs.

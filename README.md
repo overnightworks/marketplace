@@ -97,6 +97,7 @@ ruleset requires its `quality / verdict` check to merge into `main`.
 python3 scripts/sync_agents.py --check
 node scripts/build_lane.mjs --check
 python3 scripts/check_skills.py
+python3 scripts/check_references.py
 node scripts/check_workflow_meta.mjs plugins/*/workflows/*.js
 ```
 

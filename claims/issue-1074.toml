@@ -1,8 +1,0 @@
-claim_id = "0c57b65dff514d28a45d012a6de7b91e"
-agent = "Claude c1d65467-2dcf-4ef5-921f-526bf349a609"
-role = "builder"
-base = "cf005faa9482fb5e02c87b0b4aeeff46117f59e8"
-branch = "claude/issue-1074-code-policy-to-code-md"
-scope = [".github/workflows/ci.yml", "AGENTS.md", "README.md", "docs/ARCHITECTURE.md", "instructions/AGENTS.md", "instructions/CODE.md", "instructions/HEAD.md", "plugins/atelier/hooks/contract_change.py", "scripts/check_references.py", "tests/test_check_references.py", "tests/test_contract_change_hook.py"]
-opened_commit = "de40f7cb0c210c24e310e3c9a069a894175a7b48"
-whole_reason = "One verbatim move of the code policy into CODE.md, in one commit with the checks that hold the contract files, and the documents that say where it lives."

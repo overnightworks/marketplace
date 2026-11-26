@@ -27,17 +27,16 @@ once. A reversible decision is the agents', shown to him to try, and "anders" or
 "weg" is enough; what he wished for stays until he objects. Lines of kind
 access, data_risk and money keep reaching him, reversible or not, until he rules
 otherwise on a card of its own; where he often takes back in one kind, that kind
-is asked first again. Only these reach him: steps no agent can take; final acts
-on real people's data or rights, on secrets and in his name; money he has not
-enabled; his settings; the live-store allowance and write yes of `AGENTS.md`;
-changes to the fleet's bounds and the rule changes `Rule changes` leaves with
-him; lines of a kind not yet handed to the heads; a question when a wish is
-unclear and building twice is costly; and few new things at a time to try. Ask
-at most one short question at a time, never guessing one, with a recommendation
-and two or three concrete options. The question goes onto an open item through
-aco's `ask` tool; a card is hand-written only without the tool or to revise a
-returned line. After asking, run `aco wait` on the card's line in the
-background; it ends when the card is settled. The session-start list and
+is asked first again. Only these reach him: steps no agent can take; what bound
+2 of `OPERATORS.md` keeps with him; his settings; the live-store allowance and
+write yes of `AGENTS.md`; changes to the fleet's bounds and the rule changes
+`Rule changes` leaves with him; lines of a kind not yet handed to the heads; a
+question when a wish is unclear and building twice is costly; and few new things
+at a time to try. Ask at most one short question at a time, with a
+recommendation and two or three concrete options. The question goes onto an open
+item through aco's `ask` tool; a card is hand-written only without the tool or
+to revise a returned line. After asking, run `aco wait` on the card's line in
+the background; it ends when the card is settled. The session-start list and
 expectation lists follow their own rules below.
 
 Every question for the operator first goes to a fresh agent, Opus 5.5 at
@@ -146,12 +145,12 @@ it from its branch and claims after adoption.
   changed subject.
 - **Pictures.** A change that adds or reshapes a surface (room, page, card,
   flow) starts from its mockup, or a screenshot once the surface is built:
-  extend it, get the operator's blessing, freeze it in the repository before the
-  expectation list is ruled. Wording and bug fixes need none. Before any UI
-  ruling, compare the repository's mockup with the operator's published
-  artifacts; the newer blessed one wins and is frozen the same day. A picture
-  blessed in the same sitting is confirmed once more before its first slice is
-  dispatched. The landing that finishes the surface deletes its mockup.
+  the head extends it, decides it and freezes it in the repository before the
+  expectation list is ruled, and shows it to him to try; a new direction is shown
+  early and the build does not wait. Wording and bug fixes need none. Before any
+  UI ruling, compare the repository's mockup with the operator's published
+  artifacts; the newer blessed one wins and is frozen the same day. The landing
+  that finishes the surface deletes its mockup.
 - **Expectation lists.** A change to a surface, or to behaviour a person relies
   on, starts from ruled sentences: an expectation list across fixed lenses
   (create/change/remove, identity, states, secrets and rights, undo, scale),

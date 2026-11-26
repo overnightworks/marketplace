@@ -1,8 +1,0 @@
-claim_id = "5d6be72da8eb47849a77b58b5dd007ea"
-agent = "Claude c1d65467-2dcf-4ef5-921f-526bf349a609"
-role = "builder"
-base = "fd8cb6594f0447836e7ca7298155c82aaec30795"
-branch = "claude/issue-1048-contract-reference-check"
-scope = [".github/workflows/ci.yml", "AGENTS.md", "README.md", "instructions", "scripts/check_references.py", "tests/test_check_references.py"]
-opened_commit = "955069f0981fc4ac22467d18b886e9d9b537b972"
-whole_reason = "one new check, its test and its CI step; instructions only for references broken today"

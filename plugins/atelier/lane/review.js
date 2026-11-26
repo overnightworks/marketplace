@@ -1,3 +1,21 @@
+// The phrase Codex prints when the account is out of usage (typographic apostrophe in "You’ve", so the match starts after it).
+const USAGE_LIMIT = 'hit your usage limit'
+// The line Codex prints, as its last line, when the account does not serve the routed model.
+const refusalStart = model => `ERROR: The '${model}' model is not supported`
+
+// A limit or a refusal counts only as the reason of a failed Codex run that exited above 0; a refusal only for the gate of a lane that names a stand-in for it;
+// anywhere else it is a courier's mistake and dropped. Only the refusal line's start is checked: the courier read the last line, as it did for the limit.
+function guardCourierStop(answer, reviewer, gateStandIn) {
+  if (!answer?.limit && !answer?.refusal) return answer
+  const { limit, refusal, ...rest } = answer
+  const failedCodexRun = reviewer.provider === 'codex' && answer.verdict === 'failed' && answer.codexExit > 0
+  if (failedCodexRun && typeof limit?.line === 'string' && limit.line.includes(USAGE_LIMIT)) {
+    return { ...rest, limit: { role: reviewer.key, model: reviewer.routing.model, line: limit.line, resetsAt: limit.resetsAt ?? null } }
+  }
+  const refused = failedCodexRun && reviewer.isGate && gateStandIn && typeof refusal?.line === 'string' && refusal.line.startsWith(refusalStart(reviewer.routing.model))
+  return refused ? { ...rest, refusal: { model: reviewer.routing.model, line: refusal.line } } : rest
+}
+
 // Runs every reviewer of one review round (a fresh Claude reviewer, a Codex courier) in parallel and returns their results with the round verdict.
 export async function laneReview(A) {
   const MECHANICAL = A.mechanical
@@ -25,8 +43,6 @@ export async function laneReview(A) {
       codexExit: { type: 'number', description: 'the exit status Codex wrote to the marker file (couriers only)' },
     },
   }
-  // The phrase Codex prints when the account is out of usage (typographic apostrophe in "You’ve", so the match starts after it).
-  const USAGE_LIMIT = 'hit your usage limit'
   // The error Codex prints when the courier started it without writing the output schema first.
   const SCHEMA_READ_ERROR = 'Failed to read output schema file'
   // A courier whose Codex never produced a verdict: it started none (its brief file is not the brief the script wrote, or no brief could be cut out of its transcript), or its run was killed.
@@ -43,10 +59,11 @@ export async function laneReview(A) {
     required: ['line', 'resetsAt'],
     properties: { line: { type: 'string' }, resetsAt: { type: ['string', 'null'] } },
   }
+  const REFUSAL = { type: 'object', required: ['line'], properties: { line: { type: 'string' } } }
   const COURIER_VERDICT = {
     ...VERDICT,
     required: [...VERDICT.required, 'codexExit'],
-    properties: { ...VERDICT.properties, limit: LIMIT },
+    properties: { ...VERDICT.properties, limit: LIMIT, refusal: REFUSAL },
   }
 
   // The reviewer is the only brake until a ratchet checks these.
@@ -175,7 +192,8 @@ export async function laneReview(A) {
       `   Return verdict failed only when the 7 waits are spent without a marker (codexExit -1), the exit status is not 0 (codexExit = that number), or the file is missing or not valid JSON. ` +
       `Then give the last 20 lines of ${base}-run.log in note.\n` +
       `   When the exit status is above 0, also run: grep -v '^[[:space:]]*$' ${base}-run.log | tail -n 1\n` +
-      `   Only that last non-empty line counts, because the log echoes the brief. If it contains "${USAGE_LIMIT}", Codex is out of usage: add limit to the answer, with line that line verbatim and resetsAt the text after "try again at" (any case) to the end of the line without a final period, or null when the line has none. Never wait for the reset and never retry a limit.\n${STRUCTURED_OUTPUT_ONLY_LINE}`
+      `   Only that last non-empty line counts, because the log echoes the brief. If it contains "${USAGE_LIMIT}", Codex is out of usage: add limit to the answer, with line that line verbatim and resetsAt the text after "try again at" (any case) to the end of the line without a final period, or null when the line has none. Never wait for the reset and never retry a limit.\n` +
+      `   If that last non-empty line instead starts with "${refusalStart(routing.model)}", Codex refuses the model: add refusal to the answer, with line that line verbatim. Never retry a refusal.\n${STRUCTURED_OUTPUT_ONLY_LINE}`
     const runCourier = courierLabel => safeAgent(courierPrompt, { label: courierLabel, phase: 'Review', schema: COURIER_VERDICT, ...MECHANICAL })
     return runCourier(label)
       .then(v => retryFailedStart(v, runCourier, label))
@@ -183,19 +201,18 @@ export async function laneReview(A) {
       .then(v => (v && v.codexExit !== 0 && v.verdict !== 'failed') ? { ...v, verdict: 'failed', note: `courier returned a verdict without a clean Codex exit (${v.codexExit}): ${v.note || ''}` } : v)
   }
 
-  // A limit counts only as the reason of a failed Codex run that exited above 0; anywhere else it is a courier's mistake and dropped.
-  function guardLimit(answer, reviewer) {
-    if (!answer?.limit) return answer
-    const { limit, ...rest } = answer
-    const guarded = reviewer.provider === 'codex' && answer.verdict === 'failed' && answer.codexExit > 0 && typeof limit.line === 'string' && limit.line.includes(USAGE_LIMIT)
-    return guarded ? { ...rest, limit: { role: reviewer.key, model: reviewer.routing.model, line: limit.line, resetsAt: limit.resetsAt ?? null } } : rest
+  // The refused gate is replaced in its own round by a fresh Claude reviewer with the gate's brief, so the round's other results stay.
+  // gateRefusal tells the lane to hold the stand-in for the rest of the run.
+  async function standInForRefusal(reviewer, label, range, refusal) {
+    log(`${label}: Codex refuses ${refusal.model}; the gate runs on ${A.gateStandIn.model}/${A.gateStandIn.effort}`)
+    return { ...await claudeReview(`${label}-standin`, A.gateStandIn, reviewer.role, range), gateRefusal: refusal }
   }
 
-  const reviewBy = (reviewer, range) => {
+  const reviewBy = async (reviewer, range) => {
     const label = `${A.label}-${reviewer.key}`
-    return reviewer.provider === 'codex'
-      ? codexReview(label, reviewer.routing, reviewer.role, range).then(answer => guardLimit(answer, reviewer))
-      : claudeReview(label, reviewer.routing, reviewer.role, range).then(answer => guardLimit(answer, reviewer))
+    if (reviewer.provider !== 'codex') return guardCourierStop(await claudeReview(label, reviewer.routing, reviewer.role, range), reviewer, A.gateStandIn)
+    const answer = guardCourierStop(await codexReview(label, reviewer.routing, reviewer.role, range), reviewer, A.gateStandIn)
+    return answer?.refusal ? standInForRefusal(reviewer, label, range, answer.refusal) : answer
   }
 
   // One failure text stays short in the round's reason; the two texts of a retried reviewer fit together.

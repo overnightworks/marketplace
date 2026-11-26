@@ -6,7 +6,7 @@ repository kind, and a link to the owner's standard document.
 
 ## Standards
 
-- **Document set**, every repository: [write-docs' document set](../plugins/atelier/skills/write-docs/references/document-types.md#repository-document-set).
+- **Document set**, every repository: [write-docs' document set](../plugins/atelier/skills/write-docs/references/document-types.md#repository-document-set); checked by overnightworks/quality: [`spec-citation`](https://github.com/overnightworks/quality/blob/main/docs/rules.md).
 - **Release path**, repositories that publish a release and apps that ship an image; owner overnightworks/quality: [quality's release path](https://github.com/overnightworks/quality/blob/main/docs/release.md).
 - **App on the platform**, every app that runs on the platform or moves onto it; owner overnightworks/platform: [an app on the platform](https://github.com/overnightworks/platform/blob/main/docs/app.md).
 - **Repository settings**, every non-archived non-fork repository of the organisation; owner overnightworks/platform: [GitHub settings](https://github.com/overnightworks/platform/blob/main/docs/github-settings.md).

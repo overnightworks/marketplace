@@ -338,4 +338,5 @@ test('run-record: a review that answers APPROVE with a blocking finding is store
   const run = await runLane(resumeArgs, answers)
   assert.equal(run.result.status, 'escalated', run.result.reason)
   assert.deepEqual(run.writtenRecords.map(written => JSON.parse(written).verdicts), [[{ stage: 'review', verdict: 'revise', sha: resumeTip }]])
+  assert.deepEqual(run.laneRecordCalls.map(call => call[1]), ['begin', 'add'])
 })

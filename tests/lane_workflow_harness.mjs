@@ -461,7 +461,7 @@ export const resumeArgs = { ...resumedLane, tip: resumeTip }
 
 export const unchangedFix = { ...resumeFix, head: resumeTip, files: [], regression: [] }
 
-export const satisfied = (item, evidence = 'tests/x_test.py already pins it', finding) => ({ where: item.where, text: item.text, evidence, ...(finding ? { finding } : {}) })
+export const satisfied = (item, evidence = 'tests/x_test.py already pins it', finding, foldIn = 1) => ({ where: item.where, text: item.text, evidence, ...(finding ? { finding } : { foldIn }) })
 
 export const reachesTheEnd = { 'r1-review': APPROVE, 'e2e-0': PASS, 'ci-0': greenCi(resumeTip) }
 

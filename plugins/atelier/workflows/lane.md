@@ -164,7 +164,7 @@ The design skill is advice and never blocks a landing:
   that raised it; every follow-up the lane reports carries it. A round that fixes
   only fold-ins counts as a fix round under the first of their stages in that
   order, and under the stage it would count under without one when none names a stage.
-  The fixer may answer `declined: [{ where, reason }]` for a fold-in that does not
+  The fixer may answer `declined: [{ foldIn, reason }]` for a fold-in that does not
   meet `IN_PLACE_RULE`: it is not folded in, stays in `followups` with its
   `declined` reason and is handed to no later fixer, and a fixer that changes nothing
   with every fold-in satisfied or declined is accepted. A round without blocking

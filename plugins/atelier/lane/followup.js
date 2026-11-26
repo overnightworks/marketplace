@@ -8,6 +8,8 @@ const inPlaceFollowups = () => {
   return openFollowups().filter(f => !declined.has(findingKey(f)) && (namedByHead.has(findingKey(f)) || f.inPlace === true))
 }
 const listFoldIns = (foldIn) => foldIn.map(f => `- ${f.where} — ${f.text}`).join('\n')
+// The fixer names a fold-in by its number in this list; the "fold-in" label keeps it apart from a blocking finding's number.
+const numberFoldIns = (foldIn) => foldIn.map((f, index) => `- fold-in ${index + 1}: ${f.where} — ${f.text}`).join('\n')
 // The reviewer sees which follow-ups the fixer was given and which it declined with what reason, so it can tell a skipped one from a done one.
 const foldInsInRange = (foldIn, declinedBy = {}, lead = 'The fixer was also given these follow-ups to fold in; check each is done:') => {
   const refused = foldIn.filter(f => Object.hasOwn(declinedBy, f.where))

@@ -29,6 +29,12 @@ test('gate-refusal: a refused gate beside an approving review is replaced in its
   assert.ok(result.history.some(entry => entry.by === 'gate' && entry.verdict === 'APPROVE'))
 })
 
+test('gate-refusal: a gate routed to the stand-in by the head is named without a refusal as its reason', async () => {
+  const { result } = await runLane({ ...materialLane, routing: { gate: { model: 'opus', effort: 'high' } } }, { 'r0-review': APPROVE, 'r0-gate': APPROVE, ...reachesTheEnd })
+  const [action] = result.requiredHeadActions.filter(line => /stand-in as the final gate/.test(line))
+  assert.doesNotMatch(action, /refused/)
+})
+
 test('gate-refusal: the record, the routing line, the result routing and the head actions name the stand-in as the gate', async () => {
   const run = await runLane(materialLane, refusedGate)
   const { result } = run
@@ -61,8 +67,11 @@ test('gate-refusal: a stand-in that ends without a verdict fails the lane at rev
   assert.ok(launchedAgents.includes('r0-gate-standin') && launchedAgents.includes('r0-gate-standin-retry'))
 })
 
+// The courier's re-read prompt holds no codex command, so the exit-0 refusal is a fixed answer the re-read repeats.
+const routedGateModel = (await runLane(materialLane, {})).result.routing.gate.model
+const exitZeroRefusal = { verdict: 'failed', blocking: [], followups: [], codexExit: 0, note: 'tail', refusal: { line: refusalLine(routedGateModel) } }
 const notRefusals = [
-  ['a clean Codex exit', { 'r0-gate': refused({ codexExit: 0 }), 'r0-gate-reread': refused({ codexExit: 0 }) }],
+  ['a clean Codex exit', { 'r0-gate': exitZeroRefusal, 'r0-gate-reread': exitZeroRefusal }],
   ['another model', { 'r0-gate': refused({ line: () => refusalLine('another-model') }) }],
   ['a line without the ERROR prefix', { 'r0-gate': refused({ line: (model) => refusalLine(model).replace('ERROR: ', '') }) }],
   ['a line that only mentions the refusal', { 'r0-gate': refused({ line: (model) => `warning: ${refusalLine(model)}` }) }],

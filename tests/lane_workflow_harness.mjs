@@ -238,7 +238,9 @@ export const storedLane = (run) => {
 
 // The runs `aco lane-record show --json` lists for the claim: this run's own entry (the printer's run id replaces @RUN@) and the earlier runs with the review verdicts their stored records hold.
 export const storedOwnRun = (follows = true) => ({ run: '@RUN@', start_tip: null, follows, end_tip: null, ran: null, record: null })
-export const storedEarlierRun = (...reviewVerdicts) => ({ run: 'earlier-run', start_tip: null, follows: true, end_tip: 'f0'.repeat(20), ran: ['build', 'review'], record: { version: 1, verdicts: reviewVerdicts.map(([verdict, sha]) => ({ stage: 'review', verdict, sha })) } })
+const storedVerdictsRun = (stage, ran) => (...verdicts) => ({ run: 'earlier-run', start_tip: null, follows: true, end_tip: 'f0'.repeat(20), ran, record: { version: 1, verdicts: verdicts.map(([verdict, sha]) => ({ stage, verdict, sha })) } })
+export const storedEarlierRun = storedVerdictsRun('review', ['build', 'review'])
+export const storedGateRun = storedVerdictsRun('gate', ['review', 'gate'])
 
 export const WORKTREE_CHECK = 'branch'
 

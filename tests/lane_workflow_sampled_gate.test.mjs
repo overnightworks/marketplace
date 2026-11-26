@@ -89,3 +89,8 @@ for (const [what, begin] of [['fails', { show_code: 2, show_error: 'bad shape' }
     assert.deepEqual([result.status, result.sampled, gateLabels(launchedAgents)], ['awaiting-head', false, []])
   })
 }
+
+test('sampled-gate: a resumed run with no earlier stored run, whose own entry does not follow, takes the sample', async () => {
+  const { launchedAgents, result } = await runLane(sampledLane, { 'r0-review': APPROVE, 'r0-gate': gateApprove, ...reachesTheEnd, begin: { stored_runs: [storedOwnRun(false)] } })
+  assert.deepEqual([result.status, result.sampled, gateLabels(launchedAgents)], ['ready-to-land', true, ['r0-gate']])
+})

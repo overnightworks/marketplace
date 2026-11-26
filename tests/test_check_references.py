@@ -99,6 +99,16 @@ def test_checkout_with_broken_heading_reference_fails_and_a_sound_one_passes(tmp
     ]
 
 
+def test_checkout_scan_skips_tracked_files_it_cannot_read_as_text(tmp_path: Path) -> None:
+    contract_root = git_checkout(tmp_path / "contract", {"instructions/AGENTS.md": CONTRACT})
+    checkout = git_checkout(tmp_path / "checkout", {"README.md": "ok\n", "gone.md": "x\n"})
+    (checkout / "image.bin").write_bytes(b"\xff\xfe\x00")
+    subprocess.run(["git", "-C", str(checkout), "add", "image.bin"], check=True)
+    (checkout / "gone.md").unlink()
+
+    assert check_references.check_checkout(checkout, contract_root) == []
+
+
 def test_main_exits_one_on_a_problem_and_zero_on_a_clean_checkout(tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
     broken = git_checkout(tmp_path / "broken", {"README.md": "(" + "instructions/AGENTS.md, Gone)\n"})
     clean = git_checkout(tmp_path / "clean", {"README.md": "nothing\n"})

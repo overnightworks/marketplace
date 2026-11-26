@@ -1,0 +1,7 @@
+claim_id = "952b6196f3c14fec8a08379741004794"
+agent = "Claude c1d65467-2dcf-4ef5-921f-526bf349a609"
+role = "builder"
+base = "0050da4e39b00ec60fc02d14dfeead89267945a3"
+branch = "claude/issue-1008-adopted-bot-lane-records-build-none"
+scope = ["plugins/atelier/skills/aco/SKILL.md"]
+opened_commit = "26056c3cf873cce94a687a2905918598850e5684"

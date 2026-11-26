@@ -1,8 +1,0 @@
-claim_id = "7c15a26c197e40f0bd54aac6b5fae502"
-agent = "Claude c1d65467-2dcf-4ef5-921f-526bf349a609"
-role = "builder"
-base = "105433055a56628b035ab0b8e3e3013d58a87f42"
-branch = "claude/issue-925-local-browser-proofs-fail-with-err-netwo"
-scope = [".github/workflows/ci.yml", "README.md", "plugins/atelier/skills/explorative-testing/SKILL.md", "scripts/probe_run.sh", "tests/test_probe_run.py"]
-opened_commit = "3a9d7e59c6f68e0194f91b8456204b8a731ee09b"
-whole_reason = "probe-run, its tests, the CI step that installs passt and proves the namespace on GitHub runners, and the two documents that tell a drive it has its own network change together."

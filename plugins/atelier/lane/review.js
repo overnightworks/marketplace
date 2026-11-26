@@ -144,7 +144,6 @@ export async function laneReview(A) {
     return runCourier(`${label}-retry`)
   }
 
-
   function codexReview(label, routing, role, range) {
     const base = `${A.scratch}/${A.tag}-${label}`
     const appendBodies = String.raw`{ cat ${base}-brief.md && printf '\n\n-----\nThe current item body (gh issue view):\n' && gh issue view ${A.item}${R} --json body --jq .body && printf '\n\n-----\nThe current pull request body (gh pr view):\n' && gh pr view ${A.pr}${R} --json body --jq .body; } > ${base}-brief.md.tmp && mv ${base}-brief.md.tmp ${base}-brief.md`
@@ -220,8 +219,7 @@ export async function laneReview(A) {
       return { state: 'failed', reason: failures.map(v => shortened(v.note, 700)).join(' | ') + (reportPaths.length ? '; read the report ' + reportPaths.join(' and ') : '') }
     }
     if (got.some(v => v.verdict === 'architectural')) return { state: 'architectural' }
-    // An evidenced blocking finding outranks its label (APPROVE with a finding counts as REVISE). A REVISE with nothing
-    // to fix stays broken: that is how a courier's placeholder was caught.
+    // An evidenced blocking finding outranks its label (APPROVE with a finding counts as REVISE); a REVISE with nothing to fix stays broken, which catches a courier's placeholder.
     const emptyRevise = got.find(v => v.verdict === 'REVISE' && (v.blocking || []).length === 0)
     if (emptyRevise) {
       const readHint = emptyRevise.reportPath ? '; read the report ' + emptyRevise.reportPath : ''

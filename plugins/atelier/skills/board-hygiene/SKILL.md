@@ -94,8 +94,8 @@ lines.
 
 Exactly one line per open item, then a short trailing block: unowned pull
 requests, due audits, queries run, and the closing list. A repository whose
-`.aco/board.toml` declares no `[[audit]]` entry is a board finding there, with
-the starting entry from the audit skill. A never-flag item gets
+`.aco/board.toml` declares no `[[audit]]` entry is named in the trailing block as a board
+finding, with the starting entry from the audit skill. A never-flag item gets
 `keep — clear — <reason>`, an idea `idea — clear`. Clear lines omit the
 bracketed field.
 

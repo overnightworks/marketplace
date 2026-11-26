@@ -154,7 +154,7 @@ names the call and its reason.
   run opens its distributor issue at its start, with the entry's label and a
   line of its own `audited through <full sha of the trunk tip it reads>`; a run
   that finds nothing closes that issue at once, so the anchor stays. Its
-  distributor text names the repository's largest baseline entry (the one with
+  distributor text, also when the run closes it at once, names the repository's largest baseline entry (the one with
   the most debt in the ratchet baselines of quality's `size` and `clone` rules,
   or the repository's own baseline) and its owner, so the head can cut it as an
   owned slice; a run with no baseline says so in one line. The

@@ -131,6 +131,15 @@ for (const [what, scenario, renamed] of titledRuns) {
   })
 }
 
+test('the relayed line of the retitle step carries the pull read exit code, title and draft flag and no stdout of it', async () => {
+  let relayed
+  const edit = (printed) => { relayed = JSON.parse(printed).v; return printed }
+  const { result } = await runLane(resumeArgs, { ...reachesTheEnd, 'r0-review': APPROVE, retitle: { pr_title: 'Add the feature', draft: true, item_title: 'The item title', edit } })
+  assert.equal(result.status, 'ready-to-land')
+  assert.deepEqual([relayed.pull.code, relayed.pull.title, relayed.pull.draft], [0, 'Add the feature', true])
+  assert.equal('out' in relayed.pull, false)
+})
+
 const unwrittenTitleRuns = [
   ['a failed title write', { pr_title: `Unfinished checkpoint of #${resumedLane.item}`, patch_code: 1 }],
   ['a title that cannot be read', { pr_title: null }],

@@ -131,7 +131,8 @@ const alsoTidy = followup('y.py:2', 'rename the helper', 'distributor')
 
 const satisfiedFoldIns = [
   ['one fold-in', [tidy], [satisfied(tidy)]],
-  ['two fold-ins', [tidy, alsoTidy], [satisfied(tidy), satisfied(alsoTidy, 'probe cell 4 proves it')]],
+  ['two fold-ins', [tidy, alsoTidy], [satisfied(tidy), satisfied(alsoTidy, 'probe cell 4 proves it', undefined, 2)]],
+  ['one fold-in the fixer answers under a labelled where', [tidy], [{ ...satisfied(tidy), where: `${tidy.where} (style)` }]],
 ]
 
 for (const [what, foldIn, resolved] of satisfiedFoldIns) {
@@ -237,7 +238,7 @@ for (const [what, args, resolved] of stopsDespiteResolved) {
 }
 
 test('a batch with one fold-in committed and one already satisfied folds both, the satisfied one with its evidence', async () => {
-  const resolved = [satisfied(alsoTidy)]
+  const resolved = [satisfied(alsoTidy, undefined, undefined, 2)]
   const { result } = await runLane({ ...resumeArgs, foldIn: [tidy, alsoTidy] }, { 'fix-1': { ...resumeFix, resolved }, 'r1-review': APPROVE, 'e2e-0': PASS, 'ci-0': greenCi(resumeFixedTip) })
   assert.equal(result.status, 'ready-to-land')
   assert.deepEqual(result.folded, [{ ...tidy, tip: resumeFixedTip }, { ...alsoTidy, tip: resumeFixedTip, evidence: resolved[0].evidence }])
@@ -335,13 +336,13 @@ for (const [behaviour, fixFirst, regression, rejectedFor, touched = ['t.py']] of
   })
 }
 
-test('a proof numbered 1 is judged as blocking finding 1 whatever it covers, and the fixer sees the fold-ins unnumbered', async () => {
+test('a proof numbered 1 is judged as blocking finding 1 whatever it covers, and the fixer sees the fold-ins numbered apart from the findings', async () => {
   const { result, agentCalls } = await runLane({ ...resumeArgs, fixFirst: [testGap], foldIn: [tidy] }, { 'fix-1': { ...resumeFix, regression: [proofOf(1, { test: 'the fold-in test', passesAfter: false })] } })
   assert.deepEqual([result.status, result.stage], ['failed', 'fix'])
   assert.deepEqual(result.lastBlocking.map(f => f.where), [testGap.where])
   const { prompt } = agentCalls['fix-1']
   assert.match(prompt, /^1\. t\.py:1 — a behaviour has no test$/m)
-  assert.match(prompt, /^- x\.py:1 — tidy the import order$/m)
+  assert.match(prompt, /^- fold-in 1: x\.py:1 — tidy the import order$/m)
   assert.doesNotMatch(prompt, /^\d+\. x\.py:1/m)
   assert.match(prompt, /a follow-up needs no regression entry/)
   assert.match(prompt, /a probe you saw fail and then acted on is reported before the entry that passes, and the last entry per finding is its proof/)
@@ -743,18 +744,25 @@ for (const [which, budgets] of spentBudgets) {
 }
 
 const reason = 'the fix would change behaviour outside the diff'
-const decline = (item) => ({ where: item.where, reason })
+const decline = (item, foldIn) => ({ foldIn, where: item.where, reason })
 
 test('a batch fixer that declines every fold-in at an unchanged tip lets the lane go on and the follow-ups stay with their reason', async () => {
-  const { result, launchedAgents } = await runLane(resumeArgs, { ...approvedWith(polish, alsoPolish), 'fix-1': { ...unchangedFix, declined: [decline(polish), decline(alsoPolish)] }, 'e2e-0': PASS, 'ci-0': greenCi(resumeTip) })
+  const { result, launchedAgents } = await runLane(resumeArgs, { ...approvedWith(polish, alsoPolish), 'fix-1': { ...unchangedFix, declined: [decline(polish, 1), decline(alsoPolish, 2)] }, 'e2e-0': PASS, 'ci-0': greenCi(resumeTip) })
   assert.equal(result.status, 'ready-to-land', result.reason)
   assert.ok(!launchedAgents.includes('r1-review'))
   assert.deepEqual(result.folded, [])
   assert.deepEqual(result.followups.map(f => [f.where, f.declined]), [[polish.where, reason], [alsoPolish.where, reason]])
 })
 
+test('a batch fixer that declines its fold-in under a where with an appended label still lets the lane go on', async () => {
+  const labelled = { ...decline(polish, 1), where: `${polish.where} (style)` }
+  const { result } = await runLane(resumeArgs, { ...approvedWith(polish), 'fix-1': { ...unchangedFix, declined: [labelled] }, 'e2e-0': PASS, 'ci-0': greenCi(resumeTip) })
+  assert.equal(result.status, 'ready-to-land', result.reason)
+  assert.deepEqual(result.followups.map(f => [f.where, f.declined]), [[polish.where, reason]])
+})
+
 test('a batch that fixes one fold-in and declines the other folds only the fixed one', async () => {
-  const { result } = await runLane(resumeArgs, { ...approvedWith(polish, alsoPolish), ...batchReachesTheEnd, 'fix-1': { ...resumeFix, declined: [decline(alsoPolish)] } })
+  const { result } = await runLane(resumeArgs, { ...approvedWith(polish, alsoPolish), ...batchReachesTheEnd, 'fix-1': { ...resumeFix, declined: [decline(alsoPolish, 2)] } })
   assert.equal(result.status, 'ready-to-land', result.reason)
   assert.deepEqual(result.folded.map(f => f.where), [polish.where])
   assert.deepEqual(result.followups.map(f => [f.where, f.declined]), [[alsoPolish.where, reason]])
@@ -762,7 +770,7 @@ test('a batch that fixes one fold-in and declines the other folds only the fixed
 
 test('a declined follow-up is not offered to a later fix round', async () => {
   const red = { head: resumeTip, green: false, failing: [defectWithoutDraft] }
-  const { agentCalls } = await runLane(resumeArgs, { ...approvedWith(polish), 'fix-1': { ...unchangedFix, declined: [decline(polish)] }, 'e2e-0': PASS, 'ci-0': red, 'fix-2': secondFix, 'r2-review': APPROVE, 'ci-1': greenCi(secondFix.head) })
+  const { agentCalls } = await runLane(resumeArgs, { ...approvedWith(polish), 'fix-1': { ...unchangedFix, declined: [decline(polish, 1)] }, 'e2e-0': PASS, 'ci-0': red, 'fix-2': secondFix, 'r2-review': APPROVE, 'ci-1': greenCi(secondFix.head) })
   assert.doesNotMatch(agentCalls['fix-2'].prompt, /tidy the import order/)
 })
 

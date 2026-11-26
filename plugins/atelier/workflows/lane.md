@@ -22,7 +22,7 @@ lists `requiredHeadActions`.
    miss. Its findings go to a fix round and the gate re-checks them, as on a material lane; the gate
    is not repeated after later fixes. The look is a measurement: one that ends without a verdict (the
    courier's `limited`, `hung`, `brief-mismatch`, `no-brief-record` or `failed`) or whose `routing.gate`
-   is on the builder's provider is skipped, the lane goes on and the history, the record and the Routing
+   is on the builder's provider is skipped, the lane goes on, the history holds no gate entry, and the record and the Routing
    line show `gate none`. A re-check owed after a REVISE is never skipped. A Claude reviewer that fails
    is started once more; only a second failure ends the round, with both texts
    in the reason. The first review is told that a tester drives the lane's `e2e`

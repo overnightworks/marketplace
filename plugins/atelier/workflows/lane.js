@@ -616,7 +616,7 @@ async function relayStep(A) {
 
   // A value a command prints reaches a decision only through one line the PRINTER wrote: the agent runs it and relays the
   // line unchanged, and a retyped or edited line fails its CRC32. The printer holds no single quote, so the shell passes
-  // it as one argument. Its first argument names the step whose commands it runs; the branch step reports the branch the worktree has checked out and, when a word is passed, also reads the item body through api(repo) and relays only whether the body quotes the word, that read's exit code and error output, and the word's count and CRC32, and mints the run id the begin and add steps pass to aco, the begin step runs `aco lane-record begin` and the add step `aco lane-record add`, each with the tip resolved by `git rev-parse` to 40 digits and each reporting its exit code and error output; after a begin that exited 0, the begin step runs `aco lane-record show --json` and reports only its exit code and error output, this run's own `follows`, and the shas of the earlier runs' stored review verdicts `approve` (the stored runs other than this run's id), the scope step never forces a push,
+  // it as one argument. Its first argument names the step whose commands it runs; the branch step reports the branch the worktree has checked out and, when a word is passed, also reads the item body through api(repo) and relays only whether the body quotes the word, that read's exit code and error output, and the word's count and CRC32, and mints the run id the begin and add steps pass to aco, the begin step runs `aco lane-record begin` and the add step `aco lane-record add`, each with the tip resolved by `git rev-parse` to 40 digits and each reporting its exit code and error output; after a begin that exited 0, the begin step runs `aco lane-record show --json` and reports only its exit code and error output, this run's own `follows`, the shas of the earlier runs' stored review verdicts `approve` (the stored runs other than this run's id), whether an earlier run ran the gate (`gateRan`), the verdict of the last stored gate verdict (`lastGate`) and whether a stored run is lost (`lost`: an earlier run without a record, or a run that does not follow), the scope step never forces a push,
   // relays HEAD's parents and whether its second parent is in origin/main, at most 50 paths and no text of aco brief but its exit code and error output, the record step reports the exit code and error output of `aco lane-record check` on the record file, the sync step reports the lane tip, its parents and whether it contains origin/main and, only when git's own merge of the lane tip and origin/main does not come out clean, that merge's exit code, its tree line and its conflicted paths (at most 50, with their count), the fix step reports those sync values and, per finding path the lane sent, the size in characters of the diff of that path in the first-parent commits between the held tip and HEAD, a merge showing only its conflict resolution, and the same size for the whole range, never the diff text, and the tree of HEAD and the tree git itself produces by merging HEAD's first two parents (the first line of `git merge-tree --write-tree`), and the count and CRC32 of those paths like the ci step, and the paths the first-parent merge commits since the held tip change against their remerge (at most 50, with their count, left out when none), and the ci step reports the pull request head, the count of listed checks, the checks that are neither pass nor skipping, each required context of the base whose bucket is not pass, with its bucket or missing, the exit code of each gh call, left out when it is 0 and the call has nothing else to carry, and its error output where it is not empty, the positions, among the finding paths the lane sent, of those that the pull request changes (the lane passes the finding paths as the last argument but one, each percent-encoded and joined by commas, so the argument holds no quote or backslash a copier could break; the file listing is paginated and never relayed), the exit code and error output of the head's workflow run listing, and the checks red on head that failed on the base tip too; a failed read of the pull request (gh api pulls/<n>, which spends no GraphQL points) ends its reads. A call that fails with a network marker or with GitHub's rate limit is retried (see NETWORK_WAIT_SECONDS) and, still failing, puts its name into unreachable, and into limited when the rate limit refused it. Only when the verdict check (the check named quality / verdict) is red, the ci step also reads that job log with gh run view and relays three values of it, never its text: whether a line says that only declared loosenings made it red and only the operator merges it, whether its closing line counts an undeclared loosening or an unmatched declaration (a cause only a pull request has), and the quality merge command of its next line; the lines come in any order and carry a job name, a step and a timestamp before their text.
   // A git or gh call that fails with one of these untranslated network or rate-limit markers, or an aco brief call whose stdout JSON has the reason unreachable, is run again after this many seconds; the tests rewrite the constant to 0.
   const NETWORK_WAIT_SECONDS = 30
@@ -1590,14 +1590,14 @@ async function sampledLook() {
   }
   const approval = history.findLast(approvesRange)
   sampled = true
-  phase('Review')
-  const round = await reviewRound([GATE], WHOLE_LANE, undefined, { after: approval?.after ?? spent.total })
-  if (round.unrecorded) {
-    sampled = false
-    sampledSkip = round.verdict.reason ?? `the gate returned no verdict (${round.verdict.state})`
-    return null
-  }
-  return await settleReview(round) ?? await storeProvenPoint() ?? await followUpBatch()
+  return await reviewUntilClean([GATE], WHOLE_LANE, undefined, { after: approval?.after ?? spent.total })
+}
+
+// A look that ended without a verdict is skipped and leaves nothing in the record.
+function skipSampledLook(round) {
+  sampled = false
+  sampledSkip = round.verdict.reason ?? `the gate returned no verdict (${round.verdict.state})`
+  return null
 }
 
 // A run stores its stages on the claim as segments: a segment is one aco run, the span of the run's stages between two proven points (a review that approves the tip, a gate that approves it on a material lane, the tester's pass).
@@ -2339,9 +2339,12 @@ async function pushAndCheckScope(label, origin) {
 
 // Review until clean. After every fix the delta goes back to whoever raised a finding, and the gate returns on a
 // material lane when the fix touched production or resolved lane conflicts. REVISE is handled one way everywhere.
-async function reviewUntilClean(which, range, from) {
+// A sampled look passes its own round settings and is skipped when the round gave no verdict.
+async function reviewUntilClean(which, range, from, sampledLook) {
   phase('Review')
-  return await settleReview(await reviewRound(which, range, from)) ?? await storeProvenPoint() ?? await followUpBatch()
+  const round = await reviewRound(which, range, from, sampledLook)
+  if (round.unrecorded) return skipSampledLook(round)
+  return await settleReview(round) ?? await storeProvenPoint() ?? await followUpBatch()
 }
 
 // A round the head resumes (a Codex reviewer out of usage, a courier whose brief never matched) repeats its range, so the review never moves to another provider.

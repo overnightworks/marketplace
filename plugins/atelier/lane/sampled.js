@@ -26,12 +26,12 @@ async function sampledLook() {
   }
   const approval = history.findLast(approvesRange)
   sampled = true
-  phase('Review')
-  const round = await reviewRound([GATE], WHOLE_LANE, undefined, { after: approval?.after ?? spent.total })
-  if (round.unrecorded) {
-    sampled = false
-    sampledSkip = round.verdict.reason ?? `the gate returned no verdict (${round.verdict.state})`
-    return null
-  }
-  return await settleReview(round) ?? await storeProvenPoint() ?? await followUpBatch()
+  return await reviewUntilClean([GATE], WHOLE_LANE, undefined, { after: approval?.after ?? spent.total })
+}
+
+// A look that ended without a verdict is skipped and leaves nothing in the record.
+function skipSampledLook(round) {
+  sampled = false
+  sampledSkip = round.verdict.reason ?? `the gate returned no verdict (${round.verdict.state})`
+  return null
 }

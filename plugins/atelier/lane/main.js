@@ -522,9 +522,12 @@ async function pushAndCheckScope(label, origin) {
 
 // Review until clean. After every fix the delta goes back to whoever raised a finding, and the gate returns on a
 // material lane when the fix touched production or resolved lane conflicts. REVISE is handled one way everywhere.
-async function reviewUntilClean(which, range, from) {
+// A sampled look passes its own round settings and is skipped when the round gave no verdict.
+async function reviewUntilClean(which, range, from, sampledLook) {
   phase('Review')
-  return await settleReview(await reviewRound(which, range, from)) ?? await storeProvenPoint() ?? await followUpBatch()
+  const round = await reviewRound(which, range, from, sampledLook)
+  if (round.unrecorded) return skipSampledLook(round)
+  return await settleReview(round) ?? await storeProvenPoint() ?? await followUpBatch()
 }
 
 // A round the head resumes (a Codex reviewer out of usage, a courier whose brief never matched) repeats its range, so the review never moves to another provider.

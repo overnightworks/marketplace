@@ -1826,7 +1826,7 @@ const MODEL_PROVIDER = OPERATOR_WORD ? { ...LANE_MODEL_PROVIDER, ...OPERATOR_WOR
 const PROVIDER_EFFORTS = OPERATOR_WORD ? { ...LANE_PROVIDER_EFFORTS, ...OPERATOR_WORD_PROVIDER_EFFORTS } : LANE_PROVIDER_EFFORTS
 const EFFORT_CAP = { opus: 'medium' }
 const WORD_HINT = OPERATOR_WORD ? '' : '; more needs the operator\'s word, passed as operatorWord and quoted in the item'
-// The one Claude gate: opus at high stands in while Codex is at its usage limit (instructions/HEAD.md, Reviews and gates); it is the one effort above medium opus may have.
+// The one Claude gate: opus at high stands in while Codex is at its usage limit or refuses the gate model (instructions/HEAD.md, Reviews and gates); it is the one effort above medium opus may have.
 const isGateStandIn = (role, model, effort) => role === 'gate' && model === 'opus' && effort === 'high'
 const REVIEWER_PROVIDER = A.reviewer || 'claude'
 const HARD_ROW = { model: 'sonnet', effort: 'high' }

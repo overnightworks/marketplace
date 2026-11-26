@@ -78,15 +78,21 @@ jobs:
       # so a workflow that parses fine still cannot start.
       - name: Check that workflow meta is a pure literal
         run: node scripts/check_workflow_meta.mjs plugins/*/workflows/*.js
-      # The lcov report carries the JavaScript coverage the quality gate's Sonar scan reads;
-      # the branch gate covers the scripts, as the pytest run below does for the Python ones.
+      # The lcov report carries the JavaScript coverage the quality gate's Sonar scan reads.
+      # The lane bundle is measured with the scripts; the floors below hold each at its own percentage.
       - name: Run workflow tests
         run: >-
           node --test --test-randomize --experimental-test-coverage
-          --test-coverage-include='scripts/*.mjs' --test-coverage-branches=100
+          --test-coverage-include='scripts/*.mjs' --test-coverage-include='plugins/atelier/workflows/lane.js'
           --test-reporter=spec --test-reporter-destination=stdout
           --test-reporter=lcov --test-reporter-destination=lcov.info
           tests/*.test.mjs
+      # The lane bundle is the sources under plugins/atelier/lane/ joined, so its branches are theirs.
+      # A floor only rises: when the measurement printed here is higher, raise the percentage to it.
+      - name: Hold the branch coverage of the scripts
+        run: node scripts/check_branch_floor.mjs lcov.info 100 scripts/
+      - name: Hold the branch coverage of the lane
+        run: node scripts/check_branch_floor.mjs lcov.info 0 plugins/atelier/workflows/lane.js
       # `--locked` fails rather than re-resolving, so the closure this job
       # installs is the one uv.lock names and a stale lock is red here instead
       # of being silently updated.

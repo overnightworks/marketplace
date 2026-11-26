@@ -185,6 +185,35 @@ Documentation is proven by review.
   host stops reading user-level instructions.
 - Loading `HEAD.md` through a provider: none loads it by itself. Reopen when a
   host offers a channel for one agent role only.
+- A top role that draws its work from weighted moods and tunes the weights by
+  its own outcome record. In the agents' reading such a record drifts from the
+  operator's wishes toward tidying. Pointers: overnightworks/foreman
+  `89c3f5041`, `8218a4d60`. Reopen if the operator's reactions, not its record,
+  set the weights.
+- A durable graph engine that runs the company's workflows. In the agents'
+  reading it is never easier to run than a head with helpers. The operator on
+  atelier-2's attempt at role context and process optimisation
+  (overnightworks/aco#1080, comment 7200901315):
+
+  > „sind im security theater gelandet vermute ich?“
+
+  Pointer: overnightworks/atelier-2#1523. Reopen when a flow beside the lane
+  workflow needs branching or resuming that a script cannot express.
+- A runner that reads a session's state from its screen and types into an idle
+  seat. In the agents' reading a screen is no liveness signal: its reading
+  breaks whenever the screen changes. Pointers: overnightworks/atelier
+  `bea9d6a5e`, `67ffa66fd`, `e0b563f56`. Reopen if a provider offers no
+  liveness signal but its screen.
+- Starting headless sessions without a probe per login first. In the agents'
+  reading concurrent starts in one login directory die without an error.
+  Pointers: overnightworks/atelier-2#993, #942. Reopen if a provider documents
+  concurrent starts per login directory as supported.
+- Promoting a role by a measured success threshold. In the agents' reading a
+  threshold's sample outlasts the change it judges, so measurement may warn or
+  take back, and the operator's reaction judges. Pointer:
+  overnightworks/atelier-2#106. Reopen if a trial (a rule change landed on
+  probation, `instructions/HEAD.md`, Rule changes) reaches the measure it named
+  before it began within a few weeks.
 
 ## 8. Risks and Technical Debt
 

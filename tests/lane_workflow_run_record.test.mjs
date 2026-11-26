@@ -302,7 +302,7 @@ test('run-record: a fixer that answers in the pull request body at an unchanged 
   const run = await runLane(resumeArgs, answers)
   assert.equal(run.result.status, 'ready-to-land', run.result.reason)
   assert.ok(callsOf(run.laneRecordCalls, 'add').length > 0)
-  assert.equal(storedLane(run).verdicts.at(-1).sha, resumeTip)
+  assert.deepEqual(storedLane(run).verdicts.at(-1), approvalAt('review', resumeTip))
 })
 
 test('run-record: a review approval beside a gate revision on a material lane is stored before the fixer starts', async () => {

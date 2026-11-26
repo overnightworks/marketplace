@@ -57,6 +57,19 @@ the quality gate and the end-to-end tests run in CI.
 The lane needs a repository that coordinates with aco, after the head ran
 `aco start <item>` (worktree, branch and claim exist).
 
+## Surfaces
+
+In a repository that declares `surface_paths` in `.aco/board.toml`, the scope check relays how many paths
+`aco brief <item> --json` lists under `touched_surfaces`; a key aco does not print is unknown, not "no surface".
+The design skill is advice and never blocks a landing:
+
+- The builder, and a fixer carrying `fixFirst` or `foldIn` before the first scope check, are told to check
+  after each commit whether `touched_surfaces` lists a path and to load `atelier:design-interface` once it does.
+  Every later fixer is told directly while the count is above 0; a count of 0 or unknown tells nobody.
+- While the count is above 0 at its start, the tester captures each changed view in a real browser after it has
+  judged its cells, and reports `design`: `capture` is `captured`, `test-only` or `gap` (with a note), and each
+  observation becomes a follow-up with `inPlace: false` and stage `test`, which no fixer is given.
+
 ## Required args
 
 - `item`: the GitHub issue number of the work item. The lane carries only issue
@@ -324,6 +337,7 @@ Every follow-up a reviewer, the gate or the tester reports carries a required
 boolean `inPlace`: true when it meets `IN_PLACE_RULE`.
 `followups` holds each follow-up the lane left open, one the fixer declined with
 its `declined` reason; `folded` holds those a fixer resolved.
+The tester's history entry of a surface lane carries `design: { capture, note? }`, `capture` being `not reported` when the tester gave none.
 
 A result `ci-red` or `unresolved` from a spent budget carries `resume`: `pr`,
 `tip`, `deltaFrom` equal to that tip and `fixFirst` holding the remaining

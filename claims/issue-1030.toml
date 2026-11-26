@@ -1,0 +1,7 @@
+claim_id = "71e4b73fbda244fc80d5267ea73a18e1"
+agent = "Claude c1d65467-2dcf-4ef5-921f-526bf349a609"
+role = "builder"
+base = "620e8337bd62575369f1d4bbe79803b673f6b3ae"
+branch = "claude/issue-1030-ci-test-job-ten-minutes"
+scope = [".github/workflows/ci.yml"]
+opened_commit = "95c8b56071c33a02ca076bd03c4e1392ea0528f4"

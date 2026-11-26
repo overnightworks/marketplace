@@ -320,7 +320,7 @@ function fixProofEntries(answered, blocking, after) {
   return unchanged.length ? [{ after, by: 'fix-proof', unchanged }] : []
 }
 
-const approvesRange = (entry) => entry.by === 'review' && entry.verdict === 'APPROVE' && entry.blocking?.length === 0
+const approvesRange = (entry) => entry.by === 'review' && entry.verdict === 'APPROVE'
 
 // A finding of the gate, CI or the tester is a miss when a review approved the range before it (HEAD.md's Misses rule), in this run or, when the run follows, in an earlier run stored on the claim (approvedBefore holds those shas).
 // A gate finding in the round of the approving review, or on a sha an earlier run approved, is no miss; a CI finding is none either when its check is deterministic and the fixer's proof for it reports no behaviour change. The review stage has no misses.
@@ -1300,7 +1300,6 @@ async function laneReview(A) {
     return runCourier(`${label}-retry`)
   }
 
-
   function codexReview(label, routing, role, range) {
     const base = `${A.scratch}/${A.tag}-${label}`
     const appendBodies = String.raw`{ cat ${base}-brief.md && printf '\n\n-----\nThe current item body (gh issue view):\n' && gh issue view ${A.item}${R} --json body --jq .body && printf '\n\n-----\nThe current pull request body (gh pr view):\n' && gh pr view ${A.pr}${R} --json body --jq .body; } > ${base}-brief.md.tmp && mv ${base}-brief.md.tmp ${base}-brief.md`
@@ -1376,8 +1375,7 @@ async function laneReview(A) {
       return { state: 'failed', reason: failures.map(v => shortened(v.note, 700)).join(' | ') + (reportPaths.length ? '; read the report ' + reportPaths.join(' and ') : '') }
     }
     if (got.some(v => v.verdict === 'architectural')) return { state: 'architectural' }
-    // An evidenced blocking finding outranks its label (APPROVE with a finding counts as REVISE). A REVISE with nothing
-    // to fix stays broken: that is how a courier's placeholder was caught.
+    // An evidenced blocking finding outranks its label (APPROVE with a finding counts as REVISE); a REVISE with nothing to fix stays broken, which catches a courier's placeholder.
     const emptyRevise = got.find(v => v.verdict === 'REVISE' && (v.blocking || []).length === 0)
     if (emptyRevise) {
       const readHint = emptyRevise.reportPath ? '; read the report ' + emptyRevise.reportPath : ''
@@ -1391,9 +1389,11 @@ async function laneReview(A) {
   function recordOf(reviewer, result) {
     const blocking = result.blocking || []
     const reportPath = result.reportPath || ''
+    // An evidenced blocking finding outranks the label, as classify counts it: the record never states an approval of a tip with an open finding.
+    const verdict = result.verdict === 'APPROVE' && blocking.length > 0 ? 'REVISE' : result.verdict
     return {
-      history: { after: A.after, by: reviewer.key, tip: A.tip, verdict: result.verdict, blocking: blocking.map(f => f.where), reportPath },
-      gateRounds: reviewer.isGate && !result.limit ? [{ after: A.after, verdict: result.verdict, blocking, reportPath, tip: A.tip }] : [],
+      history: { after: A.after, by: reviewer.key, tip: A.tip, verdict, blocking: blocking.map(f => f.where), reportPath },
+      gateRounds: reviewer.isGate && !result.limit ? [{ after: A.after, verdict, blocking, reportPath, tip: A.tip }] : [],
       followups: (result.followups || []).map(f => ({ ...f, stage: reviewer.key === 'review' ? 'review' : 'gate', tip: A.tip })),
     }
   }
@@ -1863,7 +1863,7 @@ const MODEL_PROVIDER = OPERATOR_WORD ? { ...LANE_MODEL_PROVIDER, ...OPERATOR_WOR
 const PROVIDER_EFFORTS = OPERATOR_WORD ? { ...LANE_PROVIDER_EFFORTS, ...OPERATOR_WORD_PROVIDER_EFFORTS } : LANE_PROVIDER_EFFORTS
 const EFFORT_CAP = { opus: 'medium' }
 const WORD_HINT = OPERATOR_WORD ? '' : '; more needs the operator\'s word, passed as operatorWord and quoted in the item'
-// The one Claude gate: opus at high stands in while Codex is at its usage limit (instructions/HEAD.md, Reviews and gates); it is the one effort above medium opus may have.
+// The one Claude gate: opus at high stands in while Codex is at its usage limit or refuses the gate model (instructions/HEAD.md, Reviews and gates); it is the one effort above medium opus may have.
 const isGateStandIn = (role, model, effort) => role === 'gate' && model === 'opus' && effort === 'high'
 const REVIEWER_PROVIDER = A.reviewer || 'claude'
 const HARD_ROW = { model: 'sonnet', effort: 'high' }
@@ -2176,7 +2176,7 @@ async function reviewRound(which, range, from, sampledLook) {
   followups.push(...answer.followups)
   if (answer.gateRounds.length) productionSinceGate = false
   gateRounds.push(...answer.gateRounds)
-  return { which, results, verdict, range, from }
+  return { which, results, verdict, range, from, history: answer.history }
 }
 
 // A finding that comes back unchanged after a fix meant for it is no progress; the second return stops the lane.
@@ -2400,7 +2400,7 @@ async function reviseAfter(rr) {
   }
   // A reviewer that approved the tip has proven it, whichever other reviewer revises it; its verdict goes to the claim before the fixer can die.
   // Not when the approval follows a revision of the same tip: aco lands the last stored verdict, so that segment stays unstored until the fixer's commits are judged.
-  if (rr.results.some(v => v?.verdict === 'APPROVE' && !(v.blocking || []).length) && !approvesRevisedTip(history)) {
+  if (rr.history.some(entry => entry.verdict === 'APPROVE') && !approvesRevisedTip(history)) {
     const stored = await storeProvenPoint()
     if (stored) return stored
   }

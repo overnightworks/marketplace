@@ -176,9 +176,9 @@ The lane needs a repository that coordinates with aco, after the head ran
   model the lane's routing lacks (such as Fable), is refused, and the refusal
   names `operatorWord`; with it, see Optional args (`HEAD.md`, "Model routing").
 - The gate runs on another provider than the builder, except the one Claude gate
-  opus/high, which `routing.gate` may name while Codex is at its usage limit and
-  which runs as a fresh Claude reviewer. Any other Claude gate is refused at
-  input.
+  opus/high, which `routing.gate` may name while Codex is at its usage limit or
+  refuses the gate model and which runs as a fresh Claude reviewer. Any other
+  Claude gate is refused at input.
 
 ## Awaiting-head results
 

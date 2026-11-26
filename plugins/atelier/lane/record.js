@@ -37,7 +37,7 @@ function fixProofEntries(answered, blocking, after) {
   return unchanged.length ? [{ after, by: 'fix-proof', unchanged }] : []
 }
 
-const approvesRange = (entry) => entry.by === 'review' && entry.verdict === 'APPROVE' && entry.blocking?.length === 0
+const approvesRange = (entry) => entry.by === 'review' && entry.verdict === 'APPROVE'
 
 // A finding of the gate, CI or the tester is a miss when a review approved the range before it (HEAD.md's Misses rule), in this run or, when the run follows, in an earlier run stored on the claim (approvedBefore holds those shas).
 // A gate finding in the round of the approving review, or on a sha an earlier run approved, is no miss; a CI finding is none either when its check is deterministic and the fixer's proof for it reports no behaviour change. The review stage has no misses.

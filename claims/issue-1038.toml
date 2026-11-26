@@ -1,8 +1,0 @@
-claim_id = "aea1849bc3a64dc0a1eb0fb289691891"
-agent = "Claude c1d65467-2dcf-4ef5-921f-526bf349a609"
-role = "builder"
-base = "11f532768ca4df0c572ead785f34717b3baabf09"
-branch = "claude/issue-1038-draft-flag-long-title"
-scope = ["plugins/atelier/lane", "plugins/atelier/workflows/lane.js", "tests/lane_workflow_builder.test.mjs", "tests/lane_workflow_relay.test.mjs"]
-opened_commit = "6fa1f910173cea417c78c0cb20d1e8f7368e4015"
-whole_reason = "The relay printer, its JS reader and the generated bundle change together, proven by one relay test."

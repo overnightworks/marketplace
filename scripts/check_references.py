@@ -34,10 +34,13 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 CONTRACT_DIRECTORY = "instructions"
 CONTRACT_FILES = ("AGENTS.md", "HEAD.md", "OPERATORS.md")
 
+# A path git takes as its -C value: no control character and no leading dash, which git would read as an option.
+CHECKOUT_PATTERN = r"[^\x00-\x1f-][^\x00-\x1f]*"
 CONTRACT_FILE = r"(?P<file>AGENTS\.md|HEAD\.md|OPERATORS\.md)`?"
 # Each form captures the whole target text as `target`; the first matching form wins.
+QUOTED = r'"[^"]+"'
 TARGET_FORMS = (
-    re.compile(r"sections\s+(?P<target>\"[^\"]+\"(?:(?:\s*,\s*|\s+and\s+)\"[^\"]+\")*)"),
+    re.compile(rf"sections\s+(?P<target>{QUOTED}(?:\s*(?:,|and)\s*{QUOTED})*)"),
     re.compile(r"\"(?P<target>[^\"]+)\""),
     re.compile(r"(?P<target>[A-Z][^(),\"]*)"),
 )
@@ -45,7 +48,7 @@ REFERENCE_OPENING = re.compile(rf"\(\s*`?(?P<explicit>{CONTRACT_DIRECTORY}/)?{CO
 QUOTE_FORM = re.compile(r"\s*\(\s*(?P<mark>['\"])(?P<quote>.+?)(?P=mark)\s*\)", re.DOTALL)
 QUOTED_NAME = re.compile(r"\"([^\"]+)\"")
 FILE_NAME = re.compile(r"\.[a-z]{2,4}\b")
-HEADING = re.compile(r"^#+\s+(?P<name>.+?)\s*$", re.MULTILINE)
+HEADING = re.compile(r"^#+[ \t]+(?P<name>\S.*)$", re.MULTILINE)
 BOLD_LEAD = re.compile(r"^(?:[-*]\s+|\d+\.\s+)?\*\*(?P<name>.+?)\*\*", re.MULTILINE)
 EMPHASIS = re.compile(r"[*_`]")
 
@@ -164,6 +167,9 @@ def check_checkout(checkout: Path, contract_root: Path = REPOSITORY_ROOT) -> lis
 
 
 def main(arguments: list[str]) -> int:
+    if arguments and re.fullmatch(CHECKOUT_PATTERN, arguments[0]) is None:
+        print(f"not a checkout path: {arguments[0]!r}", file=sys.stderr)
+        return 2
     checkout = Path(arguments[0]) if arguments else REPOSITORY_ROOT
     problems = check_checkout(checkout)
     if problems:

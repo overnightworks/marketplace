@@ -6,7 +6,8 @@
 #        probe-run -h | --help
 #
 # Waits (up to an hour) until the 1-minute load average is below 1.5 x cores, then runs
-# setpriv --pdeathsig TERM timeout -k K CAP COMMAND... as its child and waits for it.
+# timeout -k K CAP COMMAND... as its child, inside a network namespace of its own, and waits for
+# it.
 # --wait-only takes no command: it runs the same wait alone and exits 0 once the load has room.
 # K is the seconds a stack gets to tear down after TERM (default 30), CAP the seconds
 # it may run (default 1800); CAP + K stays within 1830.
@@ -16,7 +17,19 @@
 # which keeps its pid and its parent, and checks that the starter is still the parent, since a
 # starter gone before the signal was armed is never signalled. From the start on, the end of
 # the starter reaches it as a TERM, which stops the stack like any other stop. The command's
-# setpriv is armed the same way, so the stack also ends if probe-run is killed.
+# relay to the namespace is armed the same way, so the stack also ends if probe-run is killed.
+#
+# The namespace comes from pasta (package passt), IPv4 only: the host's listening TCP ports are
+# reachable on 127.0.0.1 and localhost in it, outbound traffic and DNS work, and the bridge and veth
+# changes other sessions' containers cause never reach it, so Chromium reports no
+# net::ERR_NETWORK_CHANGED. The command runs as uid 0 there, mapped to the starter's uid. A host
+# listener on ::1 alone and a container that calls back to a server in the namespace are not
+# reached. IPv6 stays off because pasta would accept a client that tries ::1 first (curl,
+# Playwright) and reset it when the host listens on IPv4 only; with IPv4 only the client is refused
+# at once and falls back to 127.0.0.1. timeout runs inside the namespace. pasta ends at once on
+# TERM, leaves its child running and clears the death signal on its exec, so a relay between the
+# supervisor and pasta keeps the death signal and passes the TERM to timeout, which keeps the
+# teardown within K.
 #
 # The command gets probe-run's stdin and the default INT and QUIT handling.
 #
@@ -27,8 +40,8 @@
 #
 # Exit status: 0 with --wait-only once the load has room, 2 bad arguments or an unreadable load, 75 the load stayed at or
 # above the limit for the whole wait (no command was started), 4 the starting process died
-# before the command started, 130 interrupted during the wait (no command was started). After
-# the start the status is the command's, except 130 after a SIGINT and 129 after a SIGHUP to
+# before the command started, 69 pasta or pgrep is missing (no command was started), 130 interrupted during
+# the wait (no command was started). After the start the status is the command's, except 130 after a SIGINT and 129 after a SIGHUP to
 # probe-run.
 #
 # The tests inject PROBE_RUN_LOADAVG_FILE (the load source, default /proc/loadavg),
@@ -47,6 +60,8 @@ readonly EXIT_HANGUP=129
 kill_after=30
 cap=1800
 readonly SUPERVISE_MARKER=--supervise
+readonly RELAY_MARKER=--relay
+readonly EXIT_NO_NAMESPACE_TOOL=69
 starter=$PPID
 starter_ended_message="the process that started probe-run ended during the wait"
 guard_refused_message="probe-run or the process that started it ended before the command started; no probe stack was started"
@@ -75,6 +90,7 @@ readonly PARENT_GUARD='[[ $PPID == "$1" ]] || { echo "probe-run: $3" >&2; exit "
 # a trap only between commands, so the command's timeout runs in the background and is waited
 # on. Its status is reported as 130 or 129 once probe-run was interrupted or hung up.
 child=""
+relay_through_pasta=""
 requested_status=""
 stop_requested=""
 term_sent=""
@@ -83,7 +99,16 @@ term_sent=""
 send_term_once() {
   [[ -n $child && -z $term_sent ]] || return 0
   term_sent=1
-  kill -TERM "$child" 2>/dev/null || true
+  local target=$child
+  # pasta would end at once on TERM, so the TERM waits for what runs inside the namespace and goes
+  # to it; a pasta that ended has nothing left to wait for.
+  if [[ -n $relay_through_pasta ]]; then
+    until target=$(pgrep -P "$child"); do
+      kill -0 "$child" 2>/dev/null || return 0
+      sleep 0.01
+    done
+  fi
+  kill -TERM "$target" 2>/dev/null || true
 }
 stop_stack() {
   [[ -z ${1:-} ]] || requested_status=$1
@@ -91,16 +116,24 @@ stop_stack() {
   send_term_once
 }
 
+# Both run in the background as the supervisor's child, so each ends in an exec. An async list in
+# a script gets /dev/null as stdin and ignored INT and QUIT, so the command gets probe-run's stdin
+# back and the default dispositions. pasta ignores INT and HUP, which a signal to the process
+# group would otherwise end it with; the command inside the namespace gets them back.
+launch_relay() {
+  exec setpriv --pdeathsig TERM env --default-signal=INT,QUIT bash -c "$PARENT_GUARD" probe-run \
+    "$$" "$EXIT_PARENT_GONE" "$guard_refused_message" "${BASH_SOURCE[0]}" "$RELAY_MARKER" "$@"
+}
+launch_in_namespace() {
+  exec env --default-signal=QUIT --ignore-signal=INT,HUP \
+    pasta --ipv4-only --config-net -- /bin/bash -c 'exec env --default-signal=INT,HUP,QUIT timeout -k "$@"' probe-run "$@"
+}
+
 supervise() {
-  local kill_after=$1 cap=$2
-  shift 2
   trap 'stop_stack "$EXIT_INTERRUPTED"' INT
   trap 'stop_stack "$EXIT_HANGUP"' HUP
   trap stop_stack TERM
-  # An async list in a script gets /dev/null as stdin and ignored INT and QUIT, so the command
-  # gets probe-run's stdin back and the default dispositions.
-  setpriv --pdeathsig TERM env --default-signal=INT,QUIT bash -c "$PARENT_GUARD" probe-run \
-    "$$" "$EXIT_PARENT_GONE" "$guard_refused_message" timeout -k "$kill_after" "$cap" "$@" <&0 &
+  "$launch" "$@" <&0 &
   child=$!
   [[ -z $stop_requested ]] || send_term_once
   local finished child_status=0
@@ -112,9 +145,17 @@ supervise() {
   exit "${requested_status:-$child_status}"
 }
 
-# The first argument marks the supervisor that probe-run executes itself as once the load has room.
+# The first argument marks the supervisor that probe-run executes itself as once the load has room,
+# or the relay it starts under it.
 if [[ ${1:-} == "$SUPERVISE_MARKER" ]]; then
   shift
+  launch=launch_relay
+  supervise "$@"
+fi
+if [[ ${1:-} == "$RELAY_MARKER" ]]; then
+  shift
+  launch=launch_in_namespace
+  relay_through_pasta=1
   supervise "$@"
 fi
 if [[ ${1:-} == -h || ${1:-} == --help ]]; then
@@ -141,6 +182,10 @@ if [[ -z $wait_only ]]; then
   is_positive_integer "$cap" || fail "CAP must be a positive integer of at most 4 digits, got '$cap'"
   ((cap + kill_after <= MAXIMUM_TOTAL_SECONDS)) ||
     fail "CAP + K must be at most $MAXIMUM_TOTAL_SECONDS, got $((cap + kill_after))"
+  command -v pasta >/dev/null ||
+    fail "pasta is missing (package passt), which gives the command its own network; no probe stack was started" "$EXIT_NO_NAMESPACE_TOOL"
+  command -v pgrep >/dev/null ||
+    fail "pgrep is missing (package procps), which finds the command inside its network; no probe stack was started" "$EXIT_NO_NAMESPACE_TOOL"
 fi
 
 loadavg_file=${PROBE_RUN_LOADAVG_FILE:-/proc/loadavg}

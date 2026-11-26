@@ -99,6 +99,11 @@ jobs:
           uv run --locked --no-build
           check-jsonschema --schemafile https://json.schemastore.org/claude-code-settings.json
           settings/claude-managed.json
+      # probe-run runs its command in a network namespace that pasta forms, and
+      # its tests drive that namespace on this runner.
+      - name: Install passt
+        # runtime-install: passt is the userspace network helper the probe-run tests drive, and the runner image does not ship it
+        run: sudo apt-get install --yes --no-install-recommends passt
       - name: Run tests
         run: >-
           uv run --locked --no-build

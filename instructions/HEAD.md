@@ -196,16 +196,17 @@ it from its branch and claims after adoption.
   it for them; each dependent's head owns its upgrade. Ask about a decision at
   hand; wishes gathered without one are inventory.
 - **Heads talk.** What another repository's head needs (a release, a fix, a
-  changed contract) goes to it live when this session can reach it, and always
-  onto its board, where a later head still finds it. A release reaches each
-  dependent that runs or imports what it changes, or waits for it, as one work
-  item with an aco block, opened or sharpened by the releasing head (the
-  release is its caller), naming the version and what the dependent must
+  changed contract) goes onto its board, where a later head still finds it, and
+  live as well when that head must act on it and this session can reach it; an
+  acknowledgement or other news goes onto the item, or nowhere. A release
+  reaches each dependent that runs or imports what it changes, or waits for it,
+  as one work item with an aco block, opened or sharpened by the releasing head
+  (the release is its caller), naming the version and what the dependent must
   change, as its release page lists it; any other dependent gets none, and its
-  pin moves with the next release that reaches it. The dependent's head
-  takes it ahead of new feature work (`--out-of-order` when `aco next` names
-  another item) and builds the version in unless an open item blocks it, which
-  it then records as a dependency.
+  pin moves with the next release that reaches it. The dependent's head takes
+  it ahead of new feature work (`--out-of-order` when `aco next` names another
+  item) and builds the version in unless an open item blocks it, which it then
+  records as a dependency.
 - **Fleet standards.** A due adoption trigger makes the covered head open or
   sharpen the conformance item, with the standard as caller, and take it ahead
   of new feature work like a release. A head that owns or proposes a standard,
@@ -320,14 +321,15 @@ needs no counter-check. Lane work keeps its own reviews.
   merged result.
 - **Independence.** A builder never reviews its own work. A required final
   gate runs in fresh context on a provider column other than the builder's or,
-  while that provider is at its usage limit, on Opus 5.5 at high, named in the
-  pull request; with no eligible gate provider, it waits. Saving budget never
+  while that provider is at its usage limit or refuses the gate model, on Opus
+  5.5 at high, named in the pull request; with no eligible gate provider, it
+  waits. Saving budget never
   weakens required verification: every implementation lane keeps its
   independent review. Each required review brief carries the contract core (the
   current item body, the candidate diff and the verification evidence), with
   rulings and neighbours folded into the body, never passed beside it. No
-  override changes reviewer independence or the effort caps, nor gate provider
-  separation beyond that stand-in.
+  override changes reviewer independence, nor gate provider separation beyond
+  that stand-in.
 - **Re-checks.** A delta re-check carries the contract core and the raised
   findings and asks whether the repair opened something new; it covers only the
   raised delta when the fix is strictly isolated and the integrated tree
@@ -336,9 +338,9 @@ needs no counter-check. Lane work keeps its own reviews.
   by the same reviewer while its reported lifetime context is under 200k
   tokens (unknown counts as over), else by a fresh reviewer of the same row and
   provider column given the original findings verbatim. When the gate's
-  provider is at its usage limit, a fresh reviewer at the lane's review routing
-  re-checks a test-only delta, and the pull request names the range the gate
-  did not see.
+  provider is at its usage limit or refuses the gate model, a fresh reviewer at
+  the lane's review routing re-checks a test-only delta, and the pull request
+  names the range the gate did not see.
 - **Repeat the gate** in fresh context when a later fix changes interaction,
   scope or risk (production behaviour, a data path, secrets, a public
   contract) or when the trunk pull or integration merge needed conflict

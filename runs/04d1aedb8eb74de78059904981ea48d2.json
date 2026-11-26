@@ -181,6 +181,11 @@
         "risk": "normal",
         "experiment": "sampled-gate-proof"
       }
+    },
+    {
+      "run": "264354c3581647b29146f1e47a729b67-2",
+      "start_tip": "a78888a0184aafd0139c24b1f863cc0e0042d551",
+      "follows": true
     }
   ]
 }

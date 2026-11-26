@@ -144,15 +144,23 @@ def test_a_client_that_tries_ipv6_localhost_first_exchanges_data_with_a_host_ipv
     assert result.returncode == 0, result.stderr
 
 
-def test_fails_loud_without_starting_when_pasta_is_missing(real_machine, tmp_path):
+@pytest.mark.parametrize(
+    ("missing_tool", "present_tools"),
+    [("pasta", ()), ("pgrep", ("pasta",))],
+    ids=["pasta-missing", "pgrep-missing"],
+)
+def test_fails_loud_without_starting_when_a_network_tool_is_missing(
+    real_machine, tmp_path, missing_tool, present_tools
+):
     bin_directory = tmp_path / "bare-bin"
     bin_directory.mkdir()
-    (bin_directory / "bash").symlink_to(shutil.which("bash"))
+    for tool in ("bash", *present_tools):
+        (bin_directory / tool).symlink_to(shutil.which("bash"))
 
     result = probe_run({**real_machine, "PATH": str(bin_directory)}, "my-stack")
 
     assert result.returncode == ENVIRONMENT_ERROR_STATUS
-    assert "pasta" in result.stderr
+    assert missing_tool in result.stderr
     assert "no probe stack was started" in result.stderr
 
 

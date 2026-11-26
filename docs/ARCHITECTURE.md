@@ -14,8 +14,9 @@ several of the operator's repositories and links to its owner.
 ## 1. Context and Scope
 
 Guidance has three owners, and each reaches an agent by its own route: the
-contract and code policy by a per-machine link, the plugin by plugin install,
-and a repository's own facts through git. This repository owns the first two,
+contract by a per-machine link, with the code policy (`CODE.md`) read beside
+its target, the plugin by plugin install, and a repository's own facts through
+git. This repository owns the first two,
 and the Claude Code settings every session shares (section 5).
 Outside it stand the hosts that read the guidance (Claude Code, Codex, Grok),
 the operator's machine, and every repository the operator's agents work in.
@@ -163,8 +164,8 @@ registration (`enabledPlugins`, `extraKnownMarketplaces`) stays with the
 installer's `claude plugin` calls.
 
 **Proof strategy.** CI on every pull request checks that the generated Codex
-agents match their source, that no symlink is tracked, that every contract file is
-within its byte budget, that every skill is valid, that every
+agents match their source, that no symlink is tracked, that `AGENTS.md`, `CODE.md` and
+`HEAD.md` each stay within a byte budget, that every skill is valid, that every
 workflow's metadata parses, that the shipped Claude Code settings pass the
 published settings schema, and runs the workflow tests, and the script and hook tests
 with branch-coverage floors (100 % for the scripts, 95.5 % for the lane bundle,
@@ -182,7 +183,7 @@ Documentation is proven by review.
 - **One file per audience.** `HEAD.md` stays apart from `AGENTS.md` so helpers
   do not carry the head's coordination rules, and `CODE.md` holds what only
   coding agents and judges of a finding read, so a research helper or a landing
-  courier does not carry it. Each file has a byte budget in CI, below Codex's
+  courier does not carry it. Each of those three has a byte budget in CI, below Codex's
   instruction-file limit, because loaded tokens follow bytes.
 
 ## 7. Not chosen

@@ -92,7 +92,7 @@ jobs:
       - name: Hold the branch coverage of the scripts
         run: node scripts/check_branch_floor.mjs lcov.info 100 scripts/
       - name: Hold the branch coverage of the lane
-        run: node scripts/check_branch_floor.mjs lcov.info 0 plugins/atelier/workflows/lane.js
+        run: node scripts/check_branch_floor.mjs lcov.info 95.5 plugins/atelier/workflows/lane.js
       # `--locked` fails rather than re-resolving, so the closure this job
       # installs is the one uv.lock names and a stale lock is red here instead
       # of being silently updated.

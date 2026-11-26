@@ -6,11 +6,10 @@ import { pathToFileURL } from 'node:url'
 /** The branches found and hit over the report's files whose path contains `path`. */
 export function branchTotals(lcov, path) {
   const totals = { found: 0, hit: 0 }
-  for (const record of lcov.split('end_of_record')) {
-    const file = /^SF:(.*)$/m.exec(record)?.[1]
-    if (!file?.includes(path)) continue
-    totals.found += Number(/^BRF:(\d+)$/m.exec(record)?.[1] ?? 0)
-    totals.hit += Number(/^BRH:(\d+)$/m.exec(record)?.[1] ?? 0)
+  for (const record of lcov.split(/^SF:/m).slice(1)) {
+    if (!record.split('\n')[0].includes(path)) continue
+    totals.found += Number(/^BRF:(\d+)$/m.exec(record)[1])
+    totals.hit += Number(/^BRH:(\d+)$/m.exec(record)[1])
   }
   return totals
 }

@@ -6,13 +6,14 @@ A reference is `(<contract file>, <target>)`: the file is `AGENTS.md`, `HEAD.md`
 section name, plain or in double quotes, or `sections "A" and "B"`. It resolves when the
 contract file has a heading of that name or a paragraph whose bold lead starts with it. A
 quote in single or double quotes right after the reference, as in
-`(AGENTS.md, Code ('a sentence'))`, resolves when the contract file holds it verbatim, line
+`(AGENTS.md`, a comma, a section name and then `('a sentence')`, resolves when the contract file holds it verbatim, line
 breaks and Markdown emphasis ignored. A target that names another file is no reference.
 
 The accepted forms are the patterns in TARGET_FORMS and QUOTE_FORM, so a new form is an
 addition there. Known gap: a form they do not match is not checked, so a reference spelled in
-prose, a bare section name with no contract file beside it, a plain target that starts in lower case, or a quote that does not follow its
-reference directly passes unseen.
+prose, a bare section name with no contract file beside it, a plain target that starts in lower
+case, a second or later target of a list that is not `sections "A" and "B"`, or a quote that does
+not follow its reference directly passes unseen.
 
 Usage: check_references.py [CHECKOUT]. A reference spelled with `instructions/` resolves against
 this repository's contract; one spelled bare resolves against the contract here and against the
@@ -77,13 +78,13 @@ def parse_section(contract_text: str) -> Section:
     )
 
 
-def parse_targets(text: str) -> tuple[str, ...] | None:
+def parse_targets(text: str) -> tuple[tuple[str, ...], int] | None:
     for form in TARGET_FORMS:
         match = form.match(text)
         if match:
             target = match["target"]
             names = [squeeze(name) for name in QUOTED_NAME.findall(target) or [target]]
-            return None if any(FILE_NAME.search(name) for name in names) else tuple(names)
+            return None if any(FILE_NAME.search(name) for name in names) else (tuple(names), match.end())
     return None
 
 
@@ -91,10 +92,10 @@ def find_references(text: str) -> list[Reference]:
     references = []
     for opening in REFERENCE_OPENING.finditer(text):
         rest = text[opening.end() :]
-        targets = parse_targets(rest)
-        if targets is None:
+        parsed = parse_targets(rest)
+        if parsed is None:
             continue
-        form_end = max(match.end() for form in TARGET_FORMS if (match := form.match(rest)))
+        targets, form_end = parsed
         quote = QUOTE_FORM.match(rest, form_end)
         references.append(
             Reference(
@@ -111,7 +112,8 @@ def find_references(text: str) -> list[Reference]:
 def resolve(reference: Reference, contract: dict[str, Section], local: dict[str, Section]) -> list[str]:
     section = (contract if reference.explicit else local).get(reference.file)
     if section is None:
-        return [f"{reference.file} is not in {CONTRACT_DIRECTORY}/"]
+        side = f"{CONTRACT_DIRECTORY}/" if reference.explicit else "the checkout's root"
+        return [f"{reference.file} is not in {side}"]
     problems = [
         f"{reference.file} has no section '{target}'"
         for target in reference.targets

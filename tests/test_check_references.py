@@ -60,7 +60,8 @@ def test_resolving_reference_forms_raise_no_problem(reference: str, contract: di
         pytest.param("HEAD.md, Landing zone", "has no section 'Landing zone'", id="broken-plain-heading"),
         pytest.param('HEAD.md, sections "Lanes" and "Gone"', "has no section 'Gone'", id="one-broken-name-in-a-sections-list"),
         pytest.param("`AGENTS.md`, Code ('A sentence nobody wrote')", "does not hold the quote 'A sentence nobody wrote'", id="misquoted-sentence"),
-        pytest.param("OPERATORS.md, Anything", "OPERATORS.md is not in instructions/", id="contract-file-that-does-not-exist-yet"),
+        pytest.param("OPERATORS.md, Anything", "OPERATORS.md is not in the checkout's root", id="bare-contract-file-missing-from-the-checkout"),
+        pytest.param("instructions/OPERATORS.md, Anything", "OPERATORS.md is not in instructions/", id="contract-file-that-does-not-exist-yet"),
     ],
 )
 def test_broken_references_name_their_line_and_reason(reference: str, reason: str, contract: dict) -> None:

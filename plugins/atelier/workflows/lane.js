@@ -469,13 +469,14 @@ function storeProblem(verb, relayed, printedLine) {
   const { code, err } = relayed.values[verb]
   return code === 0 ? null : `aco lane-record ${verb} exited ${code}: ${err}`
 }
-// What the begin step relayed of `aco lane-record show`: whether this run follows and the shas the earlier runs' stored review verdicts approve, or the gap that a failed or unreadable read leaves.
+// What the begin step relayed of `aco lane-record show`: whether this run follows, the shas the earlier runs' stored review verdicts approve, whether an earlier run ran the gate with its last gate verdict and whether a run is lost,
+// or the gap that a failed or unreadable read leaves.
 function storedRunsRead(values) {
-  const { code, err, follows, approved } = values.lane ?? {}
+  const { code, err, follows, approved, gateRan, lastGate, lost } = values.lane ?? {}
   if (code === undefined) return { gap: 'the begin step relayed no read of the stored runs' }
   if (code !== 0) return { gap: `aco lane-record show exited ${code}: ${err}` }
-  if (typeof follows !== 'boolean' || !Array.isArray(approved)) return { gap: 'aco lane-record show printed stored runs the lane cannot read' }
-  return { follows, approved }
+  if (typeof follows !== 'boolean' || !Array.isArray(approved) || typeof gateRan !== 'boolean' || typeof lost !== 'boolean' || ![null, 'approve', 'revise'].includes(lastGate)) return { gap: 'aco lane-record show printed stored runs the lane cannot read' }
+  return { follows, approved, gateRan, lastGate, lost }
 }
 // The outcome of a begin: the problem that ends the run, or what the run read of the stored runs.
 function beganRun(relayed, printedLine) {
@@ -615,7 +616,7 @@ async function relayStep(A) {
 
   // A value a command prints reaches a decision only through one line the PRINTER wrote: the agent runs it and relays the
   // line unchanged, and a retyped or edited line fails its CRC32. The printer holds no single quote, so the shell passes
-  // it as one argument. Its first argument names the step whose commands it runs; the branch step reports the branch the worktree has checked out and, when a word is passed, also reads the item body through api(repo) and relays only whether the body quotes the word, that read's exit code and error output, and the word's count and CRC32, and mints the run id the begin and add steps pass to aco, the begin step runs `aco lane-record begin` and the add step `aco lane-record add`, each with the tip resolved by `git rev-parse` to 40 digits and each reporting its exit code and error output; after a begin that exited 0, the begin step runs `aco lane-record show --json` and reports only its exit code and error output, this run's own `follows`, and the shas of the earlier runs' stored review verdicts `approve` (the stored runs other than this run's id), the scope step never forces a push,
+  // it as one argument. Its first argument names the step whose commands it runs; the branch step reports the branch the worktree has checked out and, when a word is passed, also reads the item body through api(repo) and relays only whether the body quotes the word, that read's exit code and error output, and the word's count and CRC32, and mints the run id the begin and add steps pass to aco, the begin step runs `aco lane-record begin` and the add step `aco lane-record add`, each with the tip resolved by `git rev-parse` to 40 digits and each reporting its exit code and error output; after a begin that exited 0, the begin step runs `aco lane-record show --json` and reports only its exit code and error output, this run's own `follows`, the shas of the earlier runs' stored review verdicts `approve` (the stored runs other than this run's id), whether an earlier run ran the gate (`gateRan`), the verdict of the last stored gate verdict (`lastGate`) and whether a stored run is lost (`lost`: an earlier run without a record, or a run that does not follow), the scope step never forces a push,
   // relays HEAD's parents and whether its second parent is in origin/main, at most 50 paths and no text of aco brief but its exit code and error output, the record step reports the exit code and error output of `aco lane-record check` on the record file, the sync step reports the lane tip, its parents and whether it contains origin/main and, only when git's own merge of the lane tip and origin/main does not come out clean, that merge's exit code, its tree line and its conflicted paths (at most 50, with their count), the fix step reports those sync values and, per finding path the lane sent, the size in characters of the diff of that path in the first-parent commits between the held tip and HEAD, a merge showing only its conflict resolution, and the same size for the whole range, never the diff text, and the tree of HEAD and the tree git itself produces by merging HEAD's first two parents (the first line of `git merge-tree --write-tree`), and the count and CRC32 of those paths like the ci step, and the paths the first-parent merge commits since the held tip change against their remerge (at most 50, with their count, left out when none), and the ci step reports the pull request head, the count of listed checks, the checks that are neither pass nor skipping, each required context of the base whose bucket is not pass, with its bucket or missing, the exit code of each gh call, left out when it is 0 and the call has nothing else to carry, and its error output where it is not empty, the positions, among the finding paths the lane sent, of those that the pull request changes (the lane passes the finding paths as the last argument but one, each percent-encoded and joined by commas, so the argument holds no quote or backslash a copier could break; the file listing is paginated and never relayed), the exit code and error output of the head's workflow run listing, and the checks red on head that failed on the base tip too; a failed read of the pull request (gh api pulls/<n>, which spends no GraphQL points) ends its reads. A call that fails with a network marker or with GitHub's rate limit is retried (see NETWORK_WAIT_SECONDS) and, still failing, puts its name into unreachable, and into limited when the rate limit refused it. Only when the verdict check (the check named quality / verdict) is red, the ci step also reads that job log with gh run view and relays three values of it, never its text: whether a line says that only declared loosenings made it red and only the operator merges it, whether its closing line counts an undeclared loosening or an unmatched declaration (a cause only a pull request has), and the quality merge command of its next line; the lines come in any order and carry a job name, a step and a timestamp before their text.
   // A git or gh call that fails with one of these untranslated network or rate-limit markers, or an aco brief call whose stdout JSON has the reason unreachable, is run again after this many seconds; the tests rewrite the constant to 0.
   const NETWORK_WAIT_SECONDS = 30
@@ -633,7 +634,7 @@ async function relayStep(A) {
     'limit=re.compile("API rate limit already exceeded|API rate limit exceeded|secondary rate limit|rate limit is reached")',
     'timed_out=lambda c:subprocess.CompletedProcess(c,124,"","timed out: "+c[0])',
     String.raw`exec("def typed(s):\n try:return json.loads(s).get(\"reason\")==\"unreachable\"\n except Exception:return False\ndef down(c,p):return bool(limit.search(p.stderr)) or (typed(p.stdout) if c[:2]==(\"aco\",\"brief\") else bool(network.search(p.stderr)))\ndef call(c):\n while 1:\n  try:p=subprocess.run(c,capture_output=True,text=True,timeout=max(5,min(60,240-time.monotonic()+start)))\n  except subprocess.TimeoutExpired:p=timed_out(c);p.down=1;return p\n  if p.returncode==0 or not down(c,p):return p\n  if len(waits)>1 or time.monotonic()-start+wait>=240:p.down=1;return p\n  waits.append(1);time.sleep(wait)")`,
-    String.raw`exec("def laneview(s,run):\n try:\n  runs=json.loads(s)[\"runs\"];own=[r for r in runs if r[\"run\"]==run][0]\n  return dict(follows=own[\"follows\"],approved=list(dict.fromkeys(v[\"sha\"] for r in runs if r[\"run\"]!=run for v in((r[\"record\"] or {}).get(\"verdicts\") or[]) if v[\"stage\"]==\"review\" and v[\"verdict\"]==\"approve\")))\n except Exception:return {}")`,
+    String.raw`exec("def laneview(s,run):\n try:\n  runs=json.loads(s)[\"runs\"];own=[r for r in runs if r[\"run\"]==run][0];others=[r for r in runs if r[\"run\"]!=run];verdicts=[v for r in others for v in((r[\"record\"] or {}).get(\"verdicts\") or[])];gates=[v[\"verdict\"] for v in verdicts if v[\"stage\"]==\"gate\"]\n  return dict(follows=own[\"follows\"],approved=list(dict.fromkeys(v[\"sha\"] for v in verdicts if v[\"stage\"]==\"review\" and v[\"verdict\"]==\"approve\")),gateRan=any(\"gate\" in(r[\"ran\"] or[]) for r in others),lastGate=gates[-1] if gates else None,lost=any(r[\"record\"] is None for r in others) or not all(r[\"follows\"] for r in runs))\n except Exception:return {}")`,
     'run=lambda*c:call(c) if shutil.which(c[0]) else subprocess.CompletedProcess(c,127,"","not found: "+c[0])',
     'target=lambda repo:("-R",repo) if repo else ()',
     'api=lambda repo:"repos/"+(repo or "{owner}/{repo}")',
@@ -1561,6 +1562,44 @@ async function laneRouting(A) {
   return rest + blockingText(blockingLocations(A.history), rest)
 }
 
+// One normal lane in ten also gets the final gate (instructions/HEAD.md, Re-measurement): the gate reviews the tip the review approved, on its own, so the blocking findings it raises
+// are the ones one review let through. The look is a measurement, so one that ends without a verdict is skipped and leaves nothing in the record; a re-check it owes is never skipped.
+const SAMPLE_EVERY = 10
+// The round states in which the gate gave no verdict.
+const LOOK_WITHOUT_VERDICT = new Set(['limited', 'hung', 'brief-mismatch', 'no-brief-record', 'failed'])
+let sampled = false  // the lane's gate ran as the sample or as the re-check an earlier run owed
+let sampledSkip = null  // why the sampled look was skipped
+const sampledView = () => ({ sampled: sampledSkip ? 'skipped' : sampled, ...(sampledSkip && { sampledReason: sampledSkip }) })
+
+// What the first begin's read of the stored runs leaves the lane to do: a stop that ends the lane, or whether to take the sample or to re-check the gate's REVISE an earlier run stored.
+async function sampledDuty(read) {
+  const none = { take: false, owed: false }
+  if (MATERIAL || Number(A.item) % SAMPLE_EVERY !== 0) return none
+  const unknown = read.gap ?? (read.lost && 'a stored run of the lane is lost, so it may have run the gate')
+  if (unknown) return { stop: await openResult('awaiting-head', 'record', { reason: `item #${A.item} is sampled for the final gate, but the stored runs cannot show whether the gate ran: ${unknown}. A sampled lane takes no sample and skips no owed re-check. Start a new run with pr ${pr} and tip ${tip} once the stored runs can be read.` }) }
+  const owed = read.lastGate === 'revise'
+  sampled = owed
+  return { take: !read.gateRan, owed }
+}
+
+// The one look at the whole lane on the tip the review approved, in the round of that approval so the existing miss rule counts no miss for it.
+async function sampledLook() {
+  if (MODEL_PROVIDER[ROUTING.build.model] === GATE.provider) {
+    sampledSkip = `the gate (${ROUTING.gate.model}) runs on the builder's provider, so it gives no independent look`
+    return null
+  }
+  const approval = history.findLast(approvesRange)
+  sampled = true
+  return await reviewUntilClean([GATE], WHOLE_LANE, undefined, { after: approval?.after ?? spent.total })
+}
+
+// A look that ended without a verdict is skipped and leaves nothing in the record.
+function skipSampledLook(round) {
+  sampled = false
+  sampledSkip = round.verdict.reason ?? `the gate returned no verdict (${round.verdict.state})`
+  return null
+}
+
 // A run stores its stages on the claim as segments: a segment is one aco run, the span of the run's stages between two proven points (a review that approves the tip, a gate that approves it on a material lane, the tester's pass).
 // aco sums the counts and joins the verdicts over the stored runs, so each segment's record holds only its own slice of the history for the verdicts and the --ran stages, and the run's counts since the segment's start; the approvals of the earlier segments stay in the history.
 // The first segment begins with the run. A later one begins right before its first stage, or at once when a tester still runs or a CI finding was read, so a run that stops at a proven point leaves no begun run without a record, and a run killed in the middle of a segment, or ending after a CI finding with no stage, leaves one, which aco counts as lost.
@@ -2006,7 +2045,7 @@ const openResult = async (status, stage, extra = {}) => {
   const open = openFollowups()
   return {
     status: endStatus, stage: endStage, pr, tip, spent, routing: ROUTING, ...(OPERATOR_WORD && { operatorWord: OPERATOR_WORD }), routingLine: line, ...recordView(written, began), history,
-    followups: open, raisedBeforeTip: raisedBeforeTip(open), folded: [...folded.values()], disputed, ...gateUnseenView(), ...tester, ...endExtra,
+    followups: open, raisedBeforeTip: raisedBeforeTip(open), folded: [...folded.values()], disputed, ...gateUnseenView(), ...sampledView(), ...tester, ...endExtra,
     ...(unusable && { reason: [endExtra.reason, unusable].filter(Boolean).join('; ') }),
   }
 }
@@ -2116,12 +2155,14 @@ function unfitRoundAnswer(answer, expectedResults) {
   return null
 }
 // from is the tip where the round's delta starts (none for a whole-lane round); a limited round hands it back for the resume.
-async function reviewRound(which, range, from) {
+async function reviewRound(which, range, from, sampledLook) {
   const beginStop = await beginRun()
   if (beginStop) return { which, results: [], verdict: { state: 'stopped', stop: beginStop }, range, from }
-  startedStages.review = true
+  // The sampled look is the gate alone and may be skipped, so it never marks the review stage as started.
+  if (!sampledLook) startedStages.review = true
+  const after = sampledLook?.after ?? spent.total
   const reviewers = which.map(r => ({ key: r.key, provider: r.provider, role: r.role, isGate: r === GATE, routing: claudeRole(r === GATE ? 'gate' : 'review') }))
-  const answer = await runPart('lane-review', laneReview, { item: A.item, pr, repo: A.repo, repoFlag: R, after: spent.total, tip, delegatedLine: DELEGATED_LINE, worktree: A.worktree, branch: A.branch, scratch: A.scratch, tag: TAG, label: `r${spent.total}`, range, reuse: buildReuse, e2e: A.e2e, contract: A.contract, blockingLine: BLOCKING_LINE, reviewers, findingKinds: FINDING_KINDS, finding: FINDING, followup: REPORTED_FOLLOWUP, mechanical: MECHANICAL })
+  const answer = await runPart('lane-review', laneReview, { item: A.item, pr, repo: A.repo, repoFlag: R, after, tip, delegatedLine: DELEGATED_LINE, worktree: A.worktree, branch: A.branch, scratch: A.scratch, tag: TAG, label: `r${after}`, range, reuse: buildReuse, e2e: A.e2e, contract: A.contract, blockingLine: BLOCKING_LINE, reviewers, findingKinds: FINDING_KINDS, finding: FINDING, followup: REPORTED_FOLLOWUP, mechanical: MECHANICAL })
   const unfit = unfitRoundAnswer(answer, which.length)
   if (unfit) {
     // The reviewers that finished before a usage limit keep their records, so the resume carries their findings.
@@ -2130,6 +2171,7 @@ async function reviewRound(which, range, from) {
     return { which, results: finished?.results ?? [], verdict: { state: 'failed', reason: unfit }, range, from }
   }
   const { results, verdict } = answer
+  if (sampledLook && LOOK_WITHOUT_VERDICT.has(verdict.state)) return { which, results, verdict, range, from, unrecorded: true }
   history.push(...answer.history)
   followups.push(...answer.followups)
   if (answer.gateRounds.length) productionSinceGate = false
@@ -2297,9 +2339,12 @@ async function pushAndCheckScope(label, origin) {
 
 // Review until clean. After every fix the delta goes back to whoever raised a finding, and the gate returns on a
 // material lane when the fix touched production or resolved lane conflicts. REVISE is handled one way everywhere.
-async function reviewUntilClean(which, range, from) {
+// A sampled look passes its own round settings and is skipped when the round gave no verdict.
+async function reviewUntilClean(which, range, from, sampledLook) {
   phase('Review')
-  return await settleReview(await reviewRound(which, range, from)) ?? await storeProvenPoint() ?? await followUpBatch()
+  const round = await reviewRound(which, range, from, sampledLook)
+  if (round.unrecorded) return skipSampledLook(round)
+  return await settleReview(round) ?? await storeProvenPoint() ?? await followUpBatch()
 }
 
 // A round the head resumes (a Codex reviewer out of usage, a courier whose brief never matched) repeats its range, so the review never moves to another provider.
@@ -2386,6 +2431,8 @@ if (!carriesBatch && A.build) {
 if (firstScopeCheck?.stop) return firstScopeCheck.stop
 const synchronizedBeginStop = syncedTip && !carriesBatch ? await beginRun(syncedTip) : null
 if (synchronizedBeginStop) return synchronizedBeginStop
+const dutyOfGate = await sampledDuty(firstBegan)
+if (dutyOfGate.stop) return dutyOfGate.stop
 // Re-entry after the head settled an awaiting-head result: review only the fix commits no reviewer has seen yet.
 // Re-entry at the fix: the head hands over blocking findings from an earlier run (for example the tester's), and
 // in-place follow-ups to fold in. The delta the fixer makes is reviewed before the test and CI run again.
@@ -2402,8 +2449,10 @@ if (carriesBatch) {
 } else {
   firstReview = firstReviewRange({ deltaFrom: A.deltaFrom, answers: A.answers })
 }
-const firstStop = await reviewUntilClean(ALL, firstReview.range, firstReview.from)
+const firstStop = await reviewUntilClean(dutyOfGate.owed ? [REVIEW, GATE] : ALL, firstReview.range, firstReview.from)
 if (firstStop) return firstStop
+const lookStop = dutyOfGate.take ? await sampledLook() : null
+if (lookStop) return lookStop
 
 // ---------------------------- end-to-end test and CI side by side
 // laneTest returns the tester's answer, null when both agents ended without a result, or a problem the lane stops on.
@@ -2540,7 +2589,7 @@ const refusedAdd = await addRecord(finalRecord)
 if (refusedAdd) return await openResult('awaiting-head', 'record', { reason: refusedAddReason(refusedAdd, 'ready-to-land') })
 return {
   status: 'ready-to-land', pr, tip, spent, routing: ROUTING, ...(OPERATOR_WORD && { operatorWord: OPERATOR_WORD }), routingLine: finalRoutingLine, ...recordView(finalRecord, began), history, followups: stillOpen, raisedBeforeTip: raisedBeforeTip(stillOpen), folded: [...folded.values()], disputed,
-  ...gateUnseenView(), pathsOutsideClaim: passedOutsidePaths,
+  ...gateUnseenView(), ...sampledView(), pathsOutsideClaim: passedOutsidePaths,
   requiredHeadActions: [
     ...(passedOutsidePaths.length ? [`write these paths into the scope of item #${A.item}'s body (and a one-sentence whole there when the combined scope is wide), then run \`${rescopeCommand}\` from ${A.worktree} before landing: these paths are outside the claim and passed the scope check`] : []),
     ...await checkpointRenameActions(),

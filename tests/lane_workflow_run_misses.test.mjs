@@ -52,11 +52,17 @@ test('run-misses: the result shows this run\'s follows and the shas the earlier 
   assert.equal(failed.result.storedRuns, undefined)
 })
 
-test('run-misses: the printer relays only the exit code, the error, this run\'s follows and the approving shas of the earlier runs', async () => {
+test('run-misses: the printer relays only the exit code, the error, this run\'s follows, the approving shas of the earlier runs and what they show of the gate and of lost runs', async () => {
   const lines = []
   const withNoise = { ...storedEarlierRun(['approve', olderTip], ['revise', resumeTip], ['approve', olderTip]), record: { ...storedEarlierRun().record, risk: 'material', note: 'free text', verdicts: [{ stage: 'review', verdict: 'approve', sha: olderTip }, { stage: 'gate', verdict: 'approve', sha: resumeTip }, { stage: 'review', verdict: 'revise', sha: resumeTip }] } }
   await runLane(materialRun, { ...gateAfterNoOwnApproval, begin: { stored_runs: [withNoise, storedOwnRun(true)], edit: (printed) => { lines.push(printed); return printed } } })
-  assert.deepEqual(JSON.parse(lines[0]).v.lane, { code: 0, err: '', follows: true, approved: [olderTip] })
+  assert.deepEqual(JSON.parse(lines[0]).v.lane, { code: 0, err: '', follows: true, approved: [olderTip], gateRan: false, lastGate: 'approve', lost: false })
+})
+
+test('run-misses: the printer reports lost for an earlier run that does not follow', async () => {
+  const lines = []
+  await runLane(materialRun, { ...gateAfterNoOwnApproval, begin: { stored_runs: [{ ...storedEarlierRun(), follows: false }, storedOwnRun(true)], edit: (printed) => { lines.push(printed); return printed } } })
+  assert.equal(JSON.parse(lines[0]).v.lane.lost, true)
 })
 
 test('run-misses: stored runs the printer cannot read count as a failed read', async () => {

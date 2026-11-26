@@ -62,6 +62,11 @@ jobs:
           size=$(wc -c < "$file")
           echo "$file: $size bytes, limit $limit"
           [ "$size" -le "$limit" ] || { echo "::error file=$file::$file is $size bytes, over the $limit limit" >&2; exit 1; }
+      # The contract files carry no dates or issue numbers.
+      - name: Hold the global contract free of dates and issue numbers
+        run: |
+          hits=$(grep -nE '[0-9]{1,2}\.[0-9]{1,2}\.[0-9]{4}|[0-9]{4}-[0-9]{2}-[0-9]{2}|#[0-9]+' instructions/*.md || true)
+          [ -z "$hits" ] || { printf '%s\n' "$hits" >&2; echo "::error::instructions/ carries a date or an issue number" >&2; exit 1; }
       # The lane runs as one script bundled from plugins/atelier/lane/, so a
       # session reload cannot swap a part of a running lane; an empty
       # regeneration diff proves the committed script.

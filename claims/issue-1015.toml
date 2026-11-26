@@ -1,0 +1,8 @@
+claim_id = "f1a04afd4ecf4885803d93dbcfc15959"
+agent = "Claude c1d65467-2dcf-4ef5-921f-526bf349a609"
+role = "builder"
+base = "48b875e79f7f5ca7289bab94116ad4d88df5a960"
+branch = "claude/issue-1015-approve-with-blocking-is-revise"
+scope = ["plugins/atelier/lane/main.js", "plugins/atelier/lane/record.js", "plugins/atelier/lane/review.js", "plugins/atelier/workflows/lane.js", "tests"]
+opened_commit = "614fc6d716ba1e6f731744e473e65af9a268ada9"
+whole_reason = "The verdict's one owner in review.js and the two readers that stop testing it themselves change together with the regenerated bundle and the test that drives them."

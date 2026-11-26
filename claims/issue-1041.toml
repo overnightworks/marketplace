@@ -1,8 +1,0 @@
-claim_id = "e5c94479d5c848ac87e8253ff9300ade"
-agent = "Claude c1d65467-2dcf-4ef5-921f-526bf349a609"
-role = "builder"
-base = "e070b6ce6d0f8ef149ece6a76f86e9b47477813c"
-branch = "claude/issue-1041-oom-score-agent-first"
-scope = ["README.md", "docs/ARCHITECTURE.md", "plugins/atelier/hooks/claude-hooks.json", "plugins/atelier/hooks/oom_first.py", "tests/test_oom_first.py"]
-opened_commit = "dedf3137486a1b7bd5f9707f7ff04fab7579f762"
-whole_reason = "The hook, its registration, its test and the two documents that name the plugin's hooks change together."

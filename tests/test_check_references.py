@@ -88,8 +88,29 @@ def git_checkout(root: Path, files: dict[str, str]) -> Path:
     return root
 
 
+def contract_checkout(root: Path) -> Path:
+    files = {name: "## Code\n" for name in check_references.CONTRACT_FILES}
+    return git_checkout(root, {f"instructions/{name}": text for name, text in {**files, "AGENTS.md": CONTRACT}.items()})
+
+
+def test_the_contract_files_are_the_names_listed_in_the_contract_directory() -> None:
+    listed = (check_references.REPOSITORY_ROOT / "instructions" / "contract-files.txt").read_text().split()
+
+    assert check_references.CONTRACT_FILES == tuple(listed)
+    assert "AGENTS.md" in listed
+
+
+def test_a_listed_contract_file_that_is_missing_fails_loud(tmp_path: Path) -> None:
+    contract_root = contract_checkout(tmp_path / "contract")
+    (contract_root / "instructions" / "HEAD.md").unlink()
+    checkout = git_checkout(tmp_path / "checkout", {"README.md": "ok\n"})
+
+    with pytest.raises(FileNotFoundError, match="HEAD.md"):
+        check_references.check_checkout(checkout, contract_root)
+
+
 def test_checkout_with_broken_heading_reference_fails_and_a_sound_one_passes(tmp_path: Path) -> None:
-    contract_root = git_checkout(tmp_path / "contract", {"instructions/AGENTS.md": CONTRACT})
+    contract_root = contract_checkout(tmp_path / "contract")
     sound = git_checkout(tmp_path / "sound", {"README.md": "(" + "instructions/AGENTS.md, Code)\n"})
     broken = git_checkout(tmp_path / "broken", {"README.md": "ok\n(" + "instructions/AGENTS.md, Gone)\n"})
 
@@ -100,7 +121,7 @@ def test_checkout_with_broken_heading_reference_fails_and_a_sound_one_passes(tmp
 
 
 def test_checkout_scan_skips_tracked_files_it_cannot_read_as_text(tmp_path: Path) -> None:
-    contract_root = git_checkout(tmp_path / "contract", {"instructions/AGENTS.md": CONTRACT})
+    contract_root = contract_checkout(tmp_path / "contract")
     checkout = git_checkout(tmp_path / "checkout", {"README.md": "ok\n", "gone.md": "x\n"})
     (checkout / "image.bin").write_bytes(b"\xff\xfe\x00")
     subprocess.run(["git", "-C", str(checkout), "add", "image.bin"], check=True)

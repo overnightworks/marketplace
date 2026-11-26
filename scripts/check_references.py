@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """The reference gate: every reference to a contract section or sentence must still resolve.
 
-A reference is `(<contract file>, <target>)`: the file is `AGENTS.md`, `HEAD.md` or
-`OPERATORS.md`, spelled with or without `instructions/` and backticks, and the target is a
+A reference is `(<contract file>, <target>)`: the file is one listed in
+`instructions/contract-files.txt`, spelled with or without `instructions/` and backticks, and the target is a
 section name, plain or in double quotes, or `sections "A" and "B"`. It resolves when the
 contract file has a heading of that name or a paragraph whose bold lead starts with it. A
 quote in single or double quotes right after the reference, as in
@@ -32,9 +32,11 @@ from pathlib import Path
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 CONTRACT_DIRECTORY = "instructions"
-CONTRACT_FILES = ("AGENTS.md", "HEAD.md", "OPERATORS.md")
+# The one list of contract files, shared with the contract-change hook and the CI date check.
+CONTRACT_FILE_LIST = "contract-files.txt"
+CONTRACT_FILES = tuple((REPOSITORY_ROOT / CONTRACT_DIRECTORY / CONTRACT_FILE_LIST).read_text(encoding="utf-8").split())
 
-CONTRACT_FILE = r"(?P<file>AGENTS\.md|HEAD\.md|OPERATORS\.md)`?"
+CONTRACT_FILE = rf"(?P<file>{'|'.join(map(re.escape, CONTRACT_FILES))})`?"
 # Each form captures the whole target text as `target`; the first matching form wins.
 QUOTED = r'"[^"]+"'
 TARGET_FORMS = (
@@ -133,11 +135,12 @@ def check_text(path: str, text: str, contract: dict[str, Section], local: dict[s
     ]
 
 
-def load_sections(directory: Path) -> dict[str, Section]:
+def load_sections(directory: Path, *, required: bool = False) -> dict[str, Section]:
+    """Parse the contract files in `directory`; a listed file that is missing is skipped unless `required`."""
     return {
         name: parse_section((directory / name).read_text(encoding="utf-8"))
         for name in CONTRACT_FILES
-        if (directory / name).exists()
+        if required or (directory / name).exists()
     }
 
 
@@ -160,7 +163,7 @@ def tracked_text_files(checkout: Path) -> list[Path]:
 
 
 def check_checkout(checkout: Path, contract_root: Path = REPOSITORY_ROOT) -> list[str]:
-    contract = load_sections(contract_root / CONTRACT_DIRECTORY)
+    contract = load_sections(contract_root / CONTRACT_DIRECTORY, required=True)
     local = contract if checkout.resolve() == contract_root.resolve() else load_sections(checkout)
     problems = []
     for path in tracked_text_files(checkout):

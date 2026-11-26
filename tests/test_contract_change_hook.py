@@ -37,7 +37,12 @@ class Machine:
         monkeypatch.setenv("GIT_CONFIG_GLOBAL", os.devnull)
         self.git("init", "-q", "-b", "main")
         self.commit(
-            {"AGENTS.md": contract_text(), "HEAD.md": "head rule one\n", "OPERATORS.md": "operator bound one\n"},
+            {
+                "contract-files.txt": "AGENTS.md\nHEAD.md\nOPERATORS.md\n",
+                "AGENTS.md": contract_text(),
+                "HEAD.md": "head rule one\n",
+                "OPERATORS.md": "operator bound one\n",
+            },
             "Start the contract",
         )
         self.link_contract()
@@ -106,6 +111,16 @@ def test_running_head_gets_the_diff_and_the_subject_of_a_changed_contract_file(
     assert f"diff --git a/instructions/{file_name} b/instructions/{file_name}" in hint
     assert "+a changed line" in hint
     assert "Tighten the changed rule" in hint
+
+
+def test_a_file_added_to_the_contract_file_list_is_told_when_it_changes(machine: Machine) -> None:
+    machine.running_head()
+    machine.commit({"contract-files.txt": "AGENTS.md\nHEAD.md\nOPERATORS.md\nCODE.md\n", "CODE.md": "code rule\n"}, "Add the code policy")
+    assert "+code rule" in machine.batch()
+
+    machine.commit({"CODE.md": "code rule two\n"}, "Tighten the code policy")
+
+    assert "+code rule two" in machine.batch()
 
 
 @pytest.mark.parametrize("event", ["prompt", "batch"])
@@ -349,6 +364,10 @@ def drop_the_delegated_line(machine: Machine) -> None:
     (machine.instructions / "AGENTS.md").write_text("# Contract without the section\n")
 
 
+def list_a_file_that_is_missing(machine: Machine) -> None:
+    machine.commit({"contract-files.txt": "AGENTS.md\nHEAD.md\nOPERATORS.md\nCODE.md\n"}, "List a file that does not exist")
+
+
 def remove_the_head_file_in_a_commit(machine: Machine) -> None:
     machine.git("rm", "-q", "instructions/HEAD.md")
     machine.git("commit", "-q", "-m", "Remove the head file")
@@ -361,6 +380,7 @@ def remove_the_head_file_in_a_commit(machine: Machine) -> None:
         link_another_file_name,
         link_outside_a_work_tree,
         drop_the_delegated_line,
+        list_a_file_that_is_missing,
         remove_the_head_file_in_a_commit,
     ],
 )

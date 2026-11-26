@@ -11,7 +11,8 @@ function retitleStepProblem(relayed, ownSteps) {
   if (!relayed || relayed.problem) return `the title step ${relayed ? relayed.problem : 'returned no result'}`
   return relayed.unreachable && relayed.values.unreachable.some(name => ownSteps.includes(name)) ? relayed.unreachable : null
 }
-// The pull request's title and draft flag from the step's one REST read; draft is not a boolean when the read failed or the flag is missing.
+// The pull request's title from the step's one REST read, as the printer's 100-character cut left it.
+// The draft flag arrives whole as its own value, not a boolean when the read failed or the flag is missing.
 function pulledRequest(pull) {
   try { return pull.code === 0 ? JSON.parse(pull.out) : {} } catch { return {} }
 }
@@ -30,7 +31,7 @@ function draftReadyProblem(relayed) {
   const stepProblem = retitleStepProblem(relayed, ['pull', 'ready'])
   if (stepProblem) return stepProblem
   const { pull, ready } = relayed.values
-  const { draft } = pulledRequest(pull)
+  const { draft } = pull
   if (typeof draft !== 'boolean') return `the draft flag could not be read (reading the pull request exited ${pull.code}: ${pull.err})`
   return !draft || ready.code === 0 ? null : `gh pr ready exited ${ready.code}: ${ready.err}`
 }
@@ -149,7 +150,7 @@ async function relayStep(A) {
     'unmet={c:buckets.get(c,"missing") for c in contexts or [] if buckets.get(c,"missing")!="pass"}',
     'values.update({n:{**values[n],**x} for n,x in(("checks",None if listing is None else dict(count=len(listing),open=[dict(name=c["name"],bucket=c["bucket"]) for c in listing if c["bucket"] not in("pass","skipping")])),("rules",None if contexts is None else dict(required=unmet) if unmet else {})) if x is not None})',
     'unfinished=sorted({r["name"] for r in parsed("headruns") or [] if r["status"]!="completed"})',
-    'values.update(**({"headruns":{**values["headruns"],"open":unfinished}} if unfinished else {}))',
+    'values.update(**({"headruns":{**values["headruns"],"open":unfinished}} if unfinished else {}),**({"pull":{**values["pull"],"draft":pulled(ran).get("draft")}} if "pull" in ran else {}))',
     'values.update(**(dict(head=view["headRefOid"],changed_index=[i for i,p in enumerate(received) if p in {f["filename"] for page in parsed("changed") or [] for f in page}],shared=[c["name"] for c in listing or [] if c["bucket"]=="fail" and c["name"] in failed_on_base]) if view else {}))',
     'values.update(**({"lane":{**values["lane"],**laneview(ran["lane"].stdout,rest[1])}} if "lane" in ran and ran["lane"].returncode==0 else {}))',
     String.raw`values.update(**({"log":{**values["log"],"pull_only":any(re.search(r"^! red .*[0-9]+ (undeclared loosenings?|declarations? unmatched)\b",re.sub(r"^[^\t]*\t[^\t]*\t\S+ ","",re.sub(r"\x1b\[[0-9;]*m","",l))) for l in ran["log"].stdout.splitlines()),"loosenings":any("only declared loosenings \u00b7 only the operator merges it" in l for l in ran["log"].stdout.splitlines()),"merge":next((m[1] for l in ran["log"].stderr.splitlines()+ran["log"].stdout.splitlines() if "next:" in l and (m:=re.search("(quality merge [A-Za-z0-9._-]+/[A-Za-z0-9._-]+#[0-9]+)",l))),"")}} if "log" in ran else {}))`,

@@ -1,0 +1,7 @@
+claim_id = "936fb054796d4f6bad408bf6cb1bd17c"
+agent = "Claude c1d65467-2dcf-4ef5-921f-526bf349a609"
+role = "builder"
+base = "85e8b6c073b7fffea0599eef032280d1a54e7c5f"
+branch = "claude/issue-1049-the-fleet-s-bounds-move-to-instructions"
+scope = ["instructions/AGENTS.md", "instructions/HEAD.md", "instructions/OPERATORS.md"]
+opened_commit = "10c45819340e71cda4fe61cab65c5844dfebb5ed"

@@ -23,21 +23,22 @@ documentation candidates itself.
 
 Before asking the operator anything, look up what the code, the board and the
 rulings answer. Heads decide technical, wording, release and product lines at
-once. A reversible decision is the agents', shown to him to try, and "anders" or
-"weg" is enough; what he wished for stays until he objects. Lines of kind
-access, data_risk and money keep reaching him, reversible or not, until he rules
-otherwise on a card of its own; where he often takes back in one kind, that kind
-is asked first again. Only these reach him: steps no agent can take; what bound
-2 of `OPERATORS.md` keeps with him; his settings; the live-store allowance and
-write yes of `AGENTS.md`; changes to the fleet's bounds and the rule changes
-`Rule changes` leaves with him; lines of a kind not yet handed to the heads; a
-question when a wish is unclear and building twice is costly; and few new things
-at a time to try. Ask at most one short question at a time, with a
-recommendation and two or three concrete options. The question goes onto an open
-item through aco's `ask` tool; a card is hand-written only without the tool or
-to revise a returned line. After asking, run `aco wait` on the card's line in
-the background; it ends when the card is settled. The session-start list and
-expectation lists follow their own rules below.
+once. A reversible decision is the agents', shown to him to try, and a final one
+his; "anders" or "weg" is enough; what he wished for stays until he objects.
+Lines of kind access, data_risk and money keep reaching him, reversible or not,
+until he rules otherwise on a card of its own; where he often takes back in one
+kind, that kind is asked first again. Only these reach him: steps no agent can
+take; what bound 2 of `OPERATORS.md` keeps with him; making a repository public
+and a public name; his settings; the live-store allowance and write yes of
+`AGENTS.md`; changes to the fleet's bounds and the rule changes `Rule changes`
+leaves with him; lines of a kind not yet handed to the heads; a question when a
+wish is unclear and building twice is costly; and few new things at a time to
+try. Ask at most one short question at a time, with a recommendation and two or
+three concrete options. The question goes onto an open item through aco's `ask`
+tool; a card is hand-written only without the tool or to revise a returned line.
+After asking, run `aco wait` on the card's line in the background; it ends when
+the card is settled. The session-start list and expectation lists follow their
+own rules below.
 
 Every question for the operator first goes to a fresh agent, Opus 5.5 at
 xhigh or Fable 5.2 at high or more. It checks whether the question is needed,
@@ -446,9 +447,9 @@ high.
   rounds and re-cuts (an item re-cut or a landing redone after its plan
   review) with the last measurement: a kind of work that keeps needing the hard
   row moves there, one that never does moves down. Propose any change through
-  Rule changes, except one to the ruler itself (the lane record, the meter, the
-  behaviour probes, ...), which follows bound 5, never the trial it would judge;
-  open the next measurement as an item.
+  Rule changes, except one to the ruler itself (bound 5 of `OPERATORS.md` names
+  the rulers), which follows bound 5, never the trial it would judge; open the
+  next measurement as an item.
 
 ## Landing
 

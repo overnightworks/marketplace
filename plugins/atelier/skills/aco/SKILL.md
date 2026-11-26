@@ -277,7 +277,7 @@ releases and rescopes it as the holder with no override (specs/handover.spec.md 
 
 If the merge worked but a step failed, `aco land` prints `follow-up incomplete`
 and the re-run command; re-run it, which resumes and never merges twice.
-Abandoned: `aco release <n> --abandoned REASON`, the item stays open; only a lane without stored runs (a workflow lane that never began a run: it ended at `sync` or at the scope check, or aco refused its begin; or a lane outside the workflow) passes `--record <file>`, the lane result's `record` path or the lane's own file, and a workflow lane's `requiredHeadActions` say so. A lane stopped
+Abandoned: `aco release <n> --abandoned REASON`, the item stays open; only a lane without stored runs (a workflow lane that never began a run: it ended at `sync` or at the scope check, or aco refused its begin; or a lane outside the workflow that stored no runs) passes `--record <file>`, the lane result's `record` path or the lane's own file, and a workflow lane's `requiredHeadActions` say so. A lane stopped
 by the Claude usage limit writes no record, and the release goes without `--record`. Until the routing line is dropped, the head
 starts the reason with the lane's `Routing:` line, on one line within 512 characters, since aco
 parses an abandoned lane's routing only then (the same slots and counting as in the pull request body: on a line too long

@@ -11,7 +11,8 @@ function retitleStepProblem(relayed, ownSteps) {
   if (!relayed || relayed.problem) return `the title step ${relayed ? relayed.problem : 'returned no result'}`
   return relayed.unreachable && relayed.values.unreachable.some(name => ownSteps.includes(name)) ? relayed.unreachable : null
 }
-// The pull request's title from the step's one REST read, as the printer's 100-character cut left it; the draft flag arrives whole as its own value, not a boolean when the read failed or the flag is missing.
+// The pull request's title from the step's one REST read, as the printer's 100-character cut left it.
+// The draft flag arrives whole as its own value, not a boolean when the read failed or the flag is missing.
 function pulledRequest(pull) {
   try { return pull.code === 0 ? JSON.parse(pull.out) : {} } catch { return {} }
 }

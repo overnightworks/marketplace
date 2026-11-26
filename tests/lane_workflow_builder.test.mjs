@@ -136,7 +136,7 @@ test('a failed title write names the rename among the head actions', async () =>
 })
 
 // A checkpointed lane opens a draft pull request, and aco land refuses a draft, so the lane marks it ready before ready-to-land.
-const LONG_TITLE = 'Lanes that change a surface work from the design skill and report design advice for every reader'
+const LONG_TITLE = 'Lanes that change a surface work from the design skill and report design advice for every reader of the pull request'
 const draftRuns = [
   ['a draft is marked ready and no head action names it', { draft: true }, ['1'], false],
   ['a pull request that is not a draft gets no ready write', { draft: false }, [], false],

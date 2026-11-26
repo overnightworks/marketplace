@@ -44,8 +44,8 @@ and focus.
 2. **One main thing per view.** A view has one focus and one main action;
    everything else is visibly secondary or one tap away. A game table or an
    editor shows many things and still has one that leads.
-3. **Few words, the domain's own, the same everywhere.** A button names its
-   action and a status its state, usually in one or two words, in the domain's
+3. **Few words, the domain's own, the same everywhere.** A button's name
+   states its action and a status its state, usually in one or two words, in the domain's
    word (Stich, Take, Land) and the same word for the same thing on every
    surface. Never a state and an unrelated action at once. Where a misreading
    costs consent, privacy, money or data, the whole sentence stays.
@@ -125,7 +125,7 @@ You write observations, never verdicts; none blocks a landing.
 - One line each: `<view, width, state>: <what the picture shows>; <what a
   person might do or miss>; <core point>; <suggestion>`.
 - A blessed picture or a repository rule that departs from this skill is not an
-  observation; a core point a blessed picture itself breaks goes to the head as
+  observation; a core point a blessed picture itself breaks goes to your parent as
   a question.
 - Fun and look: a still cannot show motion. Report what you see and anything
   generic; the judgement is the operator's.

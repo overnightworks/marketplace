@@ -3,6 +3,6 @@ agent = "Claude c1d65467-2dcf-4ef5-921f-526bf349a609"
 role = "builder"
 base = "97e54f17cdca10507238ad13d01a11a29b154d7d"
 branch = "claude/issue-1058-the-relay-stops-relaying-the-pull-step-s"
-scope = ["plugins/atelier/lane/relay.js", "plugins/atelier/workflows/lane.js", "tests/lane_workflow.test.mjs", "tests/lane_workflow_builder.test.mjs", "tests/lane_workflow_harness.mjs"]
+scope = ["plugins/atelier/lane/relay.js", "plugins/atelier/lane/review.js", "plugins/atelier/workflows/lane.js", "scripts/build_lane.mjs", "tests/lane_workflow.test.mjs", "tests/lane_workflow_builder.test.mjs", "tests/lane_workflow_harness.mjs"]
 opened_commit = "1d763b9372743500d4db76ca698b772053477e97"
 whole_reason = "one relayed value and two test pins, in the files #1045 and #1056 changed"

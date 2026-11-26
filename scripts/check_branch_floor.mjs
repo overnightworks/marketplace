@@ -1,33 +1,25 @@
 // Holds a branch-coverage floor over the files of an lcov report: usage `node scripts/check_branch_floor.mjs <lcov> <percent> <path>`,
-// where <path> is a substring of the report's file paths. A floor only rises: raise <percent> to the printed measurement.
+// where <path> is a file or directory (relative to the working directory) whose files the floor covers.
+// A floor only rises: raise <percent> to the printed measurement.
 import fs from 'node:fs'
-import { pathToFileURL } from 'node:url'
+import path from 'node:path'
 
-/** The branches found and hit over the report's files whose path contains `path`. */
-export function branchTotals(lcov, path) {
-  const totals = { found: 0, hit: 0 }
-  for (const record of lcov.split(/^SF:/m).slice(1)) {
-    if (!record.split('\n')[0].includes(path)) continue
-    totals.found += Number(/^BRF:(\d+)$/m.exec(record)[1])
-    totals.hit += Number(/^BRH:(\d+)$/m.exec(record)[1])
-  }
-  return totals
+const [report, floor, covered] = process.argv.slice(2)
+const root = path.resolve(covered)
+const totals = { found: 0, hit: 0 }
+for (const record of fs.readFileSync(report, 'utf8').split(/^SF:/m).slice(1)) {
+  const file = record.split('\n')[0]
+  if (file !== root && !file.startsWith(root + path.sep)) continue
+  totals.found += Number(/^BRF:(\d+)$/m.exec(record)[1])
+  totals.hit += Number(/^BRH:(\d+)$/m.exec(record)[1])
 }
-
-export function main(argv) {
-  const [report, floor, path] = argv
-  const { found, hit } = branchTotals(fs.readFileSync(report, 'utf8'), path)
-  if (found === 0) {
-    console.error(`${report} holds no branches of ${path}`)
-    process.exitCode = 1
-    return
-  }
-  const percent = (100 * hit) / found
-  console.log(`${path}: ${hit} of ${found} branches, ${percent.toFixed(2)} % (floor ${floor} %)`)
-  if (percent < Number(floor)) {
-    console.error(`${path} is below its branch-coverage floor of ${floor} %`)
-    process.exitCode = 1
-  }
+if (totals.found === 0) {
+  console.error(`${report} holds no branches of ${covered}`)
+  process.exit(1)
 }
-
-if (import.meta.url === pathToFileURL(process.argv[1]).href) main(process.argv.slice(2))
+const percent = (100 * totals.hit) / totals.found
+console.log(`${covered}: ${totals.hit} of ${totals.found} branches, ${percent.toFixed(2)} % (floor ${floor} %)`)
+if (percent < Number(floor)) {
+  console.error(`${covered} is below its branch-coverage floor of ${floor} %`)
+  process.exit(1)
+}

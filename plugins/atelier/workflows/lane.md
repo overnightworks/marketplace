@@ -167,7 +167,9 @@ The design skill is advice and never blocks a landing:
   The fixer may answer `declined: [{ foldIn, reason }]` for a fold-in that does not
   meet `IN_PLACE_RULE`: it is not folded in, stays in `followups` with its
   `declined` reason and is handed to no later fixer, and a fixer that changes nothing
-  with every fold-in satisfied or declined is accepted. A round without blocking
+  with every fold-in satisfied or declined is accepted. A fold-in a body or comment
+  answers goes in `outside: [{ foldIn, where }]`, `foldIn` its number in the list
+  (as in `resolved` and `declined`) and `where` the body section or comment URL. A round without blocking
   findings asks the fixer for no merge of main; its review range
   reads "It answers these follow-ups:". A fixer of such a round that returns no
   result or is blocked carries `foldIn` and `deltaFrom` in `resume`.

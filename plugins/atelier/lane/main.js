@@ -391,7 +391,7 @@ async function acceptFix(fixed, blocking, foldIn) {
     log(`fix ${spent.total}: no lane change to review`)
     return { range: null, proofNotes: '', gateAgain: false, touchesProduction: false }
   }
-  const edited = fixed.answeredOutside ? fixed.outside.map(o => (o.foldIn ? 'fold-in ' + o.foldIn : 'finding ' + o.finding) + ': ' + o.where).join('; ') : ''
+  const edited = fixed.answeredOutside ? fixed.outside.map(o => (o.foldIn ? 'fold-in ' + (foldIn[o.foldIn - 1]?.where ?? o.foldIn) : 'finding ' + o.finding) + ': ' + o.where).join('; ') : ''
   const conflicted = conflictedPathsOf(blocking)
   const mergeLines = mergeReading({ conflicted, merged: fixed.mergedPaths, mergedCut: fixed.mergedCut, generatedPaths: GENERATED.map(([path]) => path) })
   let delta = `only this delta, the fixer's own commits: git log -p --first-parent --remerge-diff ${fixed.heldTip}..${fixed.tip} (main's clean changes are not shown; a lane edit inside a merge of main is)`

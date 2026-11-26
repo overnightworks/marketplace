@@ -1,0 +1,7 @@
+claim_id = "eb94589caf524c3b91f74c9fd698e3a8"
+agent = "Claude c1d65467-2dcf-4ef5-921f-526bf349a609"
+role = "builder"
+base = "3487b1d7089119c4c6f324bfc7746627ea3e87cb"
+branch = "claude/issue-1065-contract-wording-follow-ups"
+scope = ["instructions/AGENTS.md", "instructions/HEAD.md", "plugins/atelier/skills/agent-documentation/SKILL.md"]
+opened_commit = "0b98a07a4bcc05d994c5c764083a774b6cc04dd0"

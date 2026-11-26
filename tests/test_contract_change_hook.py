@@ -36,7 +36,10 @@ class Machine:
         monkeypatch.setenv("GIT_COMMITTER_EMAIL", "fixture@example.invalid")
         monkeypatch.setenv("GIT_CONFIG_GLOBAL", os.devnull)
         self.git("init", "-q", "-b", "main")
-        self.commit({"AGENTS.md": contract_text(), "HEAD.md": "head rule one\n"}, "Start the contract")
+        self.commit(
+            {"AGENTS.md": contract_text(), "HEAD.md": "head rule one\n", "OPERATORS.md": "operator bound one\n"},
+            "Start the contract",
+        )
         self.link_contract()
 
     @property
@@ -91,7 +94,7 @@ def read_events(machine: Machine) -> dict[str, object]:
 
 
 @pytest.mark.parametrize("event", ["prompt", "batch"])
-@pytest.mark.parametrize("file_name", ["AGENTS.md", "HEAD.md"])
+@pytest.mark.parametrize("file_name", ["AGENTS.md", "HEAD.md", "OPERATORS.md"])
 def test_running_head_gets_the_diff_and_the_subject_of_a_changed_contract_file(
     machine: Machine, event: str, file_name: str
 ) -> None:
@@ -112,7 +115,7 @@ def test_hook_prints_nothing_while_the_contract_is_unchanged(machine: Machine, e
     assert read_events(machine)[event]() == ""
 
 
-def test_a_commit_that_leaves_both_contract_files_alone_prints_nothing(machine: Machine) -> None:
+def test_a_commit_that_leaves_the_contract_files_alone_prints_nothing(machine: Machine) -> None:
     machine.running_head()
     (machine.checkout / "README.md").write_text("elsewhere\n")
     machine.git("add", "-A")
@@ -209,7 +212,7 @@ def test_a_stored_baseline_gone_from_history_is_said_once_and_taken_again(machin
     machine.running_head()
     state_file = machine.state_files[0]
     state = json.loads(state_file.read_text())
-    state["seen"] = {"commit": "deadbeef", "blobs": {"AGENTS.md": "aaaa", "HEAD.md": "bbbb"}}
+    state["seen"] = {"commit": "deadbeef", "blobs": {"AGENTS.md": "aaaa", "HEAD.md": "bbbb", "OPERATORS.md": "cccc"}}
     state_file.write_text(json.dumps(state))
     machine.commit({"AGENTS.md": contract_text("rule two")}, "Change the rule")
 

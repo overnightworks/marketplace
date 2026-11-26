@@ -2,7 +2,7 @@
 
 The host runs this once per SessionStart, UserPromptSubmit and PostToolBatch event
 and passes the event as JSON on stdin. The hook prints the changed lines of
-AGENTS.md and HEAD.md as `additionalContext`, or nothing.
+AGENTS.md, HEAD.md and OPERATORS.md as `additionalContext`, or nothing.
 """
 
 from __future__ import annotations
@@ -20,7 +20,7 @@ from dataclasses import asdict, dataclass, replace
 from enum import StrEnum
 from pathlib import Path
 
-CONTRACT_FILES = ("AGENTS.md", "HEAD.md")
+CONTRACT_FILES = ("AGENTS.md", "HEAD.md", "OPERATORS.md")
 BASELINE_SOURCES = frozenset({"startup", "resume", "clear", "fork"})
 DELEGATED_SECTION_HEADING = "## Head or helper"
 HINT_CHARACTER_LIMIT = 10_000

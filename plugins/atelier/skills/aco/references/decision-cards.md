@@ -6,8 +6,8 @@ card's keys, limits and mechanical refusals belong to aco: read the
 in the aco repository, and pipe the body through `aco check -`. This file holds only
 what `aco check` cannot judge. The operator's wish: a card he decides at a glance,
 always in the same structure. Why no judged field carries an identifier:
-`atelier:design-interface` law 8 (identifiers are proof anchors, never reading
-matter).
+`atelier:design-interface`, section "Tool board" (an identifier is detail behind
+one fold, never reading matter).
 
 ## 1. Question
 

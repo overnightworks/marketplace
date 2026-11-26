@@ -51,11 +51,11 @@ anything longer becomes a script an agent writes first, never a chain of
 steps. It names in one line what it proves and what he sees when it works.
 
 Everything that waits on the operator lives in aco: a decision as a card, every
-other step of his as an aco step, each holding the links he needs, a picture to
-bless included. A head's message to him is a clickable link, to aco or the
-picture, plus one line on what he decides or does. It repeats nothing a card,
-step or item says, leaves out peer news and status that ask nothing of him, and
-is not sent when there is nothing new for him.
+other step of his as an aco step, each holding the links he needs. A head's
+message to him is a clickable link, to aco or the picture, plus one line on what
+he decides or does. It repeats nothing a card, step or item says, leaves out
+peer news and status that ask nothing of him, and is not sent when there is
+nothing new for him.
 
 Now and then, at a cadence the fleet sets and improves, he gets a short
 presentation with a recording of the real surface: what is being done and
@@ -146,11 +146,10 @@ it from its branch and claims after adoption.
 - **Pictures.** A change that adds or reshapes a surface (room, page, card,
   flow) starts from its mockup, or a screenshot once the surface is built:
   the head extends it, decides it and freezes it in the repository before the
-  expectation list is ruled, and shows it to him to try; a new direction is shown
-  early and the build does not wait. Wording and bug fixes need none. Before any
-  UI ruling, compare the repository's mockup with the operator's published
-  artifacts; the newer blessed one wins and is frozen the same day. The landing
-  that finishes the surface deletes its mockup.
+  expectation list is ruled, and shows it to him to try. Wording and bug fixes need none. Before any UI
+  ruling, compare the repository's mockup with the operator's published
+  artifacts; the newer one wins and is frozen the same day. The landing that
+  finishes the surface deletes its mockup.
 - **Expectation lists.** A change to a surface, or to behaviour a person relies
   on, starts from ruled sentences: an expectation list across fixed lenses
   (create/change/remove, identity, states, secrets and rights, undo, scale),

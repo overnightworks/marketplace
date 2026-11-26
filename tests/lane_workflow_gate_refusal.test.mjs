@@ -54,6 +54,12 @@ test('gate-refusal: a re-check after the stand-in\'s REVISE runs on the stand-in
   assert.ok(!Object.values(agentCalls).filter(isCodexCourier).some(call => call !== agentCalls['r0-gate']))
 })
 
+test('gate-refusal: a stand-in that ends without a verdict fails the lane at review', async () => {
+  const failedStandIn = { verdict: 'failed', blocking: [], followups: [], note: 'ended' }
+  const { result } = await runLane(materialLane, { 'r0-review': APPROVE, 'r0-gate': refused(), 'r0-gate-standin': failedStandIn, 'r0-gate-standin-retry': failedStandIn })
+  assert.deepEqual([result.status, result.stage], ['failed', 'review'])
+})
+
 const notRefusals = [
   ['a clean Codex exit', { 'r0-gate': refused({ codexExit: 0 }), 'r0-gate-reread': refused({ codexExit: 0 }) }],
   ['another model', { 'r0-gate': refused({ line: () => refusalLine('another-model') }) }],

@@ -19,7 +19,8 @@ export function main(argv) {
   const { found, hit } = branchTotals(fs.readFileSync(report, 'utf8'), path)
   if (found === 0) {
     console.error(`${report} holds no branches of ${path}`)
-    return void (process.exitCode = 1)
+    process.exitCode = 1
+    return
   }
   const percent = (100 * hit) / found
   console.log(`${path}: ${hit} of ${found} branches, ${percent.toFixed(2)} % (floor ${floor} %)`)

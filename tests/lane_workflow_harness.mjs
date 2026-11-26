@@ -107,6 +107,10 @@ const loggedLines = (fakeBin, name) => fakeBin && fs.existsSync(path.join(fakeBi
 // The printer line a scenario's typedCommand rewrites; a reread keeps the line unless the scenario types it always.
 const typedLine = (scenario, reread, line) => scenario.typedCommand && (!reread || scenario.typedAlways) ? scenario.typedCommand(line) : line
 
+// A fresh context holds only the ECMAScript built-ins, so a script naming a Node or web global fails with a ReferenceError as in the Workflow runtime.
+// An unmodified bundle is named after its file and the wrapper's first line is cut off, so the coverage run attributes lines to the bundle.
+const compileLane = (body, transformed) => new vm.Script(`(async function (args, agent, parallel, pipeline, phase, log) {\n${body}\n})`, transformed ? {} : { filename: fileURLToPath(LANE_BUNDLE), lineOffset: -1 }).runInContext(vm.createContext({}))
+
 // answers holds each agent's result by its label; an agent without one ends without a result. Without answers only
 // the sync step answers (an up-to-date lane), so a run gets as far as starting its first review round.
 // options.transform rewrites the bundle source, so a test can break one part of it (partReplaced) or change one constant.
@@ -223,12 +227,9 @@ export async function runLane(args, answers = {}, options = {}) {
   // A thunk that throws resolves to null, as in the Workflow runtime.
   const parallel = async thunks => Promise.all(thunks.map(thunk => thunk().catch(() => null)))
   const ignore = () => {}
-  // A fresh context holds only the ECMAScript built-ins, so a script naming a Node or web global fails with a ReferenceError as in the Workflow runtime.
-  // An unmodified bundle is named after its file and the wrapper's first line is cut off, so the coverage run attributes lines to the bundle.
-  const compile = (body) => new vm.Script(`(async function (args, agent, parallel, pipeline, phase, log) {\n${body}\n})`, options.transform ? {} : { filename: fileURLToPath(LANE_BUNDLE), lineOffset: -1 }).runInContext(vm.createContext({}))
   const callsOf = () => Object.fromEntries(['aco', 'gh'].map(program => [program, fakeBin && fs.existsSync(path.join(fakeBin, `${program}.calls`)) ? Number(fs.readFileSync(path.join(fakeBin, `${program}.calls`), 'utf8')) : 0]))
   try {
-    const result = await Promise.race([compile(source)(args, agent, parallel, async () => [], ignore, ignore), runEnded])
+    const result = await Promise.race([compileLane(source, options.transform)(args, agent, parallel, async () => [], ignore, ignore), runEnded])
     return { killed, result: structuredClone(result), patchedTitles: loggedLines(fakeBin, 'gh.patched'), readiedPulls: loggedLines(fakeBin, 'gh.readied'), laneRecordCalls: loggedLines(fakeBin, 'aco.lane-record').map(line => line.split(' ')), calls: callsOf(), launchedAgents, launchedPrompts, agentCalls, writtenRecords, rateLimitSleeps }
   } finally {
     if (fakeBin) fs.rmSync(fakeBin, { recursive: true })

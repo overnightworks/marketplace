@@ -637,6 +637,9 @@ function echoedInputProblem(step, sent, values) {
   return null
 }
 
+// The fixer's entries that name a fold-in by its number (its position in the list, from 1).
+const answerFor = (list, index) => (list || []).filter(a => a.foldIn === index + 1)
+
 // Builds the briefs of the sync and fix steps and owns the schemas of their reports, runs one printer command through an agent and returns the answer of the agent together with the CRC-checked values of the line it relays; for the fix step it judges the fixer's answer against the findings and fold-ins it answered, and for the ci step it reads those values and splits the failing checks into own and shared.
 async function relayStep(A) {
   const { label, phase: phaseName, step, relayArgs, nonce, requiredKeys, agentOptions, reread, before } = A
@@ -893,9 +896,7 @@ async function relayStep(A) {
     return blocking.every((_, index) => fixed.disputed.some(d => proves(d, index) && (d.counterEvidence || '').trim()))
   }
   const disputeFlakes = (fixed, blocking) => fixed.disputed.filter(d => blocking.some((_, index) => proves(d, index))).map(d => ({ where: blocking[d.finding - 1].where, text: `${d.text} (a flake; the fixer's counter-evidence: ${d.counterEvidence})`, owner: 'distributor', stage: 'ci' }))
-  // The fixer's entries that name a fold-in by its number (its position in the list, from 1).
   // The evidence the fixer gave for a fold-in it found already done, or undefined without any.
-  const answerFor = (list, index) => (list || []).filter(a => a.foldIn === index + 1)
   const satisfiedEvidence = (fixed, foldIn, index) => answerFor(fixed.resolved, index).find(r => (r.evidence || '').trim())?.evidence
   // The reason the fixer gave for leaving a fold-in undone, or undefined without one.
   const declinedReason = (fixed, foldIn, index) => answerFor(fixed.declined, index).find(d => (d.reason || '').trim())?.reason
@@ -906,12 +907,11 @@ async function relayStep(A) {
   const outsideAnswers = (fixed) => (fixed.outside || []).filter(o => (o.where || '').trim())
   // A removal the same answer also lists in outside, on an unchanged tip, is that outside answer.
   const answeredOutsideFinding = (fixed, index) => fixed.unchanged && outsideAnswers(fixed).some(o => o.finding === index + 1)
-  const foldInAnsweredOutside = (fixed, index) => answerFor(outsideAnswers(fixed), index).length > 0
   const answeredOutside = (fixed, blocking, foldIn) => {
     const answers = outsideAnswers(fixed)
     const blockingAnswered = blocking.every((_, index) => answers.some(o => o.finding === index + 1))
-    const foldInAnswered = foldIn.every((f, index) => foldInAnsweredOutside(fixed, index) || satisfiedEvidence(fixed, f, index) || declinedReason(fixed, f, index))
-    const anyAnswer = blocking.length > 0 || foldIn.some((_, index) => foldInAnsweredOutside(fixed, index))
+    const foldInAnswered = foldIn.every((f, index) => answerFor(answers, index).length > 0 || satisfiedEvidence(fixed, f, index) || declinedReason(fixed, f, index))
+    const anyAnswer = blocking.length > 0 || foldIn.some((_, index) => answerFor(answers, index).length > 0)
     return anyAnswer && blockingAnswered && foldInAnswered
   }
   // An unchanged tip is a fix too when the fixer proves every blocking finding of the carried round already met by the lane tip (an earlier fixer's commits); only that round's answer reaches a review.

@@ -76,12 +76,6 @@ async function waitForRateLimitReset(A, spentBefore, callsBefore) {
   return { stop: 'The refusal held after the most waits the lane makes for the reset.' }
 }
 
-const crc32 = (text) => {
-  let crc = 0xffffffff
-  for (let i = 0; i < text.length; i++) crc = CRC_TABLE[(crc ^ text.codePointAt(i)) & 255] ^ (crc >>> 8)
-  return ((crc ^ 0xffffffff) >>> 0).toString(16).padStart(8, '0')
-}
-
 // The CRC32 of a value as the printer computes it over the value it received (JSON with ASCII escapes), with the count of the finding paths or of the characters of the word.
 const asciiJsonHash = (value) => crc32(JSON.stringify(value).replace(/[^\x20-\x7e]/g, char => String.raw`\u` + char.codePointAt(0).toString(16).padStart(4, '0')))
 const pathsDigest = (paths) => ({ count: paths.length, hash: asciiJsonHash(paths) })

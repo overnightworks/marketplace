@@ -159,7 +159,7 @@ function laneRecord({ routing, history, since = 0, fixRole, testStarted = false,
 // with the record's, and only then lets the printer run `aco lane-record check` on it. The record has no whitespace, so the comparison over its words is over its bytes.
 function recordCourier({ record, file, scratch, label }) {
   const text = JSON.stringify(record)
-  const checksum = crc32OfUtf8(text)
+  const checksum = crc32(text)
   const token = `${label}-${checksum}`
   const [start, end] = [`BRIEF-START ${token}`, `BRIEF-END ${token}`]
   const brief =

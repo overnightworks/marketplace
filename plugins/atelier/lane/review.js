@@ -152,7 +152,7 @@ export async function laneReview(A) {
     const brief = `${A.delegatedLine}\nRead-only sandbox: read files and run read-only commands freely; do not run tests. The item body and the pull request body follow this brief: they are the contract core and the verification evidence. The sandbox has no network and cannot write, /tmp included; report a command you cannot run as not verified, never as a blocking finding.\n` + reviewerBrief(role, range) +
       `\nGive every finding its file:line in "where".`
     // The token carries the brief's checksum, so one marker pair names one text. The courier prompt holds the brief between the two marker lines and the courier's command cuts it out of the courier's own transcript.
-    const briefChecksum = crc32OfUtf8(brief.split(/[ \t\n\r\f\v]+/).filter(Boolean).join(' '))
+    const briefChecksum = crc32(brief.split(/[ \t\n\r\f\v]+/).filter(Boolean).join(' '))
     const token = `${A.tag}-${label}-${briefChecksum}`
     const markers = { start: `BRIEF-START ${token}`, end: `BRIEF-END ${token}` }
     const checkBrief = `{ [ "$(python3 -c '${BRIEF_CRC_PRINTER}' < ${base}-brief.md)" = ${briefChecksum} ] || { echo '${BRIEF_MISMATCH}' >&2; false; }; }`
@@ -272,7 +272,7 @@ const CRC_TABLE = Array.from({ length: 256 }, (_, n) => {
   return crc >>> 0
 })
 // CRC32 over the UTF-8 bytes, as Python's zlib.crc32 computes it for the file the courier wrote.
-function crc32OfUtf8(text) {
+function crc32(text) {
   let crc = 0xffffffff
   for (const byte of utf8BytesOf(text)) crc = CRC_TABLE[(crc ^ byte) & 255] ^ (crc >>> 8)
   return ((crc ^ 0xffffffff) >>> 0).toString(16).padStart(8, '0')

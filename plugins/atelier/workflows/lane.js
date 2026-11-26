@@ -447,7 +447,7 @@ function laneRecord({ routing, history, since = 0, fixRole, testStarted = false,
 // with the record's, and only then lets the printer run `aco lane-record check` on it. The record has no whitespace, so the comparison over its words is over its bytes.
 function recordCourier({ record, file, scratch, label }) {
   const text = JSON.stringify(record)
-  const checksum = crc32OfUtf8(text)
+  const checksum = crc32(text)
   const token = `${label}-${checksum}`
   const [start, end] = [`BRIEF-START ${token}`, `BRIEF-END ${token}`]
   const brief =
@@ -609,12 +609,6 @@ async function waitForRateLimitReset(A, spentBefore, callsBefore) {
     if (spent > RATE_LIMIT_WAIT_BOUND_SECONDS) return { stop: `The refusal held after waiting ${spent} seconds for the reset.` }
   }
   return { stop: 'The refusal held after the most waits the lane makes for the reset.' }
-}
-
-const crc32 = (text) => {
-  let crc = 0xffffffff
-  for (let i = 0; i < text.length; i++) crc = CRC_TABLE[(crc ^ text.codePointAt(i)) & 255] ^ (crc >>> 8)
-  return ((crc ^ 0xffffffff) >>> 0).toString(16).padStart(8, '0')
 }
 
 // The CRC32 of a value as the printer computes it over the value it received (JSON with ASCII escapes), with the count of the finding paths or of the characters of the word.
@@ -1336,7 +1330,7 @@ async function laneReview(A) {
     const brief = `${A.delegatedLine}\nRead-only sandbox: read files and run read-only commands freely; do not run tests. The item body and the pull request body follow this brief: they are the contract core and the verification evidence. The sandbox has no network and cannot write, /tmp included; report a command you cannot run as not verified, never as a blocking finding.\n` + reviewerBrief(role, range) +
       `\nGive every finding its file:line in "where".`
     // The token carries the brief's checksum, so one marker pair names one text. The courier prompt holds the brief between the two marker lines and the courier's command cuts it out of the courier's own transcript.
-    const briefChecksum = crc32OfUtf8(brief.split(/[ \t\n\r\f\v]+/).filter(Boolean).join(' '))
+    const briefChecksum = crc32(brief.split(/[ \t\n\r\f\v]+/).filter(Boolean).join(' '))
     const token = `${A.tag}-${label}-${briefChecksum}`
     const markers = { start: `BRIEF-START ${token}`, end: `BRIEF-END ${token}` }
     const checkBrief = `{ [ "$(python3 -c '${BRIEF_CRC_PRINTER}' < ${base}-brief.md)" = ${briefChecksum} ] || { echo '${BRIEF_MISMATCH}' >&2; false; }; }`
@@ -1456,7 +1450,7 @@ const CRC_TABLE = Array.from({ length: 256 }, (_, n) => {
   return crc >>> 0
 })
 // CRC32 over the UTF-8 bytes, as Python's zlib.crc32 computes it for the file the courier wrote.
-function crc32OfUtf8(text) {
+function crc32(text) {
   let crc = 0xffffffff
   for (const byte of utf8BytesOf(text)) crc = CRC_TABLE[(crc ^ byte) & 255] ^ (crc >>> 8)
   return ((crc ^ 0xffffffff) >>> 0).toString(16).padStart(8, '0')

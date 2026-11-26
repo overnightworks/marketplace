@@ -1,0 +1,8 @@
+claim_id = "5f58d50597e34edab9042c16458f3aa7"
+agent = "Claude c1d65467-2dcf-4ef5-921f-526bf349a609"
+role = "builder"
+base = "9f5c5ad2a13bae903c199170f281727653723202"
+branch = "claude/issue-1077-fixer-outside-by-number"
+scope = ["plugins/atelier/lane/relay.js", "plugins/atelier/workflows/lane.js", "plugins/atelier/workflows/lane.md", "tests/lane_workflow_fix.test.mjs"]
+opened_commit = "b036d84de27dcabe1a429c398271d47cb6cea5c6"
+whole_reason = "The fixer's answer schema, its generated workflow, its reference text and its harness test change together."

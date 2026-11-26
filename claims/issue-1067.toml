@@ -1,8 +1,0 @@
-claim_id = "effcdbfd0b3147d0b0814ed161263843"
-agent = "Claude c1d65467-2dcf-4ef5-921f-526bf349a609"
-role = "builder"
-base = "a834889a13081a9319c49fe7266393d8fc8dc1d7"
-branch = "claude/issue-1067-archive-lessons-reach-design-check"
-scope = ["docs/ARCHITECTURE.md", "plugins/atelier/.codex/agents/refine.toml", "plugins/atelier/agents/refine.md", "plugins/atelier/skills/plan-review/SKILL.md"]
-opened_commit = "554949fc7d23f576fd72319fdda3044735d59ab5"
-whole_reason = "One lesson set with its two readers: the entries and the hop sentence in each reader, with the reader's generated Codex copy."

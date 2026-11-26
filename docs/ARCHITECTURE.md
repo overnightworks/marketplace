@@ -3,7 +3,8 @@
 Reader: a human operator or engineer asking where agent guidance lives and why
 it is never copied. Install and verification commands live in the
 [README](../README.md), rules in the [contract](../instructions/AGENTS.md),
-its [head part](../instructions/HEAD.md) and the operator's
+its [code policy](../instructions/CODE.md), its
+[head part](../instructions/HEAD.md) and the operator's
 [bounds](../instructions/OPERATORS.md), and
 the list of documents a repository carries in the
 [write-docs skill](../plugins/atelier/skills/write-docs/references/document-types.md#repository-document-set).
@@ -22,7 +23,8 @@ the operator's machine, and every repository the operator's agents work in.
 ```mermaid
 flowchart LR
     subgraph marketplace["overnightworks/marketplace"]
-        contract["instructions/AGENTS.md<br/>contract + code policy"]
+        contract["instructions/AGENTS.md<br/>contract"]
+        codefile["instructions/CODE.md<br/>code policy, reviews"]
         headfile["instructions/HEAD.md<br/>head contract"]
         bounds["instructions/OPERATORS.md<br/>operator's bounds"]
         plugin["plugins/atelier<br/>skills, agents, workflows"]
@@ -37,6 +39,7 @@ flowchart LR
         docs["docs/VISION.md<br/>docs/ARCHITECTURE.md, specs"]
     end
     contract -- symlink --> userfiles --> host
+    codefile -- code agents read beside the link --> host
     headfile -- head reads beside the link --> host
     bounds -- read beside the link --> host
     plugin -- plugin install --> host
@@ -47,9 +50,10 @@ flowchart LR
 
 ## 2. Building Block View
 
-- `instructions/` holds the contract and code policy (`AGENTS.md`, for every
-  agent), the head contract (`HEAD.md`, for the head alone) and the operator's
-  bounds (`OPERATORS.md`).
+- `instructions/` holds the contract (`AGENTS.md`, for every agent), the code
+  policy and Reviews (`CODE.md`, for the agents that code, test, write
+  documentation or judge a finding), the head contract (`HEAD.md`, for the head
+  alone) and the operator's bounds (`OPERATORS.md`).
 - `plugins/atelier/` is the plugin: skills shared by both hosts, the Markdown
   source of every agent, and the Claude Code workflows. The Codex agent files
   are generated from that source.
@@ -88,8 +92,8 @@ names.
 A Claude Code head that is running when the contract changes learns of it
 through the plugin's hook, `plugins/atelier/hooks/contract_change.py`. The host
 runs it at session start, at each prompt and after each tool batch. It compares
-the committed `AGENTS.md` and `HEAD.md` of the checkout the contract link points
-into with the blobs the session last saw, and injects the changed lines with
+the committed `AGENTS.md`, `CODE.md`, `HEAD.md` and `OPERATORS.md` of the checkout
+the contract link points into with the blobs the session last saw, and injects the changed lines with
 the subjects of the commits that changed them, once per change. A subagent, a
 workflow agent and a session whose first prompt opens with the delegated line
 (read from the contract's "Head or helper" blockquote) get nothing. Per-session
@@ -159,8 +163,8 @@ registration (`enabledPlugins`, `extraKnownMarketplaces`) stays with the
 installer's `claude plugin` calls.
 
 **Proof strategy.** CI on every pull request checks that the generated Codex
-agents match their source, that no symlink is tracked, that the contract fits
-Codex's instruction-file size limit, that every skill is valid, that every
+agents match their source, that no symlink is tracked, that every contract file is
+within its byte budget, that every skill is valid, that every
 workflow's metadata parses, that the shipped Claude Code settings pass the
 published settings schema, and runs the workflow tests, and the script and hook tests
 with branch-coverage floors (100 % for the scripts, 95.5 % for the lane bundle,
@@ -176,13 +180,17 @@ Documentation is proven by review.
 - **Generated agents are never edited.** The Markdown source is the only
   owner; the Codex files follow it, and CI fails when they differ.
 - **One file per audience.** `HEAD.md` stays apart from `AGENTS.md` so helpers
-  do not carry the head's coordination rules; the contract stays under the
-  Codex size limit.
+  do not carry the head's coordination rules, and `CODE.md` holds what only
+  coding agents and judges of a finding read, so a research helper or a landing
+  courier does not carry it. Each file has a byte budget in CI, below Codex's
+  instruction-file limit, because loaded tokens follow bytes.
 
 ## 7. Not chosen
 
 - Copying the contract into each repository: see section 6. Reopen if a
   host stops reading user-level instructions.
+- A read line for `CODE.md` in each code agent's file: it would be a second
+  loader before the loads list exists. Reopen when roles get loads lists.
 - Loading `HEAD.md` through a provider: none loads it by itself. Reopen when a
   host offers a channel for one agent role only.
 - A top role that draws its work from weighted moods and tunes the weights by
@@ -219,6 +227,11 @@ Documentation is proven by review.
 
 - Agents read whatever the checkout holds, so it must be an up-to-date `main`;
   a stale or half-merged checkout silently changes every agent's rules.
+- `CODE.md` reaches a coding agent only if it follows the pointer in
+  `AGENTS.md`, and no check sees one that skipped it.
+- A long read can reach the model only in part: Claude Code stored a 19.8 KB
+  command output in a file and showed a 2 KB preview. The pointer says to read
+  `CODE.md` whole; whether Codex sees a 17 KB read whole is unverified.
 - Grok depends on another provider's compatibility setting to see the
   contract.
 - After an install, a running session keeps the plugin version it loaded,

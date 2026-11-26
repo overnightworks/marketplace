@@ -55,13 +55,28 @@ jobs:
           links=$(git ls-files -s | awk -F'\t' '$1 ~ /^120000 / { print "::error::tracked symlink: " $2 }')
           [ -z "$links" ] || { printf '%s\n' "$links" >&2; exit 1; }
       # Codex reads an instruction file only up to project_doc_max_bytes (default 32,768 bytes).
-      - name: Hold the global contract under the Codex size limit
+      # A row is a file, its byte budget and, optionally, the headroom it keeps
+      # and why. A file over its budget fails, and so does one more than 1,000
+      # bytes under it unless its row names a headroom.
+      - name: Hold the contract files under their byte budgets
         run: |
-          file=instructions/AGENTS.md
-          limit=30000
-          size=$(wc -c < "$file")
-          echo "$file: $size bytes, limit $limit"
-          [ "$size" -le "$limit" ] || { echo "::error file=$file::$file is $size bytes, over the $limit limit" >&2; exit 1; }
+          status=0
+          while read -r file budget headroom; do
+            size=$(wc -c < "instructions/$file")
+            echo "instructions/$file: $size bytes, budget $budget${headroom:+, headroom kept: $headroom}"
+            if [ "$size" -gt "$budget" ]; then
+              echo "::error file=instructions/$file::$file is $size bytes, over its budget of $budget" >&2
+              status=1
+            elif [ "$size" -lt "$((budget - 1000))" ] && [ -z "$headroom" ]; then
+              echo "::error file=instructions/$file::$file is $size bytes, more than 1000 under its budget of $budget; lower the budget" >&2
+              status=1
+            fi
+          done <<'ROWS'
+          CODE.md 17000
+          HEAD.md 32000
+          AGENTS.md 15000 a queued sentence in Head or helper
+          ROWS
+          exit "$status"
       # The contract files carry no dates or issue numbers.
       - name: Hold the global contract free of dates and issue numbers
         run: |

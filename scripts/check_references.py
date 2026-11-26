@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """The reference gate: every reference to a contract section or sentence must still resolve.
 
-A reference is `(<contract file>, <target>)`: the file is `AGENTS.md`, `HEAD.md` or
-`OPERATORS.md`, spelled with or without `instructions/` and backticks, and the target is a
+A reference is `(<contract file>, <target>)`: the file is `AGENTS.md`, `CODE.md`,
+`HEAD.md` or `OPERATORS.md`, spelled with or without `instructions/` and backticks, and the target is a
 section name, plain or in double quotes, or `sections "A" and "B"`. It resolves when the
 contract file has a heading of that name or a paragraph whose bold lead starts with it. A
 quote in single or double quotes right after the reference, as in
@@ -32,9 +32,9 @@ from pathlib import Path
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 CONTRACT_DIRECTORY = "instructions"
-CONTRACT_FILES = ("AGENTS.md", "HEAD.md", "OPERATORS.md")
+CONTRACT_FILES = ("AGENTS.md", "CODE.md", "HEAD.md", "OPERATORS.md")
 
-CONTRACT_FILE = r"(?P<file>AGENTS\.md|HEAD\.md|OPERATORS\.md)`?"
+CONTRACT_FILE = r"(?P<file>AGENTS\.md|CODE\.md|HEAD\.md|OPERATORS\.md)`?"
 # Each form captures the whole target text as `target`; the first matching form wins.
 QUOTED = r'"[^"]+"'
 TARGET_FORMS = (

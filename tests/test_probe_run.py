@@ -7,6 +7,7 @@ import shutil
 import signal
 import socket
 import subprocess
+import threading
 import time
 from pathlib import Path
 
@@ -53,6 +54,16 @@ def set_load(machine: dict[str, str], load: float) -> None:
 def timeout_arguments(result: subprocess.CompletedProcess[str]) -> list[str]:
     """What the fake timeout was asked to run."""
     return result.stdout.split()
+
+
+def answer_one_connection(listener: socket.socket) -> None:
+    """Read a request from the next client and answer it, as a server does."""
+    listener.settimeout(10)
+    with contextlib.suppress(OSError):
+        connection, _ = listener.accept()
+        with connection:
+            connection.recv(4)
+            connection.sendall(b"ok")
 
 
 def probe_run(
@@ -105,12 +116,30 @@ def test_runs_the_command_in_a_network_namespace_of_its_own(real_machine):
     assert result.stdout.strip() != starters_namespace
 
 
-def test_the_command_reaches_a_port_the_host_listens_on_through_localhost(real_machine):
+# A client that tries ::1 first and falls back only when that connection is refused, as curl does
+# for localhost.
+IPV6_FIRST_CLIENT = """
+import socket, sys
+for address in ("::1", "127.0.0.1"):
+    try:
+        connection = socket.create_connection((address, int(sys.argv[1])), timeout=10)
+    except OSError:
+        continue
+    connection.sendall(b"ping")
+    sys.exit(0 if connection.recv(2) == b"ok" else 1)
+sys.exit(1)
+"""
+
+
+def test_a_client_that_tries_ipv6_localhost_first_exchanges_data_with_a_host_ipv4_listener(real_machine):
     with socket.create_server(("127.0.0.1", 0)) as listener:
         port = listener.getsockname()[1]
-        connect = f"import socket; socket.create_connection(('127.0.0.1', {port}), timeout=10).close()"
+        answerer = threading.Thread(target=answer_one_connection, args=(listener,))
+        answerer.start()
 
-        result = probe_run(real_machine, "python3", "-c", connect)
+        result = probe_run(real_machine, "python3", "-c", IPV6_FIRST_CLIENT, str(port))
+
+        answerer.join(timeout=10)
 
     assert result.returncode == 0, result.stderr
 

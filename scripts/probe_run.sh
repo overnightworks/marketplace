@@ -19,13 +19,17 @@
 # the starter reaches it as a TERM, which stops the stack like any other stop. The command's
 # relay to the namespace is armed the same way, so the stack also ends if probe-run is killed.
 #
-# The namespace comes from pasta (package passt): the host's listening TCP ports are reachable on
-# localhost in it, outbound traffic and DNS work, and the bridge and veth changes other sessions'
-# containers cause never reach it, so Chromium reports no net::ERR_NETWORK_CHANGED. The command
-# runs as uid 0 there, mapped to the starter's uid. A container that calls back to a server in the
-# namespace is not reached. timeout runs inside the namespace. pasta ends at once on TERM, leaves
-# its child running and clears the death signal on its exec, so a relay between the supervisor and
-# pasta keeps the death signal and passes the TERM to timeout, which keeps the teardown within K.
+# The namespace comes from pasta (package passt), IPv4 only: the host's listening TCP ports are
+# reachable on 127.0.0.1 and localhost in it, outbound traffic and DNS work, and the bridge and veth
+# changes other sessions' containers cause never reach it, so Chromium reports no
+# net::ERR_NETWORK_CHANGED. The command runs as uid 0 there, mapped to the starter's uid. A host
+# listener on ::1 alone and a container that calls back to a server in the namespace are not
+# reached. IPv6 stays off because pasta would accept a client that tries ::1 first (curl,
+# Playwright) and reset it when the host listens on IPv4 only; with IPv4 only the client is refused
+# at once and falls back to 127.0.0.1. timeout runs inside the namespace. pasta ends at once on
+# TERM, leaves its child running and clears the death signal on its exec, so a relay between the
+# supervisor and pasta keeps the death signal and passes the TERM to timeout, which keeps the
+# teardown within K.
 #
 # The command gets probe-run's stdin and the default INT and QUIT handling.
 #
@@ -116,7 +120,7 @@ launch_relay() {
 }
 launch_in_namespace() {
   exec env --default-signal=QUIT --ignore-signal=INT,HUP \
-    pasta --config-net -- /bin/bash -c 'exec env --default-signal=INT,HUP,QUIT timeout -k "$@"' probe-run "$@"
+    pasta --ipv4-only --config-net -- /bin/bash -c 'exec env --default-signal=INT,HUP,QUIT timeout -k "$@"' probe-run "$@"
 }
 
 supervise() {

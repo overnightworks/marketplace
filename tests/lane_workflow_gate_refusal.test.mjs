@@ -43,6 +43,7 @@ test('gate-refusal: the record, the routing line, the result routing and the hea
   assert.match(result.routingLine, new RegExp(`; gate ${model}/${effort}; land `))
   assert.equal(storedLane(run).stages.gate, `${model}/${effort}`)
   assert.equal(result.requiredHeadActions.filter(line => /stand-in as the final gate/.test(line)).length, 1)
+  assert.match(result.requiredHeadActions.find(line => /stand-in as the final gate/.test(line)), /Codex refused the gate model/)
 })
 
 test('gate-refusal: the review\'s REVISE is kept beside the stand-in\'s verdict and goes to a fixer', async () => {

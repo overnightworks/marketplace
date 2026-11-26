@@ -114,10 +114,12 @@ for (const [what, findings, briefMet, goesOn] of unchangedCheckpointRuns) {
   })
 }
 
+const LONG_TITLE = 'Lanes that change a surface work from the design skill and report design advice for every reader of the pull request'
 // Before ready-to-land a pull request still titled as the checkpoint gets the item's title.
 const titledRuns = [
   ['the checkpoint title', { pr_title: `Unfinished checkpoint of #${resumedLane.item}` }, true],
   ['a title of its own', { pr_title: 'Add the feature' }, false],
+  ['a title longer than the relay cap', { pr_title: LONG_TITLE }, false],
 ]
 
 for (const [what, scenario, renamed] of titledRuns) {
@@ -129,14 +131,20 @@ for (const [what, scenario, renamed] of titledRuns) {
   })
 }
 
-test('a failed title write names the rename among the head actions', async () => {
-  const { result } = await runLane(resumeArgs, { ...reachesTheEnd, 'r0-review': APPROVE, retitle: { pr_title: `Unfinished checkpoint of #${resumedLane.item}`, patch_code: 1 } })
-  assert.equal(result.status, 'ready-to-land')
-  assert.ok(result.requiredHeadActions.some(action => /rename pull request #1 to the title of item #1/.test(action)))
-})
+const unwrittenTitleRuns = [
+  ['a failed title write', { pr_title: `Unfinished checkpoint of #${resumedLane.item}`, patch_code: 1 }],
+  ['a title that cannot be read', { pr_title: null }],
+]
+
+for (const [what, scenario] of unwrittenTitleRuns) {
+  test(`${what} names the rename among the head actions`, async () => {
+    const { result } = await runLane(resumeArgs, { ...reachesTheEnd, 'r0-review': APPROVE, retitle: scenario })
+    assert.equal(result.status, 'ready-to-land')
+    assert.ok(result.requiredHeadActions.some(action => /rename pull request #1 to the title of item #1/.test(action)))
+  })
+}
 
 // A checkpointed lane opens a draft pull request, and aco land refuses a draft, so the lane marks it ready before ready-to-land.
-const LONG_TITLE = 'Lanes that change a surface work from the design skill and report design advice for every reader of the pull request'
 const draftRuns = [
   ['a draft is marked ready and no head action names it', { draft: true }, ['1'], false],
   ['a pull request that is not a draft gets no ready write', { draft: false }, [], false],

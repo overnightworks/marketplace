@@ -11,18 +11,15 @@ function retitleStepProblem(relayed, ownSteps) {
   if (!relayed || relayed.problem) return `the title step ${relayed ? relayed.problem : 'returned no result'}`
   return relayed.unreachable && relayed.values.unreachable.some(name => ownSteps.includes(name)) ? relayed.unreachable : null
 }
-// The pull request's title from the step's one REST read, as the printer's 100-character cut left it.
-// The draft flag arrives whole as its own value, not a boolean when the read failed or the flag is missing.
-function pulledRequest(pull) {
-  try { return pull.code === 0 ? JSON.parse(pull.out) : {} } catch { return {} }
-}
 // Why the pull request keeps its checkpoint title, or null when it was renamed or never carried it; the printer's retitle step reads both titles and writes only on a match.
+// The title and the draft flag arrive whole as their own values of the pull read, never cut out of its capped output.
 function checkpointRenameProblem(relayed, item) {
   const stepProblem = retitleStepProblem(relayed, ['pull', 'item', 'retitle'])
   if (stepProblem) return stepProblem
   const { pull, item: itemTitle, retitle } = relayed.values
   if (pull.code !== 0) return `reading the pull request exited ${pull.code}: ${pull.err}`
-  if (pulledRequest(pull).title !== checkpointTitle(item)) return null
+  if (typeof pull.title !== 'string') return `the pull request title could not be read (reading the pull request exited ${pull.code}: ${pull.err})`
+  if (pull.title !== checkpointTitle(item)) return null
   if (itemTitle.code !== 0) return `reading the item title exited ${itemTitle.code}: ${itemTitle.err}`
   return retitle.code === 0 ? null : `the title write exited ${retitle.code}: ${retitle.err}`
 }
@@ -150,7 +147,7 @@ async function relayStep(A) {
     'unmet={c:buckets.get(c,"missing") for c in contexts or [] if buckets.get(c,"missing")!="pass"}',
     'values.update({n:{**values[n],**x} for n,x in(("checks",None if listing is None else dict(count=len(listing),open=[dict(name=c["name"],bucket=c["bucket"]) for c in listing if c["bucket"] not in("pass","skipping")])),("rules",None if contexts is None else dict(required=unmet) if unmet else {})) if x is not None})',
     'unfinished=sorted({r["name"] for r in parsed("headruns") or [] if r["status"]!="completed"})',
-    'values.update(**({"headruns":{**values["headruns"],"open":unfinished}} if unfinished else {}),**({"pull":{**values["pull"],"draft":pulled(ran).get("draft")}} if "pull" in ran else {}))',
+    'values.update(**({"headruns":{**values["headruns"],"open":unfinished}} if unfinished else {}),**({"pull":{**values["pull"],"draft":pulled(ran).get("draft"),"title":pulled(ran).get("title")}} if "pull" in ran else {}))',
     'values.update(**(dict(head=view["headRefOid"],changed_index=[i for i,p in enumerate(received) if p in {f["filename"] for page in parsed("changed") or [] for f in page}],shared=[c["name"] for c in listing or [] if c["bucket"]=="fail" and c["name"] in failed_on_base]) if view else {}))',
     'values.update(**({"lane":{**values["lane"],**laneview(ran["lane"].stdout,rest[1])}} if "lane" in ran and ran["lane"].returncode==0 else {}))',
     String.raw`values.update(**({"log":{**values["log"],"pull_only":any(re.search(r"^! red .*[0-9]+ (undeclared loosenings?|declarations? unmatched)\b",re.sub(r"^[^\t]*\t[^\t]*\t\S+ ","",re.sub(r"\x1b\[[0-9;]*m","",l))) for l in ran["log"].stdout.splitlines()),"loosenings":any("only declared loosenings \u00b7 only the operator merges it" in l for l in ran["log"].stdout.splitlines()),"merge":next((m[1] for l in ran["log"].stderr.splitlines()+ran["log"].stdout.splitlines() if "next:" in l and (m:=re.search("(quality merge [A-Za-z0-9._-]+/[A-Za-z0-9._-]+#[0-9]+)",l))),"")}} if "log" in ran else {}))`,

@@ -54,7 +54,7 @@ case "$1 $2" in
   "pr ready") [ "$FAKE_READY_CODE" = 0 ] || fail "$FAKE_READY_CODE" "\${FAKE_READY_ERROR:-the draft could not be marked ready}"; printf '%s\\n' "$3" >> "$0.readied" ;;
   "api -X") [ "$FAKE_PATCH_CODE" = 0 ] || fail "$FAKE_PATCH_CODE" "\${FAKE_PATCH_ERROR:-the title write was refused}"; printf '%s\\n' "$6" >> "$0.patched" ;;
   "api repos/"*) [ "$4" != .body ] || { [ "$FAKE_ITEM_CODE" = 0 ] || fail "$FAKE_ITEM_CODE" "$FAKE_ITEM_ERROR"; printf '%s\\n' "$FAKE_ITEM_BODY"; exit 0; }
-    [ "$4" != "{title:.title,draft:.draft}" ] || { printf '{"title":"%s","draft":%s}' "$FAKE_PR_TITLE" "$FAKE_PR_DRAFT"; exit 0; }
+    [ "$4" != "{title:.title,draft:.draft}" ] || { printf '{"title":%s,"draft":%s}' "$FAKE_PR_TITLE_JSON" "$FAKE_PR_DRAFT"; exit 0; }
     [ "$4" != .title ] || { case "$2" in */pulls/*) printf '%s\\n' "$FAKE_PR_TITLE" ;; *) printf '%s\\n' "$FAKE_ITEM_TITLE" ;; esac; exit 0; }
     case "$2" in
     */rules/branches/main) [ "$FAKE_RULES_CODE" = 0 ] || fail "$FAKE_RULES_CODE" "$FAKE_RULES_ERROR"; printf '%s' "$FAKE_RULES" ;;
@@ -99,7 +99,7 @@ export const runCommandLine = (line, { cwd, env, shell = 'sh' }) => {
 const itemEnvironment = (scenario) => ({ FAKE_ITEM_BODY: scenario.item_body ?? '', FAKE_ITEM_CODE: scenario.item_code ?? 0, FAKE_ITEM_ERROR: scenario.item_error ?? '' })
 // The fake gh's answers to the reads and writes of the pull request: its title and draft flag, the title write and the ready call.
 const pullEnvironment = (scenario) => ({
-  FAKE_PR_TITLE: scenario.pr_title ?? 'Add the feature', FAKE_ITEM_TITLE: scenario.item_title ?? 'The item title', FAKE_PATCH_CODE: scenario.patch_code ?? 0, FAKE_PATCH_ERROR: scenario.patch_error ?? '',
+  FAKE_PR_TITLE: scenario.pr_title ?? 'Add the feature', FAKE_PR_TITLE_JSON: JSON.stringify('pr_title' in scenario ? scenario.pr_title : 'Add the feature'), FAKE_ITEM_TITLE: scenario.item_title ?? 'The item title', FAKE_PATCH_CODE: scenario.patch_code ?? 0, FAKE_PATCH_ERROR: scenario.patch_error ?? '',
   FAKE_PR_DRAFT: 'draft' in scenario ? scenario.draft : false, FAKE_READY_CODE: scenario.ready_code ?? 0, FAKE_READY_ERROR: scenario.ready_error ?? '',
 })
 // What `aco brief --json` prints: the claim's outside paths and, when the scenario lists touched surfaces, those too (an absent key is an older aco).

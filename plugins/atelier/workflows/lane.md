@@ -390,7 +390,7 @@ or `foldIn`, right after the sync, since its scope check follows the fix), and a
 check before any fixer is never begun. At each proven point the lane writes the record of the open segment, adds it with
 `aco lane-record add <n> <path> --run <id> --end-tip <sha> --ran <stages>` and, right before the first stage after the point
 (a review round, a fix round, the tester), begins the next segment with that tip as `--start-tip`; a run that stops at a proven
-point begins none unless a tester is still running or a CI finding was read, since either needs a begun segment to land
+point begins none unless a tester is still running, since it needs a begun segment to land
 in, so a lane whose gates passed keeps its verdicts on the claim when the run dies later, and a run killed in
 the middle of a segment leaves a begun run without a record, whose counts aco shows as unknown. A segment's record holds only
 its own slice of the run's history, its verdicts and its own fix rounds, and its `--ran` stages are those the segment started
@@ -400,8 +400,7 @@ stored runs sum to the figures of one unsplit run, a finding that comes back cou
 back stays counted in the record it was stored in. aco sums the counts and joins the verdicts over the stored runs; the
 approvals of the earlier segments reach a later one through the history. At every end that writes a record, the open
 segment is added once the same way (one that started no stage stores nothing, since aco takes no empty `--ran` and the lane
-claims no stage that did not run; a CI finding read in such a segment stays unstored and its begun run makes the lane's counts
-unknown). A review or gate approval that follows another reviewer's revision of the same tip is not stored before the fixer
+claims no stage that did not run). A review or gate approval that follows another reviewer's revision of the same tip is not stored before the fixer
 starts, since aco lands the last stored verdict. Every tip
 aco receives is the 40-digit sha `git rev-parse` resolves in the worktree,
 and a `build` run that ended without a tip passes the worktree's `HEAD`. A begin or an add that aco refuses, or whose tip

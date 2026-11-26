@@ -1,7 +1,0 @@
-claim_id = "a7f4768682aa4baf92f2c99412446b90"
-agent = "Claude c1d65467-2dcf-4ef5-921f-526bf349a609"
-role = "builder"
-base = "9f5c5ad2a13bae903c199170f281727653723202"
-branch = "claude/issue-1081-aco-skill-branch-records"
-scope = ["plugins/atelier/skills/aco/SKILL.md"]
-opened_commit = "96a28107114ce312a6acdf2a86de70dc22c532ba"

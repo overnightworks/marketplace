@@ -151,6 +151,10 @@ def git_output(directory: Path, *arguments: str) -> str:
     ).stdout
 
 
+def repository_root(directory: Path) -> Path:
+    return Path(git_output(directory, "rev-parse", "--show-toplevel").strip())
+
+
 def tracked_text_files(checkout: Path) -> list[Path]:
     return [checkout / name for name in git_output(checkout, "ls-files", "-z").split("\0") if name]
 
@@ -169,9 +173,7 @@ def check_checkout(checkout: Path, contract_root: Path = REPOSITORY_ROOT) -> lis
 
 
 def main(arguments: list[str]) -> int:
-    checkout = REPOSITORY_ROOT
-    if arguments:
-        checkout = Path(git_output(Path(arguments[0]), "rev-parse", "--show-toplevel").strip())
+    checkout = repository_root(Path(arguments[0])) if arguments else REPOSITORY_ROOT
     problems = check_checkout(checkout)
     if problems:
         print("\n".join(problems), file=sys.stderr)

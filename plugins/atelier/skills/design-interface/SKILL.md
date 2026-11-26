@@ -41,11 +41,9 @@ and focus.
 1. **Shape, place and motion carry the meaning; words confirm it.** State,
    ownership and possible actions show by shape, icon, position, size and
    motion as well as colour, never by colour alone (WCAG 1.4.1, 1.4.11).
-   Counterexample: a progress bar whose two parts differ only in hue.
 2. **One main thing per view.** A view has one focus and one main action;
    everything else is visibly secondary or one tap away. A game table or an
-   editor shows many things and still has one that leads. Counterexample: two
-   equal panels answering different questions side by side.
+   editor shows many things and still has one that leads.
 3. **Few words, the domain's own, the same everywhere.** A button names its
    action and a status its state, usually in one or two words, in the domain's
    word (Stich, Take, Land) and the same word for the same thing on every
@@ -56,7 +54,6 @@ and focus.
    A control's name, an action's consequence, why something failed and a
    disclosure the law requires stay visible. Background opens on demand from a
    fold or ⓘ that answers tap, click, focus and hover (WCAG 1.4.13).
-   Counterexample: a paragraph above a form that its labels already say.
 5. **One way to do a thing, one place for a fact, one part for a behaviour.**
    A control or block of information that repeats goes, unless it answers a new
    question; a behaviour that exists elsewhere reuses that part. A shortcut for
@@ -64,7 +61,6 @@ and focus.
 6. **Every state tells the truth.** Loading, empty, error, waiting and done are
    designed, not defaulted, and none claims what did not happen. Empty says
    what will appear; an error says what failed and the way on.
-   Counterexample: "the workshop is dark" over a working fleet.
 7. **Motion and sound have a job.** They answer an action at once, show work or
    presence that is happening now, carry expression (a figure's body language,
    a card that lands), or, on a surface made to be enjoyed (a game table, a
@@ -109,9 +105,10 @@ the repository win.
 
 1. Find the blessed picture and the UI rules; name the view's main thing, its
    states and the person and device it serves.
-2. Build every state from the repository's tokens and parts, then capture each changed view with the `see` skill at desktop and about 390 px
-   width, in each changed state, plain and blurred; answer the glance test
-   from the blurred one, fix what it shows and capture again.
+2. Build every state from the repository's tokens and parts, then capture each
+   changed view with the `see` skill at desktop and about 390 px width, in each
+   changed state, plain and blurred; answer the glance test from the blurred
+   one, fix what it shows and capture again.
 3. Run checks such as axe, keyboard walks and reduced motion on your own
    captures and report them; a repository that wants them in its CI opens its
    own item.

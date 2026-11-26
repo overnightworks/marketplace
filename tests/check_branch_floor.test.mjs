@@ -3,7 +3,7 @@
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import { test } from 'node:test'
+import { after, test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
@@ -15,6 +15,7 @@ const report = ['a/one.js:4:3', 'a/two.js:2:1', 'b/other.js:10:0', 'xa/three.js:
   .map(([file, found, hit]) => `TN:\nSF:${path.join(workdir, file)}\nBRF:${found}\nBRH:${hit}\nend_of_record\n`)
   .join('')
 fs.writeFileSync(path.join(workdir, 'lcov.info'), report)
+after(() => fs.rmSync(workdir, { recursive: true, force: true }))
 
 function check(floor, files) {
   const run = spawnSync(process.execPath, [script, 'lcov.info', String(floor), files], { cwd: workdir, encoding: 'utf8' })

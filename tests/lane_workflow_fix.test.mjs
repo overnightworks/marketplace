@@ -132,6 +132,7 @@ const alsoTidy = followup('y.py:2', 'rename the helper', 'distributor')
 const satisfiedFoldIns = [
   ['one fold-in', [tidy], [satisfied(tidy)]],
   ['two fold-ins', [tidy, alsoTidy], [satisfied(tidy), satisfied(alsoTidy, 'probe cell 4 proves it', undefined, 2)]],
+  ['one fold-in the fixer answers under a labelled where', [tidy], [{ ...satisfied(tidy), where: `${tidy.where} (style)` }]],
 ]
 
 for (const [what, foldIn, resolved] of satisfiedFoldIns) {

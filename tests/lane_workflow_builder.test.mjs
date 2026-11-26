@@ -138,3 +138,35 @@ test('a failed title write names the rename among the head actions', async () =>
   assert.equal(result.status, 'ready-to-land')
   assert.ok(result.requiredHeadActions.some(action => /rename pull request #1 to the title of item #1/.test(action)))
 })
+
+// A checkpointed lane opens a draft pull request, and aco land refuses a draft, so the lane marks it ready before ready-to-land.
+const draftRuns = [
+  ['a draft is marked ready and no head action names it', { draft: true }, ['1'], false],
+  ['a pull request that is not a draft gets no ready write', { draft: false }, [], false],
+  ['a draft whose ready write fails names gh pr ready among the head actions', { draft: true, ready_code: 1 }, [], true],
+  ['a draft flag that cannot be read names gh pr ready among the head actions', { draft: null }, [], true],
+]
+
+for (const [behaviour, scenario, readied, named] of draftRuns) {
+  test(`before ready-to-land ${behaviour}`, async () => {
+    const { result, readiedPulls } = await runLane(resumeArgs, { ...reachesTheEnd, 'r0-review': APPROVE, retitle: { ...scenario, item_title: 'The item title' } })
+    assert.equal(result.status, 'ready-to-land')
+    assert.deepEqual(readiedPulls, readied)
+    assert.equal(result.requiredHeadActions.some(action => /gh pr ready 1/.test(action)), named)
+  })
+}
+
+// One failed write of the retitle step names only its own head action.
+const unreachableWrites = [
+  ['an unreachable ready write names gh pr ready and no rename', { draft: true, ready_code: 1, ready_error: 'Could not resolve host: api.github.com' }, /gh pr ready 1/, /rename pull request/],
+  ['an unreachable title write names the rename and no gh pr ready', { draft: true, pr_title: 'Unfinished checkpoint of #1', patch_code: 1, patch_error: 'Could not resolve host: api.github.com' }, /rename pull request #1/, /gh pr ready 1/],
+]
+
+for (const [behaviour, scenario, named, unnamed] of unreachableWrites) {
+  test(`before ready-to-land ${behaviour}`, async () => {
+    const { result } = await runLane(resumeArgs, { ...reachesTheEnd, 'r0-review': APPROVE, retitle: { ...scenario, item_title: 'The item title' } })
+    assert.equal(result.status, 'ready-to-land')
+    assert.ok(result.requiredHeadActions.some(action => named.test(action)))
+    assert.ok(!result.requiredHeadActions.some(action => unnamed.test(action)))
+  })
+}

@@ -15,7 +15,7 @@
 [ccn."tests/lane_workflow_harness.mjs"]
 "answerFor" = 16
 "ghEnv" = 17
-"printedBy" = 40
+"printedBy" = 37
 
 [function_lines."plugins/atelier/lane/ci.js"]
 "laneCi" = 94
@@ -30,6 +30,6 @@
 "laneRouting" = 62
 
 [function_lines."tests/lane_workflow_harness.mjs"]
-"runLane" = 126
+"runLane" = 124
 
 [clones]

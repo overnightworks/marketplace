@@ -110,19 +110,12 @@ test('an unchanged tip whose outside answers leave a blocking finding unanswered
   assert.match(result.reason, /the fixer changed nothing/)
 })
 
-test('outside-fold-in: a fold-in answered in the pull request body at an unchanged tip goes on to the re-check, which reads it live, and counts as folded', async () => {
-  const outside = [{ foldIn: 1, where: 'PR body, section Verification' }]
+for (const location of ['PR body, section Verification', 'https://github.com/o/r/pull/9#issuecomment-1']) test(`outside-fold-in: a fold-in answered outside by its number (${location}) at an unchanged tip goes on to the re-check, which reads it live, and counts as folded`, async () => {
+  const outside = [{ foldIn: 1, where: location }]
   const { result, agentCalls } = await runLane({ ...resumeArgs, foldIn: [tidy] }, { 'fix-1': { ...unchangedFix, outside }, ...reachesTheEnd })
   assert.equal(result.status, 'ready-to-land')
   assert.equal(result.tip, resumeTip)
-  assert.match(agentCalls['r1-review'].prompt, /read live what the fixer edited outside the tree \(fold-in x\.py:1: PR body, section Verification\)/)
-  assert.deepEqual(result.folded.map(f => f.where), [tidy.where])
-})
-
-test('outside-fold-in: a fold-in answered outside by its number counts as answered whatever form the fixer writes its location in', async () => {
-  const outside = [{ foldIn: 1, where: 'https://github.com/o/r/pull/9#issuecomment-1' }]
-  const { result } = await runLane({ ...resumeArgs, foldIn: [tidy] }, { 'fix-1': { ...unchangedFix, outside }, ...reachesTheEnd })
-  assert.equal(result.status, 'ready-to-land')
+  assert.ok(agentCalls['r1-review'].prompt.includes(`read live what the fixer edited outside the tree (fold-in x.py:1: ${location})`))
   assert.deepEqual(result.folded.map(f => f.where), [tidy.where])
 })
 
@@ -136,6 +129,7 @@ test('outside-fold-in: a blocking finding answered outside beside a fold-in foun
 const unansweredBatches = [
   ['a fold-in with no answer', { foldIn: [tidy] }, []],
   ['a fold-in whose answer names no place', { foldIn: [tidy] }, [{ foldIn: 1, where: ' ' }]],
+  ['a fold-in answered outside under a number that is no fold-in', { foldIn: [tidy] }, [{ foldIn: 2, where: 'PR body' }]],
   ['a fold-in answered outside beside a blocking finding left unanswered', { foldIn: [tidy], fixFirst: [defectWithoutDraft] }, [{ foldIn: 1, where: 'PR body' }]],
   ['a blocking finding answered outside beside a fold-in left unanswered', { foldIn: [tidy], fixFirst: [docsFinding] }, [{ finding: 1, where: 'PR body' }]],
 ]

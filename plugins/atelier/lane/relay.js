@@ -382,7 +382,7 @@ async function relayStep(A) {
     if (findingNumbers) return { ...rejection, lastBlocking: findingNumbers.map(number => blocking[number - 1]) }
     // Settled fold-ins leave the lane at the held tip; a round without blocking findings asks for no merge of main, so a merge there is unasked work.
     if (fixed.unchanged) return everyFoldInSettled(fixed, blocking, foldIn) || answeredOutside(fixed, blocking, foldIn) || everyBlockingResolved(fixed, blocking) || checkpointMet(fixed, blocking) ? null : { reason: 'the fixer changed nothing', lastBlocking: blocking }
-    const mergeWasTheFinding = blocking.length === 1 && blocking[0].where === 'mergeable'
+    const mergeWasTheFinding = blocking.length === 1 && blocking[0].where === MERGEABLE_WHERE
     if (fixed.mergeOnly && !mergeWasTheFinding) return { reason: 'the fixer only merged main and fixed nothing', lastBlocking: blocking }
     return null
   }
@@ -490,7 +490,7 @@ async function relayStep(A) {
     const sharedRerun = Boolean(A.rerun) && watched.green && open.length > 0 && open.every(c => c.bucket === 'fail' && shared?.includes(c.name))
     // Unfinished CI is no finding: a watcher entry the listing does not back (nothing failed, something still runs) waits unless it is the merge conflict.
     const stillRunning = open.some(c => c.bucket === 'pending') || (headruns.open || []).length > 0
-    const unbackedFinding = stillRunning && !open.some(c => c.bucket === 'fail') && !watched.failing?.some(f => f.where === 'mergeable')
+    const unbackedFinding = stillRunning && !open.some(c => c.bucket === 'fail') && !watched.failing?.some(f => f.where === MERGEABLE_WHERE)
     const watcherDecides = !sharedRerun && (watched.green || (watched.failing?.length && !unbackedFinding))
     const failing = watcherDecides ? watched.failing : failedCheckFindings(open)
     const ownRed = ownFailing({ shared, red: watched.red, failing, files })
@@ -586,7 +586,7 @@ function pendingReason(waiting) {
 const ROUND = { review: 'review', head: 'head', ci: 'ci', mixed: 'mixed' }
 const isCiRound = (round) => round === ROUND.ci || round === ROUND.mixed
 // The rules the CI reader writes itself and the watcher's "CI check <name>"; a carried batch holding one is a CI round.
-const isCiFinding = (f) => (f.rule || '').startsWith(CI_CHECK_RULE_PREFIX) || [CI_MISSING_RULE, CI_CONFLICT_RULE].includes(f.rule)
+const isCiFinding = (f) => isCiCheckFinding(f) || [CI_MISSING_RULE, CI_CONFLICT_RULE].includes(f.rule)
 
 const RESOLVE_CONFLICTS = `resolve conflicts so both sides' behaviour holds, and set mergeResolvedLaneConflict true when files this lane changed needed resolution`
 // How a fixer resolves the merge, for every branch that merges main: a merge commit stays a pure merge, and sides that cannot both hold go back to the head.

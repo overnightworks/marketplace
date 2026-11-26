@@ -315,7 +315,7 @@ if (A.build) {
     const conflict = syncConflictOf(values, [...LEDGERS, ...GENERATED.map(([path]) => path)])
     if (!conflict) return await openResult('escalated', 'sync', { reason: synced.note || `the lane tip ${values.head.out} does not contain origin/main, and the sync named no cause` })
     syncRaisedConflict = true
-    carriedOver = [syncConflictFinding(conflict), ...carriedOver.filter(f => f.where !== 'mergeable')]
+    carriedOver = [syncConflictFinding(conflict), ...carriedOver.filter(f => f.where !== MERGEABLE_WHERE)]
     carriesBatch = true
     history.push({ after: 0, by: 'sync', conflict: conflict.paths, tip: values.head.out })
   }
@@ -366,9 +366,9 @@ async function reviewRound(which, range, from, sampledLook) {
 // A conflict with main or a missing CI run is a new event each time, never the same finding; a CI failure is the same
 // only when its evidence (the failing log tail) repeats, because a courier's text for two different failures can match.
 // Log tails often carry timestamps, so this rarely fires for CI; the ci budget is the real stop there.
-const progressKey = (f) => (f.rule || '').startsWith('CI check') ? `${f.where}::${f.evidence}` : findingKey(f)
+const progressKey = (f) => isCiCheckFinding(f) ? `${f.where}::${f.evidence}` : findingKey(f)
 function noProgress(blocking) {
-  const counted = blocking.filter(f => f.where !== 'mergeable' && f.where !== 'checks')
+  const counted = blocking.filter(f => f.where !== MERGEABLE_WHERE && f.where !== CHECKS_WHERE)
   const repeated = counted.filter(f => (seen.get(progressKey(f)) || 0) >= 1)
   counted.forEach(f => seen.set(progressKey(f), (seen.get(progressKey(f)) || 0) + 1))
   return repeated

@@ -356,7 +356,7 @@ async function reviewRound(which, range, from) {
   followups.push(...answer.followups)
   if (answer.gateRounds.length) productionSinceGate = false
   gateRounds.push(...answer.gateRounds)
-  return { which, results, verdict, range, from }
+  return { which, results, verdict, range, from, history: answer.history }
 }
 
 // A finding that comes back unchanged after a fix meant for it is no progress; the second return stops the lane.
@@ -577,7 +577,7 @@ async function reviseAfter(rr) {
   }
   // A reviewer that approved the tip has proven it, whichever other reviewer revises it; its verdict goes to the claim before the fixer can die.
   // Not when the approval follows a revision of the same tip: aco lands the last stored verdict, so that segment stays unstored until the fixer's commits are judged.
-  if (rr.results.some(v => v?.verdict === 'APPROVE' && !(v.blocking || []).length) && !approvesRevisedTip(history)) {
+  if (rr.history.some(entry => entry.verdict === 'APPROVE') && !approvesRevisedTip(history)) {
     const stored = await storeProvenPoint()
     if (stored) return stored
   }

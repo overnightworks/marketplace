@@ -235,9 +235,11 @@ export async function laneReview(A) {
   function recordOf(reviewer, result) {
     const blocking = result.blocking || []
     const reportPath = result.reportPath || ''
+    // An evidenced blocking finding outranks the label, as classify counts it: the record never states an approval of a tip with an open finding.
+    const verdict = result.verdict === 'APPROVE' && blocking.length > 0 ? 'REVISE' : result.verdict
     return {
-      history: { after: A.after, by: reviewer.key, tip: A.tip, verdict: result.verdict, blocking: blocking.map(f => f.where), reportPath },
-      gateRounds: reviewer.isGate && !result.limit ? [{ after: A.after, verdict: result.verdict, blocking, reportPath, tip: A.tip }] : [],
+      history: { after: A.after, by: reviewer.key, tip: A.tip, verdict, blocking: blocking.map(f => f.where), reportPath },
+      gateRounds: reviewer.isGate && !result.limit ? [{ after: A.after, verdict, blocking, reportPath, tip: A.tip }] : [],
       followups: (result.followups || []).map(f => ({ ...f, stage: reviewer.key === 'review' ? 'review' : 'gate', tip: A.tip })),
     }
   }

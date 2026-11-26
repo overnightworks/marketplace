@@ -205,7 +205,7 @@ async function relayStep(A) {
         items: { type: 'object', required: ['where', 'text', 'evidence'], properties: { finding: { type: 'integer', minimum: 1, description: 'the number of the blocking finding in the list you were given' }, foldIn: { type: 'integer', minimum: 1, description: 'the number of the fold-in in the list you were given' }, where: { type: 'string' }, text: { type: 'string' }, evidence: { type: 'string', description: 'the test, probe cell or line that already satisfies it' } } },
       },
       declined: { type: 'array', description: `fold-ins you leave undone because they do not meet the in-place rule (${IN_PLACE_RULE}); each by its number in the fold-in list (foldIn) with the reason`, items: { type: 'object', required: ['foldIn', 'reason'], properties: { foldIn: { type: 'integer', minimum: 1, description: 'the number of the fold-in in the list you were given' }, where: { type: 'string' }, reason: { type: 'string' } } } },
-      outside: { type: 'array', description: 'blocking findings and fold-ins you answered by editing the item body or the pull request body or posting an item comment, with no commit: a blocking finding by its number in the blocking list (finding), a fold-in by its where (foldIn), and the body section or comment URL', items: { type: 'object', required: ['where'], properties: { finding: { type: 'integer', minimum: 1 }, foldIn: { type: 'string' }, where: { type: 'string' } } } },
+      outside: { type: 'array', description: 'blocking findings and fold-ins you answered by editing the item body or the pull request body or posting an item comment, with no commit: a blocking finding by its number in the blocking list (finding), a fold-in by its number in the fold-in list (foldIn), and the body section or comment URL (where)', items: { type: 'object', required: ['where'], properties: { finding: { type: 'integer', minimum: 1 }, foldIn: { type: 'integer', minimum: 1 }, where: { type: 'string' } } } },
       regression: {
         type: 'array',
         description: "empty only when no blocking finding needs a proof; otherwise every test you add, strengthen or keep for a blocking finding, and every probe cell you run for it, under that finding's number in the blocking list you were given",
@@ -262,7 +262,7 @@ async function relayStep(A) {
     const foldInBrief = foldIns
       ? `\n\nAlso fold in these follow-ups, only because each sits in a file this lane already changed and cannot change behaviour; one commit for all of them. ` +
       `One that is already done — left in the worktree by an earlier fixer, or already satisfied by the lane tip — you do not redo; list it in resolved with its evidence (the test, probe cell or line that satisfies it), under its fold-in's number in foldIn. ` +
-      `One that the item body, the pull request body or an item comment answers goes in outside with foldIn set to its where; commit nothing for it. One that does not meet the in-place rule (${IN_PLACE_RULE}) you leave undone and list in declined with the reason, under its fold-in's number in foldIn. When that leaves you nothing to change, change nothing:\n${foldIns}`
+      `One that the item body, the pull request body or an item comment answers goes in outside under its fold-in's number in foldIn; commit nothing for it. One that does not meet the in-place rule (${IN_PLACE_RULE}) you leave undone and list in declined with the reason, under its fold-in's number in foldIn. When that leaves you nothing to change, change nothing:\n${foldIns}`
       : ''
     const mergeBrief = mergeInstruction(blocking, isCiRound(round))
     const answersBrief = A.answers ? `The head's answers on findings it settled, to read before you answer one of them:\n${A.answers}\n` : ''
@@ -361,11 +361,12 @@ async function relayStep(A) {
   const outsideAnswers = (fixed) => (fixed.outside || []).filter(o => (o.where || '').trim())
   // A removal the same answer also lists in outside, on an unchanged tip, is that outside answer.
   const answeredOutsideFinding = (fixed, index) => fixed.unchanged && outsideAnswers(fixed).some(o => o.finding === index + 1)
+  const foldInAnsweredOutside = (fixed, index) => outsideAnswers(fixed).some(o => o.foldIn === index + 1)
   const answeredOutside = (fixed, blocking, foldIn) => {
     const answers = outsideAnswers(fixed)
     const blockingAnswered = blocking.every((_, index) => answers.some(o => o.finding === index + 1))
-    const foldInAnswered = foldIn.every((f, index) => answers.some(o => o.foldIn === f.where) || satisfiedEvidence(fixed, f, index) || declinedReason(fixed, f, index))
-    const anyAnswer = blocking.length > 0 || foldIn.some(f => answers.some(o => o.foldIn === f.where))
+    const foldInAnswered = foldIn.every((f, index) => foldInAnsweredOutside(fixed, index) || satisfiedEvidence(fixed, f, index) || declinedReason(fixed, f, index))
+    const anyAnswer = blocking.length > 0 || foldIn.some((_, index) => foldInAnsweredOutside(fixed, index))
     return anyAnswer && blockingAnswered && foldInAnswered
   }
   // An unchanged tip is a fix too when the fixer proves every blocking finding of the carried round already met by the lane tip (an earlier fixer's commits); only that round's answer reaches a review.

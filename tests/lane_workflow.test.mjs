@@ -664,7 +664,7 @@ test('lane-record: a finding only the gate raised in the round of the approving 
 })
 
 test('lane-record: a later review round is the same stage, so its finding is no miss', async () => {
-  const record = writtenRecord(await runLane({ ...resumeArgs, foldIn: [tidy] }, { 'fix-1': resumeFix, 'r1-review': { verdict: 'REVISE', blocking: [defectWithoutDraft], followups: [] }, 'fix-2': { ...resumeFix, ...fixProof } }))
+  const record = writtenRecord(await runLane({ ...resumeArgs, foldIn: [tidy] }, { 'fix-1': resumeFix, 'r1-review': gateRaises, 'fix-2': { ...resumeFix, ...fixProof } }))
   assert.deepEqual([record.blocking.review, record.misses.review], [1, 0])
 })
 

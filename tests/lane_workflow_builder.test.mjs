@@ -131,17 +131,18 @@ for (const [what, scenario, renamed] of titledRuns) {
   })
 }
 
-test('a failed title write names the rename among the head actions', async () => {
-  const { result } = await runLane(resumeArgs, { ...reachesTheEnd, 'r0-review': APPROVE, retitle: { pr_title: `Unfinished checkpoint of #${resumedLane.item}`, patch_code: 1 } })
-  assert.equal(result.status, 'ready-to-land')
-  assert.ok(result.requiredHeadActions.some(action => /rename pull request #1 to the title of item #1/.test(action)))
-})
+const unwrittenTitleRuns = [
+  ['a failed title write', { pr_title: `Unfinished checkpoint of #${resumedLane.item}`, patch_code: 1 }],
+  ['a title that cannot be read', { pr_title: null }],
+]
 
-test('a title that cannot be read names the rename among the head actions', async () => {
-  const { result } = await runLane(resumeArgs, { ...reachesTheEnd, 'r0-review': APPROVE, retitle: { pr_title: null } })
-  assert.equal(result.status, 'ready-to-land')
-  assert.ok(result.requiredHeadActions.some(action => /rename pull request #1 to the title of item #1/.test(action)))
-})
+for (const [what, scenario] of unwrittenTitleRuns) {
+  test(`${what} names the rename among the head actions`, async () => {
+    const { result } = await runLane(resumeArgs, { ...reachesTheEnd, 'r0-review': APPROVE, retitle: scenario })
+    assert.equal(result.status, 'ready-to-land')
+    assert.ok(result.requiredHeadActions.some(action => /rename pull request #1 to the title of item #1/.test(action)))
+  })
+}
 
 // A checkpointed lane opens a draft pull request, and aco land refuses a draft, so the lane marks it ready before ready-to-land.
 const draftRuns = [

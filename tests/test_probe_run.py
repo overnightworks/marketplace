@@ -538,7 +538,7 @@ def test_tears_the_stack_down_on_an_interrupt_or_hangup_and_reports_it(
 
 
 HIDES_CHILDREN_UNTIL_VISIBLE = """#!/bin/sh
-[ -e {visible} ] || exit 1
+[ -e {visible} ] || {{ touch {asked}; exit 1; }}
 exec /usr/bin/pgrep "$@"
 """
 
@@ -547,14 +547,16 @@ def test_a_term_before_pasta_has_a_visible_child_still_reaches_the_command(real_
     """The TERM must not end pasta, which would leave the command running until the cap."""
     stack = Stack(tmp_path, TEARS_DOWN_ON_EXIT_AND_TERM)
     visible = tmp_path / "children-visible"
+    asked = tmp_path / "relay-asked-for-children"
     bin_directory = tmp_path / "bin"
     bin_directory.mkdir()
-    install_fake(bin_directory, "pgrep", HIDES_CHILDREN_UNTIL_VISIBLE.format(visible=visible))
+    install_fake(bin_directory, "pgrep", HIDES_CHILDREN_UNTIL_VISIBLE.format(visible=visible, asked=asked))
     probe = start_stack_under_probe_run({**real_machine, "PATH": f"{bin_directory}:{real_machine['PATH']}"}, stack)
 
     try:
         probe.send_signal(signal.SIGTERM)
-        time.sleep(0.5)
+        wait_for(asked.exists)
+        assert asked.exists()
         visible.touch()
         probe.communicate(timeout=10)
         wait_for(lambda: not live_session_members(probe.pid), DEATH_SIGNAL_WINDOW)

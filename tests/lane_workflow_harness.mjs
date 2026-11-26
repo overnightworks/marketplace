@@ -172,7 +172,8 @@ export async function runLane(args, answers = {}, options = {}) {
     fs.mkdirSync(path.dirname(transcript), { recursive: true })
     fs.writeFileSync(transcript, `${JSON.stringify({ message: { content: prompt } })}\n`)
     const scratch = path.join(directory, 'scratch')
-    const command = line.replace(/cd '[^']*' && /, '').replaceAll(`'${args.scratch}'`, `'${scratch}'`).replaceAll(`'${args.scratch}/`, `'${scratch}/`)
+    // The lane's own working directory is absent here; the word boundary keeps a token ending in "cd" from being read as that command.
+    const command = line.replace(/\bcd '[^']*' && /, '').replaceAll(`'${args.scratch}'`, `'${scratch}'`).replaceAll(`'${args.scratch}/`, `'${scratch}/`)
     const printed = runCommandLine(scenario.record_command ? scenario.record_command(command) : command, { cwd: os.tmpdir(), shell: 'bash', env: { ...env, HOME: path.join(directory, 'home') } })
     const file = path.join(scratch, 'lane-record.json')
     if (fs.existsSync(file)) writtenRecords.push(fs.readFileSync(file, 'utf8'))

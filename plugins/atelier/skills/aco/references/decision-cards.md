@@ -81,11 +81,10 @@ asked once, in one line.
 
 ## 6. What a head never guesses
 
-Material risk, a product choice that is not safely inferable, and the lines that wait
-for the operator's spoken word are listed in the contract's
+The lines that reach the operator, and the ones that wait for his spoken word, are listed in the contract's
 [How to work](https://github.com/overnightworks/marketplace/blob/main/instructions/AGENTS.md#how-to-work),
 [Role](https://github.com/overnightworks/marketplace/blob/main/instructions/HEAD.md#role)
-and [Items](https://github.com/overnightworks/marketplace/blob/main/instructions/HEAD.md#items). A card never states them again, and a head never fills such a line itself. A release of
+and [Items](https://github.com/overnightworks/marketplace/blob/main/instructions/HEAD.md#items). A card never states them again, and a head never fills such a line itself; every other line it decides at once. A release of
 reviewed, green work and a landing's hour are never a card: the contract gives them to
 an agent.
 

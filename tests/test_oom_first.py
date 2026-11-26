@@ -55,8 +55,29 @@ def test_the_session_behind_a_shell_layer_gets_the_first_rank(proc_root, monkeyp
     assert printed == ""
 
 
-@pytest.mark.parametrize("claude_pid", [None, "not-a-pid", "999", str(UNRELATED_PID)], ids=["absent", "malformed", "unknown", "not-an-ancestor"])
-def test_a_missing_or_foreign_session_pid_is_said_and_writes_nothing(proc_root, monkeypatch, capsys, claude_pid):
+def keep_status(status: Path) -> None:
+    """Leave the process's status file intact."""
+
+
+def drop_parent_line(status: Path) -> None:
+    status.write_text("Name:\tx\n")
+
+
+@pytest.mark.parametrize(
+    ("claude_pid", "damage_to_shell_status"),
+    [
+        (None, keep_status),
+        ("not-a-pid", keep_status),
+        ("999", keep_status),
+        (str(UNRELATED_PID), keep_status),
+        (str(SESSION_PID), Path.unlink),
+        (str(SESSION_PID), drop_parent_line),
+    ],
+    ids=["absent", "malformed", "unknown", "not-an-ancestor", "unreadable-link", "link-without-parent"],
+)
+def test_a_missing_or_foreign_session_pid_is_said_and_writes_nothing(proc_root, monkeypatch, capsys, claude_pid, damage_to_shell_status):
+    damage_to_shell_status(proc_root / str(SHELL_PID) / "status")
+
     printed = run_hook(proc_root, monkeypatch, capsys, claude_pid)
 
     assert "no session process found" in json.loads(printed)["systemMessage"]
@@ -72,16 +93,3 @@ def test_a_refused_write_is_said(proc_root, monkeypatch, capsys):
 
     assert "failed" in json.loads(printed)["systemMessage"]
 
-
-def test_a_process_chain_with_an_unreadable_link_is_said_and_writes_nothing(proc_root):
-    vanished_pid = 555
-    headless_pid = 556
-    add_process(proc_root, vanished_pid, SESSION_PID)
-    (proc_root / str(vanished_pid) / "status").unlink()
-    add_process(proc_root, headless_pid, SESSION_PID)
-    (proc_root / str(headless_pid) / "status").write_text("Name:\tx\n")
-
-    failures = [oom_first.raise_score(proc_root, pid, str(SESSION_PID)) for pid in (vanished_pid, headless_pid)]
-
-    assert all(failure and "no session process found" in failure for failure in failures)
-    assert score_of(proc_root, SESSION_PID) == DEFAULT_SCORE

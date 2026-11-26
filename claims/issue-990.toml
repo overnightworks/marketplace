@@ -1,5 +1,5 @@
 claim_id = "53081371f6a14af6b71fa0d4783e3b63"
-agent = "Claude dbf28707-8113-4b5c-a429-16991b484b1c"
+agent = "Claude c1d65467-2dcf-4ef5-921f-526bf349a609"
 role = "builder"
 base = "d14e036fd637075232b8128c68abb34834d44748"
 branch = "claude/issue-990-the-lane-workflow-takes-the-operator-s-q"

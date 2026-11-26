@@ -6,6 +6,8 @@ const FINDING_STAGE_NAMES = ['review', 'gate', 'ci', 'test']
 const FINDING_STAGES = [[/^e2e-/, 'test'], [/^ci-/, 'ci']]
 // The stage each reviewer key counts as: a stand-in counts as the gate stage.
 const VERDICT_STAGES = { review: 'review', gate: 'gate', standin: 'gate' }
+// The routing row each reviewer key runs on: a stand-in counts as the gate stage but runs on the review row; the stand-in follows the gate in VERDICT_STAGES because it replaces a gate that ran.
+const REVIEWER_ROUTING_ROWS = { review: 'review', gate: 'gate', standin: 'review' }
 const GATE_KEYS = Object.keys(VERDICT_STAGES).filter(key => VERDICT_STAGES[key] === 'gate')
 const RECORD_COUNT_LIMIT = 999  // aco reads a count of one to three digits
 const FULL_SHA = /^[0-9a-f]{40}$/
@@ -91,7 +93,7 @@ function stageChoices({ routing, history, fixRole, testStarted }) {
   const choiceOrNone = (ran, role) => ran ? choiceOf(role) : 'none'
   return {
     build: choiceOf('build'), fix: choiceOrNone(ofHistory.fix, fixRole), review: choiceOf('review'),
-    test: choiceOrNone(ofHistory.test, 'test'), gate: choiceOrNone(ofHistory.gate, historyRan(history, 'standin') ? 'review' : 'gate'), land: choiceOf('mechanical'),
+    test: choiceOrNone(ofHistory.test, 'test'), gate: choiceOrNone(ofHistory.gate, REVIEWER_ROUTING_ROWS[GATE_KEYS.findLast(key => historyRan(history, key)) ?? 'gate']), land: choiceOf('mechanical'),
   }
 }
 

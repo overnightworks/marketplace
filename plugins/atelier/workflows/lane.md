@@ -310,7 +310,10 @@ A head that finds a run stopped awaiting-head, or lost, reads `aco lane-record s
   given. Any other finding a fixer leaves without a change still fails the
   run at `fix`. Before `ready-to-land`, a pull request still titled
   `Unfinished checkpoint of #<n>` gets the item's title by a relay step over
-  REST; when that write fails, `requiredHeadActions` name the rename.
+  REST, and a pull request that is still a draft (read in the same call) is
+  marked ready with `gh pr ready <n>`, because `aco land` refuses a draft; a
+  pull request that is no draft gets no write. When a write fails, or the draft
+  flag cannot be read, `requiredHeadActions` name the rename or `gh pr ready <n>`.
 
 ## Result
 

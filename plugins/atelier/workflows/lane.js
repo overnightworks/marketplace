@@ -534,15 +534,33 @@ const checkpointTitle = (item) => `${CHECKPOINT_TITLE_PREFIX}${item}`
 const VERDICT_CHECK = 'quality / verdict'
 // A fixer's unchanged tip answers the checkpoint finding when it is the only finding and the fixer reports the brief met.
 const checkpointMet = (fixed, blocking) => Boolean(fixed.briefMet) && blocking.length === 1 && blocking[0].where === CHECKPOINT_FINDING_WHERE
+// Why the retitle step's read did not complete, or null; both the rename and the ready write depend on it.
+function retitleStepProblem(relayed) {
+  if (!relayed || relayed.problem) return `the title step ${relayed ? relayed.problem : 'returned no result'}`
+  return relayed.unreachable || null
+}
+// The pull request's title and draft flag from the step's one REST read; draft is not a boolean when the read failed or the flag is missing.
+function pulledRequest(pull) {
+  try { return pull.code === 0 ? JSON.parse(pull.out) : {} } catch { return {} }
+}
 // Why the pull request keeps its checkpoint title, or null when it was renamed or never carried it; the printer's retitle step reads both titles and writes only on a match.
 function checkpointRenameProblem(relayed, item) {
-  if (!relayed || relayed.problem) return `the title step ${relayed ? relayed.problem : 'returned no result'}`
-  if (relayed.unreachable) return relayed.unreachable
-  const { title, item: itemTitle, retitle } = relayed.values
-  if (title.code !== 0) return `reading the pull request title exited ${title.code}: ${title.err}`
-  if (title.out !== checkpointTitle(item)) return null
+  const stepProblem = retitleStepProblem(relayed)
+  if (stepProblem) return stepProblem
+  const { pull, item: itemTitle, retitle } = relayed.values
+  if (pull.code !== 0) return `reading the pull request exited ${pull.code}: ${pull.err}`
+  if (pulledRequest(pull).title !== checkpointTitle(item)) return null
   if (itemTitle.code !== 0) return `reading the item title exited ${itemTitle.code}: ${itemTitle.err}`
   return retitle.code === 0 ? null : `the title write exited ${retitle.code}: ${retitle.err}`
+}
+// Why the pull request may still be a draft, or null when it was marked ready or was none; the retitle step runs gh pr ready only on a draft.
+function draftReadyProblem(relayed) {
+  const stepProblem = retitleStepProblem(relayed)
+  if (stepProblem) return stepProblem
+  const { pull, ready } = relayed.values
+  const { draft } = pulledRequest(pull)
+  if (typeof draft !== 'boolean') return `the draft flag could not be read (reading the pull request exited ${pull.code}: ${pull.err})`
+  return !draft || ready.code === 0 ? null : `gh pr ready exited ${ready.code}: ${ready.err}`
 }
 // Runs one relay step and, when GitHub's rate limit refused a call of a step that changes nothing the lane could not repeat, waits for the reset GitHub names and runs the step again, repeating until the 3600 s total wait or the 16 wait calls end it; the callers see only the final read.
 async function laneRelay(A) {
@@ -637,9 +655,10 @@ async function relayStep(A) {
     String.raw`exec("def laneview(s,run):\n try:\n  runs=json.loads(s)[\"runs\"];own=[r for r in runs if r[\"run\"]==run][0];others=[r for r in runs if r[\"run\"]!=run];verdicts=[v for r in others for v in((r[\"record\"] or {}).get(\"verdicts\") or[])];gates=[v[\"verdict\"] for v in verdicts if v[\"stage\"]==\"gate\"]\n  return dict(follows=own[\"follows\"],approved=list(dict.fromkeys(v[\"sha\"] for v in verdicts if v[\"stage\"]==\"review\" and v[\"verdict\"]==\"approve\")),gateRan=any(\"gate\" in(r[\"ran\"] or[]) for r in others),lastGate=gates[-1] if gates else None,lost=any(r[\"record\"] is None for r in others) or not all(r[\"follows\"] for r in others))\n except Exception:return {}")`,
     'run=lambda*c:call(c) if shutil.which(c[0]) else subprocess.CompletedProcess(c,127,"","not found: "+c[0])',
     'target=lambda repo:("-R",repo) if repo else ()',
+    'pulled=lambda r:json.loads(r["pull"].stdout) if r["pull"].returncode==0 else {}',
     'api=lambda repo:"repos/"+(repo or "{owner}/{repo}")',
     'base=lambda r:json.loads(r["view"].stdout)["baseRefName"]',
-    `retitle=lambda pr,item,repo:(("title",("gh","api",api(repo)+"/pulls/"+pr,"--jq",".title")),("item",("gh","api",api(repo)+"/issues/"+item,"--jq",".title")),("retitle",lambda r:("gh","api","-X","PATCH",api(repo)+"/pulls/"+pr,"-f","title="+r["item"].stdout.strip()) if r["title"].stdout.strip()==${JSON.stringify(CHECKPOINT_TITLE_PREFIX)}+item and r["item"].stdout.strip() else ("true",)))`,
+    `retitle=lambda pr,item,repo:(("pull",("gh","api",api(repo)+"/pulls/"+pr,"--jq","{title:.title,draft:.draft}")),("item",("gh","api",api(repo)+"/issues/"+item,"--jq",".title")),("retitle",lambda r:("gh","api","-X","PATCH",api(repo)+"/pulls/"+pr,"-f","title="+r["item"].stdout.strip()) if pulled(r).get("title")==${JSON.stringify(CHECKPOINT_TITLE_PREFIX)}+item and r["item"].stdout.strip() else ("true",)),("ready",lambda r:("gh","pr","ready",pr,*target(repo)) if pulled(r).get("draft") is True else ("true",)))`,
     'steps=dict(wait=lambda:(("rate",("gh","api","rate_limit")),),retitle=retitle,branch=lambda*word:(("branch",("git","branch","--show-current")),)+((("item",("gh","api",api(word[1])+"/issues/"+word[0],"--jq",".body")),) if word else ()),scope=lambda item,branch:(("push",("git","push","origin",branch)),("remote",("git","rev-parse","origin/"+branch)),("head",("git","rev-parse","HEAD")),("parents",("git","rev-parse","HEAD^@")),("second_parent_in_main",("git","merge-base","--is-ancestor","HEAD^2","origin/main")),("brief",("aco","brief",item,"--json"))),record=lambda file:(("check",("aco","lane-record","check",file)),),begin=lambda item,run,*ref:((("start",("git","rev-parse","--verify",ref[0]+"^{commit}")),) if ref else ())+(("begin",lambda r:("aco","lane-record","begin",item,"--run",run,*(("--start-tip",r["start"].stdout.strip()) if ref else ()))),("lane",("aco","lane-record","show",item,"--json"))),add=lambda item,file,run,ref,*stages:(("end",("git","rev-parse","--verify",ref+"^{commit}")),("add",lambda r:("aco","lane-record","add",item,file,"--run",run,"--end-tip",r["end"].stdout.strip(),"--ran",*stages))),sync=lambda:(("head",("git","rev-parse","HEAD")),("parents",("git","rev-parse","HEAD^@")),("main",("git","merge-base","--is-ancestor","origin/main","HEAD")),("conflict",("git","-c","core.quotePath=false","merge-tree","--write-tree","--name-only","--no-messages","HEAD","origin/main"))),fix=lambda start,paths:(*steps["sync"]()[:3],*((f"diff{i}",("git","log","-p","--first-parent","--remerge-diff","--format=","%s..HEAD"%start,"--",p)) for i,p in enumerate(diffed)),("diffall",("git","log","-p","--first-parent","--remerge-diff","--format=","%s..HEAD"%start)),("tree",("git","rev-parse","HEAD^{tree}")),("mergetree",("git","merge-tree","--write-tree","HEAD^1","HEAD^2")),("merged",("git","-c","core.quotePath=false","log","--first-parent","--merges","--remerge-diff","--name-only","--format=","%s..HEAD"%start))),ci=lambda pr,repo,paths:(("view",("gh","api",api(repo)+"/pulls/"+pr,"--jq","{headRefOid:.head.sha,baseRefName:.base.ref}")),("changed",("gh","api",api(repo)+"/pulls/"+pr+"/files","--paginate","--slurp")),("headruns",lambda r:("gh","run","list","--commit",json.loads(r["view"].stdout)["headRefOid"],"--json","status,name","--limit","100",*target(repo))),("checks",("gh","pr","checks",pr,"--json","name,bucket,link",*target(repo))),("rules",lambda r:("gh","api",api(repo)+"/rules/branches/"+base(r))),("runs",lambda r:("gh","api",api(repo)+"/commits/"+base(r)+"/check-runs","--paginate","--slurp"))))',
     'ran={"run":subprocess.CompletedProcess(("uuid",),0,uuid.uuid4().hex,"")} if step=="branch" else {}',
     '[ran.__setitem__(n,run(*(c(ran) if callable(c) else c))) for n,c in steps[step](*rest) if not any(ran[k].returncode for k in("view","start","end","begin") if k in ran)]',
@@ -2569,11 +2588,15 @@ while (true) {
   needTest ||= taken.length > 0 || productionSinceTest
 }
 
-// A pull request still titled as the unfinished checkpoint gets the item's title by a relay step over REST; a failed write is the head's.
+// A pull request still titled as the unfinished checkpoint gets the item's title and a draft is marked ready, by one relay step; a failed write or an unreadable draft flag is the head's, because aco land refuses a draft.
 async function checkpointRenameActions() {
-  const relayed = await relay({ label: 'retitle', phase: 'Title', step: 'retitle', relayArgs: [pr, A.item, `'${A.repo || ''}'`, "'retitle'"], nonce: 'retitle', requiredKeys: ['title'], brief: `${laneFacts}\nChange nothing in the files;` })
-  const problem = checkpointRenameProblem(relayed, A.item)
-  return problem ? [`rename pull request #${pr} to the title of item #${A.item} (gh api -X PATCH repos/${A.repo || '{owner}/{repo}'}/pulls/${pr} -f title=...): it still carries the checkpoint title and the lane's write failed: ${problem}`] : []
+  const relayed = await relay({ label: 'retitle', phase: 'Title', step: 'retitle', relayArgs: [pr, A.item, `'${A.repo || ''}'`, "'retitle'"], nonce: 'retitle', requiredKeys: ['pull'], brief: `${laneFacts}\nChange nothing in the files;` })
+  const renameProblem = checkpointRenameProblem(relayed, A.item)
+  const readyProblem = draftReadyProblem(relayed)
+  return [
+    ...(renameProblem ? [`rename pull request #${pr} to the title of item #${A.item} (gh api -X PATCH repos/${A.repo || '{owner}/{repo}'}/pulls/${pr} -f title=...): it still carries the checkpoint title and the lane's write failed: ${renameProblem}`] : []),
+    ...(readyProblem ? [`mark pull request #${pr} ready with \`gh pr ready ${pr}\`: aco land refuses a draft, and ${readyProblem}`] : []),
+  ]
 }
 
 const rescopeCommand = 'aco rescope ' + A.item + ' ' + passedOutsidePaths.map(path => '--add ' + shellQuoted(path)).join(' ')

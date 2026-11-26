@@ -752,11 +752,15 @@ while (true) {
   needTest ||= taken.length > 0 || productionSinceTest
 }
 
-// A pull request still titled as the unfinished checkpoint gets the item's title by a relay step over REST; a failed write is the head's.
+// A pull request still titled as the unfinished checkpoint gets the item's title and a draft is marked ready, by one relay step; a failed write or an unreadable draft flag is the head's, because aco land refuses a draft.
 async function checkpointRenameActions() {
-  const relayed = await relay({ label: 'retitle', phase: 'Title', step: 'retitle', relayArgs: [pr, A.item, `'${A.repo || ''}'`, "'retitle'"], nonce: 'retitle', requiredKeys: ['title'], brief: `${laneFacts}\nChange nothing in the files;` })
-  const problem = checkpointRenameProblem(relayed, A.item)
-  return problem ? [`rename pull request #${pr} to the title of item #${A.item} (gh api -X PATCH repos/${A.repo || '{owner}/{repo}'}/pulls/${pr} -f title=...): it still carries the checkpoint title and the lane's write failed: ${problem}`] : []
+  const relayed = await relay({ label: 'retitle', phase: 'Title', step: 'retitle', relayArgs: [pr, A.item, `'${A.repo || ''}'`, "'retitle'"], nonce: 'retitle', requiredKeys: ['pull'], brief: `${laneFacts}\nChange nothing in the files;` })
+  const renameProblem = checkpointRenameProblem(relayed, A.item)
+  const readyProblem = draftReadyProblem(relayed)
+  return [
+    ...(renameProblem ? [`rename pull request #${pr} to the title of item #${A.item} (gh api -X PATCH repos/${A.repo || '{owner}/{repo}'}/pulls/${pr} -f title=...): it still carries the checkpoint title and the lane's write failed: ${renameProblem}`] : []),
+    ...(readyProblem ? [`mark pull request #${pr} ready with \`gh pr ready ${pr}\`: aco land refuses a draft, and ${readyProblem}`] : []),
+  ]
 }
 
 const rescopeCommand = 'aco rescope ' + A.item + ' ' + passedOutsidePaths.map(path => '--add ' + shellQuoted(path)).join(' ')

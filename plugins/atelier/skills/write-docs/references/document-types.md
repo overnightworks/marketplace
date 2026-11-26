@@ -192,7 +192,7 @@ surface deletes it; a later change starts from a screenshot of the real surface.
 
 Picture: it is the picture.
 
-Mistakes: an unblessed draft kept as current; a second file for the same
+Mistakes: a draft kept as current that no decision froze; a second file for the
 surface; a mockup kept after its surface was finished.
 
 ## Repository document set

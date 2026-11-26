@@ -52,9 +52,9 @@ steps. It names in one line what it proves and what he sees when it works.
 
 Everything that waits on the operator lives in aco: a decision as a card, every
 other step of his as an aco step, each holding the links he needs. A head's
-message to him is a clickable link, to aco or the picture, plus one line on what
-he decides or does. It repeats nothing a card, step or item says, leaves out
-peer news and status that ask nothing of him, and is not sent when there is
+message to him is a clickable link, to aco or a picture he tries, plus one line
+on what he decides or does. It repeats nothing a card, step or item says, leaves
+out peer news and status that ask nothing of him, and is not sent when there is
 nothing new for him.
 
 Now and then, at a cadence the fleet sets and improves, he gets a short

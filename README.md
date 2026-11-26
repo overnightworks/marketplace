@@ -30,7 +30,7 @@ Licensed under the [MIT License](LICENSE).
   the Codex and Claude Code marketplace catalogs.
 - `instructions/AGENTS.md` is the operator's contract and code policy for every
   agent; `instructions/HEAD.md` beside it is the part only the head reads, and
-  `instructions/OPERATORS.md` the bounds the operator sets.
+  `instructions/OPERATORS.md` his bounds.
 - `settings/claude-managed.json` holds the Claude Code settings every session
   shares: the contract's test-worker count, the auto-mode allow rules and
   auto-compact. It never holds private repository names or machine values; those
@@ -88,7 +88,7 @@ Code) or `local` (Codex).
   is never copied.
 - [Contract and code policy](instructions/AGENTS.md): the rules every agent
   follows; [head contract](instructions/HEAD.md): the rules the head adds;
-  [bounds](instructions/OPERATORS.md): what the operator alone changes.
+  [bounds](instructions/OPERATORS.md): the bounds the operator sets.
 
 ## Verify
 

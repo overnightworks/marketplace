@@ -72,7 +72,6 @@ export async function laneReview(A) {
   }
 
   // Only the first round names the tester: later rounds judge a delta the first review already framed.
-  const TESTER_DRIVE_LIMIT = 1500
   function testerParagraph() {
     if (A.after !== 0) return ''
     const drive = A.e2e.length > TESTER_DRIVE_LIMIT ? `${A.e2e.slice(0, TESTER_DRIVE_LIMIT)}\n[cut here: the lane's e2e argument is longer]` : A.e2e
@@ -260,6 +259,9 @@ export async function laneReview(A) {
   if (usageLimitError) throw Object.assign(usageLimitError, { finished: outcome })
   return { ...outcome, verdict: classify(results, A.reviewers.length) }
 }
+
+// The most characters of the lane's e2e argument the first review's brief quotes.
+const TESTER_DRIVE_LIMIT = 1500
 
 // What the courier's start command prints when the brief file is not the brief the script wrote.
 const BRIEF_MISMATCH = 'brief file differs from the brief the script wrote'

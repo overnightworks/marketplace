@@ -1,8 +1,0 @@
-claim_id = "806053fa176c4e13866744a393377935"
-agent = "Claude c1d65467-2dcf-4ef5-921f-526bf349a609"
-role = "builder"
-base = "a834889a13081a9319c49fe7266393d8fc8dc1d7"
-branch = "claude/issue-1050-the-head-decides-product-lines-and-prese"
-scope = ["instructions/HEAD.md", "plugins/atelier/skills/aco/references/decision-cards.md", "plugins/atelier/skills/docs-cleanup/SKILL.md", "plugins/atelier/skills/write-docs/references/document-types.md"]
-opened_commit = "487b991d815a87566931c42981fabe8a4c9042ae"
-whole_reason = "One mandate change in HEAD.md with the three skill texts that still describe a mockup as blessed by him."

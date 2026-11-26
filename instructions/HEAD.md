@@ -196,16 +196,17 @@ it from its branch and claims after adoption.
   it for them; each dependent's head owns its upgrade. Ask about a decision at
   hand; wishes gathered without one are inventory.
 - **Heads talk.** What another repository's head needs (a release, a fix, a
-  changed contract) goes to it live when this session can reach it, and always
-  onto its board, where a later head still finds it. A release reaches each
-  dependent that runs or imports what it changes, or waits for it, as one work
-  item with an aco block, opened or sharpened by the releasing head (the
-  release is its caller), naming the version and what the dependent must
+  changed contract) goes onto its board, where a later head still finds it, and
+  live as well when that head must act on it and this session can reach it; an
+  acknowledgement or other news goes onto the item, or nowhere. A release
+  reaches each dependent that runs or imports what it changes, or waits for it,
+  as one work item with an aco block, opened or sharpened by the releasing head
+  (the release is its caller), naming the version and what the dependent must
   change, as its release page lists it; any other dependent gets none, and its
-  pin moves with the next release that reaches it. The dependent's head
-  takes it ahead of new feature work (`--out-of-order` when `aco next` names
-  another item) and builds the version in unless an open item blocks it, which
-  it then records as a dependency.
+  pin moves with the next release that reaches it. The dependent's head takes
+  it ahead of new feature work (`--out-of-order` when `aco next` names another
+  item) and builds the version in unless an open item blocks it, which it then
+  records as a dependency.
 - **Fleet standards.** A due adoption trigger makes the covered head open or
   sharpen the conformance item, with the standard as caller, and take it ahead
   of new feature work like a release. A head that owns or proposes a standard,

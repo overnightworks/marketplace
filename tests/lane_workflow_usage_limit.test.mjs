@@ -1,7 +1,7 @@
 // A Claude agent that fails with its account usage limit ends the lane awaiting-head at its stage; any other failure stays failed.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { runLane, resumedLane, APPROVE, PASS, greenCi, finding } from './lane_workflow_harness.mjs'
+import { runLane, resumedLane, builtLane, APPROVE, PASS, greenCi, finding } from './lane_workflow_harness.mjs'
 
 const weeklyLimit = "You've hit your weekly limit · resets Nov 20"
 const limitWordings = [
@@ -32,7 +32,7 @@ for (const [stage, answers, resumeExtra] of stages) {
 }
 
 test('a builder without a result whose checkpoint agent hits the limit keeps the inspect-the-worktree warning', async () => {
-  const { result } = await runLane({ ...resumedLane, pr: undefined, tip: undefined, build: 'the brief' }, { build: null, 'checkpoint-build': failing(weeklyLimit) })
+  const { result } = await runLane({ ...builtLane, build: 'the brief' }, { build: null, 'checkpoint-build': failing(weeklyLimit) })
   assert.deepEqual([result.status, result.stage], ['awaiting-head', 'build'])
   assert.match(result.reason, /resets Nov 20.*uncommitted work/)
 })
@@ -44,7 +44,7 @@ test('a usage limit without a reset time says so', async () => {
 })
 
 test('a usage limit of a builder with nothing to save resumes with the build brief', async () => {
-  const { result } = await runLane({ ...resumedLane, pr: undefined, tip: undefined, build: 'the brief' }, { build: failing(weeklyLimit) })
+  const { result } = await runLane({ ...builtLane, build: 'the brief' }, { build: failing(weeklyLimit) })
   assert.deepEqual([result.status, result.stage], ['awaiting-head', 'build'])
   assert.match(result.reason, /resets Nov 20/)
 })

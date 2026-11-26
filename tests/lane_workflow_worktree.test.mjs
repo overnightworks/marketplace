@@ -1,12 +1,11 @@
 // Drives the atelier lane workflow script through the check that its worktree exists and has the lane branch checked out.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { runLane, resumedLane, partReplaced } from './lane_workflow_harness.mjs'
+import { runLane, resumedLane, partReplaced, builtLane } from './lane_workflow_harness.mjs'
 
-const builderLane = { ...resumedLane, pr: undefined, tip: undefined, build: 'b' }
 const noAgentRan = (run) => ['build', 'sync', 'scope'].every(prefix => !run.launchedAgents.some(label => label.startsWith(prefix)))
 
-for (const [name, lane] of [['a build', builderLane], ['a run on a pull request', resumedLane]]) {
+for (const [name, lane] of [['a build', builtLane], ['a run on a pull request', resumedLane]]) {
   test(`${name} in a worktree with another branch checked out fails at input before any agent works`, async () => {
     const run = await runLane(lane, { branch: { branch: 'claude/other' } })
     assert.equal(run.result.status, 'failed')
@@ -33,12 +32,12 @@ for (const [name, lane] of [['a build', builderLane], ['a run on a pull request'
 }
 
 test('a worktree with the lane branch checked out goes on to the builder', async () => {
-  const run = await runLane(builderLane, { build: { pr: 2, tip: 'abcdef0', blocked: false } })
+  const run = await runLane(builtLane, { build: { pr: 2, tip: 'abcdef0', blocked: false } })
   assert.ok(run.launchedAgents.includes('build'))
 })
 
 test('a relay part that throws during the worktree check fails the lane at input', async () => {
-  const run = await runLane(builderLane, {}, { transform: partReplaced('laneRelay', "throw new Error('the child exploded')") })
+  const run = await runLane(builtLane, {}, { transform: partReplaced('laneRelay', "throw new Error('the child exploded')") })
   assert.deepEqual([run.result.status, run.result.stage], ['failed', 'input'])
   assert.match(run.result.reason, /branch b/)
 })

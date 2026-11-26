@@ -18,6 +18,9 @@ Licensed under the [MIT License](LICENSE).
   lines of `AGENTS.md` or `HEAD.md` at its next prompt or tool batch, and
   `fleet_plans.py` shows it the open fleet-wide plans (`aco fleet-plans`) when
   its prompt names a repository action such as a rename or a publication.
+  `oom_first.py` raises the session's `oom_score_adj` to 1000 at its start, so
+  at an out-of-memory kill the session and what it started rank with the
+  platform's BestEffort pods.
 - `plugins/atelier/.mcp.json` registers aco's MCP server (`aco mcp`) for both
   hosts.
 - `plugins/atelier/.codex/agents/` is generated from `agents/`; change the

@@ -1,7 +1,7 @@
 // Each run stores its record on the claim as segments through aco lane-record begin and add: the first begins right after the run's input checks, each segment is added at a proven point or at the run's end, and the next begins right before its first stage.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { runLane, partReplaced, resumedLane, built, resumeArgs, resumeTip, tidy, reachesTheEnd, APPROVE, satisfied, unchangedFix, PASS, greenCi, noWait, resumeFix, roundTip, roundRed, reviewedRoundFix, roundReviews, heldTester, defectWithoutDraft, storedLane, builtLane, gateRaises } from './lane_workflow_harness.mjs'
+import { runLane, partReplaced, resumedLane, built, resumeArgs, resumeTip, tidy, reachesTheEnd, APPROVE, satisfied, unchangedFix, PASS, greenCi, noWait, resumeFix, roundTip, roundRed, reviewedRoundFix, roundReviews, heldTester, defectWithoutDraft, storedLane, builtLane, gateRaises, docsFinding } from './lane_workflow_harness.mjs'
 
 const worktreeHead = 'ab'.repeat(20)
 const FULL_SHA = /^[0-9a-f]{40}$/
@@ -295,6 +295,14 @@ test('run-record: a finding that comes back after a proven point counts once in 
   assert.equal(run.result.status, 'ready-to-land', run.result.reason)
   assert.equal(storedLane(run).blocking.test, 1)
   for (const kind of ['fix_rounds', 'blocking', 'misses', 'verdicts']) assert.deepEqual(storedLane(run)[kind], unsplitOf(run)[kind])
+})
+
+test('run-record: a fixer that answers in the pull request body at an unchanged tip lets the re-check approval be stored', async () => {
+  const answers = { 'r0-review': { verdict: 'REVISE', blocking: [docsFinding], followups: [] }, 'fix-1': { ...unchangedFix, outside: [{ finding: 1, where: 'PR body' }] }, ...reachesTheEnd }
+  const run = await runLane(resumeArgs, answers)
+  assert.equal(run.result.status, 'ready-to-land', run.result.reason)
+  assert.ok(callsOf(run.laneRecordCalls, 'add').length > 0)
+  assert.deepEqual(storedLane(run).verdicts.at(-1), approvalAt('review', resumeTip))
 })
 
 test('run-record: a review approval beside a gate revision on a material lane is stored before the fixer starts', async () => {

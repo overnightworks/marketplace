@@ -100,6 +100,13 @@ plan set; a failed read is said in one line, once per reason. It reuses the
 contract hook's decision of who is a head, so a helper gets nothing. Its state,
 plan and failure identifiers and the role, lives beside the contract hook's.
 
+A third hook, `plugins/atelier/hooks/oom_first.py`, runs at session start and
+writes 1000 to the `oom_score_adj` of the session's process, which the
+processes it starts inherit, so at an out-of-memory kill agent work ranks level
+with the platform's BestEffort pods instead of behind them. The process is the
+pid in the hook's own `CLAUDE_PID`, accepted only when it is an ancestor of the
+hook. A failure is said in a `systemMessage` and never blocks the session.
+
 Only Claude Code runs the hooks; their file, `hooks/claude-hooks.json`, is named
 in `.claude-plugin/plugin.json` alone, so Codex does not discover it. A head
 running on Codex or Grok is therefore not told of a contract change; it
@@ -182,7 +189,10 @@ Documentation is proven by review.
 - Grok depends on another provider's compatibility setting to see the
   contract.
 - After an install, a running session keeps the plugin version it loaded,
-  the hooks included.
+  the hooks included; the out-of-memory rank reaches it at its next restart.
+- The out-of-memory rank is cooperative: an agent can lower its own score
+  again, and Docker containers take their score from their container spec.
+  Codex and Grok heads are not reached.
 - The lane's Codex courier takes its brief from its own transcript under
   `~/.claude/projects/*/*/subagents/workflows/*/agent-*.jsonl`, which a
   workflow script cannot write itself. A host that moves that layout shows as

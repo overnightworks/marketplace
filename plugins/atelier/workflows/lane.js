@@ -2273,11 +2273,17 @@ function adoptFixerTip(fixed) {
   return committed
 }
 
+// An answer given outside the tree commits nothing, and its re-check judges a new round, so it is not read as the same round's split verdict.
+function takeFixerTip(fixed) {
+  if (fixed.answeredOutside && fixed.unchanged) adoptFixerTip(fixed)
+  else tip = fixed.tip
+}
+
 // Takes the fixer's tip and names the delta the reviewers see next, or none when a clean merge of main was the whole fix.
 async function acceptFix(fixed, blocking, foldIn) {
   const declinedBy = fixed.foldInDeclined
   if (fixed.outsidePaths.length) return { stop: await openResult('failed', 'fix', { reason: `the fixer reported paths outside the worktree: ${fixed.outsidePaths.join(', ')}` }) }
-  tip = fixed.tip
+  takeFixerTip(fixed)
   if (fixed.touchesProduction) {
     productionSinceTest = true
     productionSinceGate = true

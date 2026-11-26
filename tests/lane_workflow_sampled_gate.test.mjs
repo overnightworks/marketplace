@@ -4,7 +4,9 @@ import assert from 'node:assert/strict'
 import { runLane, storedLane, storedOwnRun, storedEarlierRun, storedGateRun, resumeArgs, resumeFix, resumeFixedTip, resumeTip, olderTip, APPROVE, PASS, greenCi, defectWithoutDraft } from './lane_workflow_harness.mjs'
 
 const sampledLane = { ...resumeArgs, item: 10 }
-const gateRevise = { verdict: 'REVISE', blocking: [defectWithoutDraft], followups: [] }
+// The gate is a Codex courier, whose clean exit comes with its verdict.
+const gateApprove = { ...APPROVE, codexExit: 0 }
+const gateRevise = { verdict: 'REVISE', blocking: [defectWithoutDraft], followups: [], codexExit: 0 }
 const fixedForGate = { ...resumeFix, regression: [{ finding: 1, test: 't.py::test_rule', failedBefore: true, passesAfter: true }] }
 const reachesTheEnd = { 'e2e-0': PASS, 'ci-0': greenCi(resumeTip) }
 const afterFix = { 'fix-1': fixedForGate, 'e2e-0': PASS, 'ci-0': greenCi(resumeFixedTip) }
@@ -15,14 +17,14 @@ const gateLabels = (launched) => launched.filter(label => label.includes('gate')
 const ranOfAdds = (calls) => calls.filter(call => call[1] === 'add').map(call => call.slice(call.indexOf('--ran') + 1))
 
 test('sampled-gate: the gate starts after the review approves and before the tester and reads the whole lane', async () => {
-  const { launchedAgents, agentCalls, result } = await runLane(sampledLane, { 'r0-review': APPROVE, 'r0-gate': APPROVE, ...reachesTheEnd })
+  const { launchedAgents, agentCalls, result } = await runLane(sampledLane, { 'r0-review': APPROVE, 'r0-gate': gateApprove, ...reachesTheEnd })
   assert.deepEqual(launchedAgents.filter(label => /^(r0-|e2e)/.test(label)), ['r0-review', 'r0-gate', 'e2e-0'])
   assert.match(agentCalls['r0-gate'].prompt, /the whole lane: git diff origin\/main\.\.\.HEAD/)
   assert.deepEqual([result.status, result.sampled], ['ready-to-land', true])
 })
 
 test('sampled-gate: a blocking finding of the look is counted under gate on a normal lane and is no miss', async () => {
-  const run = await runLane(sampledLane, { 'r0-review': APPROVE, 'r0-gate': gateRevise, 'r1-gate': APPROVE, ...afterFix })
+  const run = await runLane(sampledLane, { 'r0-review': APPROVE, 'r0-gate': gateRevise, 'r1-gate': gateApprove, ...afterFix })
   assert.equal(run.result.status, 'ready-to-land')
   const record = storedLane(run)
   assert.deepEqual([record.risk, record.blocking.gate, record.misses.gate], ['normal', 1, 0])
@@ -30,7 +32,7 @@ test('sampled-gate: a blocking finding of the look is counted under gate on a no
 })
 
 test('sampled-gate: a first sample on a run with deltaFrom hands the gate the whole lane', async () => {
-  const { agentCalls } = await runLane({ ...sampledLane, deltaFrom: olderTip, answers: 'the fix answers it' }, { 'r0-review': APPROVE, 'r0-gate': APPROVE, ...reachesTheEnd })
+  const { agentCalls } = await runLane({ ...sampledLane, deltaFrom: olderTip, answers: 'the fix answers it' }, { 'r0-review': APPROVE, 'r0-gate': gateApprove, ...reachesTheEnd })
   assert.match(agentCalls['r0-review'].prompt, new RegExp(`${olderTip}\\.\\.HEAD`))
   assert.match(agentCalls['r0-gate'].prompt, /the whole lane: git diff origin\/main\.\.\.HEAD/)
   assert.doesNotMatch(agentCalls['r0-gate'].prompt, /only this delta/)
@@ -70,7 +72,7 @@ test('sampled-gate: a re-check that ends without a verdict awaits the head at re
 })
 
 test('sampled-gate: a run after a stored gate REVISE re-checks with the gate beside the review and takes no new sample', async () => {
-  const { launchedAgents, result } = await runLane(sampledLane, { 'r0-review': APPROVE, 'r0-gate': APPROVE, ...reachesTheEnd, begin: { stored_runs: [storedGateRun(['revise', olderTip]), storedOwnRun()] } })
+  const { launchedAgents, result } = await runLane(sampledLane, { 'r0-review': APPROVE, 'r0-gate': gateApprove, ...reachesTheEnd, begin: { stored_runs: [storedGateRun(['revise', olderTip]), storedOwnRun()] } })
   assert.deepEqual([gateLabels(launchedAgents), result.sampled], [['r0-gate'], true])
   assert.deepEqual(launchedAgents.filter(label => /^(r0-|e2e)/.test(label)), ['r0-review', 'r0-gate', 'e2e-0'])
 })
@@ -83,7 +85,7 @@ test('sampled-gate: a run after a stored gate approval starts no gate', async ()
 const lostRun = { ...storedEarlierRun(), end_tip: null, ran: null, record: null }
 for (const [what, begin] of [['fails', { show_code: 2, show_error: 'bad shape' }], ['reports a lost run', { stored_runs: [lostRun, storedOwnRun()] }]]) {
   test(`sampled-gate: a lane whose read of the stored runs ${what} awaits the head and starts no gate`, async () => {
-    const { launchedAgents, result } = await runLane(sampledLane, { 'r0-review': APPROVE, 'r0-gate': APPROVE, ...reachesTheEnd, begin })
+    const { launchedAgents, result } = await runLane(sampledLane, { 'r0-review': APPROVE, 'r0-gate': gateApprove, ...reachesTheEnd, begin })
     assert.deepEqual([result.status, result.sampled, gateLabels(launchedAgents)], ['awaiting-head', false, []])
   })
 }

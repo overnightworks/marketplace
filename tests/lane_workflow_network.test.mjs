@@ -155,7 +155,7 @@ test('AC-rate-limit-wait: a rerun refused again whose rate limit then shows no e
 })
 
 // A one-second total bound with a skew that keeps the reset within it makes the total reachable; the harness skips the printer's sleep, so the seconds the printer reports as slept are read from the run.
-const tinyBound = withConstants({ ...NO_WAIT, RATE_LIMIT_SLEEP_SECONDS: 1, RATE_LIMIT_WAIT_BOUND_SECONDS: 1, RATE_LIMIT_RESET_SKEW_SECONDS: 3600 })
+const tinyBound = withConstants({ ...NO_WAIT, RATE_LIMIT_SLEEP_SECONDS: 1, RATE_LIMIT_WAIT_BOUND_SECONDS: 1, RATE_LIMIT_RESET_SKEW_SECONDS: WAIT_BOUND })
 const defaultBound = withConstants({ NETWORK_WAIT_SECONDS: 0 })
 
 test('AC-rate-limit-wait: the seconds slept add up across rerun rounds and end the lane awaiting-head past the total bound', async () => {

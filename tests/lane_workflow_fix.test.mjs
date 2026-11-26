@@ -499,6 +499,21 @@ test('three consecutive gate REVISEs stop at review before the third fixer, hand
   assert.match(result.reason, /gate returned REVISE three times in a row/)
 })
 
+test('a gate that answers APPROVE with a blocking finding counts as REVISE toward the three-in-a-row stop', async () => {
+  const approveWith = (where) => reviseWith(where, { verdict: 'APPROVE' })
+  const { result, launchedAgents } = await runLane(materialResume, {
+    'r0-review': APPROVE,
+    'r0-gate': approveWith('a.py:1'),
+    'fix-1': fixFrom(resumeTip, tipAfter(1)),
+    'r1-gate': approveWith('b.py:2'),
+    'fix-2': fixFrom(tipAfter(1), tipAfter(2)),
+    'r2-gate': approveWith('c.py:3'),
+  })
+  assert.deepEqual([result.status, result.stage], ['awaiting-head', 'review'])
+  assert.ok(!launchedAgents.includes('fix-3'))
+  assert.deepEqual(result.gateRevisions.map(round => round.verdict), ['REVISE', 'REVISE', 'REVISE'])
+})
+
 test('a gate APPROVE between REVISEs breaks the streak, so a later gate REVISE is fixed as before', async () => {
   const { result, launchedAgents } = await runLane(materialResume, {
     'r0-review': APPROVE,

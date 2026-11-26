@@ -144,7 +144,6 @@ export async function laneReview(A) {
     return runCourier(`${label}-retry`)
   }
 
-
   function codexReview(label, routing, role, range) {
     const base = `${A.scratch}/${A.tag}-${label}`
     const appendBodies = String.raw`{ cat ${base}-brief.md && printf '\n\n-----\nThe current item body (gh issue view):\n' && gh issue view ${A.item}${R} --json body --jq .body && printf '\n\n-----\nThe current pull request body (gh pr view):\n' && gh pr view ${A.pr}${R} --json body --jq .body; } > ${base}-brief.md.tmp && mv ${base}-brief.md.tmp ${base}-brief.md`
@@ -220,8 +219,7 @@ export async function laneReview(A) {
       return { state: 'failed', reason: failures.map(v => shortened(v.note, 700)).join(' | ') + (reportPaths.length ? '; read the report ' + reportPaths.join(' and ') : '') }
     }
     if (got.some(v => v.verdict === 'architectural')) return { state: 'architectural' }
-    // An evidenced blocking finding outranks its label (APPROVE with a finding counts as REVISE). A REVISE with nothing
-    // to fix stays broken: that is how a courier's placeholder was caught.
+    // An evidenced blocking finding outranks its label (APPROVE with a finding counts as REVISE); a REVISE with nothing to fix stays broken, which catches a courier's placeholder.
     const emptyRevise = got.find(v => v.verdict === 'REVISE' && (v.blocking || []).length === 0)
     if (emptyRevise) {
       const readHint = emptyRevise.reportPath ? '; read the report ' + emptyRevise.reportPath : ''
@@ -235,9 +233,11 @@ export async function laneReview(A) {
   function recordOf(reviewer, result) {
     const blocking = result.blocking || []
     const reportPath = result.reportPath || ''
+    // An evidenced blocking finding outranks the label, as classify counts it: the record never states an approval of a tip with an open finding.
+    const verdict = result.verdict === 'APPROVE' && blocking.length > 0 ? 'REVISE' : result.verdict
     return {
-      history: { after: A.after, by: reviewer.key, tip: A.tip, verdict: result.verdict, blocking: blocking.map(f => f.where), reportPath },
-      gateRounds: reviewer.isGate && !result.limit ? [{ after: A.after, verdict: result.verdict, blocking, reportPath, tip: A.tip }] : [],
+      history: { after: A.after, by: reviewer.key, tip: A.tip, verdict, blocking: blocking.map(f => f.where), reportPath },
+      gateRounds: reviewer.isGate && !result.limit ? [{ after: A.after, verdict, blocking, reportPath, tip: A.tip }] : [],
       followups: (result.followups || []).map(f => ({ ...f, stage: reviewer.key === 'review' ? 'review' : 'gate', tip: A.tip })),
     }
   }

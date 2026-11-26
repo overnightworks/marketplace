@@ -1,0 +1,7 @@
+claim_id = "ca7492fb0d49464f97dea896b688a103"
+agent = "Claude c1d65467-2dcf-4ef5-921f-526bf349a609"
+role = "builder"
+base = "f1088e37bb901a98402405f618be2604a7c7d2ce"
+branch = "claude/issue-1045-title-read-own-value"
+scope = ["plugins/atelier/lane/relay.js", "plugins/atelier/workflows/lane.js", "tests/lane_workflow_builder.test.mjs"]
+opened_commit = "4b9aa6a1225aeaf75299ee11a72cd324c287f9f8"

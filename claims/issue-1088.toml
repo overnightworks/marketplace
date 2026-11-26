@@ -1,0 +1,8 @@
+claim_id = "d1b8e35679e047b79c806a583b2a5736"
+agent = "Claude c1d65467-2dcf-4ef5-921f-526bf349a609"
+role = "builder"
+base = "0b65b2f2d90ae963f745404d1f36c44ecebb526f"
+branch = "claude/issue-1088-sampled-lost-run-owes-gate"
+scope = ["plugins/atelier/lane/main.js", "plugins/atelier/lane/sampled.js", "plugins/atelier/lane/segment.js", "plugins/atelier/workflows/lane.js", "plugins/atelier/workflows/lane.md", "tests/lane_workflow_run_record.test.mjs", "tests/lane_workflow_sampled_gate.test.mjs"]
+opened_commit = "8d34074ba9529d594f5263d131f5a8c4f36b5d60"
+whole_reason = "the sampled gate's duty, the segment begin it reads, the generated workflow, its reference and their harness tests change together"

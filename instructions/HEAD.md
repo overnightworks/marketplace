@@ -320,14 +320,15 @@ needs no counter-check. Lane work keeps its own reviews.
   merged result.
 - **Independence.** A builder never reviews its own work. A required final
   gate runs in fresh context on a provider column other than the builder's or,
-  while that provider is at its usage limit, on Opus 5.5 at high, named in the
-  pull request; with no eligible gate provider, it waits. Saving budget never
+  while that provider is at its usage limit or refuses the gate model, on Opus
+  5.5 at high, named in the pull request; with no eligible gate provider, it
+  waits. Saving budget never
   weakens required verification: every implementation lane keeps its
   independent review. Each required review brief carries the contract core (the
   current item body, the candidate diff and the verification evidence), with
   rulings and neighbours folded into the body, never passed beside it. No
-  override changes reviewer independence or the effort caps, nor gate provider
-  separation beyond that stand-in.
+  override changes reviewer independence, nor gate provider separation beyond
+  that stand-in.
 - **Re-checks.** A delta re-check carries the contract core and the raised
   findings and asks whether the repair opened something new; it covers only the
   raised delta when the fix is strictly isolated and the integrated tree
@@ -336,9 +337,9 @@ needs no counter-check. Lane work keeps its own reviews.
   by the same reviewer while its reported lifetime context is under 200k
   tokens (unknown counts as over), else by a fresh reviewer of the same row and
   provider column given the original findings verbatim. When the gate's
-  provider is at its usage limit, a fresh reviewer at the lane's review routing
-  re-checks a test-only delta, and the pull request names the range the gate
-  did not see.
+  provider is at its usage limit or refuses the gate model, a fresh reviewer at
+  the lane's review routing re-checks a test-only delta, and the pull request
+  names the range the gate did not see.
 - **Repeat the gate** in fresh context when a later fix changes interaction,
   scope or risk (production behaviour, a data path, secrets, a public
   contract) or when the trunk pull or integration merge needed conflict

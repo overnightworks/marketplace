@@ -1,5 +1,6 @@
 // Holds a branch-coverage floor over the files of an lcov report: usage `node scripts/check_branch_floor.mjs <lcov> <percent> <path>`,
-// where <path> is a file or directory (relative to the working directory) whose files the floor covers.
+// where <path> is a file or directory (relative to the working directory) whose files the floor covers; the report's SF paths
+// are read relative to the working directory too, as node's lcov reporter writes them.
 // A floor only rises: raise <percent> to the printed measurement.
 import fs from 'node:fs'
 import path from 'node:path'
@@ -8,7 +9,7 @@ const [report, floor, covered] = process.argv.slice(2)
 const root = path.resolve(covered)
 const totals = { found: 0, hit: 0 }
 for (const record of fs.readFileSync(report, 'utf8').split(/^SF:/m).slice(1)) {
-  const file = record.split('\n')[0]
+  const file = path.resolve(record.split('\n')[0])
   if (file !== root && !file.startsWith(root + path.sep)) continue
   totals.found += Number(/^BRF:(\d+)$/m.exec(record)[1])
   totals.hit += Number(/^BRH:(\d+)$/m.exec(record)[1])

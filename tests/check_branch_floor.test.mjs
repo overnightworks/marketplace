@@ -12,7 +12,7 @@ const script = fileURLToPath(new URL('../scripts/check_branch_floor.mjs', import
 const workdir = fs.mkdtempSync(path.join(os.tmpdir(), 'branch-floor-'))
 const report = ['a/one.js:4:3', 'a/two.js:2:1', 'b/other.js:10:0', 'xa/three.js:2:0']
   .map(entry => entry.split(':'))
-  .map(([file, found, hit]) => `TN:\nSF:${path.join(workdir, file)}\nBRF:${found}\nBRH:${hit}\nend_of_record\n`)
+  .map(([file, found, hit]) => `TN:\nSF:${file}\nBRF:${found}\nBRH:${hit}\nend_of_record\n`)
   .join('')
 fs.writeFileSync(path.join(workdir, 'lcov.info'), report)
 after(() => fs.rmSync(workdir, { recursive: true, force: true }))

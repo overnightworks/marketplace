@@ -116,6 +116,22 @@ def test_runs_the_command_in_a_network_namespace_of_its_own(real_machine):
     assert result.stdout.strip() != starters_namespace
 
 
+def test_the_command_keeps_the_starters_uid_and_gid(real_machine):
+    result = probe_run(real_machine, "sh", "-c", "id -u; id -g")
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.split() == [str(os.getuid()), str(os.getgid())]
+
+
+def test_a_file_the_command_creates_belongs_to_the_starter_on_the_host(real_machine, tmp_path):
+    created = tmp_path / "created"
+
+    result = probe_run(real_machine, "touch", str(created))
+
+    assert result.returncode == 0, result.stderr
+    assert (created.stat().st_uid, created.stat().st_gid) == (os.getuid(), os.getgid())
+
+
 # A client that tries ::1 first and falls back only when that connection is refused, as curl does
 # for localhost.
 IPV6_FIRST_CLIENT = """
@@ -146,8 +162,8 @@ def test_a_client_that_tries_ipv6_localhost_first_exchanges_data_with_a_host_ipv
 
 @pytest.mark.parametrize(
     ("missing_tool", "present_tools"),
-    [("pasta", ()), ("pgrep", ("pasta",))],
-    ids=["pasta-missing", "pgrep-missing"],
+    [("pasta", ()), ("pgrep", ("pasta",)), ("unshare", ("pasta", "pgrep"))],
+    ids=["pasta-missing", "pgrep-missing", "unshare-missing"],
 )
 def test_fails_loud_without_starting_when_a_network_tool_is_missing(
     real_machine, tmp_path, missing_tool, present_tools

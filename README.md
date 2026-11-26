@@ -53,8 +53,8 @@ It also links the contract into each provider's user-level instructions (see
 [Architecture](docs/ARCHITECTURE.md)) and `scripts/probe_run.sh` as `probe-run`, which starts a
 probe stack once the machine's load allows (`probe-run --wait-only` waits for that room alone), into `~/.local/bin`, which must be on your `PATH`
 (the script warns when it is not). `probe-run` runs the stack in a network namespace of its own, so the
-bridge and veth changes other sessions' containers cause never reach a browser proof; host ports on `127.0.0.1` stay reachable on `localhost` (the namespace is IPv4 only, so a host listener on `::1` alone is not), the stack runs as uid 0, and a container that calls back to a server inside the namespace is not reached; the namespace needs
-`pasta` from the `passt` package (`sudo apt install passt`), and `probe-run` fails without it.
+bridge and veth changes other sessions' containers cause never reach a browser proof; host ports on `127.0.0.1` stay reachable on `localhost` (the namespace is IPv4 only, so a host listener on `::1` alone is not), the stack keeps the starter's uid and gid, and a container that calls back to a server inside the namespace is not reached; the namespace needs
+`pasta` from the `passt` package (`sudo apt install passt`) and an `unshare` with `--map-user` (util-linux 2.38 or newer), and `probe-run` fails without them.
 
 The install also validates `settings/claude-managed.json` and copies it to
 `~/.local/share/marketplace/claude-managed.json`; a file that is not valid

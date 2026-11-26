@@ -653,7 +653,7 @@ for (const [what, answers, expected] of testerRounds) {
     const { agentCalls, result } = await runLane(resumeArgs, { 'r0-review': APPROVE, ...answers() })
     assert.equal(result.status, 'ready-to-land', result.reason)
     for (const text of expected) assert.ok(agentCalls['e2e-1'].prompt.includes(text), `the second tester prompt lacks ${text}`)
-    assert.doesNotMatch(agentCalls['e2e-1'].prompt, /left unchanged/)
+    assert.match(agentCalls['e2e-1'].prompt, /Mark a new finding against the lane's whole diff, `git diff origin\/main\.\.\.HEAD`/)
   })
 }
 

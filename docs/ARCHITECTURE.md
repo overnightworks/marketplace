@@ -152,7 +152,8 @@ agents match their source, that no symlink is tracked, that the contract fits
 Codex's instruction-file size limit, that every skill is valid, that every
 workflow's metadata parses, that the shipped Claude Code settings pass the
 published settings schema, and runs the workflow tests, and the script and hook tests
-at 100 % branch coverage; the shared quality gate then judges the whole.
+with branch-coverage floors (100 % for the scripts, 95.5 % for the lane bundle,
+held by `scripts/check_branch_floor.mjs`); the shared quality gate then judges the whole.
 Documentation is proven by review.
 
 ## 6. Constraints and reasons

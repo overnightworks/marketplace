@@ -17,7 +17,7 @@ async function laneBuild(A) {
   const BUILD = {
     type: 'object',
     required: ['pr', 'tip', 'reuse', 'blocked'],
-    properties: { pr: { type: 'number', minimum: 1, description: 'the number of the open pull request you opened for this lane' }, tip: { type: 'string', pattern: '^[0-9a-f]{7,40}$', description: 'a commit sha from git rev-parse, nothing else' }, summary: { type: 'string' }, reuse: { type: 'string', description: 'the owner you extended (module and function), or the search you ran and why nothing found fits' }, blocked: { type: 'boolean' }, blockedReason: { type: 'string' } },
+    properties: { pr: { type: 'number', minimum: 1, description: 'the number of the open pull request you opened for this lane' }, tip: { type: 'string', pattern: SHA.source, description: 'a commit sha from git rev-parse, nothing else' }, summary: { type: 'string' }, reuse: { type: 'string', description: 'the owner you extended (module and function), or the search you ran and why nothing found fits' }, blocked: { type: 'boolean' }, blockedReason: { type: 'string' } },
   }
 
   // An end without a result is a null the lane reports; so is an unblocked answer without an open pull request, which the schema's minimum names but a runtime need not enforce.
@@ -295,7 +295,7 @@ const FINDING_STAGES = [[/^e2e-/, 'test'], [/^ci-/, 'ci']]
 // The stage each reviewer key counts as: a stand-in counts as the gate stage.
 const VERDICT_STAGES = { review: 'review', gate: 'gate', standin: 'gate' }
 const GATE_KEYS = Object.keys(VERDICT_STAGES).filter(key => VERDICT_STAGES[key] === 'gate')
-const RECORD_COUNT_LIMIT = 999
+const RECORD_COUNT_LIMIT = 999  // aco reads a count of one to three digits
 const FULL_SHA = /^[0-9a-f]{40}$/
 
 const stageOf = (reviewer) => FINDING_STAGES.find(([pattern]) => pattern.test(reviewer))?.[1] ?? VERDICT_STAGES[reviewer]
@@ -1526,7 +1526,6 @@ async function laneRouting(A) {
   // The Routing line aco reads (aco's specs/lane-record.spec.md owns the grammar), built from what the lane used; the head pastes it as is.
   const ROUTING_LINE_LIMIT = 512  // the length the aco skill's abandon step asks of the line
   const LOCATION_LIMIT = 60
-  const COUNT_LIMIT = 999  // aco reads a count of one to three digits
   const PATH_CHARACTERS = /^[\p{L}\p{N}_./@-]+$/u
 
   // One scan over the word: drop wrapping parentheses and trailing punctuation, then a path, a colon, a line and an optional "-end" of a range.
@@ -1547,7 +1546,7 @@ async function laneRouting(A) {
   // The findings of the lane's history by location and stage, each with the number that share them (laneRecord's counting, with the location a Routing line prints).
   const blockingLocations = (history) => blockingStages(history).map(({ text, stage, count }) => ({ where: locationOf(text), stage, count }))
 
-  const countParts = (count) => Array.from({ length: Math.ceil(count / COUNT_LIMIT) }, (_, part) => Math.min(COUNT_LIMIT, count - part * COUNT_LIMIT))
+  const countParts = (count) => Array.from({ length: Math.ceil(count / RECORD_COUNT_LIMIT) }, (_, part) => Math.min(RECORD_COUNT_LIMIT, count - part * RECORD_COUNT_LIMIT))
   const printedEntry = (count, location, stage) => {
     const times = count > 1 ? `${count}× ` : ''
     const place = location ? `${location} ` : ''
@@ -1694,7 +1693,6 @@ async function storeProvenPoint() {
 
 // A merge conflict the sync could not resolve by its own rules (ledgers, generated files) becomes a finding for a fresh fixer, the way CI's conflict finding does.
 const SYNC_CONFLICT_RULE = 'the lane contains origin/main before its review'
-const TREE_LINE = /^[0-9a-f]{40}$/
 const isSyncConflictFinding = (f) => f.where === MERGEABLE_WHERE && f.rule === SYNC_CONFLICT_RULE
 const conflictedPathsOf = (blocking) => blocking.filter(isSyncConflictFinding).flatMap(f => f.paths ?? [])
 
@@ -1702,7 +1700,7 @@ const conflictedPathsOf = (blocking) => blocking.filter(isSyncConflictFinding).f
 // or every conflicted path is one the sync's own rules resolve and the list is complete.
 function syncConflictOf(values, covered) {
   const read = values.conflict
-  if (read?.code !== 1 || !TREE_LINE.test(read.tree || '') || !read.paths?.length) return null
+  if (read?.code !== 1 || !FULL_SHA.test(read.tree || '') || !read.paths?.length) return null
   const cut = read.count > read.paths.length
   return !cut && read.paths.every(path => covered.includes(path)) ? null : { paths: read.paths, cut }
 }

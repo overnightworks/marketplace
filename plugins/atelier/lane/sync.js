@@ -1,6 +1,5 @@
 // A merge conflict the sync could not resolve by its own rules (ledgers, generated files) becomes a finding for a fresh fixer, the way CI's conflict finding does.
 const SYNC_CONFLICT_RULE = 'the lane contains origin/main before its review'
-const TREE_LINE = /^[0-9a-f]{40}$/
 const isSyncConflictFinding = (f) => f.where === MERGEABLE_WHERE && f.rule === SYNC_CONFLICT_RULE
 const conflictedPathsOf = (blocking) => blocking.filter(isSyncConflictFinding).flatMap(f => f.paths ?? [])
 
@@ -8,7 +7,7 @@ const conflictedPathsOf = (blocking) => blocking.filter(isSyncConflictFinding).f
 // or every conflicted path is one the sync's own rules resolve and the list is complete.
 function syncConflictOf(values, covered) {
   const read = values.conflict
-  if (read?.code !== 1 || !TREE_LINE.test(read.tree || '') || !read.paths?.length) return null
+  if (read?.code !== 1 || !FULL_SHA.test(read.tree || '') || !read.paths?.length) return null
   const cut = read.count > read.paths.length
   return !cut && read.paths.every(path => covered.includes(path)) ? null : { paths: read.paths, cut }
 }

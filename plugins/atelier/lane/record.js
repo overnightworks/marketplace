@@ -7,7 +7,7 @@ const FINDING_STAGES = [[/^e2e-/, 'test'], [/^ci-/, 'ci']]
 // The stage each reviewer key counts as: a stand-in counts as the gate stage.
 const VERDICT_STAGES = { review: 'review', gate: 'gate', standin: 'gate' }
 const GATE_KEYS = Object.keys(VERDICT_STAGES).filter(key => VERDICT_STAGES[key] === 'gate')
-const RECORD_COUNT_LIMIT = 999
+const RECORD_COUNT_LIMIT = 999  // aco reads a count of one to three digits
 const FULL_SHA = /^[0-9a-f]{40}$/
 
 const stageOf = (reviewer) => FINDING_STAGES.find(([pattern]) => pattern.test(reviewer))?.[1] ?? VERDICT_STAGES[reviewer]

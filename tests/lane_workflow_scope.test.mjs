@@ -1,13 +1,9 @@
 // Drives the atelier lane workflow script through the sync, push, claim scope and rescope rules with a stub agent runner.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { runLane, resumedLane, APPROVE, PASS, greenCi, finding, agentProvidersReplay, tidy, satisfied, unchangedFix, webauthReplay, answersWith, resumeTip, olderTip, resumeFixedTip, defectWithoutDraft, resumeFix, resumeArgs, built, mergedOnlyTip, conflictsWithMain, mergeOnlyFix, reachesTheEnd } from './lane_workflow_harness.mjs'
-
-const builtLane = { ...resumedLane, pr: undefined, tip: undefined, build: 'b' }
+import { runLane, resumedLane, APPROVE, PASS, greenCi, finding, agentProvidersReplay, tidy, satisfied, unchangedFix, webauthReplay, answersWith, resumeTip, olderTip, resumeFixedTip, defectWithoutDraft, resumeFix, resumeArgs, built, mergedOnlyTip, conflictsWithMain, mergeOnlyFix, reachesTheEnd, builtLane, unjudgeableOutside } from './lane_workflow_harness.mjs'
 
 const outsideClaim = (paths) => ({ outside_claim: paths })
-// The relay lists at most 50 paths, so only a longer list cannot be judged and stops the scope check.
-const unjudgeableOutside = ['board.py', ...Array.from({ length: 50 }, (_, index) => `src/mod_${index}.py`)]
 const listedOutside = unjudgeableOutside.slice(0, 50)
 const newRunWithBothChoices = /aco rescope[\s\S]*new run with pr and tip[\s\S]*fixFirst[\s\S]*revert[\s\S]*git log origin\/main\.\.\w+ -- board\.py/
 const reviseOnce = { verdict: 'REVISE', blocking: [{ ...defectWithoutDraft, kind: 'docs' }], followups: [] }

@@ -484,3 +484,11 @@ export const required = 'quality / verdict'
 export const check = (name, bucket) => ({ name, bucket })
 export const ciAnswer = (checks, extra = {}) => ({ head: tip, green: true, failing: [], checks, requiredChecks: [required], ...extra })
 export const driveCi = (ci, args = lane, read, more = {}) => runLane({ ...args, foldIn: [tidy] }, { ...reachesCi, 'ci-0': ci, ...(read && { 'ci-read-0': read }), ...more })
+
+// The arguments of a lane that still has to build, and a test option that lets a long scripted run take a few seconds.
+export const builtLane = { ...resumedLane, pr: undefined, tip: undefined, build: 'b' }
+export const tolerates = { timeout: 5000 }
+// The relay lists at most 50 paths, so only a longer list cannot be judged and stops the scope check.
+export const unjudgeableOutside = ['board.py', ...Array.from({ length: 50 }, (_, index) => `src/mod_${index}.py`)]
+// A gate verdict that raises one blocking finding.
+export const gateRaises = { verdict: 'REVISE', blocking: [defectWithoutDraft], followups: [] }

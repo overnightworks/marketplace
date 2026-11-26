@@ -1,9 +1,8 @@
 // Each run stores its record on the claim as segments through aco lane-record begin and add: the first begins right after the run's input checks, each segment is added at a proven point or at the run's end, and the next begins right before its first stage.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { runLane, partReplaced, resumedLane, built, resumeArgs, resumeTip, tidy, reachesTheEnd, APPROVE, satisfied, unchangedFix, PASS, greenCi, noWait, resumeFix, roundTip, roundRed, reviewedRoundFix, roundReviews, heldTester, defectWithoutDraft, storedLane } from './lane_workflow_harness.mjs'
+import { runLane, partReplaced, resumedLane, built, resumeArgs, resumeTip, tidy, reachesTheEnd, APPROVE, satisfied, unchangedFix, PASS, greenCi, noWait, resumeFix, roundTip, roundRed, reviewedRoundFix, roundReviews, heldTester, defectWithoutDraft, storedLane, builtLane } from './lane_workflow_harness.mjs'
 
-const builtLane = { ...resumedLane, pr: undefined, tip: undefined, build: 'b' }
 const worktreeHead = 'ab'.repeat(20)
 const FULL_SHA = /^[0-9a-f]{40}$/
 const RUN_ID = /^[0-9a-f]{32}$/

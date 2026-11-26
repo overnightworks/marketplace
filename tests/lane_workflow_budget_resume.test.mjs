@@ -1,8 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { runLane, resumeArgs, defectWithoutDraft, roundTip, roundRed, reviewedRoundFix, roundReviews, APPROVE, PASS, greenCi } from './lane_workflow_harness.mjs'
-
-const tolerates = { timeout: 5000 }
+import { runLane, resumeArgs, defectWithoutDraft, roundTip, roundRed, reviewedRoundFix, roundReviews, APPROVE, PASS, greenCi, tolerates } from './lane_workflow_harness.mjs'
 
 // A lane that ends on a spent budget names the arguments of the run that continues it.
 const spentRun = {

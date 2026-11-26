@@ -1,11 +1,10 @@
 // A run's misses see the review approvals of the earlier runs stored on the claim, which its begin reads back through aco lane-record show.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { runLane, partReplaced, storedOwnRun, storedEarlierRun, resumeArgs, resumeTip, olderTip, resumeFixedTip, tidy, defectWithoutDraft, resumeFix, secondFix, APPROVE } from './lane_workflow_harness.mjs'
+import { runLane, partReplaced, storedOwnRun, storedEarlierRun, resumeArgs, resumeTip, olderTip, resumeFixedTip, tidy, defectWithoutDraft, resumeFix, secondFix, APPROVE, gateRaises } from './lane_workflow_harness.mjs'
 
 const materialRun = { ...resumeArgs, risk: 'material', productionPaths: ['src/'], routing: { gate: { model: 'opus', effort: 'high' } }, foldIn: [tidy] }
 const reviewRaises = { verdict: 'REVISE', blocking: [{ ...defectWithoutDraft, where: 't.py:2' }], followups: [] }
-const gateRaises = { verdict: 'REVISE', blocking: [defectWithoutDraft], followups: [] }
 const proofs = { regression: [1, 2].map(number => ({ finding: number, test: 't.py::test_rule', failedBefore: true, passesAfter: true })) }
 // Round 1 of a material run: both the review and the gate raise a finding, so the run itself holds no approval before the gate's finding.
 const gateAfterNoOwnApproval = { 'fix-1': resumeFix, 'r1-review': reviewRaises, 'r1-gate': gateRaises, 'fix-2': { ...secondFix, ...proofs }, 'r2-review': APPROVE, 'r2-gate': APPROVE }

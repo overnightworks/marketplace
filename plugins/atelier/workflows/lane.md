@@ -188,9 +188,18 @@ The design skill is advice and never blocks a landing:
   model the lane's routing lacks (such as Fable), is refused, and the refusal
   names `operatorWord`; with it, see Optional args (`HEAD.md`, "Model routing").
 - The gate runs on another provider than the builder, except the one Claude gate
-  opus/high, which `routing.gate` may name while Codex is at its usage limit or
-  refuses the gate model and which runs as a fresh Claude reviewer. Any other
-  Claude gate is refused at input.
+  opus/high, which `routing.gate` may name while Codex is at its usage limit and
+  which runs as a fresh Claude reviewer. Any other Claude gate is refused at input.
+- A Codex gate run that exits above 0 and whose last non-empty run-log line starts with
+  `ERROR: The '<the routed gate model>' model is not supported` is refused for its model;
+  the script re-checks that line as it does the usage limit's. On a material lane the lane
+  then runs the opus/high stand-in itself, a fresh Claude reviewer with the gate's brief, in the
+  same round as the review, whose verdict is kept. The stand-in holds for the rest of the
+  run: later gate rounds run on it with no new Codex courier, and the Routing line, the
+  record, `routing` and the head actions name opus/high as the gate. The head names it in the pull
+  request. A new run tries Codex first. A normal lane's sampled look or owed re-check, a
+  refused ordinary review, a login error, an unknown model, a capacity line and any other
+  failed run keep their ends.
 
 ## Awaiting-head results
 

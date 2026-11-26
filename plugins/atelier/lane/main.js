@@ -48,7 +48,8 @@ const PROVIDER_EFFORTS = OPERATOR_WORD ? { ...LANE_PROVIDER_EFFORTS, ...OPERATOR
 const EFFORT_CAP = { opus: 'medium' }
 const WORD_HINT = OPERATOR_WORD ? '' : '; more needs the operator\'s word, passed as operatorWord and quoted in the item'
 // The one Claude gate: opus at high stands in while Codex is at its usage limit or refuses the gate model (instructions/HEAD.md, Reviews and gates); it is the one effort above medium opus may have.
-const isGateStandIn = (role, model, effort) => role === 'gate' && model === 'opus' && effort === 'high'
+const GATE_STAND_IN = { model: 'opus', effort: 'high' }
+const isGateStandIn = (role, model, effort) => role === 'gate' && model === GATE_STAND_IN.model && effort === GATE_STAND_IN.effort
 const REVIEWER_PROVIDER = A.reviewer || 'claude'
 const HARD_ROW = { model: 'sonnet', effort: 'high' }
 const WRITER = MATERIAL ? HARD_ROW : { model: 'sonnet', effort: 'medium' }
@@ -171,7 +172,7 @@ const listFindings = (list) => list.map((f, i) =>
 // ------------------------------------------------------------ reviewers
 // The ordinary review may come from the builder's own provider (the contract asks only for a fresh, independent agent); a fresh Claude reviewer is the
 // default, Sonnet at high effort and Opus at medium on material risk. The final gate on a material lane runs on Codex through a courier, because the
-// Claude builder needs another provider; routing.gate may name the Opus stand-in, which runs as a fresh Claude reviewer. laneReview runs one round and classifies it.
+// Claude builder needs another provider; routing.gate may name the Opus stand-in, which runs as a fresh Claude reviewer, and a gate Codex refuses for its model is replaced by it in the lane's own round. laneReview runs one round and classifies it.
 const ROUND_STATES = new Set(['approve', 'revise', 'failed', 'architectural', 'limited', 'brief-mismatch', 'no-brief-record', 'hung'])
 
 // ------------------------------------------------------------ state
@@ -196,6 +197,11 @@ const REVIEW = { key: 'review', provider: REVIEWER_PROVIDER, role: 'independent 
 const GATE = { key: 'gate', provider: MODEL_PROVIDER[ROUTING.gate.model], role: 'final gate (architecture, data safety, public contract)' }
 const STANDIN = { key: 'standin', provider: 'claude', role: "stand-in reviewer (the final gate's provider is at its usage limit)" }
 const ALL = MATERIAL ? [REVIEW, GATE] : [REVIEW]
+// A Codex gate that refused its model was replaced in its round by the stand-in; the run keeps it, so a re-check has the gate's row and provider column and the record names the one gate that ran.
+function holdGateOnStandIn() {
+  ROUTING.gate = { ...GATE_STAND_IN }
+  GATE.provider = MODEL_PROVIDER[GATE_STAND_IN.model]
+}
 
 function openFollowups() {
   const open = new Map()
@@ -346,7 +352,8 @@ async function reviewRound(which, range, from, sampledLook) {
   if (!sampledLook) startedStages.review = true
   const after = sampledLook?.after ?? spent.total
   const reviewers = which.map(r => ({ key: r.key, provider: r.provider, role: r.role, isGate: r === GATE, routing: claudeRole(REVIEWER_ROUTING_ROWS[r.key]) }))
-  const answer = await runPart('lane-review', laneReview, { item: A.item, pr, repo: A.repo, repoFlag: R, after, tip, delegatedLine: DELEGATED_LINE, worktree: A.worktree, branch: A.branch, scratch: A.scratch, tag: TAG, label: `r${after}`, range, reuse: buildReuse, e2e: A.e2e, contract: A.contract, blockingLine: BLOCKING_LINE, reviewers, findingKinds: FINDING_KINDS, finding: FINDING, followup: REPORTED_FOLLOWUP, mechanical: MECHANICAL })
+  const answer = await runPart('lane-review', laneReview, { item: A.item, pr, repo: A.repo, repoFlag: R, after, tip, delegatedLine: DELEGATED_LINE, worktree: A.worktree, branch: A.branch, scratch: A.scratch, tag: TAG, label: `r${after}`, range, reuse: buildReuse, e2e: A.e2e, contract: A.contract, blockingLine: BLOCKING_LINE, reviewers, findingKinds: FINDING_KINDS, finding: FINDING, followup: REPORTED_FOLLOWUP, mechanical: MECHANICAL, gateStandIn: MATERIAL && !sampledLook ? GATE_STAND_IN : null })
+  if ((answer?.results ?? answer?.finished?.results ?? []).some(result => result?.gateRefusal)) holdGateOnStandIn()
   const unfit = unfitRoundAnswer(answer, which.length)
   if (unfit) {
     // The reviewers that finished before a usage limit keep their records, so the resume carries their findings.

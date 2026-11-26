@@ -1223,11 +1223,18 @@ async function laneReview(A) {
     required: ['line', 'resetsAt'],
     properties: { line: { type: 'string' }, resetsAt: { type: ['string', 'null'] } },
   }
+  const REFUSAL = {
+    type: 'object',
+    required: ['line'],
+    properties: { line: { type: 'string' } },
+  }
   const COURIER_VERDICT = {
     ...VERDICT,
     required: [...VERDICT.required, 'codexExit'],
-    properties: { ...VERDICT.properties, limit: LIMIT },
+    properties: { ...VERDICT.properties, limit: LIMIT, refusal: REFUSAL },
   }
+  // The line Codex prints, as its last line, when the account does not serve the routed model.
+  const refusalStart = model => `ERROR: The '${model}' model is not supported`
 
   // The reviewer is the only brake until a ratchet checks these.
   const STOPGAP_LINE =
@@ -1355,7 +1362,8 @@ async function laneReview(A) {
       `   Return verdict failed only when the 7 waits are spent without a marker (codexExit -1), the exit status is not 0 (codexExit = that number), or the file is missing or not valid JSON. ` +
       `Then give the last 20 lines of ${base}-run.log in note.\n` +
       `   When the exit status is above 0, also run: grep -v '^[[:space:]]*$' ${base}-run.log | tail -n 1\n` +
-      `   Only that last non-empty line counts, because the log echoes the brief. If it contains "${USAGE_LIMIT}", Codex is out of usage: add limit to the answer, with line that line verbatim and resetsAt the text after "try again at" (any case) to the end of the line without a final period, or null when the line has none. Never wait for the reset and never retry a limit.\n${STRUCTURED_OUTPUT_ONLY_LINE}`
+      `   Only that last non-empty line counts, because the log echoes the brief. If it contains "${USAGE_LIMIT}", Codex is out of usage: add limit to the answer, with line that line verbatim and resetsAt the text after "try again at" (any case) to the end of the line without a final period, or null when the line has none. Never wait for the reset and never retry a limit.\n` +
+      `   If that last non-empty line instead starts with "${refusalStart(routing.model)}", Codex refuses the model: add refusal to the answer, with line that line verbatim. Never retry a refusal.\n${STRUCTURED_OUTPUT_ONLY_LINE}`
     const runCourier = courierLabel => safeAgent(courierPrompt, { label: courierLabel, phase: 'Review', schema: COURIER_VERDICT, ...MECHANICAL })
     return runCourier(label)
       .then(v => retryFailedStart(v, runCourier, label))
@@ -1363,19 +1371,31 @@ async function laneReview(A) {
       .then(v => (v && v.codexExit !== 0 && v.verdict !== 'failed') ? { ...v, verdict: 'failed', note: `courier returned a verdict without a clean Codex exit (${v.codexExit}): ${v.note || ''}` } : v)
   }
 
-  // A limit counts only as the reason of a failed Codex run that exited above 0; anywhere else it is a courier's mistake and dropped.
-  function guardLimit(answer, reviewer) {
-    if (!answer?.limit) return answer
-    const { limit, ...rest } = answer
-    const guarded = reviewer.provider === 'codex' && answer.verdict === 'failed' && answer.codexExit > 0 && typeof limit.line === 'string' && limit.line.includes(USAGE_LIMIT)
-    return guarded ? { ...rest, limit: { role: reviewer.key, model: reviewer.routing.model, line: limit.line, resetsAt: limit.resetsAt ?? null } } : rest
+  // A limit or a refusal counts only as the reason of a failed Codex run that exited above 0; a refusal only for the gate of a lane that names a stand-in for it;
+  // anywhere else it is a courier's mistake and dropped. Only the refusal line's start is checked: the courier read the last line, as it did for the limit.
+  function guardCourierStop(answer, reviewer) {
+    if (!answer?.limit && !answer?.refusal) return answer
+    const { limit, refusal, ...rest } = answer
+    const failedCodexRun = reviewer.provider === 'codex' && answer.verdict === 'failed' && answer.codexExit > 0
+    if (failedCodexRun && typeof limit?.line === 'string' && limit.line.includes(USAGE_LIMIT)) {
+      return { ...rest, limit: { role: reviewer.key, model: reviewer.routing.model, line: limit.line, resetsAt: limit.resetsAt ?? null } }
+    }
+    const refused = failedCodexRun && reviewer.isGate && A.gateStandIn && typeof refusal?.line === 'string' && refusal.line.startsWith(refusalStart(reviewer.routing.model))
+    return refused ? { ...rest, refusal: { model: reviewer.routing.model, line: refusal.line } } : rest
   }
 
-  const reviewBy = (reviewer, range) => {
+  // The refused gate is replaced in its own round by a fresh Claude reviewer with the gate's brief, so the round's other results stay.
+  // gateRefusal tells the lane to hold the stand-in for the rest of the run.
+  async function standInForRefusal(reviewer, label, range, refusal) {
+    log(`${label}: Codex refuses ${refusal.model}; the gate runs on ${A.gateStandIn.model}/${A.gateStandIn.effort}`)
+    return { ...await claudeReview(`${label}-standin`, A.gateStandIn, reviewer.role, range), gateRefusal: refusal }
+  }
+
+  const reviewBy = async (reviewer, range) => {
     const label = `${A.label}-${reviewer.key}`
-    return reviewer.provider === 'codex'
-      ? codexReview(label, reviewer.routing, reviewer.role, range).then(answer => guardLimit(answer, reviewer))
-      : claudeReview(label, reviewer.routing, reviewer.role, range).then(answer => guardLimit(answer, reviewer))
+    if (reviewer.provider !== 'codex') return guardCourierStop(await claudeReview(label, reviewer.routing, reviewer.role, range), reviewer)
+    const answer = guardCourierStop(await codexReview(label, reviewer.routing, reviewer.role, range), reviewer)
+    return answer?.refusal ? standInForRefusal(reviewer, label, range, answer.refusal) : answer
   }
 
   // One failure text stays short in the round's reason; the two texts of a retried reviewer fit together.
@@ -1925,7 +1945,8 @@ const PROVIDER_EFFORTS = OPERATOR_WORD ? { ...LANE_PROVIDER_EFFORTS, ...OPERATOR
 const EFFORT_CAP = { opus: 'medium' }
 const WORD_HINT = OPERATOR_WORD ? '' : '; more needs the operator\'s word, passed as operatorWord and quoted in the item'
 // The one Claude gate: opus at high stands in while Codex is at its usage limit or refuses the gate model (instructions/HEAD.md, Reviews and gates); it is the one effort above medium opus may have.
-const isGateStandIn = (role, model, effort) => role === 'gate' && model === 'opus' && effort === 'high'
+const GATE_STAND_IN = { model: 'opus', effort: 'high' }
+const isGateStandIn = (role, model, effort) => role === 'gate' && model === GATE_STAND_IN.model && effort === GATE_STAND_IN.effort
 const REVIEWER_PROVIDER = A.reviewer || 'claude'
 const HARD_ROW = { model: 'sonnet', effort: 'high' }
 const WRITER = MATERIAL ? HARD_ROW : { model: 'sonnet', effort: 'medium' }
@@ -2048,7 +2069,7 @@ const listFindings = (list) => list.map((f, i) =>
 // ------------------------------------------------------------ reviewers
 // The ordinary review may come from the builder's own provider (the contract asks only for a fresh, independent agent); a fresh Claude reviewer is the
 // default, Sonnet at high effort and Opus at medium on material risk. The final gate on a material lane runs on Codex through a courier, because the
-// Claude builder needs another provider; routing.gate may name the Opus stand-in, which runs as a fresh Claude reviewer. laneReview runs one round and classifies it.
+// Claude builder needs another provider; routing.gate may name the Opus stand-in, which runs as a fresh Claude reviewer, and a gate Codex refuses for its model is replaced by it in the lane's own round. laneReview runs one round and classifies it.
 const ROUND_STATES = new Set(['approve', 'revise', 'failed', 'architectural', 'limited', 'brief-mismatch', 'no-brief-record', 'hung'])
 
 // ------------------------------------------------------------ state
@@ -2073,6 +2094,11 @@ const REVIEW = { key: 'review', provider: REVIEWER_PROVIDER, role: 'independent 
 const GATE = { key: 'gate', provider: MODEL_PROVIDER[ROUTING.gate.model], role: 'final gate (architecture, data safety, public contract)' }
 const STANDIN = { key: 'standin', provider: 'claude', role: "stand-in reviewer (the final gate's provider is at its usage limit)" }
 const ALL = MATERIAL ? [REVIEW, GATE] : [REVIEW]
+// A Codex gate that refused its model was replaced in its round by the stand-in; the run keeps it, so a re-check has the gate's row and provider column and the record names the one gate that ran.
+function holdGateOnStandIn() {
+  ROUTING.gate = { ...GATE_STAND_IN }
+  GATE.provider = MODEL_PROVIDER[GATE_STAND_IN.model]
+}
 
 function openFollowups() {
   const open = new Map()
@@ -2223,7 +2249,8 @@ async function reviewRound(which, range, from, sampledLook) {
   if (!sampledLook) startedStages.review = true
   const after = sampledLook?.after ?? spent.total
   const reviewers = which.map(r => ({ key: r.key, provider: r.provider, role: r.role, isGate: r === GATE, routing: claudeRole(REVIEWER_ROUTING_ROWS[r.key]) }))
-  const answer = await runPart('lane-review', laneReview, { item: A.item, pr, repo: A.repo, repoFlag: R, after, tip, delegatedLine: DELEGATED_LINE, worktree: A.worktree, branch: A.branch, scratch: A.scratch, tag: TAG, label: `r${after}`, range, reuse: buildReuse, e2e: A.e2e, contract: A.contract, blockingLine: BLOCKING_LINE, reviewers, findingKinds: FINDING_KINDS, finding: FINDING, followup: REPORTED_FOLLOWUP, mechanical: MECHANICAL })
+  const answer = await runPart('lane-review', laneReview, { item: A.item, pr, repo: A.repo, repoFlag: R, after, tip, delegatedLine: DELEGATED_LINE, worktree: A.worktree, branch: A.branch, scratch: A.scratch, tag: TAG, label: `r${after}`, range, reuse: buildReuse, e2e: A.e2e, contract: A.contract, blockingLine: BLOCKING_LINE, reviewers, findingKinds: FINDING_KINDS, finding: FINDING, followup: REPORTED_FOLLOWUP, mechanical: MECHANICAL, gateStandIn: MATERIAL && !sampledLook ? GATE_STAND_IN : null })
+  if ((answer?.results ?? answer?.finished?.results ?? []).some(result => result?.gateRefusal)) holdGateOnStandIn()
   const unfit = unfitRoundAnswer(answer, which.length)
   if (unfit) {
     // The reviewers that finished before a usage limit keep their records, so the resume carries their findings.

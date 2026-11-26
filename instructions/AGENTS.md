@@ -225,13 +225,14 @@ Every review finding is marked **blocking** or **follow-up**.
   live stack, except a live check through platform's live-check command. Drive
   only the slice's flow, at the widths the brief names. A test that starts a
   process ends it before its worktree is removed.
-- The operator's live store is read only once he allowed it in this session,
-  by a delegated agent: read-only queries (a read-only transaction or role),
-  only the rows and columns needed, never secrets, credentials or session data,
-  evidence as counts and identifiers, never user content. A write to live data
-  is material risk: it waits for his spoken yes to that change, after a backup
-  whose restore path is known. A live check's writes to its test identities and
-  their own data need neither his further yes nor a backup.
+- A delegated agent reads the operator's live store through a role that can
+  only read, and a store without one only once he allowed it in this session.
+  It reads only the rows and columns needed, never secrets, credentials,
+  session data or user content, evidence as counts and identifiers; the role
+  stops a mistaken write, not a breach of this rule. A write to live data is
+  material risk: it waits for his spoken yes to that change, after a backup
+  whose restore path is known. A live check's writes to its test identities
+  and their own data need neither his further yes nor a backup.
 - Poll GitHub at 60 seconds or slower, monitors at 90 or more.
 
 # Code policy

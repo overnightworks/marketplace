@@ -146,10 +146,10 @@ it from its branch and claims after adoption.
 - **Pictures.** A change that adds or reshapes a surface (room, page, card,
   flow) starts from its mockup, or a screenshot once the surface is built:
   the head extends it, decides it and freezes it in the repository before the
-  expectation list is ruled, and shows it to him to try. Wording and bug fixes need none. Before any UI
-  ruling, compare the repository's mockup with the operator's published
-  artifacts; the newer one wins and is frozen the same day. The landing that
-  finishes the surface deletes its mockup.
+  expectation list is ruled, and shows it to him to try. Wording and bug fixes
+  need none. Before any UI ruling, compare the repository's mockup with the
+  operator's published artifacts; the newer one wins and is frozen the same day.
+  The landing that finishes the surface deletes its mockup.
 - **Expectation lists.** A change to a surface, or to behaviour a person relies
   on, starts from ruled sentences: an expectation list across fixed lenses
   (create/change/remove, identity, states, secrets and rights, undo, scale),

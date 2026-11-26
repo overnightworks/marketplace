@@ -185,8 +185,8 @@ operator never blessed.
 
 ## Mockup
 
-Use for: the blessed picture of one surface, frozen before its build. One file
-per surface; a newer blessed mockup replaces the older one in the same change,
+Use for: the decided picture of one surface, frozen before its build. One file
+per surface; a newer mockup replaces the older one in the same change,
 and the item names it, so there is no index. The landing that finishes the
 surface deletes it; a later change starts from a screenshot of the real surface.
 

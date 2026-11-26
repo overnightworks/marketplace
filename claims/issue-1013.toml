@@ -1,0 +1,8 @@
+claim_id = "f270746ad823442f8c92d9f975032867"
+agent = "Claude c1d65467-2dcf-4ef5-921f-526bf349a609"
+role = "builder"
+base = "105433055a56628b035ab0b8e3e3013d58a87f42"
+branch = "claude/issue-1013-opus-stands-in-while-codex-refuses"
+scope = ["instructions/HEAD.md", "plugins/atelier/lane/main.js", "plugins/atelier/workflows/lane.js", "plugins/atelier/workflows/lane.md"]
+opened_commit = "10018d9841d3076dffda6febb9a78435a901e6c9"
+whole_reason = "The ruled stand-in wording lands in the contract, the lane's documentation and the lane comment that restates it, together."

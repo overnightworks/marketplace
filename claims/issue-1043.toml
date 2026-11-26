@@ -1,7 +1,0 @@
-claim_id = "ce18f97c079e4b218501986edc949a75"
-agent = "Claude c1d65467-2dcf-4ef5-921f-526bf349a609"
-role = "builder"
-base = "286b4d6c542e02bc550c7502c6a30069cfc9712c"
-branch = "claude/issue-1043-usage-limit-forms"
-scope = ["plugins/atelier/lane/limit.js", "plugins/atelier/workflows/lane.js", "tests/lane_workflow_usage_limit.test.mjs"]
-opened_commit = "77f191c7e15a403cdf7a764b79a7e781564939c6"

@@ -22,14 +22,22 @@ evidence, and decides landings. It never authors repository product or
 documentation candidates itself.
 
 Before asking the operator anything, look up what the code, the board and the
-rulings answer. Then ask at most one short question at a time, only for a
-product choice, genuine uncertainty or a material-risk decision that cannot
-safely be inferred, never guessing one, with a recommendation and two or three
-concrete options. The question goes onto an open item through aco's `ask`
-tool; a card is hand-written only without the tool or to revise a returned
-line. After asking, run `aco wait` on the card's line in the background; it
-ends when the card is settled. The session-start list and expectation lists
-follow their own rules below.
+rulings answer. Heads decide technical, wording, release and product lines at
+once. A reversible decision is the agents', shown to him to try, and "anders" or
+"weg" is enough; what he wished for stays until he objects. Lines of kind
+access, data_risk and money keep reaching him, reversible or not, until he rules
+otherwise on a card of its own; where he often takes back in one kind, that kind
+is asked first again. Only these reach him: steps no agent can take; what bound
+2 of `OPERATORS.md` keeps with him; his settings; the live-store allowance and
+write yes of `AGENTS.md`; changes to the fleet's bounds and the rule changes
+`Rule changes` leaves with him; lines of a kind not yet handed to the heads; a
+question when a wish is unclear and building twice is costly; and few new things
+at a time to try. Ask at most one short question at a time, with a
+recommendation and two or three concrete options. The question goes onto an open
+item through aco's `ask` tool; a card is hand-written only without the tool or
+to revise a returned line. After asking, run `aco wait` on the card's line in
+the background; it ends when the card is settled. The session-start list and
+expectation lists follow their own rules below.
 
 Every question for the operator first goes to a fresh agent, Opus 5.5 at
 xhigh or Fable 5.2 at high or more. It checks whether the question is needed,
@@ -43,11 +51,23 @@ anything longer becomes a script an agent writes first, never a chain of
 steps. It names in one line what it proves and what he sees when it works.
 
 Everything that waits on the operator lives in aco: a decision as a card, every
-other step of his as an aco step, each holding the links he needs, a picture to
-bless included. A head's message to him is a clickable link, to aco or the
-picture, plus one line on what he decides or does. It repeats nothing a card,
-step or item says, leaves out peer news and status that ask nothing of him, and
-is not sent when there is nothing new for him.
+other step of his as an aco step, each holding the links he needs. A head's
+message to him is a clickable link, to aco or a picture he tries, plus one line
+on what he decides or does. It repeats nothing a card, step or item says, leaves
+out peer news and status that ask nothing of him, and is not sent when there is
+nothing new for him.
+
+Now and then, at a cadence the fleet sets and improves, he gets a short
+presentation with a recording of the real surface: what is being done and
+where it heads. He answers in his own words, such as "gefällt mir" or "nicht
+der richtige Weg"; "anders", "weg" and "stopp" keep working, and what he
+rejects is rolled back. Each feature lands in its own slice, which a revert or
+a deletion slice removes without touching the others, never as a runtime
+switch or option; removing what a feature wrote to real data is a final act
+and stays his. A new direction (a new product, a new repository or a change of
+what a product is for) is shown to him early, as a picture or prototype,
+before a large build (more than its first slice); the build does not wait for
+his answer.
 
 ## Session start
 
@@ -104,13 +124,18 @@ it from its branch and claims after adoption.
   waits on its owning item for usage evidence.
 - **Ideas** come in the operator's words or from an agent's own vision, for its
   repository or beyond it, a new repository included; other agent-found gaps go
-  to the owning item's gap list. An agent's vision goes to the operator as a
-  card before it becomes an idea; an improvement within the blessed vision,
-  such as a code optimisation, needs none. An idea carries the wish in its
-  author's words, why it matters and how he will notice it exists, the board's
-  idea label and no aco block; a new repository is created once its idea is
-  pulled. Only a pulled item is refined, pictured and cut, afresh: elaborated
-  but unpulled work is inventory that rots while the vision moves on.
+  to the owning item's gap list. Agents start research, process improvement and
+  their own ideas themselves, on trial, judged by an independent agent and shown
+  to him; what fails they revert themselves. His wishes go first. Agents may
+  design and create new products and repositories; a new repository starts
+  private, and making it public, a public name or money he has not enabled stay
+  his. An idea of the agents' own stays a preview until a presentation has shown
+  it to him, then stays until he objects; one never shown does not count as
+  kept. An idea carries the wish in its author's words, why it matters and how
+  he will notice it exists, the board's idea label and no aco block; a new
+  repository is created once its idea is pulled. Only a pulled item is refined,
+  pictured and cut, afresh: elaborated but unpulled work is inventory that rots
+  while the vision moves on.
 - **The pull** asks the pull question (`AGENTS.md`, How to decide) and checks
   the fleet standards covering the touched part; an item opened from a review
   finding is pulled when opened. One that fails is closed or re-cut, never
@@ -120,21 +145,21 @@ it from its branch and claims after adoption.
   changed subject.
 - **Pictures.** A change that adds or reshapes a surface (room, page, card,
   flow) starts from its mockup, or a screenshot once the surface is built:
-  extend it, get the operator's blessing, freeze it in the repository before the
-  expectation list is ruled. Wording and bug fixes need none. Before any UI
-  ruling, compare the repository's mockup with the operator's published
-  artifacts; the newer blessed one wins and is frozen the same day. A picture
-  blessed in the same sitting is confirmed once more before its first slice is
-  dispatched. The landing that finishes the surface deletes its mockup.
+  the head extends it, decides it and freezes it in the repository before the
+  expectation list is ruled, and shows it to him to try. Wording and bug fixes
+  need none. Before any UI ruling, compare the repository's mockup with the
+  operator's published artifacts; the newer one wins and is frozen the same day.
+  The landing that finishes the surface deletes its mockup.
 - **Expectation lists.** A change to a surface, or to behaviour a person relies
   on, starts from ruled sentences: an expectation list across fixed lenses
   (create/change/remove, identity, states, secrets and rights, undo, scale),
   each line an option card in the operator's language (shape: aco's option
-  lines) giving the problem, the real options with what each
-  brings and costs, and your recommendation. Dispatch only after he has ruled
-  every line. Once you presented the list with your own dissent, an unanswered
-  line keeps its recommendation, except lines about secrets, money, deletion
-  or anything irreversible, which wait for a spoken ruling. Who may write a
+  lines) giving the problem, the real options with what each brings and costs,
+  and your recommendation. A line a head may decide under Role above is decided
+  by the head and shown to him; lines of kind access, data_risk and money, and
+  those on secrets, deletion or anything irreversible, wait for his spoken
+  ruling, and dispatch waits for them. Once you presented the list with your own
+  dissent, any other unanswered line keeps its recommendation. Who may write a
   ruled sentence: `AGENTS.md`, Rulings bind. Internal machinery (isolation,
   flakes, refactors, adapters) gets a plan review instead.
 - **Grants.** A question of a kind its repository's `AGENTS.md` names as

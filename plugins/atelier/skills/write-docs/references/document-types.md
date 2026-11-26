@@ -185,14 +185,14 @@ operator never blessed.
 
 ## Mockup
 
-Use for: the blessed picture of one surface, frozen before its build. One file
-per surface; a newer blessed mockup replaces the older one in the same change,
+Use for: the decided picture of one surface, frozen before its build. One file
+per surface; a newer mockup replaces the older one in the same change,
 and the item names it, so there is no index. The landing that finishes the
 surface deletes it; a later change starts from a screenshot of the real surface.
 
 Picture: it is the picture.
 
-Mistakes: an unblessed draft kept as current; a second file for the same
+Mistakes: a draft kept as current that no decision froze; a second file for the
 surface; a mockup kept after its surface was finished.
 
 ## Repository document set
@@ -214,7 +214,7 @@ records its list.
 | `docs/ARCHITECTURE.md` | Architecture overview (arc42-lite) | Which parts, who talks to whom, where are the boundaries and the trust? | ≤ 2200 words, with the sections of the skeleton above | context and container diagram, one sequence diagram for the core flow | every repository; a small repository keeps it to a few lines and one diagram |
 | `docs/<contract>.md` | Reference | What exactly does the contract promise, and which test proves each rule? | one contract per file | state or sequence diagram only where the order is the rule | where others implement a contract, or where an app's own surface carries ruled sentences; generated where derivable; each rule carries the ID its test cites, in the rule form below |
 | `docs/runbooks/<task>.md` | Runbook | Which command when, and how do I see it worked? | one task, one screen | flow chart for diagnosis | always for infrastructure, elsewhere where a reader operates something |
-| `docs/mockups/<surface>.html` | Mockup | What does the blessed surface look like? | one file per surface | it is the picture | from the operator's blessing until the landing that finishes its surface |
+| `docs/mockups/<surface>.html` | Mockup | What does the decided surface look like? | one file per surface | it is the picture | from the decision that freezes it (`HEAD.md`, Pictures) until the landing that finishes its surface |
 
 Rule form: a rule is a Markdown list item that opens with its ID and a colon, as `- CALL-26: ...`. An ID is capital letters and digits in hyphen-joined parts that end in a number (`CALL-26`, `REQ-AUTH-3`), unique in its repository and never reused. A table whose header row's first cell is exactly `ID` defines its rows' first-cell IDs wherever it stands. Every other table defines only under a rule's list item: the rule's continuation lines, nested lists and tables belong to it, and a row of such a table whose first cell is an ID defines that ID; prose between rules defines nothing. A retired rule stays as `- CALL-26 (retired).` and needs no test. A test cites a rule at the head of its docstring, after an optional `Spec:`, or at the head of its name (`it("CALL-26: ...")`). The rules of a contract others implement are cited by the implementers' tests.
 

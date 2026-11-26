@@ -1,0 +1,8 @@
+claim_id = "238abcc771064becb670472098b255e8"
+agent = "Claude c1d65467-2dcf-4ef5-921f-526bf349a609"
+role = "builder"
+base = "e1d0dcaf27a2ae745c2dfa3e9675fde35aa6763e"
+branch = "claude/issue-997-lane-readies-its-draft"
+scope = ["plugins/atelier/lane", "plugins/atelier/workflows/lane.js", "plugins/atelier/workflows/lane.md", "tests"]
+opened_commit = "538e52d8020b0acc205916265dbccd0b6d798702"
+whole_reason = "The draft state is read and changed in the lane parts, proven in the lane tests and described in lane.md."

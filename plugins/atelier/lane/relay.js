@@ -69,7 +69,7 @@ async function waitForRateLimitReset(A, spentBefore, callsBefore) {
     const { exhausted, now, reset, slept } = waited.values
     spent += slept
     if (!exhausted.length) return waitCalls === firstOfRound + 1 ? { stop: '`gh api rate_limit` shows nothing exhausted any more, yet the call is still refused.' } : { spent, waitCalls }
-    if (reset - now > RATE_LIMIT_WAIT_BOUND_SECONDS + RATE_LIMIT_RESET_SKEW_SECONDS) return { stop: `The reset ${exhausted.join(', ')} names is more than an hour away.` }
+    if (reset - now > RATE_LIMIT_WAIT_BOUND_SECONDS + RATE_LIMIT_RESET_SKEW_SECONDS) return { stop: `The reset ${exhausted.join(', ')} names is more than ${RATE_LIMIT_WAIT_BOUND_SECONDS} seconds away.` }
     if (now + slept >= reset) return { spent, waitCalls }
     if (spent > RATE_LIMIT_WAIT_BOUND_SECONDS) return { stop: `The refusal held after waiting ${spent} seconds for the reset.` }
   }
@@ -592,7 +592,7 @@ const MERGE_RULES = `Keep both sides' intent in every hunk. The merge commit hol
 // A round without blocking findings is no integration step: a CI fixer's mergeable finding owns the merge of main.
 function mergeInstruction(blocking, ciRound) {
   if (!blocking) return 'Do not merge origin/main: this round asks for the follow-ups only.'
-  if (ciRound) return `Merge origin/main only for a finding whose where is "mergeable" (a merge commit; ${RESOLVE_CONFLICTS}). ${MERGE_RULES} For any other CI finding, fix the red in commits; when it lies outside the diff or passed on your own re-run, dispute it with your evidence (name the main commit that fixes it, if one does), commit nothing and never answer it with a merge of main: the head decides whether a merge answers it.`
+  if (ciRound) return `Merge origin/main only for a finding whose where is "${MERGEABLE_WHERE}" (a merge commit; ${RESOLVE_CONFLICTS}). ${MERGE_RULES} For any other CI finding, fix the red in commits; when it lies outside the diff or passed on your own re-run, dispute it with your evidence (name the main commit that fixes it, if one does), commit nothing and never answer it with a merge of main: the head decides whether a merge answers it.`
   return `Merge origin/main if it moved, before or after your fixes (a merge commit; ${RESOLVE_CONFLICTS}). ${MERGE_RULES}`
 }
 

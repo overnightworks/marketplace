@@ -26,7 +26,7 @@ lists `requiredHeadActions`.
    line show `gate none`. A re-check owed after a REVISE is never skipped. A Claude reviewer that fails
    is started once more; only a second failure ends the round, with both texts
    in the reason. The first review is told that a tester drives the lane's `e2e`
-   text (quoted, cut at 1500 characters) after it: a proof only that drive
+   text (quoted, cut at `TESTER_DRIVE_LIMIT` characters) after it: a proof only that drive
    produces is not a finding at review and is named "left to the tester", and a
    line neither the diff nor that drive proves stays blocking. Every lane has a
    tester, so the brief has no tester-less variant; later rounds do not repeat it.
@@ -170,8 +170,8 @@ The lane needs a repository that coordinates with aco, after the head ran
   rounds anew, so pass `routing.fix` for a lane already past its second round.
 - A fix batch whose blocking findings are all docs and that carries no fold-ins
   runs as `mechanical` in every round.
-- Effort is capped per model: opus at medium (except the stand-in gate) and every
-  other model at high. Without `operatorWord`, an override above its cap, or a
+- Effort is capped per model (`EFFORT_CAP`, except the stand-in gate; a model
+  without an entry is capped at high). Without `operatorWord`, an override above its cap, or a
   model the lane's routing lacks (such as Fable), is refused, and the refusal
   names `operatorWord`; with it, see Optional args (`HEAD.md`, "Model routing").
 - The gate runs on another provider than the builder, except the one Claude gate
@@ -196,7 +196,7 @@ A head that finds a run stopped awaiting-head, or lost, reads `aco lane-record s
   with the resume arguments of the usage limit (`pr`, `tip`, and on a delta round
   `deltaFrom` and `answers`) instead of failed.
 - A Codex courier kills the detached run when its run log stays unchanged for
-  600 seconds (healthy gates stayed silent at most 39 seconds), and the review
+  `SILENCE_LIMIT_SECONDS`, and the review
   starts the courier once more with the same model. A second silent run returns
   awaiting-head at stage `review` with the resume arguments of the usage limit
   (`pr`, `tip`, and on a delta round `deltaFrom` and `answers`); the gate never
@@ -207,12 +207,12 @@ A head that finds a run stopped awaiting-head, or lost, reads `aco lane-record s
   resume.
 - A networked call of the scope or ci printer that fails with a network error
   (cannot resolve or connect to GitHub) or that GitHub's rate limit refuses
-  (primary or secondary) is retried twice after 30 seconds; a
+  (primary or secondary) is retried twice after `NETWORK_WAIT_SECONDS`; a
   call the rate limit still refuses makes the relay wait for the reset
-  `gh api rate_limit` names (an agent step, at most an hour in total) and run
+  `gh api rate_limit` names (an agent step, at most `RATE_LIMIT_WAIT_BOUND_SECONDS` in total) and run
   the step again (a rerun the rate limit refuses again may wait again, within the
-  same hour and at most 16 waits in total); a call that stays unreachable, or whose reset is unreadable,
-  absent or more than an hour away, ends the lane awaiting-head at `scope` (resume
+  same bound and at most `MAX_RATE_LIMIT_WAIT_CALLS` waits in total); a call that stays unreachable, or whose reset is unreadable,
+  absent or more than that bound away, ends the lane awaiting-head at `scope` (resume
   with a new run with `pr` and `tip`, and `deltaFrom` where the stop names it) or
   at `ci` (resume with `pr` and `tip`; a resume from `ci` runs scope and the
   review again) with "GitHub is unreachable" instead of failed; a refusal by the
@@ -239,7 +239,7 @@ A head that finds a run stopped awaiting-head, or lost, reads `aco lane-record s
 - A run started with `pr` and `tip` whose sync hits a merge conflict outside `ledgers`
   and `generated` does not escalate: the sync's printer reads git's own merge of the
   tip and `origin/main` (not the sync agent's note), and a conflict it names, or a
-  path list it cut at 50, starts a fresh fixer with a `mergeable` finding ("the lane
+  path list it cut at `PRINTED_PATH_LIMIT`, starts a fresh fixer with a `mergeable` finding ("the lane
   conflicts with origin/main in <paths>"), first in the carried batch and
   deduplicated against a `mergeable` finding `fixFirst` carries. Its fixer gets the
   plain merging brief, never the CI one, and a disputed answer that changed nothing

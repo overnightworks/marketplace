@@ -21,5 +21,5 @@ function mergeReading({ conflicted, merged, mergedCut, generatedPaths }) {
   const others = merged.filter(path => !conflicted.includes(path) && !generatedPaths.includes(path))
   return ` The fix merges origin/main, which conflicted in ${conflicted.join(', ')}: for each of those paths check that main's change survives (git diff M^1 M -- <path>) and that the lane's survives (git diff M^2 M -- <path>), M being the merge commit; a lost intent or behaviour neither side had is blocking.` +
     others.map(path => ` The merge commit also changes ${path}; check that it keeps main's change and adds no behaviour.`).join('') +
-    (mergedCut ? ' The list of paths the merge commits change is cut at 50: read the rest with git log --first-parent --merges --remerge-diff --name-only --format=.' : '')
+    (mergedCut ? ` The list of paths the merge commits change is cut at ${PRINTED_PATH_LIMIT}: read the rest with git log --first-parent --merges --remerge-diff --name-only --format=.` : '')
 }

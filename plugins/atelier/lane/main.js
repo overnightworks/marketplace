@@ -511,7 +511,7 @@ async function pushAndCheckScope(label, origin) {
   if (!Array.isArray(paths) || !paths.every(path => typeof path === 'string')) return fail('scope', `aco's outside_claim is neither null nor a list of paths: ${JSON.stringify(paths)}`)
   passedOutsidePaths = []
   if (!paths.length) return null
-  // The relay lists at most 50 paths; the unlisted ones cannot be judged.
+  // The relay lists at most PRINTED_PATH_LIMIT paths; the unlisted ones cannot be judged.
   if (values.count === paths.length) {
     history.push({ by: 'scope', outside: paths, tip, passedOutside: true })
     passedOutsidePaths = [...new Set(paths)]

@@ -123,7 +123,7 @@ test('AC-rate-limit-wait: a ci read refused on every in-printer try waits for th
 test('AC-rate-limit-wait: a reset more than an hour ahead ends the lane awaiting-head at scope after one wait', async () => {
   const { result, launchedAgents } = await runLane(resumeArgs, { 'scope-resume': { ...refused, rate_exhausted_calls: RATE_EXHAUSTED_CALLS, rate_reset_in: OVER_THE_HOUR } }, noWait)
   assert.deepEqual([result.status, result.stage], ['awaiting-head', 'scope'])
-  assert.match(result.reason, /GitHub is unreachable[\s\S]*rate limit refused[\s\S]*more than an hour/)
+  assert.match(result.reason, /GitHub is unreachable[\s\S]*rate limit refused[\s\S]*more than \d+ seconds away/)
   assert.equal(launchedAgents.filter(label => label.startsWith('scope-resume-wait')).length, 1)
 })
 

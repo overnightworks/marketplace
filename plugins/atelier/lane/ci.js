@@ -1,12 +1,16 @@
 // Watches the CI of one pull request and returns whether it went green with the failing checks quoted; the lane reads the listing itself.
 // The rules the CI watcher writes into its findings; the lane reads a carried batch by them.
 const CI_CHECK_RULE_PREFIX = 'CI check '
+// The `where` of a finding about the merge state and of the one about a missing CI run.
+const MERGEABLE_WHERE = 'mergeable'
+const CHECKS_WHERE = 'checks'
+const isCiCheckFinding = (f) => (f.rule || '').startsWith(CI_CHECK_RULE_PREFIX)
 const CI_MISSING_RULE = 'CI must run on head'
 const CI_CONFLICT_RULE = 'GitHub runs no CI on a conflicting pull request'
 export async function laneCi(A) {
   const { pr } = A
   const R = A.repoFlag
-  const { inRepo: IN_REPO } = A
+  const { inRepo: IN_REPO, repoApi: REPO_API } = A
 
   // A job qualifies for the one re-run only when the step it failed in is listed here; any other step, or none known, never does.
   const SETUP_STEPS = new Set(['Set up job'])
@@ -48,17 +52,16 @@ export async function laneCi(A) {
 
   function watchCi() {
     const inWorktree = A.repo ? '' : `cd '${A.worktree}' && `
-    const rulesRepoPath = A.repo ? `repos/${A.repo}` : 'repos/{owner}/{repo}'
     return agentAnswer(
       `${A.delegatedLine}\nReport CI for pull request #${pr}${IN_REPO}; change nothing in the repository. ` +
-      `If \`${inWorktree}gh pr view ${pr}${R} --json mergeable --jq .mergeable\` says CONFLICTING, return green false with one failing entry: where "mergeable", kind "defect", text "the pull request conflicts with main", ` +
+      `If \`${inWorktree}gh pr view ${pr}${R} --json mergeable --jq .mergeable\` says CONFLICTING, return green false with one failing entry: where "${MERGEABLE_WHERE}", kind "defect", text "the pull request conflicts with main", ` +
       `rule "${CI_CONFLICT_RULE}", evidence the mergeable value. Otherwise wait in the foreground — you cannot be woken later. First wait until CI has registered the head, because a just-pushed head lists no check yet: run \`${inWorktree}for i in $(seq 1 5); do [ "$(gh pr checks ${pr}${R} --json name --jq length 2>/dev/null)" -gt 0 ] 2>/dev/null && break; sleep 60; done\` (Bash timeout 600000 ms; it ends with status 0 after about 5 minutes even when no check registered, then go on). Then run \`${inWorktree}timeout 540 gh pr checks ${pr}${R} --watch --interval 90\` (Bash timeout 600000 ms) and repeat it until it exits on its own rather than by the timeout, at most 7 times; it exits when every check listed for head has finished, but the listing shows one entry per check name, so a finished run can hide a same-named job of a run still going. After every exit read the head's workflow runs with \`${inWorktree}gh run list --commit "$(gh pr view ${pr}${R} --json headRefOid --jq .headRefOid)" --json status,name --limit 100${R}\`: while any run is not completed, watch again, whatever the listing shows. Never re-run anything: the lane decides that from the facts you return. ` +
       `When it exits on a red check, take every check in the fail bucket of \`${inWorktree}gh pr checks ${pr}${R} --json name,state,bucket,link\`, not only the first; judge only after no check is pending. green is true only when at least one check ran on head ` +
-      `and every check on head succeeded; CI that has not finished is green false with an empty failing, never a failing entry; no checks at all, with no run of head open, is one failing entry: where "checks", kind "defect", text "no CI checks ran on the head commit", rule "${CI_MISSING_RULE}", evidence the gh pr checks output after that wait. For each check in the fail bucket: where = its name, kind = "defect", text = what failed, ` +
+      `and every check on head succeeded; CI that has not finished is green false with an empty failing, never a failing entry; no checks at all, with no run of head open, is one failing entry: where "${CHECKS_WHERE}", kind "defect", text "no CI checks ran on the head commit", rule "${CI_MISSING_RULE}", evidence the gh pr checks output after that wait. For each check in the fail bucket: where = its name, kind = "defect", text = what failed, ` +
       `rule = "${CI_CHECK_RULE_PREFIX}<name>". Take run-id and job-id from the check's link (the link ends …/actions/runs/<run-id>/job/<job-id>). ` +
       `Also return each such check once in red: name, its link as printed, runId, jobId (empty strings when the link is not an Actions job link), findings = the entries you made for that check, and failingStep = the name of the first step whose conclusion is failure in \`${inWorktree}gh run view <run-id>${R} --json jobs --jq '.jobs[]|select(.databaseId==<job-id>)|[.steps[]|select(.conclusion=="failure")|.name][0]'\` (null when it prints nothing or you cannot read it); failing is all findings together. ` +
       evidenceRules(inWorktree) +
-      `Read the required contexts of the base branch only to pace the wait: \`${inWorktree}gh api ${rulesRepoPath}/rules/branches/<base> --jq '[.[]|select(.type=="required_status_checks")|.parameters.required_status_checks[].context]'\`, ` +
+      `Read the required contexts of the base branch only to pace the wait: \`${inWorktree}gh api ${REPO_API}/rules/branches/<base> --jq '[.[]|select(.type=="required_status_checks")|.parameters.required_status_checks[].context]'\`, ` +
       `the base is \`${inWorktree}gh pr view ${pr}${R} --json baseRefName --jq .baseRefName\`. The lane reads them again itself, so neither what you read nor its error is returned or judged; when the read fails, wait as if no required context were missing. ` +
       `If a required context is missing from \`${inWorktree}gh pr checks ${pr}${R} --json name,bucket\` while a run of head is not completed, or a check is still pending after the watch, watch again; re-watching shares the cap of 7 watches and the 540 s timeout per watch. Once every run of head has completed, a missing required context is judged as it stands and is not watched for. ` +
       `When a gh command is refused with "API rate limit" (primary or secondary), wait a few minutes and repeat that command inside the same cap, instead of reporting a red or missing check.`,

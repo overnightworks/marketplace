@@ -18,7 +18,7 @@
 "printedBy" = 37
 
 [function_lines."plugins/atelier/lane/ci.js"]
-"laneCi" = 94
+"laneCi" = 93
 
 [function_lines."plugins/atelier/lane/relay.js"]
 "relayStep" = 457
@@ -27,7 +27,7 @@
 "laneReview" = 260
 
 [function_lines."plugins/atelier/lane/routing.js"]
-"laneRouting" = 62
+"laneRouting" = 61
 
 [function_lines."tests/lane_workflow_harness.mjs"]
 "runLane" = 122

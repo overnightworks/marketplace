@@ -74,7 +74,7 @@ export async function laneReview(A) {
   // Only the first round names the tester: later rounds judge a delta the first review already framed.
   function testerParagraph() {
     if (A.after !== 0) return ''
-    const drive = A.e2e.length > 1500 ? `${A.e2e.slice(0, 1500)}\n[cut here: the lane's e2e argument is longer]` : A.e2e
+    const drive = A.e2e.length > TESTER_DRIVE_LIMIT ? `${A.e2e.slice(0, TESTER_DRIVE_LIMIT)}\n[cut here: the lane's e2e argument is longer]` : A.e2e
     return `This is the first review: a tester drives the change through its real entry point after this review; the lane asks it to drive:\n${drive}\n` +
       `A proof only that drive produces (a browser proof, a live run, a screenshot) is not a finding at review: name that line as "left to the tester" in your report. ` +
       `A line neither the diff nor that drive proves stays blocking.\n\n`
@@ -151,7 +151,7 @@ export async function laneReview(A) {
     const brief = `${A.delegatedLine}\nRead-only sandbox: read files and run read-only commands freely; do not run tests. The item body and the pull request body follow this brief: they are the contract core and the verification evidence. The sandbox has no network and cannot write, /tmp included; report a command you cannot run as not verified, never as a blocking finding.\n` + reviewerBrief(role, range) +
       `\nGive every finding its file:line in "where".`
     // The token carries the brief's checksum, so one marker pair names one text. The courier prompt holds the brief between the two marker lines and the courier's command cuts it out of the courier's own transcript.
-    const briefChecksum = crc32OfUtf8(brief.split(/[ \t\n\r\f\v]+/).filter(Boolean).join(' '))
+    const briefChecksum = crc32(brief.split(/[ \t\n\r\f\v]+/).filter(Boolean).join(' '))
     const token = `${A.tag}-${label}-${briefChecksum}`
     const markers = { start: `BRIEF-START ${token}`, end: `BRIEF-END ${token}` }
     const checkBrief = `{ [ "$(python3 -c '${BRIEF_CRC_PRINTER}' < ${base}-brief.md)" = ${briefChecksum} ] || { echo '${BRIEF_MISMATCH}' >&2; false; }; }`
@@ -238,7 +238,7 @@ export async function laneReview(A) {
     return {
       history: { after: A.after, by: reviewer.key, tip: A.tip, verdict, blocking: blocking.map(f => f.where), reportPath },
       gateRounds: reviewer.isGate && !result.limit ? [{ after: A.after, verdict, blocking, reportPath, tip: A.tip }] : [],
-      followups: (result.followups || []).map(f => ({ ...f, stage: reviewer.key === 'review' ? 'review' : 'gate', tip: A.tip })),
+      followups: (result.followups || []).map(f => ({ ...f, stage: VERDICT_STAGES[reviewer.key], tip: A.tip })),
     }
   }
 
@@ -260,6 +260,9 @@ export async function laneReview(A) {
   return { ...outcome, verdict: classify(results, A.reviewers.length) }
 }
 
+// The most characters of the lane's e2e argument the first review's brief quotes.
+const TESTER_DRIVE_LIMIT = 1500
+
 // What the courier's start command prints when the brief file is not the brief the script wrote.
 const BRIEF_MISMATCH = 'brief file differs from the brief the script wrote'
 // What the courier's extraction command prints when no transcript record of the courier holds both marker lines of the brief.
@@ -271,7 +274,7 @@ const CRC_TABLE = Array.from({ length: 256 }, (_, n) => {
   return crc >>> 0
 })
 // CRC32 over the UTF-8 bytes, as Python's zlib.crc32 computes it for the file the courier wrote.
-function crc32OfUtf8(text) {
+function crc32(text) {
   let crc = 0xffffffff
   for (const byte of utf8BytesOf(text)) crc = CRC_TABLE[(crc ^ byte) & 255] ^ (crc >>> 8)
   return ((crc ^ 0xffffffff) >>> 0).toString(16).padStart(8, '0')

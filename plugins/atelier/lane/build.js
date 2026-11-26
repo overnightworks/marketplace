@@ -3,7 +3,7 @@ export async function laneBuild(A) {
   const BUILD = {
     type: 'object',
     required: ['pr', 'tip', 'reuse', 'blocked'],
-    properties: { pr: { type: 'number', minimum: 1, description: 'the number of the open pull request you opened for this lane' }, tip: { type: 'string', pattern: '^[0-9a-f]{7,40}$', description: 'a commit sha from git rev-parse, nothing else' }, summary: { type: 'string' }, reuse: { type: 'string', description: 'the owner you extended (module and function), or the search you ran and why nothing found fits' }, blocked: { type: 'boolean' }, blockedReason: { type: 'string' } },
+    properties: { pr: { type: 'number', minimum: 1, description: 'the number of the open pull request you opened for this lane' }, tip: { type: 'string', pattern: SHA.source, description: 'a commit sha from git rev-parse, nothing else' }, summary: { type: 'string' }, reuse: { type: 'string', description: 'the owner you extended (module and function), or the search you ran and why nothing found fits' }, blocked: { type: 'boolean' }, blockedReason: { type: 'string' } },
   }
 
   // An end without a result is a null the lane reports; so is an unblocked answer without an open pull request, which the schema's minimum names but a runtime need not enforce.

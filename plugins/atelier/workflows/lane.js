@@ -552,18 +552,15 @@ function retitleStepProblem(relayed, ownSteps) {
   if (!relayed || relayed.problem) return `the title step ${relayed ? relayed.problem : 'returned no result'}`
   return relayed.unreachable && relayed.values.unreachable.some(name => ownSteps.includes(name)) ? relayed.unreachable : null
 }
-// The pull request's title from the step's one REST read, as the printer's 100-character cut left it.
-// The draft flag arrives whole as its own value, not a boolean when the read failed or the flag is missing.
-function pulledRequest(pull) {
-  try { return pull.code === 0 ? JSON.parse(pull.out) : {} } catch { return {} }
-}
 // Why the pull request keeps its checkpoint title, or null when it was renamed or never carried it; the printer's retitle step reads both titles and writes only on a match.
+// The title and the draft flag arrive whole as their own values of the pull read, never cut out of its capped output.
 function checkpointRenameProblem(relayed, item) {
   const stepProblem = retitleStepProblem(relayed, ['pull', 'item', 'retitle'])
   if (stepProblem) return stepProblem
   const { pull, item: itemTitle, retitle } = relayed.values
   if (pull.code !== 0) return `reading the pull request exited ${pull.code}: ${pull.err}`
-  if (pulledRequest(pull).title !== checkpointTitle(item)) return null
+  if (typeof pull.title !== 'string') return `the pull request title could not be read (reading the pull request exited ${pull.code}: ${pull.err})`
+  if (pull.title !== checkpointTitle(item)) return null
   if (itemTitle.code !== 0) return `reading the item title exited ${itemTitle.code}: ${itemTitle.err}`
   return retitle.code === 0 ? null : `the title write exited ${retitle.code}: ${retitle.err}`
 }
@@ -691,7 +688,7 @@ async function relayStep(A) {
     'unmet={c:buckets.get(c,"missing") for c in contexts or [] if buckets.get(c,"missing")!="pass"}',
     'values.update({n:{**values[n],**x} for n,x in(("checks",None if listing is None else dict(count=len(listing),open=[dict(name=c["name"],bucket=c["bucket"]) for c in listing if c["bucket"] not in("pass","skipping")])),("rules",None if contexts is None else dict(required=unmet) if unmet else {})) if x is not None})',
     'unfinished=sorted({r["name"] for r in parsed("headruns") or [] if r["status"]!="completed"})',
-    'values.update(**({"headruns":{**values["headruns"],"open":unfinished}} if unfinished else {}),**({"pull":{**values["pull"],"draft":pulled(ran).get("draft")}} if "pull" in ran else {}))',
+    'values.update(**({"headruns":{**values["headruns"],"open":unfinished}} if unfinished else {}),**({"pull":{**values["pull"],"draft":pulled(ran).get("draft"),"title":pulled(ran).get("title")}} if "pull" in ran else {}))',
     'values.update(**(dict(head=view["headRefOid"],changed_index=[i for i,p in enumerate(received) if p in {f["filename"] for page in parsed("changed") or [] for f in page}],shared=[c["name"] for c in listing or [] if c["bucket"]=="fail" and c["name"] in failed_on_base]) if view else {}))',
     'values.update(**({"lane":{**values["lane"],**laneview(ran["lane"].stdout,rest[1])}} if "lane" in ran and ran["lane"].returncode==0 else {}))',
     String.raw`values.update(**({"log":{**values["log"],"pull_only":any(re.search(r"^! red .*[0-9]+ (undeclared loosenings?|declarations? unmatched)\b",re.sub(r"^[^\t]*\t[^\t]*\t\S+ ","",re.sub(r"\x1b\[[0-9;]*m","",l))) for l in ran["log"].stdout.splitlines()),"loosenings":any("only declared loosenings \u00b7 only the operator merges it" in l for l in ran["log"].stdout.splitlines()),"merge":next((m[1] for l in ran["log"].stderr.splitlines()+ran["log"].stdout.splitlines() if "next:" in l and (m:=re.search("(quality merge [A-Za-z0-9._-]+/[A-Za-z0-9._-]+#[0-9]+)",l))),"")}} if "log" in ran else {}))`,
@@ -1182,6 +1179,24 @@ const pathsArgument = (paths) => paths.map(path => percentEncoded(path).replaceA
 // The operator's word as one argument of unreserved characters, so the prompt's indentation and a copier's quoting cannot change it.
 const wordArgument = percentEncoded
 
+// The phrase Codex prints when the account is out of usage (typographic apostrophe in "You’ve", so the match starts after it).
+const USAGE_LIMIT = 'hit your usage limit'
+// The line Codex prints, as its last line, when the account does not serve the routed model.
+const refusalStart = model => `ERROR: The '${model}' model is not supported`
+
+// A limit or a refusal counts only as the reason of a failed Codex run that exited above 0; a refusal only for the gate of a lane that names a stand-in for it;
+// anywhere else it is a courier's mistake and dropped. Only the refusal line's start is checked: the courier read the last line, as it did for the limit.
+function guardCourierStop(answer, reviewer, gateStandIn) {
+  if (!answer?.limit && !answer?.refusal) return answer
+  const { limit, refusal, ...rest } = answer
+  const failedCodexRun = reviewer.provider === 'codex' && answer.verdict === 'failed' && answer.codexExit > 0
+  if (failedCodexRun && typeof limit?.line === 'string' && limit.line.includes(USAGE_LIMIT)) {
+    return { ...rest, limit: { role: reviewer.key, model: reviewer.routing.model, line: limit.line, resetsAt: limit.resetsAt ?? null } }
+  }
+  const refused = failedCodexRun && reviewer.isGate && gateStandIn && typeof refusal?.line === 'string' && refusal.line.startsWith(refusalStart(reviewer.routing.model))
+  return refused ? { ...rest, refusal: { model: reviewer.routing.model, line: refusal.line } } : rest
+}
+
 // Runs every reviewer of one review round (a fresh Claude reviewer, a Codex courier) in parallel and returns their results with the round verdict.
 async function laneReview(A) {
   const MECHANICAL = A.mechanical
@@ -1209,8 +1224,6 @@ async function laneReview(A) {
       codexExit: { type: 'number', description: 'the exit status Codex wrote to the marker file (couriers only)' },
     },
   }
-  // The phrase Codex prints when the account is out of usage (typographic apostrophe in "You’ve", so the match starts after it).
-  const USAGE_LIMIT = 'hit your usage limit'
   // The error Codex prints when the courier started it without writing the output schema first.
   const SCHEMA_READ_ERROR = 'Failed to read output schema file'
   // A courier whose Codex never produced a verdict: it started none (its brief file is not the brief the script wrote, or no brief could be cut out of its transcript), or its run was killed.
@@ -1227,10 +1240,11 @@ async function laneReview(A) {
     required: ['line', 'resetsAt'],
     properties: { line: { type: 'string' }, resetsAt: { type: ['string', 'null'] } },
   }
+  const REFUSAL = { type: 'object', required: ['line'], properties: { line: { type: 'string' } } }
   const COURIER_VERDICT = {
     ...VERDICT,
     required: [...VERDICT.required, 'codexExit'],
-    properties: { ...VERDICT.properties, limit: LIMIT },
+    properties: { ...VERDICT.properties, limit: LIMIT, refusal: REFUSAL },
   }
 
   // The reviewer is the only brake until a ratchet checks these.
@@ -1359,7 +1373,8 @@ async function laneReview(A) {
       `   Return verdict failed only when the 7 waits are spent without a marker (codexExit -1), the exit status is not 0 (codexExit = that number), or the file is missing or not valid JSON. ` +
       `Then give the last 20 lines of ${base}-run.log in note.\n` +
       `   When the exit status is above 0, also run: grep -v '^[[:space:]]*$' ${base}-run.log | tail -n 1\n` +
-      `   Only that last non-empty line counts, because the log echoes the brief. If it contains "${USAGE_LIMIT}", Codex is out of usage: add limit to the answer, with line that line verbatim and resetsAt the text after "try again at" (any case) to the end of the line without a final period, or null when the line has none. Never wait for the reset and never retry a limit.\n${STRUCTURED_OUTPUT_ONLY_LINE}`
+      `   Only that last non-empty line counts, because the log echoes the brief. If it contains "${USAGE_LIMIT}", Codex is out of usage: add limit to the answer, with line that line verbatim and resetsAt the text after "try again at" (any case) to the end of the line without a final period, or null when the line has none. Never wait for the reset and never retry a limit.\n` +
+      `   If that last non-empty line instead starts with "${refusalStart(routing.model)}", Codex refuses the model: add refusal to the answer, with line that line verbatim. Never retry a refusal.\n${STRUCTURED_OUTPUT_ONLY_LINE}`
     const runCourier = courierLabel => safeAgent(courierPrompt, { label: courierLabel, phase: 'Review', schema: COURIER_VERDICT, ...MECHANICAL })
     return runCourier(label)
       .then(v => retryFailedStart(v, runCourier, label))
@@ -1367,19 +1382,18 @@ async function laneReview(A) {
       .then(v => (v && v.codexExit !== 0 && v.verdict !== 'failed') ? { ...v, verdict: 'failed', note: `courier returned a verdict without a clean Codex exit (${v.codexExit}): ${v.note || ''}` } : v)
   }
 
-  // A limit counts only as the reason of a failed Codex run that exited above 0; anywhere else it is a courier's mistake and dropped.
-  function guardLimit(answer, reviewer) {
-    if (!answer?.limit) return answer
-    const { limit, ...rest } = answer
-    const guarded = reviewer.provider === 'codex' && answer.verdict === 'failed' && answer.codexExit > 0 && typeof limit.line === 'string' && limit.line.includes(USAGE_LIMIT)
-    return guarded ? { ...rest, limit: { role: reviewer.key, model: reviewer.routing.model, line: limit.line, resetsAt: limit.resetsAt ?? null } } : rest
+  // The refused gate is replaced in its own round by a fresh Claude reviewer with the gate's brief, so the round's other results stay.
+  // gateRefusal tells the lane to hold the stand-in for the rest of the run.
+  async function standInForRefusal(reviewer, label, range, refusal) {
+    log(`${label}: Codex refuses ${refusal.model}; the gate runs on ${A.gateStandIn.model}/${A.gateStandIn.effort}`)
+    return { ...await claudeReview(`${label}-standin`, A.gateStandIn, reviewer.role, range), gateRefusal: refusal }
   }
 
-  const reviewBy = (reviewer, range) => {
+  const reviewBy = async (reviewer, range) => {
     const label = `${A.label}-${reviewer.key}`
-    return reviewer.provider === 'codex'
-      ? codexReview(label, reviewer.routing, reviewer.role, range).then(answer => guardLimit(answer, reviewer))
-      : claudeReview(label, reviewer.routing, reviewer.role, range).then(answer => guardLimit(answer, reviewer))
+    if (reviewer.provider !== 'codex') return guardCourierStop(await claudeReview(label, reviewer.routing, reviewer.role, range), reviewer, A.gateStandIn)
+    const answer = guardCourierStop(await codexReview(label, reviewer.routing, reviewer.role, range), reviewer, A.gateStandIn)
+    return answer?.refusal ? standInForRefusal(reviewer, label, range, answer.refusal) : answer
   }
 
   // One failure text stays short in the round's reason; the two texts of a retried reviewer fit together.
@@ -1629,6 +1643,35 @@ function skipSampledLook(round) {
   sampledSkip = round.verdict.reason ?? `the gate returned no verdict (${round.verdict.state})`
   return null
 }
+
+// The finding and follow-up schemas every reviewer, tester and fixer answers in.
+// A finding carries the rule it breaks and the evidence for it, so a fixer never acts on a bare assertion. Its kind
+// decides what proves the fix: a defect's test fails before it, a test-gap's test fails under a named mutation.
+const FINDING_KINDS = ['defect', 'test-gap', 'docs']
+const FINDING = {
+  type: 'object',
+  required: ['where', 'kind', 'text', 'rule', 'evidence'],
+  properties: {
+    where: { type: 'string', description: 'file:line, or the check or scenario name' },
+    kind: { type: 'string', enum: FINDING_KINDS, description: 'defect: the code breaks a rule or its promise; test-gap: a behaviour without a test, the code is right and only the test pinning it is missing; docs: only text is wrong' },
+    text: { type: 'string' },
+    rule: { type: 'string', description: 'the contract sentence, spec criterion, repository rule or check it breaks' },
+    evidence: { type: 'string', description: 'what was observed: the code, the output, the failing log lines' },
+    repro: { type: 'string', description: 'a command that shows it, when there is one' },
+    testDraft: { type: 'string', description: 'path of a drafted failing test, when the finding can be automated stably' },
+  },
+}
+const FOLLOWUP = {
+  type: 'object',
+  required: ['where', 'text', 'owner'],
+  properties: {
+    where: { type: 'string' }, text: { type: 'string' }, owner: { type: 'string', description: 'owning item #n, or "distributor"' },
+    stage: { type: 'string', enum: FINDING_STAGE_NAMES, description: 'the stage that raised it; the lane sets it on every follow-up it reports' },
+    inPlace: { type: 'boolean', description: `true when ${IN_PLACE_RULE}: the lane's fixer resolves it in place; the head's foldIn leaves it out, since naming a follow-up there counts as in place` },
+  },
+}
+// A reviewer or tester must classify every follow-up it reports; the head's foldIn input check reads FOLLOWUP, which leaves inPlace out of its string fields.
+const REPORTED_FOLLOWUP = { ...FOLLOWUP, required: [...FOLLOWUP.required, 'inPlace'] }
 
 // A run stores its stages on the claim as segments: a segment is one aco run, the span of the run's stages between two proven points (a review that approves the tip, a gate that approves it on a material lane, the tester's pass).
 // aco sums the counts and joins the verdicts over the stored runs, so each segment's record holds only its own slice of the history for the verdicts and the --ran stages, and the run's counts since the segment's start; the approvals of the earlier segments stay in the history.
@@ -1929,7 +1972,8 @@ const PROVIDER_EFFORTS = OPERATOR_WORD ? { ...LANE_PROVIDER_EFFORTS, ...OPERATOR
 const EFFORT_CAP = { opus: 'medium' }
 const WORD_HINT = OPERATOR_WORD ? '' : '; more needs the operator\'s word, passed as operatorWord and quoted in the item'
 // The one Claude gate: opus at high stands in while Codex is at its usage limit or refuses the gate model (instructions/HEAD.md, Reviews and gates); it is the one effort above medium opus may have.
-const isGateStandIn = (role, model, effort) => role === 'gate' && model === 'opus' && effort === 'high'
+const GATE_STAND_IN = { model: 'opus', effort: 'high' }
+const isGateStandIn = (role, model, effort) => role === 'gate' && model === GATE_STAND_IN.model && effort === GATE_STAND_IN.effort
 const REVIEWER_PROVIDER = A.reviewer || 'claude'
 const HARD_ROW = { model: 'sonnet', effort: 'high' }
 const WRITER = MATERIAL ? HARD_ROW : { model: 'sonnet', effort: 'medium' }
@@ -1955,34 +1999,6 @@ const claudeRole = (role) => ({ model: ROUTING[role].model, effort: ROUTING[role
 // Every prompt opens with the delegated line, as do the parts'.
 const DELEGATED_LINE = 'This is a delegated step started by a head, not a main session: skip the session-start routine and do only this brief.'
 
-// --------------------------------------------------------------- schemas
-// A finding carries the rule it breaks and the evidence for it, so a fixer never acts on a bare assertion. Its kind
-// decides what proves the fix: a defect's test fails before it, a test-gap's test fails under a named mutation.
-const FINDING_KINDS = ['defect', 'test-gap', 'docs']
-const FINDING = {
-  type: 'object',
-  required: ['where', 'kind', 'text', 'rule', 'evidence'],
-  properties: {
-    where: { type: 'string', description: 'file:line, or the check or scenario name' },
-    kind: { type: 'string', enum: FINDING_KINDS, description: 'defect: the code breaks a rule or its promise; test-gap: a behaviour without a test, the code is right and only the test pinning it is missing; docs: only text is wrong' },
-    text: { type: 'string' },
-    rule: { type: 'string', description: 'the contract sentence, spec criterion, repository rule or check it breaks' },
-    evidence: { type: 'string', description: 'what was observed: the code, the output, the failing log lines' },
-    repro: { type: 'string', description: 'a command that shows it, when there is one' },
-    testDraft: { type: 'string', description: 'path of a drafted failing test, when the finding can be automated stably' },
-  },
-}
-const FOLLOWUP = {
-  type: 'object',
-  required: ['where', 'text', 'owner'],
-  properties: {
-    where: { type: 'string' }, text: { type: 'string' }, owner: { type: 'string', description: 'owning item #n, or "distributor"' },
-    stage: { type: 'string', enum: FINDING_STAGE_NAMES, description: 'the stage that raised it; the lane sets it on every follow-up it reports' },
-    inPlace: { type: 'boolean', description: `true when ${IN_PLACE_RULE}: the lane's fixer resolves it in place; the head's foldIn leaves it out, since naming a follow-up there counts as in place` },
-  },
-}
-// A reviewer or tester must classify every follow-up it reports; the head's foldIn input check reads FOLLOWUP, which leaves inPlace out of its string fields.
-const REPORTED_FOLLOWUP = { ...FOLLOWUP, required: [...FOLLOWUP.required, 'inPlace'] }
 const entryProblem = badEntry('fixFirst', A.fixFirst, FINDING) || badEntry('foldIn', A.foldIn, FOLLOWUP)
 if (entryProblem) return { status: 'failed', stage: 'input', reason: entryProblem }
 // A part that throws is a problem naming it, which its caller stops on at the stage of its own step.
@@ -2052,7 +2068,7 @@ const listFindings = (list) => list.map((f, i) =>
 // ------------------------------------------------------------ reviewers
 // The ordinary review may come from the builder's own provider (the contract asks only for a fresh, independent agent); a fresh Claude reviewer is the
 // default, Sonnet at high effort and Opus at medium on material risk. The final gate on a material lane runs on Codex through a courier, because the
-// Claude builder needs another provider; routing.gate may name the Opus stand-in, which runs as a fresh Claude reviewer. laneReview runs one round and classifies it.
+// Claude builder needs another provider; routing.gate may name the Opus stand-in, which runs as a fresh Claude reviewer, and a gate Codex refuses for its model is replaced by it in the lane's own round. laneReview runs one round and classifies it.
 const ROUND_STATES = new Set(['approve', 'revise', 'failed', 'architectural', 'limited', 'brief-mismatch', 'no-brief-record', 'hung'])
 
 // ------------------------------------------------------------ state
@@ -2070,14 +2086,15 @@ const fixRoundsByStage = zeroCounts()  // the stage whose findings each fix roun
 const seen = new Map()  // finding key -> how often it came back after a fix
 let productionSinceTest = false  // any fix since the last end-to-end test touched production
 let productionSinceGate = false  // any fix since the last unlimited gate result touched production
+let gateRefused = false  // a Codex gate refused its model in this run, so the stand-in ran for that reason
 let gateUnseen = null  // the range a stand-in reviewer re-checked for a gate at its usage limit: {seenTip, findings, limit}, and every result adds tip
 const folded = new Map()  // follow-up key -> the follow-up, with the tip of the accepted fix that folded it in
 const declined = new Map()  // follow-up key -> the reason the fixer gave for leaving it; it stays open and no fixer is handed it again
 const REVIEW = { key: 'review', provider: REVIEWER_PROVIDER, role: 'independent reviewer' }
-const GATE = { key: 'gate', provider: MODEL_PROVIDER[ROUTING.gate.model], role: 'final gate (architecture, data safety, public contract)' }
+// The provider follows the routed gate, which a refused Codex gate changes to the stand-in for the rest of the run.
+const GATE = { key: 'gate', get provider() { return MODEL_PROVIDER[ROUTING.gate.model] }, role: 'final gate (architecture, data safety, public contract)' }
 const STANDIN = { key: 'standin', provider: 'claude', role: "stand-in reviewer (the final gate's provider is at its usage limit)" }
 const ALL = MATERIAL ? [REVIEW, GATE] : [REVIEW]
-
 function openFollowups() {
   const open = new Map()
   followups.forEach(f => { if (!folded.has(findingKey(f)) && !open.has(findingKey(f))) open.set(findingKey(f), declined.has(findingKey(f)) ? { ...f, declined: declined.get(findingKey(f)) } : f) })
@@ -2227,7 +2244,9 @@ async function reviewRound(which, range, from, sampledLook) {
   if (!sampledLook) startedStages.review = true
   const after = sampledLook?.after ?? spent.total
   const reviewers = which.map(r => ({ key: r.key, provider: r.provider, role: r.role, isGate: r === GATE, routing: claudeRole(REVIEWER_ROUTING_ROWS[r.key]) }))
-  const answer = await runPart('lane-review', laneReview, { item: A.item, pr, repo: A.repo, repoFlag: R, after, tip, delegatedLine: DELEGATED_LINE, worktree: A.worktree, branch: A.branch, scratch: A.scratch, tag: TAG, label: `r${after}`, range, reuse: buildReuse, e2e: A.e2e, contract: A.contract, blockingLine: BLOCKING_LINE, reviewers, findingKinds: FINDING_KINDS, finding: FINDING, followup: REPORTED_FOLLOWUP, mechanical: MECHANICAL })
+  const answer = await runPart('lane-review', laneReview, { item: A.item, pr, repo: A.repo, repoFlag: R, after, tip, delegatedLine: DELEGATED_LINE, worktree: A.worktree, branch: A.branch, scratch: A.scratch, tag: TAG, label: `r${after}`, range, reuse: buildReuse, e2e: A.e2e, contract: A.contract, blockingLine: BLOCKING_LINE, reviewers, findingKinds: FINDING_KINDS, finding: FINDING, followup: REPORTED_FOLLOWUP, mechanical: MECHANICAL, gateStandIn: MATERIAL && !sampledLook ? GATE_STAND_IN : null })
+  // A Codex gate that refused its model was replaced in its round by the stand-in; the run keeps it, so a re-check has the gate's row and the record names the one gate that ran.
+  if ((answer?.results ?? answer?.finished?.results ?? []).some(result => result?.gateRefusal)) { gateRefused = true; ROUTING.gate = { ...GATE_STAND_IN } }
   const unfit = unfitRoundAnswer(answer, which.length)
   if (unfit) {
     // The reviewers that finished before a usage limit keep their records, so the resume carries their findings.
@@ -2671,7 +2690,7 @@ return {
     ...await checkpointRenameActions(),
     `land with \`aco land ${pr} --head ${tip}\` only while the pull request head is still ${tip}`,
     ...(OPERATOR_WORD ? [`quote the operatorWord with its source in the body of pull request #${pr}: the lane may have run above the effort cap or on fable on the operator's word`] : []),
-    ...(MATERIAL && isGateStandIn('gate', ROUTING.gate.model, ROUTING.gate.effort) ? [`name the Opus 5.5 stand-in as the final gate in the body of pull request #${pr}: the lane ran no Codex gate`] : []),
+    ...(MATERIAL && isGateStandIn('gate', ROUTING.gate.model, ROUTING.gate.effort) ? [`name the Opus 5.5 stand-in as the final gate in the body of pull request #${pr}: ${gateRefused ? 'Codex refused the gate model' : 'the lane ran no Codex gate'}`] : []),
     ...(gateUnseen ? [`name ${gateUnseen.seenTip}..${tip} in the body of pull request #${pr}: the final gate, at its usage limit, did not see that range`] : []),
     ...(raisedBeforeTip(stillOpen).length ? ['re-check the follow-ups in raisedBeforeTip against the returned tip before routing them'] : []),
     ...(stillOpen.length ? [`route ${stillOpen.length} follow-up(s) to their owning items before landing`] : []),

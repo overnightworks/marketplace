@@ -1,7 +1,0 @@
-claim_id = "116ab8a7aef5428e9bdf03d77856393f"
-agent = "Claude c1d65467-2dcf-4ef5-921f-526bf349a609"
-role = "builder"
-base = "620e8337bd62575369f1d4bbe79803b673f6b3ae"
-branch = "claude/issue-1022-sampled-resume-not-taken-for-lost"
-scope = ["plugins/atelier/lane/relay.js", "plugins/atelier/workflows/lane.js", "tests/lane_workflow_sampled_gate.test.mjs"]
-opened_commit = "e0a8546c51ed057fd4b6c971a37486278a67cd71"

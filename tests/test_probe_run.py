@@ -162,8 +162,13 @@ def test_a_client_that_tries_ipv6_localhost_first_exchanges_data_with_a_host_ipv
 
 @pytest.mark.parametrize(
     ("missing_tool", "present_tools"),
-    [("pasta", ()), ("pgrep", ("pasta",)), ("unshare", ("pasta", "pgrep"))],
-    ids=["pasta-missing", "pgrep-missing", "unshare-missing"],
+    [
+        ("pasta", ()),
+        ("pgrep", ("pasta",)),
+        ("unshare", ("pasta", "pgrep")),
+        ("unshare", ("pasta", "pgrep", "unshare")),
+    ],
+    ids=["pasta-missing", "pgrep-missing", "unshare-missing", "unshare-without-map-user"],
 )
 def test_fails_loud_without_starting_when_a_network_tool_is_missing(
     real_machine, tmp_path, missing_tool, present_tools

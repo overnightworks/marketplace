@@ -22,9 +22,9 @@
 # The namespace comes from pasta (package passt), IPv4 only: the host's listening TCP ports are
 # reachable on 127.0.0.1 and localhost in it, outbound traffic and DNS work, and the bridge and veth
 # changes other sessions' containers cause never reach it, so Chromium reports no
-# net::ERR_NETWORK_CHANGED. The command keeps the starter's uid and gid there, through a user namespace nested in pasta's. A host
-# listener on ::1 alone and a container that calls back to a server in the namespace are not
-# reached. IPv6 stays off because pasta would accept a client that tries ::1 first (curl,
+# net::ERR_NETWORK_CHANGED. The command keeps the starter's uid and gid there, through a user
+# namespace nested in pasta's. A host listener on ::1 alone and a container that calls back to a
+# server in the namespace are not reached. IPv6 stays off because pasta would accept a client that tries ::1 first (curl,
 # Playwright) and reset it when the host listens on IPv4 only; with IPv4 only the client is refused
 # at once and falls back to 127.0.0.1. timeout runs inside the namespace. pasta ends at once on
 # TERM, leaves its child running and clears the death signal on its exec, so a relay between the

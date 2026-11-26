@@ -400,7 +400,8 @@ function adoptFixerTip(fixed) {
 async function acceptFix(fixed, blocking, foldIn) {
   const declinedBy = fixed.foldInDeclined
   if (fixed.outsidePaths.length) return { stop: await openResult('failed', 'fix', { reason: `the fixer reported paths outside the worktree: ${fixed.outsidePaths.join(', ')}` }) }
-  tip = fixed.tip
+  if (fixed.answeredOutside && fixed.unchanged) adoptFixerTip(fixed)  // the re-check judges a new round, so it is not read as the same round's split verdict
+  else tip = fixed.tip
   if (fixed.touchesProduction) {
     productionSinceTest = true
     productionSinceGate = true

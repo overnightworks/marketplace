@@ -20,12 +20,14 @@ CONTRACT = """# Global contract
 ## Code
 """
 HEAD_CONTRACT = "## Lanes\n\n## Landing\n"
+CODE_CONTRACT = "## Reviews\n"
 
 
 @pytest.fixture
 def contract() -> dict:
     return {
         "AGENTS.md": check_references.parse_section(CONTRACT),
+        "CODE.md": check_references.parse_section(CODE_CONTRACT),
         "HEAD.md": check_references.parse_section(HEAD_CONTRACT),
     }
 
@@ -43,6 +45,7 @@ def problems_in(text: str, contract: dict) -> list[str]:
         pytest.param("`HEAD.md`: \"Lanes\", Trace before the claim", id="colon-separator-checks-the-first-quoted-target"),
         pytest.param('`instructions/HEAD.md`, sections "Lanes" and "Landing"', id="sections-list-of-two-quoted-names"),
         pytest.param("`instructions/HEAD.md`, sections\n  \"Lanes\" and \"Landing\"", id="reference-wrapped-over-a-line-break"),
+        pytest.param("`instructions/CODE.md`, Reviews", id="code-policy-file-with-directory-and-plain-heading"),
         pytest.param("`AGENTS.md`, `README.md`", id="target-naming-another-file-is-no-reference"),
         pytest.param("AGENTS.md, for every agent", id="lower-case-description-is-no-reference"),
         pytest.param("`AGENTS.md`, Code ('Cases of one shape are data in the one owner')", id="quote-ignoring-emphasis"),
@@ -57,6 +60,7 @@ def test_resolving_reference_forms_raise_no_problem(reference: str, contract: di
     ("reference", "reason"),
     [
         pytest.param('`instructions/AGENTS.md`, "Missing part"', "has no section 'Missing part'", id="broken-quoted-heading"),
+        pytest.param("`instructions/CODE.md`, Gone", "has no section 'Gone'", id="broken-heading-in-the-code-policy-file"),
         pytest.param("HEAD.md, Landing zone", "has no section 'Landing zone'", id="broken-plain-heading"),
         pytest.param('HEAD.md, sections "Lanes" and "Gone"', "has no section 'Gone'", id="one-broken-name-in-a-sections-list"),
         pytest.param("`AGENTS.md`, Code ('A sentence nobody wrote')", "does not hold the quote 'A sentence nobody wrote'", id="misquoted-sentence"),

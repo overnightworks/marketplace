@@ -3,7 +3,8 @@
 Atelier is the operator's shared agent toolkit: a plugin of skills,
 provider-native agents and Claude Code workflows for Codex and Claude Code, plus
 the agent contract and code policy that Codex, Claude Code and Grok all read:
-one file for every agent and one more for the head. It serves the agent sessions
+one file for every agent, one for the agents that code and one more for the
+head. It serves the agent sessions
 across the overnightworks repositories.
 
 Licensed under the [MIT License](LICENSE).
@@ -15,7 +16,7 @@ Licensed under the [MIT License](LICENSE).
   Code), and `workflows/` holds the Claude Code workflows.
 - `plugins/atelier/hooks/` holds the Claude Code hooks, registered by
   `claude-hooks.json`: `contract_change.py` tells a running head the changed
-  lines of `AGENTS.md` or `HEAD.md` at its next prompt or tool batch, and
+  lines of `AGENTS.md`, `CODE.md`, `HEAD.md` or `OPERATORS.md` at its next prompt or tool batch, and
   `fleet_plans.py` shows it the open fleet-wide plans (`aco fleet-plans`) when
   its prompt names a repository action such as a rename or a publication.
   `oom_first.py` raises the session's `oom_score_adj` to 1000 at its start, so
@@ -28,8 +29,10 @@ Licensed under the [MIT License](LICENSE).
   generated files.
 - `.agents/plugins/marketplace.json` and `.claude-plugin/marketplace.json` are
   the Codex and Claude Code marketplace catalogs.
-- `instructions/AGENTS.md` is the operator's contract and code policy for every
-  agent; `instructions/HEAD.md` beside it is the part only the head reads, and
+- `instructions/AGENTS.md` is the operator's contract for every agent;
+  `instructions/CODE.md` beside it is the code policy and Reviews for the
+  agents that code, test, write documentation or judge a finding;
+  `instructions/HEAD.md` is the part only the head reads, and
   `instructions/OPERATORS.md` his bounds.
 - `settings/claude-managed.json` holds the Claude Code settings every session
   shares: the contract's test-worker count, the auto-mode allow rules and
@@ -86,8 +89,9 @@ Code) or `local` (Codex).
   it deliberately is not.
 - [Architecture](docs/ARCHITECTURE.md): where agent guidance lives and why it
   is never copied.
-- [Contract and code policy](instructions/AGENTS.md): the rules every agent
-  follows; [head contract](instructions/HEAD.md): the rules the head adds;
+- [Contract](instructions/AGENTS.md): the rules every agent follows;
+  [code policy](instructions/CODE.md): the rules the agents that code add;
+  [head contract](instructions/HEAD.md): the rules the head adds;
   [bounds](instructions/OPERATORS.md): the bounds the operator sets.
 
 ## Verify

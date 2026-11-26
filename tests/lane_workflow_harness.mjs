@@ -95,6 +95,13 @@ export const runCommandLine = (line, { cwd, env, shell = 'sh' }) => {
 
 // The fake gh's answer to a read of the item body.
 const itemEnvironment = (scenario) => ({ FAKE_ITEM_BODY: scenario.item_body ?? '', FAKE_ITEM_CODE: scenario.item_code ?? 0, FAKE_ITEM_ERROR: scenario.item_error ?? '' })
+// The fake gh's answers to the reads and writes of the pull request: its title and draft flag, the title write and the ready call.
+const pullEnvironment = (scenario) => ({
+  FAKE_PR_TITLE: scenario.pr_title ?? 'Add the feature', FAKE_ITEM_TITLE: scenario.item_title ?? 'The item title', FAKE_PATCH_CODE: scenario.patch_code ?? 0, FAKE_PATCH_ERROR: scenario.patch_error ?? '',
+  FAKE_PR_DRAFT: 'draft' in scenario ? scenario.draft : false, FAKE_READY_CODE: scenario.ready_code ?? 0, FAKE_READY_ERROR: scenario.ready_error ?? '',
+})
+// The lines a fake command appended to its log, or none.
+const loggedLines = (fakeBin, name) => fakeBin && fs.existsSync(path.join(fakeBin, name)) ? fs.readFileSync(path.join(fakeBin, name), 'utf8').trim().split('\n') : []
 // The printer line a scenario's typedCommand rewrites; a reread keeps the line unless the scenario types it always.
 const typedLine = (scenario, reread, line) => scenario.typedCommand && (!reread || scenario.typedAlways) ? scenario.typedCommand(line) : line
 
@@ -180,7 +187,7 @@ export async function runLane(args, answers = {}, options = {}) {
       ...process.env, PATH: `${fakeCommands()}:${process.env.PATH}`, FAKE_HEAD: scenario.head ?? newestTip, FAKE_BRANCH: scenario.branch ?? args.branch, FAKE_BRANCH_CODE: scenario.branch_code ?? 0, FAKE_REMOTE: scenario.remote_tip ?? newestTip,
       FAKE_HEAD_CODE: scenario.head_code ?? 0, FAKE_PARENTS: (scenario.parents ?? []).join('\n'), FAKE_MAIN_CODE: scenario.main_code ?? 0, FAKE_TREE: scenario.tree ?? 'a1a1a1a1', FAKE_MERGE_TREE: scenario.merge_tree ?? scenario.tree ?? 'a1a1a1a1', FAKE_MERGE_TREE_CODE: scenario.merge_tree_code ?? 0, FAKE_TOUCHED: (scenario.touched_paths ?? []).join('\n'), FAKE_MERGE_PATHS: (scenario.merge_paths ?? []).join('\n'),
       FAKE_PUSH_ERROR: scenario.push_error ?? '', FAKE_NETWORK_ERROR: scenario.network_error ?? '', FAKE_NETWORK_STDOUT: scenario.network_stdout ?? '', FAKE_NETWORK_FAILS: scenario.network_fails ?? 1, FAKE_BRIEF_ERROR: scenario.brief_error ?? '', FAKE_RATE_EXHAUSTED_CALLS: scenario.rate_exhausted_calls ?? 0, FAKE_RATE_EXHAUSTED_AGAIN_AT: scenario.rate_exhausted_again_at ?? 0, FAKE_RATE_RESET_IN: scenario.rate_reset_in ?? 600, FAKE_RATE_ERROR: scenario.rate_error ?? '',
-      ...itemEnvironment(scenario), FAKE_RECORD_ERROR: scenario.record_error ?? '', FAKE_BEGIN_ERROR: scenario.begin_error ?? '', FAKE_ADD_ERROR: scenario.add_error ?? '', FAKE_SHOW_CODE: scenario.show_code ?? 0, FAKE_SHOW_ERROR: scenario.show_error ?? '', FAKE_SHOW_OUTPUT: JSON.stringify({ runs: scenario.stored_runs ?? [...storedBefore(), storedOwnRun()] }), FAKE_RESOLVE_CODE: scenario.resolve_code ?? 0, FAKE_PR_TITLE: scenario.pr_title ?? 'Add the feature', FAKE_ITEM_TITLE: scenario.item_title ?? 'The item title', FAKE_PATCH_CODE: scenario.patch_code ?? 0, FAKE_PR_DRAFT: 'draft' in scenario ? scenario.draft : false, FAKE_READY_CODE: scenario.ready_code ?? 0, FAKE_READY_ERROR: scenario.ready_error ?? '', FAKE_PATCH_ERROR: scenario.patch_error ?? '', FAKE_BRIEF_OUTPUT: JSON.stringify({ outside_claim: 'outside_claim' in scenario ? scenario.outside_claim : [] }), ...ghEnv(scenario),
+      ...itemEnvironment(scenario), FAKE_RECORD_ERROR: scenario.record_error ?? '', FAKE_BEGIN_ERROR: scenario.begin_error ?? '', FAKE_ADD_ERROR: scenario.add_error ?? '', FAKE_SHOW_CODE: scenario.show_code ?? 0, FAKE_SHOW_ERROR: scenario.show_error ?? '', FAKE_SHOW_OUTPUT: JSON.stringify({ runs: scenario.stored_runs ?? [...storedBefore(), storedOwnRun()] }), FAKE_RESOLVE_CODE: scenario.resolve_code ?? 0, ...pullEnvironment(scenario), FAKE_BRIEF_OUTPUT: JSON.stringify({ outside_claim: 'outside_claim' in scenario ? scenario.outside_claim : [] }), ...ghEnv(scenario),
     }
     if (label.startsWith('record-')) return recordPrinted(prompt, line, env, scenario)
     const sleepless = line.replace('time.sleep(slept)', '0')
@@ -219,10 +226,7 @@ export async function runLane(args, answers = {}, options = {}) {
   const callsOf = () => Object.fromEntries(['aco', 'gh'].map(program => [program, fakeBin && fs.existsSync(path.join(fakeBin, `${program}.calls`)) ? Number(fs.readFileSync(path.join(fakeBin, `${program}.calls`), 'utf8')) : 0]))
   try {
     const result = await Promise.race([compile(source)(args, agent, parallel, async () => [], ignore, ignore), runEnded])
-    const patched = fakeBin && fs.existsSync(path.join(fakeBin, 'gh.patched')) ? fs.readFileSync(path.join(fakeBin, 'gh.patched'), 'utf8').trim().split('\n') : []
-    const laneRecordLog = fakeBin && fs.existsSync(path.join(fakeBin, 'aco.lane-record')) ? fs.readFileSync(path.join(fakeBin, 'aco.lane-record'), 'utf8').trim().split('\n') : []
-    const readied = fakeBin && fs.existsSync(path.join(fakeBin, 'gh.readied')) ? fs.readFileSync(path.join(fakeBin, 'gh.readied'), 'utf8').trim().split('\n') : []
-    return { killed, result: structuredClone(result), patchedTitles: patched, readiedPulls: readied, laneRecordCalls: laneRecordLog.map(line => line.split(' ')), calls: callsOf(), launchedAgents, launchedPrompts, agentCalls, writtenRecords, rateLimitSleeps }
+    return { killed, result: structuredClone(result), patchedTitles: loggedLines(fakeBin, 'gh.patched'), readiedPulls: loggedLines(fakeBin, 'gh.readied'), laneRecordCalls: loggedLines(fakeBin, 'aco.lane-record').map(line => line.split(' ')), calls: callsOf(), launchedAgents, launchedPrompts, agentCalls, writtenRecords, rateLimitSleeps }
   } finally {
     if (fakeBin) fs.rmSync(fakeBin, { recursive: true })
     recordDirectories.forEach(directory => fs.rmSync(directory, { recursive: true, force: true }))

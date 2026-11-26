@@ -116,3 +116,9 @@ def test_main_exits_one_on_a_problem_and_zero_on_a_clean_checkout(tmp_path: Path
     assert check_references.main([str(broken)]) == 1
     assert "README.md:1" in capsys.readouterr().err
     assert check_references.main([str(clean)]) == 0
+
+
+def test_main_scans_the_whole_checkout_from_a_directory_inside_it(tmp_path: Path) -> None:
+    checkout = git_checkout(tmp_path / "broken", {"README.md": "(" + "instructions/AGENTS.md, Gone)\n", "docs/note.md": "ok\n"})
+
+    assert check_references.main([str(checkout / "docs")]) == 1

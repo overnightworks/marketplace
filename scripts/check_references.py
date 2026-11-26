@@ -18,7 +18,7 @@ not follow its reference directly passes unseen.
 Usage: check_references.py [CHECKOUT]. A reference spelled with `instructions/` resolves against
 this repository's contract; one spelled bare resolves against the contract here and against the
 checkout's own root file in another checkout, where it means that repository's own AGENTS.md.
-CHECKOUT (default: this repository) supplies the tracked text files to scan.
+CHECKOUT (default: this repository) names a directory of the checkout whose tracked text files to scan.
 """
 # ruff: noqa: T201 - the reference gate reports its findings
 
@@ -141,15 +141,18 @@ def load_sections(directory: Path) -> dict[str, Section]:
     }
 
 
-def tracked_text_files(checkout: Path) -> list[Path]:
-    listing = subprocess.run(  # noqa: S603 - argv is fixed words
-        ["git", "ls-files", "-z"],  # noqa: S607 - git is found on PATH
-        cwd=checkout,
+def git_output(directory: Path, *arguments: str) -> str:
+    return subprocess.run(  # noqa: S603 - argv is fixed words
+        ["git", *arguments],  # noqa: S607 - git is found on PATH
+        cwd=directory,
         check=True,
         capture_output=True,
         text=True,
     ).stdout
-    return [checkout / name for name in listing.split("\0") if name]
+
+
+def tracked_text_files(checkout: Path) -> list[Path]:
+    return [checkout / name for name in git_output(checkout, "ls-files", "-z").split("\0") if name]
 
 
 def check_checkout(checkout: Path, contract_root: Path = REPOSITORY_ROOT) -> list[str]:
@@ -166,7 +169,9 @@ def check_checkout(checkout: Path, contract_root: Path = REPOSITORY_ROOT) -> lis
 
 
 def main(arguments: list[str]) -> int:
-    checkout = Path(arguments[0]) if arguments else REPOSITORY_ROOT
+    checkout = REPOSITORY_ROOT
+    if arguments:
+        checkout = Path(git_output(Path(arguments[0]), "rev-parse", "--show-toplevel").strip())
     problems = check_checkout(checkout)
     if problems:
         print("\n".join(problems), file=sys.stderr)

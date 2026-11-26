@@ -1,8 +1,0 @@
-claim_id = "5e4cdb6826624c908b0a0198f9d05756"
-agent = "Claude c1d65467-2dcf-4ef5-921f-526bf349a609"
-role = "builder"
-base = "948d53ce1200774a133c1fa28d7682166cf4e798"
-branch = "claude/issue-1025-lane-branch-coverage-measured"
-scope = [".github/workflows/ci.yml", "docs/ARCHITECTURE.md", "package.json", "quality/baseline.toml", "scripts/check_branch_floor.mjs", "sonar-project.properties", "tests/check_branch_floor.test.mjs", "tests/lane_workflow_harness.mjs"]
-opened_commit = "6fdbc8060997c825487b7bfe34039a7e7c5a5746"
-whole_reason = "The CI coverage step, its floor script and test, the harness that loads the bundle, the Sonar exclusion and the proof-strategy section change together around one measurement."

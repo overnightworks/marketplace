@@ -3,6 +3,6 @@ agent = "Claude c1d65467-2dcf-4ef5-921f-526bf349a609"
 role = "builder"
 base = "241e8fc95b438b158655db69e62445e8650bb0a4"
 branch = "claude/issue-1023-lane-values-one-owner"
-scope = ["plugins/atelier/lane", "plugins/atelier/workflows/lane.js", "plugins/atelier/workflows/lane.md"]
+scope = ["plugins/atelier/lane", "plugins/atelier/workflows/lane.js", "plugins/atelier/workflows/lane.md", "quality/baseline.toml"]
 opened_commit = "c551284997d0fd9b88370d98421dce0ea195262f"
 whole_reason = "The owner constants and their readers sit in several lane parts, and lane.md points at them, so they change together."

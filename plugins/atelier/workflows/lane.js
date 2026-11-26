@@ -534,10 +534,10 @@ const checkpointTitle = (item) => `${CHECKPOINT_TITLE_PREFIX}${item}`
 const VERDICT_CHECK = 'quality / verdict'
 // A fixer's unchanged tip answers the checkpoint finding when it is the only finding and the fixer reports the brief met.
 const checkpointMet = (fixed, blocking) => Boolean(fixed.briefMet) && blocking.length === 1 && blocking[0].where === CHECKPOINT_FINDING_WHERE
-// Why the retitle step's read did not complete, or null; both the rename and the ready write depend on it.
-function retitleStepProblem(relayed) {
+// Why the retitle step did not complete for a check, or null; the unreachable text counts only when a sub-step the check reads is among the failed ones.
+function retitleStepProblem(relayed, ownSteps) {
   if (!relayed || relayed.problem) return `the title step ${relayed ? relayed.problem : 'returned no result'}`
-  return relayed.unreachable || null
+  return relayed.unreachable && relayed.values.unreachable.some(name => ownSteps.includes(name)) ? relayed.unreachable : null
 }
 // The pull request's title and draft flag from the step's one REST read; draft is not a boolean when the read failed or the flag is missing.
 function pulledRequest(pull) {
@@ -545,7 +545,7 @@ function pulledRequest(pull) {
 }
 // Why the pull request keeps its checkpoint title, or null when it was renamed or never carried it; the printer's retitle step reads both titles and writes only on a match.
 function checkpointRenameProblem(relayed, item) {
-  const stepProblem = retitleStepProblem(relayed)
+  const stepProblem = retitleStepProblem(relayed, ['pull', 'item', 'retitle'])
   if (stepProblem) return stepProblem
   const { pull, item: itemTitle, retitle } = relayed.values
   if (pull.code !== 0) return `reading the pull request exited ${pull.code}: ${pull.err}`
@@ -555,7 +555,7 @@ function checkpointRenameProblem(relayed, item) {
 }
 // Why the pull request may still be a draft, or null when it was marked ready or was none; the retitle step runs gh pr ready only on a draft.
 function draftReadyProblem(relayed) {
-  const stepProblem = retitleStepProblem(relayed)
+  const stepProblem = retitleStepProblem(relayed, ['pull', 'ready'])
   if (stepProblem) return stepProblem
   const { pull, ready } = relayed.values
   const { draft } = pulledRequest(pull)

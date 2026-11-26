@@ -155,3 +155,18 @@ for (const [behaviour, scenario, readied, named] of draftRuns) {
     assert.equal(result.requiredHeadActions.some(action => /gh pr ready 1/.test(action)), named)
   })
 }
+
+// One failed write of the retitle step names only its own head action.
+const unreachableWrites = [
+  ['an unreachable ready write names gh pr ready and no rename', { draft: true, ready_code: 1, ready_error: 'Could not resolve host: api.github.com' }, /gh pr ready 1/, /rename pull request/],
+  ['an unreachable title write names the rename and no gh pr ready', { draft: true, pr_title: 'Unfinished checkpoint of #1', patch_code: 1, patch_error: 'Could not resolve host: api.github.com' }, /rename pull request #1/, /gh pr ready 1/],
+]
+
+for (const [behaviour, scenario, named, unnamed] of unreachableWrites) {
+  test(`before ready-to-land ${behaviour}`, async () => {
+    const { result } = await runLane(resumeArgs, { ...reachesTheEnd, 'r0-review': APPROVE, retitle: { ...scenario, item_title: 'The item title' } })
+    assert.equal(result.status, 'ready-to-land')
+    assert.ok(result.requiredHeadActions.some(action => named.test(action)))
+    assert.ok(!result.requiredHeadActions.some(action => unnamed.test(action)))
+  })
+}

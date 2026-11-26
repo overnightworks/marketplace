@@ -1,8 +1,0 @@
-claim_id = "f988168ff15a40c69f5a43045737bd1a"
-agent = "Claude c1d65467-2dcf-4ef5-921f-526bf349a609"
-role = "builder"
-base = "39668b74aa5967ed4fd58705f204f23d50f1badd"
-branch = "claude/issue-1073-fold-in-decline-match"
-scope = ["plugins/atelier/lane/followup.js", "plugins/atelier/lane/main.js", "plugins/atelier/lane/relay.js", "plugins/atelier/workflows/lane.js", "plugins/atelier/workflows/lane.md", "tests/lane_workflow_fix.test.mjs", "tests/lane_workflow_harness.mjs"]
-opened_commit = "acb888a51421a7f65d4906148f0498591d2e8bf2"
-whole_reason = "The lane source, its generated workflow and its harness test move together."

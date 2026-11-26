@@ -1,0 +1,7 @@
+claim_id = "04d1aedb8eb74de78059904981ea48d2"
+agent = "Claude c1d65467-2dcf-4ef5-921f-526bf349a609"
+role = "builder"
+base = "35aa081164992eae53811cbf6582e0b21bd5ce4e"
+branch = "claude/issue-1020-design-skill-guidance"
+scope = ["plugins/atelier/skills/aco/references/decision-cards.md", "plugins/atelier/skills/design-interface/SKILL.md"]
+opened_commit = "f129099191856fc100415094b7261ee877e0889f"

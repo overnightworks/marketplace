@@ -1,8 +1,0 @@
-claim_id = "7689654980d04a5aa41fe4eb6893cd93"
-agent = "Claude d7189503-a891-4203-95ef-44598567881f"
-role = "builder"
-base = "0b65b2f2d90ae963f745404d1f36c44ecebb526f"
-branch = "claude/issue-1080-contract-file-list-one-owner"
-scope = [".github/workflows/ci.yml", "README.md", "plugins/atelier/hooks/contract_change.py", "scripts/check_references.py", "tests/test_check_references.py", "tests/test_contract_change_hook.py"]
-opened_commit = "22ddde23278cd312b4ec2e099d25454f40b733f0"
-whole_reason = "The three readers of the contract file list and their tests change together, so the list has one owner."

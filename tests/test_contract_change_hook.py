@@ -57,6 +57,7 @@ class Machine:
 
     def commit(self, files: dict[str, str], subject: str) -> None:
         for name, text in files.items():
+            (self.instructions / name).parent.mkdir(parents=True, exist_ok=True)
             (self.instructions / name).write_text(text)
         self.git("add", "-A")
         self.git("commit", "-q", "-m", subject)
@@ -116,6 +117,24 @@ def test_a_markdown_file_added_to_the_contract_directory_is_told_when_it_changes
     machine.commit({"CODE.md": "code rule two\n"}, "Tighten the code policy")
 
     assert "+code rule two" in machine.batch()
+
+
+@pytest.mark.parametrize("file_name", ["Prüfung.md", "with space.md"])
+def test_a_markdown_file_with_an_unusual_name_is_told_when_it_changes(machine: Machine, file_name: str) -> None:
+    machine.commit({file_name: "first\n"}, "Add the file")
+    machine.running_head()
+    machine.commit({file_name: "second\n"}, "Change the file")
+
+    assert "+second" in machine.batch()
+
+
+def test_a_directory_named_like_a_markdown_file_does_not_break_the_snapshot(machine: Machine) -> None:
+    (machine.instructions / "folder.md").mkdir()
+    machine.commit({"folder.md/inner.txt": "x\n"}, "Add the directory")
+    machine.running_head()
+    machine.commit({"HEAD.md": "changed\n"}, "Change a file")
+
+    assert "+changed" in machine.batch()
 
 
 def test_a_contract_file_removed_from_the_directory_is_told(machine: Machine) -> None:

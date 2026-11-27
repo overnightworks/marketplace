@@ -19,6 +19,15 @@ PROBE_RUN = Path(__file__).resolve().parents[1] / "scripts" / "probe_run.sh"
 CORES = int(subprocess.run(["nproc"], capture_output=True, text=True, check=True).stdout)
 LOAD_LIMIT = 1.5 * CORES
 ARGUMENT_ECHO = '#!/bin/sh\nprintf "%s\\n" "$@"\n'
+# Drops its own options and runs the rest in place; its help names the option probe-run checks for.
+RUNS_ITS_COMMAND_IN_PLACE = """#!/bin/sh
+if [ "$1" = --help ]; then echo --map-user; exit 0; fi
+while [ "${1#-}" != "$1" ]; do
+  if [ "$1" = -- ]; then shift; break; fi
+  shift
+done
+exec "$@"
+"""
 MAXIMUM_TOTAL_SECONDS = 1830
 BAD_INPUT_STATUS = 2
 LOAD_TIMEOUT_STATUS = 75
@@ -39,10 +48,15 @@ def real_machine(tmp_path: Path) -> dict[str, str]:
 
 @pytest.fixture
 def machine(tmp_path: Path, real_machine: dict[str, str]) -> dict[str, str]:
-    """An environment whose timeout prints what it is asked to run and whose load is a file."""
+    """An environment whose timeout prints what it is asked to run and whose load is a file.
+
+    pasta and unshare run their command in place, so no run waits on a real network namespace.
+    """
     bin_directory = tmp_path / "bin"
     bin_directory.mkdir()
     install_fake(bin_directory, "timeout", ARGUMENT_ECHO)
+    for namespace_tool in ("pasta", "unshare"):
+        install_fake(bin_directory, namespace_tool, RUNS_ITS_COMMAND_IN_PLACE)
     install_fake(bin_directory, "sleep", "#!/bin/sh\n")
     return {**real_machine, "PATH": f"{bin_directory}:{real_machine['PATH']}"}
 
@@ -328,6 +342,24 @@ def test_accepts_the_largest_allowed_cap(machine):
     result = probe_run(machine, "-k", "30", "1800", "my-stack")
 
     assert result.returncode == 0
+
+
+# pasta reaps every child that ended whenever one of its port-forwarding helpers ends, so it can take
+# its command's end and run on.
+OUTLIVES_ITS_COMMAND = '#!/bin/sh\nwhile [ "$1" != -- ]; do shift; done\nshift\n"$@"\nexec /bin/sleep 3600\n'
+
+
+def test_a_run_under_the_machine_fixture_never_waits_on_the_systems_pasta(machine, tmp_path):
+    set_load(machine, 0.0)
+    system_bin = tmp_path / "system-bin"
+    system_bin.mkdir()
+    install_fake(system_bin, "pasta", OUTLIVES_ITS_COMMAND)
+    fixture_bin, system_path = machine["PATH"].split(":", 1)
+
+    result = probe_run({**machine, "PATH": f"{fixture_bin}:{system_bin}:{system_path}"}, "my-stack")
+
+    assert result.returncode == 0
+    assert timeout_arguments(result)[-1] == "my-stack"
 
 
 @pytest.mark.parametrize("name", ["PROBE_RUN_POLL_SECONDS", "PROBE_RUN_WAIT_SECONDS"])

@@ -1943,6 +1943,9 @@ const missing = need.filter(k => !A[k])
 if (missing.length) return { status: 'failed', stage: 'input', reason: `missing args: ${missing.join(', ')}` }
 if (!/^[1-9]\d*$/.test(String(A.item))) return { status: 'failed', stage: 'input', reason: 'item must be a GitHub issue number: the lane carries only issue items, and an issue-less claim runs by hand' }
 if (A.pr && !A.tip) return { status: 'failed', stage: 'input', reason: 'with pr, pass tip (the PR head sha) so the first delta range is right' }
+// A sync-only run keeps an approved lane current with main; a batch, a delta or a build names work that needs a review.
+if (A.syncOnly !== undefined && A.syncOnly !== true) return { status: 'failed', stage: 'input', reason: 'syncOnly must be true when given' }
+if (A.syncOnly && (A.build || A.fixFirst || A.foldIn || A.deltaFrom)) return { status: 'failed', stage: 'input', reason: 'syncOnly starts no build, fixer or review, so it takes no build, fixFirst, foldIn or deltaFrom; it merges main into an approved lane and watches CI' }
 if (A.build && (A.pr || A.tip)) return { status: 'failed', stage: 'input', reason: 'build starts a lane and pr + tip start a new run on an open pull request; pass one of them' }
 if (!A.pr && !A.build) return { status: 'failed', stage: 'input', reason: 'pass build (a brief) or pr + tip' }
 const isCommandMap = (value) => value !== null && typeof value === 'object' && !Array.isArray(value) && Object.entries(value).every(([path, command]) => path.length > 0 && typeof command === 'string' && command.length > 0)
@@ -2232,6 +2235,7 @@ if (A.build) {
     carriesBatch = true
     history.push({ after: 0, by: 'sync', conflict: conflict.paths, tip: values.head.out })
   }
+  if (A.syncOnly && !carriesBatch && sameCommit(values.head.out, tip)) return await openResult('awaiting-head', 'sync', { reason: `the tip ${tip} already contains origin/main, so the sync-only run changed nothing.` })
   if (!sameCommit(values.head.out, tip) && !mergedOnto(values, tip)) history.push({ after: 0, by: 'sync', from: tip, tip: values.head.out })
   tip = values.head.out
   syncedTip = tip
@@ -2539,7 +2543,9 @@ if (!carriesBatch && A.build) {
 if (firstScopeCheck?.stop) return firstScopeCheck.stop
 const synchronizedBeginStop = syncedTip && !carriesBatch ? await beginRun(syncedTip) : null
 if (synchronizedBeginStop) return synchronizedBeginStop
-const dutyOfGate = await sampledDuty(firstBegan)
+// A sync-only run whose merge needs no fixer has nothing for a reviewer, the gate or the tester to read: it goes straight to the scope check's CI.
+const syncOnlyClean = Boolean(A.syncOnly) && !carriesBatch
+const dutyOfGate = syncOnlyClean ? { take: false, owed: false } : await sampledDuty(firstBegan)
 if (dutyOfGate.stop) return dutyOfGate.stop
 // Re-entry after the head settled an awaiting-head result: review only the fix commits no reviewer has seen yet.
 // Re-entry at the fix: the head hands over blocking findings from an earlier run (for example the tester's), and
@@ -2554,10 +2560,11 @@ if (carriesBatch) {
   const f = await fixRound(carriedOver, carriedFrom, carriedOver.some(isCiFinding) ? ROUND.mixed : ROUND.head, conflictOnly ? 'ci' : 'test', true)
   if (f.stop) return f.stop
   firstReview = firstReviewRange({ deltaFrom: A.deltaFrom, answers: A.answers, tip, item: A.item, pr, repoFlag: R, fix: { ...f, findingsText: listFindings(carriedOver), foldInsText: foldInsInRange(f.foldIn, f.declinedBy) } })
-} else {
+} else if (!syncOnlyClean) {
   firstReview = firstReviewRange({ deltaFrom: A.deltaFrom, answers: A.answers })
 }
-const firstStop = await reviewUntilClean(dutyOfGate.owed ? [REVIEW, GATE] : ALL, firstReview.range, firstReview.from)
+const firstStages = dutyOfGate.owed ? [REVIEW, GATE] : ALL
+const firstStop = syncOnlyClean ? null : await reviewUntilClean(firstStages, firstReview.range, firstReview.from)
 if (firstStop) return firstStop
 const lookStop = dutyOfGate.take ? await sampledLook() : null
 if (lookStop) return lookStop
@@ -2588,7 +2595,7 @@ async function watchCi(n, rerun) {
 // has nothing of its own to fix. The tester judges the tip it started on, which later fixes may move. One tester runs at a time.
 let n = 0
 let testCalls = 0
-let needTest = true
+let needTest = !syncOnlyClean
 let lockRetried = false
 let rerunRed  // the red jobs a flake dispute hands to the next watch for one re-run
 function startTest() {
@@ -2689,7 +2696,7 @@ const rescopeCommand = 'aco rescope ' + A.item + ' ' + passedOutsidePaths.map(pa
 const stillOpen = openFollowups()
 // A clean merge of main moves the tip without a verdict, and aco refuses a landing whose head the record's last verdict did not judge.
 const lastJudged = lastVerdictSha(history)
-if (lastJudged !== tip) return await openResult('awaiting-head', 'record', { reason: `the tip ${tip} carries commits no review or gate verdict judged (the last verdict judged ${lastJudged ?? 'nothing'}), so aco would refuse to land it. Start a new run with pr ${pr} and tip ${tip} for a review of the whole lane.` })
+if (lastJudged !== tip) return await openResult('awaiting-head', 'record', { reason: A.syncOnly ? `a sync-only run carries no verdict aco's record accepts for the tip ${tip}. Land through the operator's merge door, or read the approved sha in \`aco lane-record show ${A.item} --json\` and start a new run with pr ${pr}, tip ${tip} and that sha as deltaFrom.` : `the tip ${tip} carries commits no review or gate verdict judged (the last verdict judged ${lastJudged ?? 'nothing'}), so aco would refuse to land it. Start a new run with pr ${pr} and tip ${tip} for a review of the whole lane.` })
 const finalRoutingLine = await routingLine()
 const finalRecord = await writeRecord()
 // The landing needs the file aco accepts, so a record that fails its check leaves the lane for the head.

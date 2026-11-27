@@ -98,42 +98,31 @@ date = 2026-11-23
 reason = "the size rule measures script functions from quality v0.25.0; the operator ruled the adoption path on overnightworks/quality#884, so nothing is split"
 
 [[root.allow]]
-entry = ".agents/"
-reason = "the Codex marketplace catalog, read at the root"
-
-[[root.allow]]
-entry = ".claude-plugin/"
-reason = "the Claude marketplace catalog, read at the root"
-
-[[root.allow]]
-entry = ".claude/"
-reason = "this repository's own Claude host configuration"
-
-[[root.allow]]
-entry = ".codex/"
-reason = "this repository's own Codex host configuration"
-
-[[root.allow]]
 entry = "instructions/"
 reason = "the operator's contract and code policy"
+ends = "#1100"
 
 [[root.allow]]
 entry = "plugins/"
 reason = "the plugin payload both catalogs point at"
+ends = "overnightworks/quality#1103"
 
 [[root.allow]]
 entry = "settings/"
 reason = "the Claude Code settings the install copies to each machine"
+ends = "#1101"
 
 [[layout.allow]]
 path = "scripts/install.py"
 rule = "script-name"
 reason = "the operator's documented install command, run after every atelier landing"
+ends = "#1101"
 
 [[layout.allow]]
 path = "instructions/AGENTS.md"
 rule = "agents-md"
 reason = "the global contract every agent reads, installed per machine from here"
+ends = "#1100"
 
 [[size.generated]]
 path = "plugins/atelier/workflows/lane.js"

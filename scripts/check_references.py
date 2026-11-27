@@ -68,7 +68,8 @@ class Section:
 
 def reference_opening(names: Iterable[str]) -> re.Pattern[str]:
     files = "|".join(map(re.escape, sorted(names)))
-    return re.compile(rf"\(\s*`?(?P<explicit>{CONTRACT_DIRECTORY}/)?(?P<file>{files})`?\s*[,:]\s*")
+    explicit = rf"{CONTRACT_DIRECTORY}/(?P<explicit_file>[A-Z][A-Z0-9_-]*\.md)"
+    return re.compile(rf"\(\s*`?(?:(?P<explicit>{explicit})|(?P<file>{files}))`?\s*[,:]\s*")
 
 
 def squeeze(text: str) -> str:
@@ -105,7 +106,7 @@ def find_references(text: str, contract_names: Iterable[str]) -> list[Reference]
         references.append(
             Reference(
                 line=text.count("\n", 0, opening.start()) + 1,
-                file=opening["file"],
+                file=opening["explicit_file"] or opening["file"],
                 explicit=opening["explicit"] is not None,
                 targets=targets,
                 quote=squeeze(quote["quote"]) if quote else None,
@@ -117,7 +118,8 @@ def find_references(text: str, contract_names: Iterable[str]) -> list[Reference]
 def resolve(reference: Reference, contract: dict[str, Section], local: dict[str, Section]) -> list[str]:
     section = (contract if reference.explicit else local).get(reference.file)
     if section is None:
-        return [f"{reference.file} is not in the checkout's root"]
+        side = f"{CONTRACT_DIRECTORY}/" if reference.explicit else "the checkout's root"
+        return [f"{reference.file} is not in {side}"]
     problems = [
         f"{reference.file} has no section '{target}'"
         for target in reference.targets
@@ -136,10 +138,8 @@ def check_text(path: str, text: str, contract: dict[str, Section], local: dict[s
     ]
 
 
-def load_sections(directory: Path) -> dict[str, Section]:
-    return {
-        path.name: parse_section(path.read_text(encoding="utf-8")) for path in sorted(directory.glob("*.md"))
-    }
+def load_sections(paths: Iterable[Path]) -> dict[str, Section]:
+    return {path.name: parse_section(path.read_text(encoding="utf-8")) for path in paths}
 
 
 def git_output(directory: Path, *arguments: str) -> str:
@@ -161,11 +161,11 @@ def tracked_text_files(checkout: Path) -> list[Path]:
 
 
 def check_checkout(checkout: Path, contract_root: Path = REPOSITORY_ROOT) -> list[str]:
-    contract = load_sections(contract_root / CONTRACT_DIRECTORY)
+    contract_directory = contract_root / CONTRACT_DIRECTORY
+    contract = load_sections(sorted(contract_directory.glob("*.md")))
     if "AGENTS.md" not in contract:
-        raise FileNotFoundError(f"{contract_root / CONTRACT_DIRECTORY} holds no AGENTS.md")
-    local = contract if checkout.resolve() == contract_root.resolve() else load_sections(checkout)
-    local = {name: section for name, section in local.items() if name in contract}
+        raise FileNotFoundError(f"{contract_directory} holds no AGENTS.md")
+    local = contract if checkout.resolve() == contract_root.resolve() else load_sections(checkout / name for name in contract if (checkout / name).is_file())
     problems = []
     for path in tracked_text_files(checkout):
         try:

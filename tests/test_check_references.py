@@ -59,6 +59,7 @@ def test_resolving_reference_forms_raise_no_problem(reference: str, contract: di
         pytest.param('`instructions/AGENTS.md`, "Missing part"', "has no section 'Missing part'", id="broken-quoted-heading"),
         pytest.param("HEAD.md, Landing zone", "has no section 'Landing zone'", id="broken-plain-heading"),
         pytest.param('HEAD.md, sections "Lanes" and "Gone"', "has no section 'Gone'", id="one-broken-name-in-a-sections-list"),
+        pytest.param("instructions/OPERATORS.md, Anything", "OPERATORS.md is not in instructions/", id="explicit-contract-file-that-does-not-exist"),
         pytest.param("`AGENTS.md`, Code ('A sentence nobody wrote')", "does not hold the quote 'A sentence nobody wrote'", id="misquoted-sentence"),
     ],
 )
@@ -102,6 +103,14 @@ def test_a_markdown_file_added_to_the_contract_directory_is_checked_against(tmp_
     assert check_references.check_checkout(checkout, contract_root) == [
         "README.md:1: EXTRA.md has no section 'Missing'"
     ]
+
+
+def test_checkout_scan_ignores_root_markdown_that_is_no_contract_file_and_not_text(tmp_path: Path) -> None:
+    contract_root = git_checkout(tmp_path / "contract", {"instructions/AGENTS.md": CONTRACT})
+    checkout = git_checkout(tmp_path / "checkout", {"README.md": "ok\n"})
+    (checkout / "NOTES.md").write_bytes(b"\xff\xfe")
+
+    assert check_references.check_checkout(checkout, contract_root) == []
 
 
 def test_a_contract_directory_without_agents_fails_loud(tmp_path: Path) -> None:

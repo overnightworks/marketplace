@@ -2563,7 +2563,8 @@ if (carriesBatch) {
 } else if (!syncOnlyClean) {
   firstReview = firstReviewRange({ deltaFrom: A.deltaFrom, answers: A.answers })
 }
-const firstStop = syncOnlyClean ? null : await reviewUntilClean(dutyOfGate.owed ? [REVIEW, GATE] : ALL, firstReview.range, firstReview.from)
+const firstStages = dutyOfGate.owed ? [REVIEW, GATE] : ALL
+const firstStop = syncOnlyClean ? null : await reviewUntilClean(firstStages, firstReview.range, firstReview.from)
 if (firstStop) return firstStop
 const lookStop = dutyOfGate.take ? await sampledLook() : null
 if (lookStop) return lookStop

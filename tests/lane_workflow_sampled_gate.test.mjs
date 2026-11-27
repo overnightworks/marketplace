@@ -77,18 +77,42 @@ test('sampled-gate: a run after a stored gate REVISE re-checks with the gate bes
   assert.deepEqual(launchedAgents.filter(label => /^(r0-|e2e)/.test(label)), ['r0-review', 'r0-gate', 'e2e-0'])
 })
 
+test('sampled-gate: a run after a stored gate REVISE with deltaFrom re-checks the delta only', async () => {
+  const { agentCalls } = await runLane({ ...sampledLane, deltaFrom: olderTip, answers: 'the fix answers it' }, { 'r0-review': APPROVE, 'r0-gate': gateApprove, ...reachesTheEnd, begin: { stored_runs: [storedGateRun(['revise', olderTip]), storedOwnRun()] } })
+  assert.match(agentCalls['r0-gate'].prompt, /only this delta/)
+})
+
 test('sampled-gate: a run after a stored gate approval starts no gate', async () => {
   const { launchedAgents, result } = await runLane(sampledLane, { 'r0-review': APPROVE, ...reachesTheEnd, begin: { stored_runs: [storedGateRun(['approve', olderTip]), storedOwnRun()] } })
   assert.deepEqual([gateLabels(launchedAgents), result.sampled], [[], false])
 })
 
 const lostRun = { ...storedEarlierRun(), end_tip: null, ran: null, record: null }
-for (const [what, begin] of [['fails', { show_code: 2, show_error: 'bad shape' }], ['reports a lost run', { stored_runs: [lostRun, storedOwnRun()] }], ['reports a run that does not follow', { stored_runs: [{ ...storedEarlierRun(), follows: false }, storedOwnRun()] }]]) {
-  test(`sampled-gate: a lane whose read of the stored runs ${what} awaits the head and starts no gate`, async () => {
-    const { launchedAgents, result } = await runLane(sampledLane, { 'r0-review': APPROVE, 'r0-gate': gateApprove, ...reachesTheEnd, begin })
-    assert.deepEqual([result.status, result.sampled, gateLabels(launchedAgents)], ['awaiting-head', false, []])
+test('sampled-gate: a lane whose read of the stored runs fails awaits the head at record and starts no gate', async () => {
+  const { launchedAgents, result } = await runLane(sampledLane, { 'r0-review': APPROVE, 'r0-gate': gateApprove, ...reachesTheEnd, begin: { show_code: 2, show_error: 'bad shape' } })
+  assert.deepEqual([result.status, result.stage, result.sampled, gateLabels(launchedAgents)], ['awaiting-head', 'record', false, []])
+})
+
+for (const [what, lost] of [['a run without a record', lostRun], ['a run that does not follow', { ...storedEarlierRun(), follows: false }]]) {
+  test(`sampled-gate: a lane whose stored runs show ${what} owes the gate on the whole lane, beside the review, and takes no second sample`, async () => {
+    const { launchedAgents, agentCalls, result } = await runLane(sampledLane, { 'r0-review': APPROVE, 'r0-gate': gateApprove, ...reachesTheEnd, begin: { stored_runs: [lost, storedOwnRun()] } })
+    assert.deepEqual([result.status, result.sampled, gateLabels(launchedAgents)], ['ready-to-land', true, ['r0-gate']])
+    assert.match(agentCalls['r0-gate'].prompt, /the whole lane: git diff origin\/main\.\.\.HEAD/)
   })
 }
+
+test('sampled-gate: a lane with a lost run and deltaFrom hands the gate the whole lane and the review the delta', async () => {
+  const { agentCalls } = await runLane({ ...sampledLane, deltaFrom: olderTip, answers: 'the fix answers it' }, { 'r0-review': APPROVE, 'r0-gate': gateApprove, ...reachesTheEnd, begin: { stored_runs: [lostRun, storedOwnRun()] } })
+  assert.match(agentCalls['r0-review'].prompt, new RegExp(`only this delta: .*${olderTip}\\.\\.HEAD`))
+  assert.match(agentCalls['r0-gate'].prompt, /the whole lane: git diff origin\/main\.\.\.HEAD/)
+  assert.doesNotMatch(agentCalls['r0-gate'].prompt, /only this delta/)
+})
+
+test('sampled-gate: a lane with a lost run whose gate gives no verdict awaits the head at review, never skipped', async () => {
+  const { launchedAgents, result } = await runLane(sampledLane, { 'r0-review': APPROVE, 'r0-gate': limitedCourier, ...reachesTheEnd, begin: { stored_runs: [lostRun, storedOwnRun()] } })
+  assert.deepEqual([result.status, result.stage, result.sampled], ['awaiting-head', 'review', true])
+  assert.ok(!launchedAgents.some(label => /^(e2e|ci)/.test(label)))
+})
 
 test('sampled-gate: a resumed run with no earlier stored run, whose own entry does not follow, takes the sample', async () => {
   const { launchedAgents, result } = await runLane(sampledLane, { 'r0-review': APPROVE, 'r0-gate': gateApprove, ...reachesTheEnd, begin: { stored_runs: [storedOwnRun(false)] } })

@@ -142,6 +142,17 @@ The design skill is advice and never blocks a landing:
   `deltaFrom`, `fixFirst`) and asks for the branch's current head as `tip`. Drop
   `deltaFrom` for a full review when the first review stopped early (limit,
   failure, architectural) or the body change adds requirements.
+- `syncOnly`: none. `true` with `pr` and `tip` keeps an approved lane current with
+  main: the run merges main as every run with `pr` and `tip` does, then runs the scope
+  check and CI, and starts no review, gate or tester agent. Main already in the tip ends
+  awaiting-head at `sync` with nothing changed. The operator's-door verdict ends it
+  awaiting-head at `ci`. Any other red check goes to a fixer as in every run, and its
+  commits get the normal delta review. A conflict in the lane's own files goes to a
+  fixer, then review, and the gate on a material lane, as in every run. A green CI ends
+  awaiting-head at `record`, because a sync carries no verdict aco's record accepts;
+  a lane that lands through `aco land` starts a new run with `deltaFrom` at the judged
+  tip instead. `syncOnly` beside `build`, `fixFirst`, `foldIn` or `deltaFrom` fails at
+  stage `input`; the check that refuses `deltaFrom` equal to `tip` stays whole.
 - `answers`: none. What those commits answer, or the head's sentence on a finding
   settled in a body.
 - `fixFirst`: none. `Finding[]`, blocking findings a fresh fixer answers before
@@ -204,6 +215,12 @@ The design skill is advice and never blocks a landing:
   failed run keep their ends.
 
 ## Awaiting-head results
+
+A lane approved at its head that ends awaiting-head at `ci` for the operator's merge door
+(the only red check is the verdict of declared loosenings) falls behind main while it waits;
+a new run with `pr`, `tip` and `syncOnly: true` merges main into it and runs the scope check
+and CI for the cost of a clean trunk merge; its door-red CI ends at `ci` again, with the
+head current for the operator's merge.
 
 A head that finds a run stopped awaiting-head, or lost, reads `aco lane-record show <n> --json`. The lane is approved at a tip when its stored runs hold an approving verdict at that sha for every stage its risk requires: review, and the gate on a material lane. Land with `aco land <pr> --head <sha>` only when the lane is approved at the pull request's head, a stored run that ran `test` ends at that tip with `blocking.test` 0, and CI is green there. Otherwise start a new run: with `pr`, `tip` and `deltaFrom` the last approved tip when it is an ancestor of the head, not the head itself, and the head has no approving review; with `pr` and `tip` and no `deltaFrom` when the head has an approving review but its gate, test segment or CI is missing or red (a head with a review approval only is not yet approved on a material lane, and the repeated review is the cost of that rarer case); when only CI is red there, the run takes `deltaFrom` equal to `tip` and `fixFirst` holding the CI finding, so its review reads only the fixer's commits. A run killed in the middle of a segment leaves a begun run without a record; the path above still holds. A CI finding read after the tester's pass begins no segment until a stage of it starts, so a run that ends ci-red without a fixer leaves none.
 

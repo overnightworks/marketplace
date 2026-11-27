@@ -1,5 +1,5 @@
 claim_id = "d1b8e35679e047b79c806a583b2a5736"
-agent = "Claude c1d65467-2dcf-4ef5-921f-526bf349a609"
+agent = "Claude d7189503-a891-4203-95ef-44598567881f"
 role = "builder"
 base = "0b65b2f2d90ae963f745404d1f36c44ecebb526f"
 branch = "claude/issue-1088-sampled-lost-run-owes-gate"

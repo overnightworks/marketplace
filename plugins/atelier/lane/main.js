@@ -757,7 +757,7 @@ const rescopeCommand = 'aco rescope ' + A.item + ' ' + passedOutsidePaths.map(pa
 const stillOpen = openFollowups()
 // A clean merge of main moves the tip without a verdict, and aco refuses a landing whose head the record's last verdict did not judge.
 const lastJudged = lastVerdictSha(history)
-if (lastJudged !== tip) return await openResult('awaiting-head', 'record', { reason: `the tip ${tip} carries commits no review or gate verdict judged (the last verdict judged ${lastJudged ?? 'nothing'}), so aco would refuse to land it. ${A.syncOnly ? `A sync-only run carries no verdict aco's record accepts: land through the operator's merge door, or start a new run with pr ${pr}, tip ${tip} and deltaFrom at the judged tip ${lastJudged}.` : `Start a new run with pr ${pr} and tip ${tip} for a review of the whole lane.`}` })
+if (lastJudged !== tip) return await openResult('awaiting-head', 'record', { reason: A.syncOnly ? `a sync-only run carries no verdict aco's record accepts for the tip ${tip}. Land through the operator's merge door, or read the approved sha in \`aco lane-record show ${A.item} --json\` and start a new run with pr ${pr}, tip ${tip} and that sha as deltaFrom.` : `the tip ${tip} carries commits no review or gate verdict judged (the last verdict judged ${lastJudged ?? 'nothing'}), so aco would refuse to land it. Start a new run with pr ${pr} and tip ${tip} for a review of the whole lane.` })
 const finalRoutingLine = await routingLine()
 const finalRecord = await writeRecord()
 // The landing needs the file aco accepts, so a record that fails its check leaves the lane for the head.

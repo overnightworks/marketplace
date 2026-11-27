@@ -150,8 +150,9 @@ The design skill is advice and never blocks a landing:
   commits get the normal delta review. A conflict in the lane's own files goes to a
   fixer, then review, and the gate on a material lane, as in every run. A green CI ends
   awaiting-head at `record`, because a sync carries no verdict aco's record accepts;
-  a lane that lands through `aco land` starts a new run with `deltaFrom` at the judged
-  tip instead. `syncOnly` beside `build`, `fixFirst`, `foldIn` or `deltaFrom` fails at
+  a lane that lands through `aco land` starts a new run with `deltaFrom` at the approved
+  sha in `aco lane-record show <n> --json` instead. After a fixer's commits the normal
+  tester runs as in every run. `syncOnly` beside `build`, `fixFirst`, `foldIn` or `deltaFrom` fails at
   stage `input`; the check that refuses `deltaFrom` equal to `tip` stays whole.
 - `answers`: none. What those commits answer, or the head's sentence on a finding
   settled in a body.

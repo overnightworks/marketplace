@@ -165,7 +165,11 @@ def check_checkout(checkout: Path, contract_root: Path = REPOSITORY_ROOT) -> lis
     contract = load_sections(sorted(contract_directory.glob("*.md")))
     if "AGENTS.md" not in contract:
         raise FileNotFoundError(f"{contract_directory} holds no AGENTS.md")
-    local = contract if checkout.resolve() == contract_root.resolve() else load_sections(checkout / name for name in contract if (checkout / name).is_file())
+    if checkout.resolve() == contract_root.resolve():
+        local = contract
+    else:
+        local_paths = [checkout / name for name in contract if (checkout / name).is_file()]
+        local = load_sections(local_paths)
     problems = []
     for path in tracked_text_files(checkout):
         try:

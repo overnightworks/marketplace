@@ -59,9 +59,8 @@ def test_resolving_reference_forms_raise_no_problem(reference: str, contract: di
         pytest.param('`instructions/AGENTS.md`, "Missing part"', "has no section 'Missing part'", id="broken-quoted-heading"),
         pytest.param("HEAD.md, Landing zone", "has no section 'Landing zone'", id="broken-plain-heading"),
         pytest.param('HEAD.md, sections "Lanes" and "Gone"', "has no section 'Gone'", id="one-broken-name-in-a-sections-list"),
+        pytest.param("instructions/OPERATORS.md, Anything", "OPERATORS.md is not in instructions/", id="explicit-contract-file-that-does-not-exist"),
         pytest.param("`AGENTS.md`, Code ('A sentence nobody wrote')", "does not hold the quote 'A sentence nobody wrote'", id="misquoted-sentence"),
-        pytest.param("OPERATORS.md, Anything", "OPERATORS.md is not in the checkout's root", id="bare-contract-file-missing-from-the-checkout"),
-        pytest.param("instructions/OPERATORS.md, Anything", "OPERATORS.md is not in instructions/", id="contract-file-that-does-not-exist-yet"),
     ],
 )
 def test_broken_references_name_their_line_and_reason(reference: str, reason: str, contract: dict) -> None:
@@ -69,6 +68,13 @@ def test_broken_references_name_their_line_and_reason(reference: str, reason: st
     assert len(found) == 1
     assert found[0].startswith("doc.md:2: ")
     assert reason in found[0]
+
+
+def test_bare_contract_file_missing_from_the_checkout_is_reported(contract: dict) -> None:
+    local = {"AGENTS.md": contract["AGENTS.md"]}
+    assert check_references.check_text("doc.md", "(" + "HEAD.md, Lanes)", contract, local) == [
+        "doc.md:1: HEAD.md is not in the checkout's root"
+    ]
 
 
 def test_bare_reference_in_another_checkout_resolves_against_its_own_file(contract: dict) -> None:
@@ -86,6 +92,43 @@ def git_checkout(root: Path, files: dict[str, str]) -> Path:
     subprocess.run(["git", "init", "-q", str(root)], check=True)
     subprocess.run(["git", "-C", str(root), "add", "."], check=True)
     return root
+
+
+@pytest.mark.parametrize("file_name", ["EXTRA.md", "Extra.md", "extra-rules.md"], ids=["upper-case-name", "mixed-case-name", "lower-case-name"])
+def test_a_markdown_file_added_to_the_contract_directory_is_checked_against(tmp_path: Path, file_name: str) -> None:
+    contract_root = git_checkout(
+        tmp_path / "contract", {"instructions/AGENTS.md": CONTRACT, f"instructions/{file_name}": "## Extra\n"}
+    )
+    checkout = git_checkout(tmp_path / "checkout", {"README.md": f"(instructions/{file_name}, Missing)\n"})
+
+    assert check_references.check_checkout(checkout, contract_root) == [
+        f"README.md:1: {file_name} has no section 'Missing'"
+    ]
+
+
+def test_checkout_scan_ignores_root_markdown_that_is_no_contract_file_and_not_text(tmp_path: Path) -> None:
+    contract_root = git_checkout(tmp_path / "contract", {"instructions/AGENTS.md": CONTRACT})
+    checkout = git_checkout(tmp_path / "checkout", {"README.md": "ok\n"})
+    (checkout / "NOTES.md").write_bytes(b"\xff\xfe")
+
+    assert check_references.check_checkout(checkout, contract_root) == []
+
+
+def test_a_contract_directory_without_agents_fails_loud(tmp_path: Path) -> None:
+    contract_root = git_checkout(tmp_path / "contract", {"instructions/HEAD.md": "## Code\n"})
+    checkout = git_checkout(tmp_path / "checkout", {"README.md": "ok\n"})
+
+    with pytest.raises(FileNotFoundError, match="AGENTS.md"):
+        check_references.check_checkout(checkout, contract_root)
+
+
+def test_the_contract_checkout_checks_its_own_bare_references_against_its_contract_directory(tmp_path: Path) -> None:
+    checkout = git_checkout(
+        tmp_path / "contract",
+        {"instructions/AGENTS.md": CONTRACT, "README.md": "(" + "AGENTS.md, Code) and (" + "AGENTS.md, Gone)\n"},
+    )
+
+    assert check_references.check_checkout(checkout, checkout) == ["README.md:1: AGENTS.md has no section 'Gone'"]
 
 
 def test_checkout_with_broken_heading_reference_fails_and_a_sound_one_passes(tmp_path: Path) -> None:

@@ -2,7 +2,7 @@
 
 The host runs this once per SessionStart, UserPromptSubmit and PostToolBatch event
 and passes the event as JSON on stdin. The hook prints the changed lines of
-AGENTS.md, HEAD.md and OPERATORS.md as `additionalContext`, or nothing.
+the Markdown files of the contract directory as `additionalContext`, or nothing.
 """
 
 from __future__ import annotations
@@ -20,7 +20,6 @@ from dataclasses import asdict, dataclass, replace
 from enum import StrEnum
 from pathlib import Path
 
-CONTRACT_FILES = ("AGENTS.md", "HEAD.md", "OPERATORS.md")
 BASELINE_SOURCES = frozenset({"startup", "resume", "clear", "fork"})
 DELEGATED_SECTION_HEADING = "## Head or helper"
 HINT_CHARACTER_LIMIT = 10_000
@@ -117,12 +116,11 @@ def decide_role(prompt: str, contract_file: Path) -> Role:
 
 
 def take_snapshot(directory: Path) -> Snapshot:
-    return Snapshot(
-        commit=git_text(directory, "rev-parse", "HEAD").strip(),
-        blobs={
-            name: git_text(directory, "rev-parse", f"HEAD:./{name}").strip() for name in CONTRACT_FILES
-        },
-    )
+    commit = git_text(directory, "rev-parse", "HEAD").strip()
+    listing = git_text(directory, "ls-tree", "-z", commit, "./")
+    entries = [entry.split("\t", 1) for entry in listing.split("\0") if entry]
+    blobs = {name: fields.split()[2] for fields, name in entries if fields.split()[1] == "blob" and name.endswith(".md")}
+    return Snapshot(commit=commit, blobs=blobs)
 
 
 def describe_change(directory: Path, old: Snapshot, new: Snapshot, changed: list[str]) -> str:
@@ -158,7 +156,7 @@ def changes_since(directory: Path, old: Snapshot) -> tuple[str | None, Snapshot]
     if not stored_snapshot_exists(directory, old):
         gone = f"Contract hook: the contract this session saw last is gone from {directory}; its history was rewritten."
         return f"{gone} The baseline is taken again.", new
-    changed = [name for name in CONTRACT_FILES if new.blobs[name] != old.blobs[name]]
+    changed = sorted(name for name in new.blobs.keys() | old.blobs.keys() if new.blobs.get(name) != old.blobs.get(name))
     return (describe_change(directory, old, new, changed) if changed else None), new
 
 
@@ -196,7 +194,7 @@ def read_state(state_file: Path) -> SessionState | None:
         return SessionState(
             None
             if seen is None
-            else Snapshot(seen["commit"], {name: seen["blobs"][name] for name in CONTRACT_FILES}),
+            else Snapshot(seen["commit"], dict(seen["blobs"])),
             None if raw["role"] is None else Role(raw["role"]),
             raw["last_failure"],
         )

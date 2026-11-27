@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """The reference gate: every reference to a contract section or sentence must still resolve.
 
-A reference is `(<contract file>, <target>)`: the file is `AGENTS.md`, `HEAD.md` or
-`OPERATORS.md`, spelled with or without `instructions/` and backticks, and the target is a
+A reference is `(<contract file>, <target>)`: the file is a Markdown file of
+`instructions/`, spelled with or without `instructions/` and backticks, and the target is a
 section name, plain or in double quotes, or `sections "A" and "B"`. It resolves when the
 contract file has a heading of that name or a paragraph whose bold lead starts with it. A
 quote in single or double quotes right after the reference, as in
@@ -27,14 +27,14 @@ from __future__ import annotations
 import re
 import subprocess
 import sys
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 CONTRACT_DIRECTORY = "instructions"
-CONTRACT_FILES = ("AGENTS.md", "HEAD.md", "OPERATORS.md")
 
-CONTRACT_FILE = r"(?P<file>AGENTS\.md|HEAD\.md|OPERATORS\.md)`?"
+
 # Each form captures the whole target text as `target`; the first matching form wins.
 QUOTED = r'"[^"]+"'
 TARGET_FORMS = (
@@ -42,7 +42,6 @@ TARGET_FORMS = (
     re.compile(r"\"(?P<target>[^\"]+)\""),
     re.compile(r"(?P<target>[A-Z][^(),\"]*)"),
 )
-REFERENCE_OPENING = re.compile(rf"\(\s*`?(?P<explicit>{CONTRACT_DIRECTORY}/)?{CONTRACT_FILE}\s*[,:]\s*")
 QUOTE_FORM = re.compile(r"\s*\(\s*(?P<mark>['\"])(?P<quote>.+?)(?P=mark)\s*\)", re.DOTALL)
 QUOTED_NAME = re.compile(r"\"([^\"]+)\"")
 FILE_NAME = re.compile(r"\.[a-z]{2,4}\b")
@@ -67,6 +66,12 @@ class Section:
     text: str
 
 
+def reference_opening(names: Iterable[str]) -> re.Pattern[str]:
+    files = "|".join(map(re.escape, sorted(names)))
+    explicit = rf"{CONTRACT_DIRECTORY}/(?P<explicit_file>{files}|[A-Z][A-Z0-9_-]*\.md)"
+    return re.compile(rf"\(\s*`?(?:(?P<explicit>{explicit})|(?P<file>{files}))`?\s*[,:]\s*")
+
+
 def squeeze(text: str) -> str:
     return " ".join(EMPHASIS.sub("", text).split())
 
@@ -89,9 +94,9 @@ def parse_targets(text: str) -> tuple[tuple[str, ...], int] | None:
     return None
 
 
-def find_references(text: str) -> list[Reference]:
+def find_references(text: str, contract_names: Iterable[str]) -> list[Reference]:
     references = []
-    for opening in REFERENCE_OPENING.finditer(text):
+    for opening in reference_opening(contract_names).finditer(text):
         rest = text[opening.end() :]
         parsed = parse_targets(rest)
         if parsed is None:
@@ -101,7 +106,7 @@ def find_references(text: str) -> list[Reference]:
         references.append(
             Reference(
                 line=text.count("\n", 0, opening.start()) + 1,
-                file=opening["file"],
+                file=opening["explicit_file"] or opening["file"],
                 explicit=opening["explicit"] is not None,
                 targets=targets,
                 quote=squeeze(quote["quote"]) if quote else None,
@@ -128,17 +133,13 @@ def resolve(reference: Reference, contract: dict[str, Section], local: dict[str,
 def check_text(path: str, text: str, contract: dict[str, Section], local: dict[str, Section]) -> list[str]:
     return [
         f"{path}:{reference.line}: {problem}"
-        for reference in find_references(text)
+        for reference in find_references(text, contract)
         for problem in resolve(reference, contract, local)
     ]
 
 
-def load_sections(directory: Path) -> dict[str, Section]:
-    return {
-        name: parse_section((directory / name).read_text(encoding="utf-8"))
-        for name in CONTRACT_FILES
-        if (directory / name).exists()
-    }
+def load_sections(paths: Iterable[Path]) -> dict[str, Section]:
+    return {path.name: parse_section(path.read_text(encoding="utf-8")) for path in paths}
 
 
 def git_output(directory: Path, *arguments: str) -> str:
@@ -160,8 +161,15 @@ def tracked_text_files(checkout: Path) -> list[Path]:
 
 
 def check_checkout(checkout: Path, contract_root: Path = REPOSITORY_ROOT) -> list[str]:
-    contract = load_sections(contract_root / CONTRACT_DIRECTORY)
-    local = contract if checkout.resolve() == contract_root.resolve() else load_sections(checkout)
+    contract_directory = contract_root / CONTRACT_DIRECTORY
+    contract = load_sections(sorted(contract_directory.glob("*.md")))
+    if "AGENTS.md" not in contract:
+        raise FileNotFoundError(f"{contract_directory} holds no AGENTS.md")
+    if checkout.resolve() == contract_root.resolve():
+        local = contract
+    else:
+        local_paths = [checkout / name for name in contract if (checkout / name).is_file()]
+        local = load_sections(local_paths)
     problems = []
     for path in tracked_text_files(checkout):
         try:

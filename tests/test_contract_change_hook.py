@@ -57,6 +57,7 @@ class Machine:
 
     def commit(self, files: dict[str, str], subject: str) -> None:
         for name, text in files.items():
+            (self.instructions / name).parent.mkdir(parents=True, exist_ok=True)
             (self.instructions / name).write_text(text)
         self.git("add", "-A")
         self.git("commit", "-q", "-m", subject)
@@ -106,6 +107,41 @@ def test_running_head_gets_the_diff_and_the_subject_of_a_changed_contract_file(
     assert f"diff --git a/instructions/{file_name} b/instructions/{file_name}" in hint
     assert "+a changed line" in hint
     assert "Tighten the changed rule" in hint
+
+
+def test_a_markdown_file_added_to_the_contract_directory_is_told_when_it_changes(machine: Machine) -> None:
+    machine.running_head()
+    machine.commit({"CODE.md": "code rule\n"}, "Add the code policy")
+    assert "+code rule" in machine.batch()
+
+    machine.commit({"CODE.md": "code rule two\n"}, "Tighten the code policy")
+
+    assert "+code rule two" in machine.batch()
+
+
+@pytest.mark.parametrize("file_name", ["Prüfung.md", "with space.md"])
+def test_a_markdown_file_with_an_unusual_name_is_told_when_it_changes(machine: Machine, file_name: str) -> None:
+    machine.commit({file_name: "first\n"}, "Add the file")
+    machine.running_head()
+    machine.commit({file_name: "second\n"}, "Change the file")
+
+    assert "+second" in machine.batch()
+
+
+def test_a_change_inside_a_directory_named_like_a_markdown_file_is_not_told(machine: Machine) -> None:
+    machine.commit({"folder.md/inner.txt": "x\n"}, "Add the directory")
+    machine.running_head()
+    machine.commit({"folder.md/inner.txt": "y\n"}, "Change inside the directory")
+
+    assert machine.batch() == ""
+
+
+def test_a_contract_file_removed_from_the_directory_is_told(machine: Machine) -> None:
+    machine.running_head()
+    machine.git("rm", "-q", "instructions/HEAD.md")
+    machine.git("commit", "-q", "-m", "Remove the head file")
+
+    assert "-head rule one" in machine.batch()
 
 
 @pytest.mark.parametrize("event", ["prompt", "batch"])
@@ -349,19 +385,18 @@ def drop_the_delegated_line(machine: Machine) -> None:
     (machine.instructions / "AGENTS.md").write_text("# Contract without the section\n")
 
 
-def remove_the_head_file_in_a_commit(machine: Machine) -> None:
-    machine.git("rm", "-q", "instructions/HEAD.md")
-    machine.git("commit", "-q", "-m", "Remove the head file")
+def unborn_the_contract_branch(machine: Machine) -> None:
+    machine.git("checkout", "-q", "--orphan", "unborn")
 
 
 @pytest.mark.parametrize(
     "break_contract",
     [
+        unborn_the_contract_branch,
         break_the_link,
         link_another_file_name,
         link_outside_a_work_tree,
         drop_the_delegated_line,
-        remove_the_head_file_in_a_commit,
     ],
 )
 def test_a_failed_contract_read_gives_one_line_once_per_session(machine: Machine, break_contract) -> None:

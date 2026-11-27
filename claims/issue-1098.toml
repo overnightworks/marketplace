@@ -1,0 +1,7 @@
+claim_id = "004fde329c8a4598a777ca33cb291199"
+agent = "Claude d7189503-a891-4203-95ef-44598567881f"
+role = "builder"
+base = "d2fda29eb681e360bf9250d86467ee37852a4fe2"
+branch = "claude/issue-1098-pin-quality-v0-28-0"
+scope = [".github/workflows/ci.yml", ".github/workflows/codeql.yml", "quality/config.toml"]
+opened_commit = "c76304f947622d3166103def2e17ed0e054d56fb"

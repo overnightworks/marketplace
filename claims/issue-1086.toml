@@ -1,8 +1,0 @@
-claim_id = "b90ae9c274184cad9a262b7d382bcccd"
-agent = "Claude d7189503-a891-4203-95ef-44598567881f"
-role = "builder"
-base = "33eb7d1679bf910e4dde253678e42da18ec2d5d2"
-branch = "claude/issue-1086-stand-in-for-every-refused-gate"
-scope = ["instructions/HEAD.md", "plugins/atelier/lane/main.js", "plugins/atelier/lane/sampled.js", "plugins/atelier/workflows/lane.js", "plugins/atelier/workflows/lane.md", "tests/lane_workflow_gate_refusal.test.mjs", "tests/lane_workflow_sampled_gate.test.mjs"]
-opened_commit = "850da1f45d423784c54ca4ffe2ad0f3bc2d42677"
-whole_reason = "The ruled Rule changes sentence, the lane's one stand-in decision, its generated workflow, its reference and the harness cases for a refused gate change together."

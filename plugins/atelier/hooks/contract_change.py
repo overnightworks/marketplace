@@ -116,7 +116,8 @@ def decide_role(prompt: str, contract_file: Path) -> Role:
 
 
 def take_snapshot(directory: Path) -> Snapshot:
-    names = [name for name in git_text(directory, "ls-tree", "--name-only", "HEAD", "./").split("\n") if name.endswith(".md")]
+    listing = git_text(directory, "ls-tree", "-z", "--format=%(objecttype) %(path)", "HEAD", "./")
+    names = [entry[len("blob ") :] for entry in listing.split("\0") if entry.startswith("blob ") and entry.endswith(".md")]
     return Snapshot(
         commit=git_text(directory, "rev-parse", "HEAD").strip(),
         blobs={name: git_text(directory, "rev-parse", f"HEAD:./{name}").strip() for name in names},

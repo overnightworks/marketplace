@@ -27,6 +27,7 @@ from __future__ import annotations
 import re
 import subprocess
 import sys
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -34,13 +35,6 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 CONTRACT_DIRECTORY = "instructions"
 
 
-def contract_file_names(directory: Path) -> tuple[str, ...]:
-    return tuple(sorted(path.name for path in directory.glob("*.md")))
-
-
-CONTRACT_FILE_NAMES = contract_file_names(REPOSITORY_ROOT / CONTRACT_DIRECTORY)
-
-CONTRACT_FILE = rf"(?P<file>{'|'.join(map(re.escape, CONTRACT_FILE_NAMES))})`?"
 # Each form captures the whole target text as `target`; the first matching form wins.
 QUOTED = r'"[^"]+"'
 TARGET_FORMS = (
@@ -48,7 +42,6 @@ TARGET_FORMS = (
     re.compile(r"\"(?P<target>[^\"]+)\""),
     re.compile(r"(?P<target>[A-Z][^(),\"]*)"),
 )
-REFERENCE_OPENING = re.compile(rf"\(\s*`?(?P<explicit>{CONTRACT_DIRECTORY}/)?{CONTRACT_FILE}\s*[,:]\s*")
 QUOTE_FORM = re.compile(r"\s*\(\s*(?P<mark>['\"])(?P<quote>.+?)(?P=mark)\s*\)", re.DOTALL)
 QUOTED_NAME = re.compile(r"\"([^\"]+)\"")
 FILE_NAME = re.compile(r"\.[a-z]{2,4}\b")
@@ -73,6 +66,11 @@ class Section:
     text: str
 
 
+def reference_opening(names: Iterable[str]) -> re.Pattern[str]:
+    files = "|".join(map(re.escape, sorted(names)))
+    return re.compile(rf"\(\s*`?(?P<explicit>{CONTRACT_DIRECTORY}/)?(?P<file>{files})`?\s*[,:]\s*")
+
+
 def squeeze(text: str) -> str:
     return " ".join(EMPHASIS.sub("", text).split())
 
@@ -95,9 +93,9 @@ def parse_targets(text: str) -> tuple[tuple[str, ...], int] | None:
     return None
 
 
-def find_references(text: str) -> list[Reference]:
+def find_references(text: str, contract_names: Iterable[str]) -> list[Reference]:
     references = []
-    for opening in REFERENCE_OPENING.finditer(text):
+    for opening in reference_opening(contract_names).finditer(text):
         rest = text[opening.end() :]
         parsed = parse_targets(rest)
         if parsed is None:
@@ -119,8 +117,7 @@ def find_references(text: str) -> list[Reference]:
 def resolve(reference: Reference, contract: dict[str, Section], local: dict[str, Section]) -> list[str]:
     section = (contract if reference.explicit else local).get(reference.file)
     if section is None:
-        side = f"{CONTRACT_DIRECTORY}/" if reference.explicit else "the checkout's root"
-        return [f"{reference.file} is not in {side}"]
+        return [f"{reference.file} is not in the checkout's root"]
     problems = [
         f"{reference.file} has no section '{target}'"
         for target in reference.targets
@@ -134,16 +131,14 @@ def resolve(reference: Reference, contract: dict[str, Section], local: dict[str,
 def check_text(path: str, text: str, contract: dict[str, Section], local: dict[str, Section]) -> list[str]:
     return [
         f"{path}:{reference.line}: {problem}"
-        for reference in find_references(text)
+        for reference in find_references(text, contract)
         for problem in resolve(reference, contract, local)
     ]
 
 
 def load_sections(directory: Path) -> dict[str, Section]:
     return {
-        name: parse_section((directory / name).read_text(encoding="utf-8"))
-        for name in CONTRACT_FILE_NAMES
-        if (directory / name).exists()
+        path.name: parse_section(path.read_text(encoding="utf-8")) for path in sorted(directory.glob("*.md"))
     }
 
 
@@ -170,6 +165,7 @@ def check_checkout(checkout: Path, contract_root: Path = REPOSITORY_ROOT) -> lis
     if "AGENTS.md" not in contract:
         raise FileNotFoundError(f"{contract_root / CONTRACT_DIRECTORY} holds no AGENTS.md")
     local = contract if checkout.resolve() == contract_root.resolve() else load_sections(checkout)
+    local = {name: section for name, section in local.items() if name in contract}
     problems = []
     for path in tracked_text_files(checkout):
         try:

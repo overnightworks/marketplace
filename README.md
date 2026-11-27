@@ -15,7 +15,7 @@ Licensed under the [MIT License](LICENSE).
   Code), and `workflows/` holds the Claude Code workflows.
 - `plugins/atelier/hooks/` holds the Claude Code hooks, registered by
   `claude-hooks.json`: `contract_change.py` tells a running head the changed
-  lines of `AGENTS.md` or `HEAD.md` at its next prompt or tool batch, and
+  lines of the Markdown files of `instructions/` at its next prompt or tool batch, and
   `fleet_plans.py` shows it the open fleet-wide plans (`aco fleet-plans`) when
   its prompt names a repository action such as a rename or a publication.
   `oom_first.py` raises the session's `oom_score_adj` to 1000 at its start, so

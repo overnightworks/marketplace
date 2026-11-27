@@ -68,7 +68,7 @@ class Section:
 
 def reference_opening(names: Iterable[str]) -> re.Pattern[str]:
     files = "|".join(map(re.escape, sorted(names)))
-    explicit = rf"{CONTRACT_DIRECTORY}/(?P<explicit_file>[A-Z][A-Z0-9_-]*\.md)"
+    explicit = rf"{CONTRACT_DIRECTORY}/(?P<explicit_file>{files}|[A-Z][A-Z0-9_-]*\.md)"
     return re.compile(rf"\(\s*`?(?:(?P<explicit>{explicit})|(?P<file>{files}))`?\s*[,:]\s*")
 
 

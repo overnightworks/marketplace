@@ -94,14 +94,15 @@ def git_checkout(root: Path, files: dict[str, str]) -> Path:
     return root
 
 
-def test_a_markdown_file_added_to_the_contract_directory_is_checked_against(tmp_path: Path) -> None:
+@pytest.mark.parametrize("file_name", ["EXTRA.md", "Extra.md", "extra-rules.md"], ids=["upper-case-name", "mixed-case-name", "lower-case-name"])
+def test_a_markdown_file_added_to_the_contract_directory_is_checked_against(tmp_path: Path, file_name: str) -> None:
     contract_root = git_checkout(
-        tmp_path / "contract", {"instructions/AGENTS.md": CONTRACT, "instructions/EXTRA.md": "## Extra\n"}
+        tmp_path / "contract", {"instructions/AGENTS.md": CONTRACT, f"instructions/{file_name}": "## Extra\n"}
     )
-    checkout = git_checkout(tmp_path / "checkout", {"README.md": "(" + "instructions/EXTRA.md, Missing)\n"})
+    checkout = git_checkout(tmp_path / "checkout", {"README.md": f"(instructions/{file_name}, Missing)\n"})
 
     assert check_references.check_checkout(checkout, contract_root) == [
-        "README.md:1: EXTRA.md has no section 'Missing'"
+        f"README.md:1: {file_name} has no section 'Missing'"
     ]
 
 

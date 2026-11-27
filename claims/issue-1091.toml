@@ -3,6 +3,6 @@ agent = "Claude d7189503-a891-4203-95ef-44598567881f"
 role = "builder"
 base = "33eb7d1679bf910e4dde253678e42da18ec2d5d2"
 branch = "claude/issue-1091-sync-only-run"
-scope = ["plugins/atelier/lane/main.js", "plugins/atelier/workflows/lane.js", "plugins/atelier/workflows/lane.md", "tests/lane_workflow_ci.test.mjs", "tests/lane_workflow_sync_conflict.test.mjs"]
+scope = ["plugins/atelier/lane/main.js", "plugins/atelier/workflows/lane.js", "plugins/atelier/workflows/lane.md", "tests/lane_workflow_ci.test.mjs", "tests/lane_workflow_harness.mjs", "tests/lane_workflow_sync_conflict.test.mjs"]
 opened_commit = "9330b1993ccbb883865ec8edcbb3c5109eaa2c0a"
 whole_reason = "The sync-only run, the generated workflow, its reference and the harness cases for the sync and the operator's door change together."

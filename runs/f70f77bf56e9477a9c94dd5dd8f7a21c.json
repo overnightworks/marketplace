@@ -192,6 +192,11 @@
         "risk": "normal",
         "experiment": "sync-only-runtime-proof"
       }
+    },
+    {
+      "run": "2fd1f1f2a28b42e7a66c03c019ebf69c-2",
+      "start_tip": "9f5028ee5c82e011a55022d96a0df5129277dab0",
+      "follows": true
     }
   ]
 }

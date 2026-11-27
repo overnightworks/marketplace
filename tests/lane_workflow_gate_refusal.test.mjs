@@ -94,17 +94,28 @@ test('gate-refusal: a refused Codex review (reviewer codex) is no refusal of the
   assert.ok(!launchedAgents.some(label => label.includes('standin')))
 })
 
-test('gate-refusal: the sampled look of a normal lane with a refused gate stays skipped and starts no stand-in', async () => {
-  const { result, launchedAgents } = await runLane(sampledLane, { 'r0-review': APPROVE, 'r0-gate': refused(), ...reachesTheEnd })
-  assert.deepEqual([result.status, result.sampled], ['ready-to-land', 'skipped'])
-  assert.ok(!launchedAgents.includes('r0-gate-standin'))
-  assert.match(result.routingLine, /gate none/)
+const ownedGate = { stored_runs: [storedGateRun(['revise', olderTip]), storedOwnRun()] }
+const standInNamed = (result) => result.requiredHeadActions.filter(line => /stand-in as the final gate.*Codex refused the gate model/.test(line))
+for (const [what, answers] of [['the sampled look', {}], ['the owed gate re-check', { begin: ownedGate }]]) {
+  test(`gate-refusal: ${what} of a normal lane refused for its model runs the stand-in in the same round and counts its verdict as the gate's`, async () => {
+    const run = await runLane(sampledLane, { 'r0-review': APPROVE, 'r0-gate': refused(), 'r0-gate-standin': APPROVE, ...reachesTheEnd, ...answers })
+    const { result, launchedAgents } = run
+    assert.deepEqual([result.status, result.sampled], ['ready-to-land', true])
+    assert.deepEqual(launchedAgents.filter(label => /^r0-/.test(label)), ['r0-review', 'r0-gate', 'r0-gate-standin'])
+    assert.match(result.routingLine, /; gate opus\/high; /)
+    assert.equal(storedLane(run).stages.gate, 'opus/high')
+    assert.equal(standInNamed(result).length, 1)
+  })
+}
+
+const failedStandIn = { verdict: 'failed', blocking: [], followups: [], note: 'ended' }
+test('gate-refusal: an owed re-check whose stand-in ends without a verdict fails the lane at review', async () => {
+  const { result } = await runLane(sampledLane, { 'r0-review': APPROVE, 'r0-gate': refused(), 'r0-gate-standin': failedStandIn, 'r0-gate-standin-retry': failedStandIn, begin: ownedGate })
+  assert.deepEqual([result.status, result.stage], ['failed', 'review'])
 })
 
-test('gate-refusal: the owed gate re-check of a normal lane refused for its model starts no stand-in and fails at review', async () => {
-  const stored = { stored_runs: [storedGateRun(['revise', olderTip]), storedOwnRun()] }
-  const { result, launchedAgents } = await runLane(sampledLane, { 'r0-review': APPROVE, 'r0-gate': refused(), 'r0-gate-standin': APPROVE, begin: stored })
-  assert.deepEqual([result.status, result.stage], ['failed', 'review'])
-  assert.ok(!launchedAgents.includes('r0-gate-standin'))
-  assert.match(result.reason, /tail/)
+test('gate-refusal: a sampled look whose stand-in ends without a verdict is skipped and no stand-in is named as the gate', async () => {
+  const { result } = await runLane(sampledLane, { 'r0-review': APPROVE, 'r0-gate': refused(), 'r0-gate-standin': failedStandIn, 'r0-gate-standin-retry': failedStandIn, ...reachesTheEnd })
+  assert.deepEqual([result.status, result.sampled], ['ready-to-land', 'skipped'])
+  assert.equal(result.requiredHeadActions.filter(line => /stand-in/.test(line)).length, 0)
 })

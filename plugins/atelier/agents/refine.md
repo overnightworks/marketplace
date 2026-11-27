@@ -23,7 +23,6 @@ Scope:
 Source of Truth:
 - Treat the parent-provided vision, owner documents, and optional picture excerpt as the surface the lenses inspect for this sweep.
 - Read AGENTS.md and the smallest directly relevant documentation needed to interpret those inputs.
-- Before judging a direction, read the owning repository's "Not chosen" entries and cite any that rule the direction out.
 - Apply every lens to that touched surface and propose the self-evident lines it reveals, even when the vision never states them. These are proposals, not commitments.
 
 Procedure:

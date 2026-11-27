@@ -194,14 +194,13 @@ The design skill is advice and never blocks a landing:
   which runs as a fresh Claude reviewer. Any other Claude gate is refused at input.
 - A Codex gate run that exits above 0 and whose last non-empty run-log line starts with
   `ERROR: The '<the routed gate model>' model is not supported` is refused for its model;
-  the script re-checks that line as it does the usage limit's. On a material lane the lane
-  then runs the opus/high stand-in itself, a fresh Claude reviewer with the gate's brief, in the
+  the script re-checks that line as it does the usage limit's. On every risk class, the sampled
+  look and the owed re-check included, the lane then runs the opus/high stand-in itself, a fresh Claude reviewer with the gate's brief, in the
   same round as the review, whose verdict is kept. The stand-in holds for the rest of the
   run: later gate rounds run on it with no new Codex courier, and the Routing line, the
   record, `routing` and the head actions name opus/high as the gate. The head names it in the pull
-  request. A new run tries Codex first. A normal lane's sampled look or owed re-check, a
-  refused ordinary review, a login error, an unknown model, a capacity line and any other
-  failed run keep their ends.
+  request on every risk class. A new run tries Codex first. A refused ordinary review, a login
+  error, an unknown model, a capacity line, a usage limit and any other failed run keep their ends.
 
 ## Awaiting-head results
 
@@ -215,8 +214,8 @@ A head that finds a run stopped awaiting-head, or lost, reads `aco lane-record s
   lane ends awaiting-head at `record` before any review and takes no sample: start a new run once
   the stored runs can be read. A sampled gate's re-check that gives no verdict ends awaiting-head at
   `review` with the resume arguments of the usage limit.
-- A refused Codex gate never ends awaiting-head: its stand-in runs in the same round, and a
-  stand-in that ends without a verdict fails the lane (`failed` at `review`).
+- A refused Codex gate, the sample's included, never ends awaiting-head and is never skipped: its
+  opus/high stand-in runs in the same round, its verdict counts as the gate's, and a stand-in that ends without a verdict fails the lane (`failed` at `review`).
 - A Codex courier that wrote a different brief than the script composed is
   started once more. A second mismatch returns awaiting-head at stage `review`
   with the resume arguments of the usage limit (`pr`, `tip`, and on a delta round

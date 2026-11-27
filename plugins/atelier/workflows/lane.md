@@ -25,14 +25,13 @@ lists `requiredHeadActions`.
    defaults). The look is a measurement: one that ends without a verdict (the courier's `limited`,
    `hung`, `brief-mismatch`, `no-brief-record` or `failed`) or whose `routing.gate` is on the
    builder's provider is skipped, the lane goes on, the history holds no gate entry, and the record
-   and the Routing line show `gate none`. A re-check owed after a REVISE is never skipped. A Claude
-   reviewer that fails
-   is started once more; only a second failure ends the round, with both texts
-   in the reason. The first review is told that a tester drives the lane's `e2e`
-   text (quoted, cut at `TESTER_DRIVE_LIMIT` characters) after it: a proof only that drive
-   produces is not a finding at review and is named "left to the tester", and a
-   line neither the diff nor that drive proves stays blocking. Every lane has a
-   tester, so the brief has no tester-less variant; later rounds do not repeat it.
+   and the Routing line show `gate none`. A re-check owed after a REVISE is never skipped.
+   A Claude reviewer that fails is started once more; only a second failure ends the round, with
+   both texts in the reason. The first review is told that a tester drives the lane's `e2e` text
+   (quoted, cut at `TESTER_DRIVE_LIMIT` characters) after it: a proof only that drive produces is
+   not a finding at review and is named "left to the tester", and a line neither the diff nor that
+   drive proves stays blocking. Every lane has a tester, so the brief has no tester-less variant;
+   later rounds do not repeat it.
 3. Fix: fresh fixers answer evidence-bearing findings; whoever raised a finding
    re-checks the delta. A review that passes with in-place follow-ups open (the
    reviewer's or gate's `inPlace` true, or named in `foldIn`) starts one

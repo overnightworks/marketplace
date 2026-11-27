@@ -17,15 +17,16 @@ lists `requiredHeadActions`.
    material lane adds a Codex final gate, or a Claude gate through `routing.gate`. One normal lane in
    ten, the one whose item number is divisible by ten, gets the gate once, after its review approved
    a tip and before the tester and CI start: it reads the whole lane (`git diff origin/main...HEAD`,
-   also on a run started with `deltaFrom`) on its own, in the round of that approval, so every blocking
-   finding of the look is one the review let through and counts under `gate` with risk `normal` and no
-   miss. Its findings go to a fix round and the gate re-checks them, as on a material lane; the gate
-   is not repeated after later fixes. A gate Codex refuses for its model runs the opus/high
-   stand-in in the same round and its verdict counts as the look's (see Routing defaults). The
-   look is a measurement: one that ends without a verdict (the courier's `limited`, `hung`,
-   `brief-mismatch`, `no-brief-record` or `failed`) or whose `routing.gate` is on the builder's
-   provider is skipped, the lane goes on, the history holds no gate entry, and the record and the
-   Routing line show `gate none`. A re-check owed after a REVISE is never skipped. A Claude reviewer that fails
+   also on a run started with `deltaFrom`) on its own, in the round of that approval, so every
+   blocking finding of the look is one the review let through and counts under `gate` with risk
+   `normal` and no miss. Its findings go to a fix round and the gate re-checks them, as on a
+   material lane; the gate is not repeated after later fixes. A gate Codex refuses for its model
+   runs the opus/high stand-in in the same round and its verdict counts as the look's (see Routing
+   defaults). The look is a measurement: one that ends without a verdict (the courier's `limited`,
+   `hung`, `brief-mismatch`, `no-brief-record` or `failed`) or whose `routing.gate` is on the
+   builder's provider is skipped, the lane goes on, the history holds no gate entry, and the record
+   and the Routing line show `gate none`. A re-check owed after a REVISE is never skipped. A Claude
+   reviewer that fails
    is started once more; only a second failure ends the round, with both texts
    in the reason. The first review is told that a tester drives the lane's `e2e`
    text (quoted, cut at `TESTER_DRIVE_LIMIT` characters) after it: a proof only that drive
@@ -201,9 +202,9 @@ The design skill is advice and never blocks a landing:
   Claude reviewer with the gate's brief, in the same round as the review, whose verdict is kept.
   The stand-in holds for the rest of the run: later gate rounds run on it with no new Codex
   courier, and the Routing line, the record, `routing` and the head actions name opus/high as
-  the gate. The head names it in the pull
-  request on every risk class. A new run tries Codex first. A refused ordinary review, a login
-  error, an unknown model, a capacity line, a usage limit and any other failed run keep their ends.
+  the gate. The head names it in the pull request on every risk class. A new run tries Codex
+  first. A refused ordinary review, a login error, an unknown model, a capacity line, a usage
+  limit and any other failed run keep their ends.
 
 ## Awaiting-head results
 

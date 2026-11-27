@@ -348,6 +348,14 @@ test('ci-operator-door: a verdict red by declared loosenings alone ends the lane
   assert.match(fs.readFileSync(gh.calls, 'utf8'), /run view --job 22 .*--log/)
 })
 
+test('ci-operator-door: a syncOnly run ends awaiting-head at ci with the quality merge command and starts no review, gate or tester agent', async (t) => {
+  const gh = harnessGhWithRunLog(t, { logLines: loosened })
+  const { result, launchedAgents } = await runLane({ ...lane, syncOnly: true, risk: 'material' }, { 'ci-0': verdictRedCi, 'ci-read-0': printingWith(gh, redVerdict) })
+  assert.deepEqual([result.status, result.stage], ['awaiting-head', 'ci'])
+  assert.match(result.reason, door)
+  assert.deepEqual(launchedAgents.filter(label => /^(r\d|e2e|standin|gate|fix)/.test(label)), [])
+})
+
 test('ci-operator-door: the two log lines in the other order, with the next line first, end the same way', async (t) => {
   const gh = harnessGhWithRunLog(t, { logLines: [...loosened].reverse() })
   const { result } = await driveCi(verdictRedCi, lane, printingWith(gh, redVerdict))

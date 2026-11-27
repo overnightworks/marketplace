@@ -129,3 +129,44 @@ test('a sync that merges main cleanly or already contains it raises no conflict 
   const { launchedAgents } = await runLane(resumeArgs, { sync: {}, ...reachesTheEnd, 'r0-review': APPROVE })
   assert.ok(!launchedAgents.includes('fix-1'))
 })
+
+const syncOnlyArgs = { ...resumeArgs, syncOnly: true }
+const cleanMerge = { head: mergedOnlyTip, parents: [resumeTip, mainMovedTip] }
+const judgingAgent = (label) => /^(r\d|e2e|standin|gate)/.test(label)
+
+test('a syncOnly run merges main cleanly, watches CI and starts no review, gate or tester agent', async () => {
+  const { result, launchedAgents } = await runLane({ ...syncOnlyArgs, risk: 'material' }, { sync: cleanMerge, 'ci-0': greenCi(mergedOnlyTip) })
+  assert.deepEqual([result.status, result.stage], ['awaiting-head', 'record'])
+  assert.equal(result.tip, mergedOnlyTip)
+  assert.ok(launchedAgents.includes('sync') && launchedAgents.includes('ci-0'), launchedAgents.join(','))
+  assert.deepEqual(launchedAgents.filter(judgingAgent), [])
+})
+
+test('a syncOnly run whose tip already contains main changes nothing and says so', async () => {
+  const { result, launchedAgents } = await runLane(syncOnlyArgs, { sync: {} })
+  assert.deepEqual([result.status, result.stage], ['awaiting-head', 'sync'])
+  assert.equal(result.tip, resumeTip)
+  assert.match(result.reason, /already contains origin\/main/)
+  assert.ok(!launchedAgents.some(label => label.startsWith('ci-') || judgingAgent(label)), launchedAgents.join(','))
+})
+
+test('a syncOnly run whose merge conflicts in the lane files goes through the fixer, the review and CI', async () => {
+  const { result, launchedAgents } = await runLane(syncOnlyArgs, { sync: conflictingSync(), 'fix-1': resolvedMerge, ...readyAfterMerge })
+  assert.equal(result.status, 'ready-to-land')
+  assert.ok(['fix-1', 'r1-review', 'e2e-0'].every(label => launchedAgents.includes(label)), launchedAgents.join(','))
+})
+
+for (const [what, extra] of [
+  ['build', { build: 'b', pr: undefined, tip: undefined }],
+  ['fixFirst', { fixFirst: [defectWithoutDraft] }],
+  ['foldIn', { foldIn: [tidy] }],
+  ['deltaFrom', { deltaFrom: olderTip }],
+  ['a value that is not true', { syncOnly: 'yes' }],
+]) {
+  test(`syncOnly beside ${what} fails at input before any agent runs`, async () => {
+    const { result, launchedAgents } = await runLane({ ...syncOnlyArgs, ...extra })
+    assert.deepEqual([result.status, result.stage], ['failed', 'input'])
+    assert.match(result.reason, /syncOnly/)
+    assert.deepEqual(launchedAgents, [])
+  })
+}

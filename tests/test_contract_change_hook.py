@@ -128,13 +128,12 @@ def test_a_markdown_file_with_an_unusual_name_is_told_when_it_changes(machine: M
     assert "+second" in machine.batch()
 
 
-def test_a_directory_named_like_a_markdown_file_does_not_break_the_snapshot(machine: Machine) -> None:
-    (machine.instructions / "folder.md").mkdir()
+def test_a_change_inside_a_directory_named_like_a_markdown_file_is_not_told(machine: Machine) -> None:
     machine.commit({"folder.md/inner.txt": "x\n"}, "Add the directory")
     machine.running_head()
-    machine.commit({"HEAD.md": "changed\n"}, "Change a file")
+    machine.commit({"folder.md/inner.txt": "y\n"}, "Change inside the directory")
 
-    assert "+changed" in machine.batch()
+    assert machine.batch() == ""
 
 
 def test_a_contract_file_removed_from_the_directory_is_told(machine: Machine) -> None:

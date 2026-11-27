@@ -1,0 +1,7 @@
+claim_id = "d2c5ace1a0634d95ac54fe64d76ed826"
+agent = "Claude d7189503-a891-4203-95ef-44598567881f"
+role = "builder"
+base = "33eb7d1679bf910e4dde253678e42da18ec2d5d2"
+branch = "claude/issue-1095-reviewers-reminder-goes"
+scope = ["plugins/atelier/.codex/agents/refine.toml", "plugins/atelier/agents/refine.md", "plugins/atelier/skills/plan-review/SKILL.md"]
+opened_commit = "1c464efadb3dd08c1cb541495c0789d5d13cf5cf"

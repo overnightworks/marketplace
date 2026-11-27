@@ -122,6 +122,15 @@ def test_a_contract_directory_without_agents_fails_loud(tmp_path: Path) -> None:
         check_references.check_checkout(checkout, contract_root)
 
 
+def test_the_contract_checkout_checks_its_own_bare_references_against_its_contract_directory(tmp_path: Path) -> None:
+    checkout = git_checkout(
+        tmp_path / "contract",
+        {"instructions/AGENTS.md": CONTRACT, "README.md": "(" + "AGENTS.md, Code) and (" + "AGENTS.md, Gone)\n"},
+    )
+
+    assert check_references.check_checkout(checkout, checkout) == ["README.md:1: AGENTS.md has no section 'Gone'"]
+
+
 def test_checkout_with_broken_heading_reference_fails_and_a_sound_one_passes(tmp_path: Path) -> None:
     contract_root = git_checkout(tmp_path / "contract", {"instructions/AGENTS.md": CONTRACT})
     sound = git_checkout(tmp_path / "sound", {"README.md": "(" + "instructions/AGENTS.md, Code)\n"})

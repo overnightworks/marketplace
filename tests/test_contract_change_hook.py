@@ -385,9 +385,14 @@ def drop_the_delegated_line(machine: Machine) -> None:
     (machine.instructions / "AGENTS.md").write_text("# Contract without the section\n")
 
 
+def unborn_the_contract_branch(machine: Machine) -> None:
+    machine.git("checkout", "-q", "--orphan", "unborn")
+
+
 @pytest.mark.parametrize(
     "break_contract",
     [
+        unborn_the_contract_branch,
         break_the_link,
         link_another_file_name,
         link_outside_a_work_tree,

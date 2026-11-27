@@ -1,7 +1,7 @@
 // Drives the atelier lane workflow script through a sync that hits a merge conflict, with a stub agent runner.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { runLane, storedLane, APPROVE, PASS, greenCi, resumeArgs, resumeFix, resumeTip, olderTip, mergedOnlyTip, mainMovedTip, defectWithoutDraft, conflictsWithMain, tidy, unchangedFix, reachesTheEnd } from './lane_workflow_harness.mjs'
+import { runLane, storedLane, APPROVE, PASS, greenCi, resumeArgs, resumeFix, resumeTip, olderTip, mergedOnlyTip, mainMovedTip, defectWithoutDraft, conflictsWithMain, tidy, unchangedFix, reachesTheEnd, resumeFixedTip, judgingAgent, redOnHead, ciAnswer, check, required } from './lane_workflow_harness.mjs'
 
 const conflictTree = 'ab'.repeat(20)
 const conflicted = 'docs/ARCHITECTURE.md'
@@ -132,7 +132,6 @@ test('a sync that merges main cleanly or already contains it raises no conflict 
 
 const syncOnlyArgs = { ...resumeArgs, syncOnly: true }
 const cleanMerge = { head: mergedOnlyTip, parents: [resumeTip, mainMovedTip] }
-const judgingAgent = (label) => /^(r\d|e2e|standin|gate)/.test(label)
 
 test('a syncOnly run merges main cleanly, watches CI and starts no review, gate or tester agent', async () => {
   const { result, launchedAgents } = await runLane({ ...syncOnlyArgs, risk: 'material' }, { sync: cleanMerge, 'ci-0': greenCi(mergedOnlyTip) })
@@ -140,6 +139,8 @@ test('a syncOnly run merges main cleanly, watches CI and starts no review, gate 
   assert.equal(result.tip, mergedOnlyTip)
   assert.ok(launchedAgents.includes('sync') && launchedAgents.includes('ci-0'), launchedAgents.join(','))
   assert.deepEqual(launchedAgents.filter(judgingAgent), [])
+  assert.match(result.reason, /aco lane-record show 1 --json/)
+  assert.doesNotMatch(result.reason, /null|nothing/)
 })
 
 test('a syncOnly run whose tip already contains main changes nothing and says so', async () => {
@@ -154,6 +155,19 @@ test('a syncOnly run whose merge conflicts in the lane files goes through the fi
   const { result, launchedAgents } = await runLane(syncOnlyArgs, { sync: conflictingSync(), 'fix-1': resolvedMerge, ...readyAfterMerge })
   assert.equal(result.status, 'ready-to-land')
   assert.ok(['fix-1', 'r1-review', 'e2e-0'].every(label => launchedAgents.includes(label)), launchedAgents.join(','))
+})
+
+test('a syncOnly run on a material lane reviews and gates the conflict fixer\'s merge', async () => {
+  const { result, launchedAgents } = await runLane({ ...syncOnlyArgs, risk: 'material' }, { sync: conflictingSync(), 'fix-1': resolvedMerge, ...readyAfterMerge, 'r1-gate': { ...APPROVE, codexExit: 0 } })
+  assert.equal(result.status, 'ready-to-land', result.reason)
+  assert.ok(launchedAgents.includes('r1-gate'), launchedAgents.join(','))
+})
+
+test('a syncOnly run with a red check other than the door goes to a fixer, then a delta review', async () => {
+  const failing = [redOnHead('Python: tests')]
+  const red = ciAnswer([check(required, 'pass'), check('Python: tests', 'fail')], { green: false, failing, head: mergedOnlyTip })
+  const { launchedAgents } = await runLane(syncOnlyArgs, { sync: cleanMerge, 'ci-0': red, 'fix-1': resumeFix, 'r1-review': APPROVE, 'e2e-0': PASS, 'ci-1': greenCi(resumeFixedTip) })
+  assert.ok(launchedAgents.includes('fix-1') && launchedAgents.includes('r1-review'), launchedAgents.join(','))
 })
 
 for (const [what, extra] of [

@@ -520,3 +520,6 @@ export const tolerates = { timeout: 5000 }
 export const unjudgeableOutside = ['board.py', ...Array.from({ length: 50 }, (_, index) => `src/mod_${index}.py`)]
 // A gate verdict that raises one blocking finding.
 export const gateRaises = { verdict: 'REVISE', blocking: [defectWithoutDraft], followups: [] }
+
+// Labels of the agents that judge a lane (review, tester, stand-in, gate) or fix it.
+export const judgingAgent = (label) => /^(r\d|e2e|standin|gate|fix)/.test(label)

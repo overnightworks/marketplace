@@ -5,7 +5,7 @@ import path from 'node:path'
 import { spawnSync } from 'node:child_process'
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { runLane, FAKE_GH, resumeTip, resumeFixedTip, partReplaced, runCommandLine, installFake, resumeArgs, resumeFix, defectWithoutDraft, roundTip, roundRed, roundFix, reviewedRoundFix, roundReviews, heldTester, PASS, APPROVE, greenCi, tidy, redOnHead, run, redJob, tip, lane, reachesCi, required, check, ciAnswer, driveCi, tolerates, mergedOnlyTip, mainMovedTip } from './lane_workflow_harness.mjs'
+import { runLane, FAKE_GH, resumeTip, resumeFixedTip, partReplaced, runCommandLine, installFake, resumeArgs, resumeFix, defectWithoutDraft, roundTip, roundRed, roundFix, reviewedRoundFix, roundReviews, heldTester, PASS, APPROVE, greenCi, tidy, redOnHead, run, redJob, tip, lane, reachesCi, required, check, ciAnswer, driveCi, tolerates, mergedOnlyTip, mainMovedTip, judgingAgent } from './lane_workflow_harness.mjs'
 
 const unproven = [
   ['a pending check', [check(required, 'pass'), check('Python: tests', 'pending')], /Python: tests/],
@@ -353,7 +353,7 @@ test('ci-operator-door: a syncOnly run ends awaiting-head at ci with the quality
   const { result, launchedAgents } = await runLane({ ...lane, syncOnly: true, risk: 'material' }, { sync: { head: mergedOnlyTip, parents: [tip, mainMovedTip] }, 'ci-0': { ...verdictRedCi, head: mergedOnlyTip }, 'ci-read-0': printingWith(gh, redVerdict, mergedOnlyTip) })
   assert.deepEqual([result.status, result.stage], ['awaiting-head', 'ci'])
   assert.match(result.reason, door)
-  assert.deepEqual(launchedAgents.filter(label => /^(r\d|e2e|standin|gate|fix)/.test(label)), [])
+  assert.deepEqual(launchedAgents.filter(judgingAgent), [])
 })
 
 test('ci-operator-door: the two log lines in the other order, with the next line first, end the same way', async (t) => {

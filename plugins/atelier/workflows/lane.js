@@ -2263,7 +2263,9 @@ async function reviewRound(which, range, from, sampledLook) {
   const reviewers = which.map(r => reviewerRow(r, owedRange))
   const answer = await runPart('lane-review', laneReview, { item: A.item, pr, repo: A.repo, repoFlag: R, after, tip, delegatedLine: DELEGATED_LINE, worktree: A.worktree, branch: A.branch, scratch: A.scratch, tag: TAG, label: `r${after}`, range, reuse: buildReuse, e2e: A.e2e, contract: A.contract, blockingLine: BLOCKING_LINE, reviewers, findingKinds: FINDING_KINDS, finding: FINDING, followup: REPORTED_FOLLOWUP, mechanical: MECHANICAL, gateStandIn: GATE_STAND_IN })
   // A Codex gate that refused its model was replaced in its round by the stand-in; the run keeps it, so a re-check has the gate's row and the record names the one gate that ran.
-  if ((answer?.results ?? answer?.finished?.results ?? []).some(result => result?.gateRefusal)) { gateRefused = true; ROUTING.gate = { ...GATE_STAND_IN } }
+  // A skipped sampled look gave no verdict, so no gate ran and the stand-in is neither held nor named.
+  const skippedLook = sampledLook && LOOK_WITHOUT_VERDICT.has(answer?.verdict?.state)
+  if (!skippedLook && (answer?.results ?? answer?.finished?.results ?? []).some(result => result?.gateRefusal)) { gateRefused = true; ROUTING.gate = { ...GATE_STAND_IN } }
   const unfit = unfitRoundAnswer(answer, which.length)
   if (unfit) {
     // The reviewers that finished before a usage limit keep their records, so the resume carries their findings.

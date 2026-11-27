@@ -312,6 +312,8 @@ function unfitRoundAnswer(answer, expectedResults) {
   if (!ROUND_STATES.has(answer.verdict?.state)) return `lane-review answered with an unknown round state: ${JSON.stringify(answer.verdict ?? null).slice(0, 200)}`
   return null
 }
+// A reviewer's row for the round; the gate carries the range a lost run owes it, which no other reviewer reads.
+const reviewerRow = (r, owedRange) => ({ key: r.key, provider: r.provider, role: r.role, isGate: r === GATE, routing: claudeRole(REVIEWER_ROUTING_ROWS[r.key]), ...(r === GATE && owedRange && { range: owedRange }) })
 // from is the tip where the round's delta starts (none for a whole-lane round); a limited round hands it back for the resume.
 async function reviewRound(which, range, from, sampledLook) {
   const beginStop = await beginRun()
@@ -319,7 +321,8 @@ async function reviewRound(which, range, from, sampledLook) {
   // The sampled look is the gate alone and may be skipped, so it never marks the review stage as started.
   if (!sampledLook) startedStages.review = true
   const after = sampledLook?.after ?? spent.total
-  const reviewers = which.map(r => ({ key: r.key, provider: r.provider, role: r.role, isGate: r === GATE, routing: claudeRole(REVIEWER_ROUTING_ROWS[r.key]) }))
+  const owedRange = takeOwedGateRange()
+  const reviewers = which.map(r => reviewerRow(r, owedRange))
   const answer = await runPart('lane-review', laneReview, { item: A.item, pr, repo: A.repo, repoFlag: R, after, tip, delegatedLine: DELEGATED_LINE, worktree: A.worktree, branch: A.branch, scratch: A.scratch, tag: TAG, label: `r${after}`, range, reuse: buildReuse, e2e: A.e2e, contract: A.contract, blockingLine: BLOCKING_LINE, reviewers, findingKinds: FINDING_KINDS, finding: FINDING, followup: REPORTED_FOLLOWUP, mechanical: MECHANICAL, gateStandIn: MATERIAL && !sampledLook ? GATE_STAND_IN : null })
   // A Codex gate that refused its model was replaced in its round by the stand-in; the run keeps it, so a re-check has the gate's row and the record names the one gate that ran.
   if ((answer?.results ?? answer?.finished?.results ?? []).some(result => result?.gateRefusal)) { gateRefused = true; ROUTING.gate = { ...GATE_STAND_IN } }
@@ -697,9 +700,6 @@ while (true) {
     if (stop) return stop
   }
   history.push({ after: spent.total, by: `ci-${n - 1}`, verdict: ci.verdict, blocking: (ci.failing || []).map(f => f.where), deterministic: (ci.failing || []).filter(f => f.deterministic === true).map(f => f.where) })
-  // A CI finding read after a proven point opens the next segment; a stop without a fixer stores no stage-less segment, so aco counts the lane's findings unknown instead of the run dropping this one unseen.
-  const afterCiStop = (ci.failing || []).length ? await beginRun() : null
-  if (afterCiStop) return afterCiStop
   if (ci.readError) return await openResult('failed', 'ci', { reason: ci.readError })
   if (ci.pending) return await openResult('awaiting-head', 'ci', { reason: `${ci.pending} Start a new run with pr ${pr} and tip ${tip} once CI has finished.` })
   if (unproven) return await openResult('failed', 'ci', { reason: `CI reported green, but the check listing does not prove it: ${unproven}` })

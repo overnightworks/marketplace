@@ -332,11 +332,12 @@ for (const [name, budget, answers, storedRan] of [
   ['the tester\'s pass', 0, { 'r0-review': APPROVE, 'e2e-0': PASS, 'ci-0': roundRed(0) }, ['review', 'test']],
   ['a reviewed fix', 1, { ...roundReviews, 'r0-review': APPROVE, 'e2e-0': PASS, 'ci-0': roundRed(0), 'ci-1': roundRed(1), 'fix-1': reviewedRoundFix(1) }, ['review', 'test', 'review', 'fix']],
 ]) {
-  test(`run-record: a CI finding read after ${name}, when the run then ends without a fixer, stores no stage that did not run and leaves its run begun`, async () => {
+  test(`run-record: a CI finding read after ${name}, when the run then ends without a fixer, stores no stage that did not run and begins no run for it`, async () => {
     const run = await runLane({ ...resumeArgs, budgets: { ci: budget } }, answers, probed)
     assert.equal(run.result.status, 'ci-red', run.result.reason)
     assert.deepEqual(ranOfRuns(run.laneRecordCalls), storedRan)
-    assert.equal(run.laneRecordCalls.at(-1)[1], 'begin')
+    assert.equal(callsOf(run.laneRecordCalls, 'begin').length, callsOf(run.laneRecordCalls, 'add').length)
+    assert.notEqual(run.laneRecordCalls.at(-1)[1], 'begin')
   })
 }
 

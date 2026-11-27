@@ -1448,7 +1448,7 @@ async function laneReview(A) {
   // parallel() turns a throwing reviewer into null, so a usage limit is kept and rethrown for the lane once every reviewer ended,
   // carrying what the reviewers that finished returned.
   let usageLimitError = null
-  const results = await parallel(A.reviewers.map(reviewer => () => reviewBy(reviewer, A.range).catch(error => {
+  const results = await parallel(A.reviewers.map(reviewer => () => reviewBy(reviewer, reviewer.range ?? A.range).catch(error => {
     if (claudeUsageLimitOf(error)) usageLimitError ??= error
     throw error
   })))
@@ -1618,17 +1618,26 @@ const SAMPLE_EVERY = 10
 const LOOK_WITHOUT_VERDICT = new Set(['limited', 'hung', 'brief-mismatch', 'no-brief-record', 'failed'])
 let sampled = false  // the lane's gate ran as the sample or as the re-check an earlier run owed
 let sampledSkip = null  // why the sampled look was skipped
+let gateOwesWholeLane = false  // a lost run owes the gate on the whole lane in the first review round, whatever range the review reads
 const sampledView = () => ({ sampled: sampledSkip ? 'skipped' : sampled, ...(sampledSkip && { sampledReason: sampledSkip }) })
 
-// What the first begin's read of the stored runs leaves the lane to do: a stop that ends the lane, or whether to take the sample or to re-check the gate's REVISE an earlier run stored.
+// What the first begin's read of the stored runs leaves the lane to do: a stop when the read failed, or whether to take the sample or to re-check the gate: owed after a stored REVISE or a lost run.
 async function sampledDuty(read) {
   const none = { take: false, owed: false }
   if (MATERIAL || Number(A.item) % SAMPLE_EVERY !== 0) return none
-  const unknown = read.gap ?? (read.lost && 'a stored run of the lane is lost, so it may have run the gate')
-  if (unknown) return { stop: await openResult('awaiting-head', 'record', { reason: `item #${A.item} is sampled for the final gate, but the stored runs cannot show whether the gate ran: ${unknown}. A sampled lane takes no sample and skips no owed re-check. Start a new run with pr ${pr} and tip ${tip} once the stored runs can be read.` }) }
-  const owed = read.lastGate === 'revise'
+  if (read.gap) return { stop: await openResult('awaiting-head', 'record', { reason: `item #${A.item} is sampled for the final gate, but the stored runs cannot show whether the gate ran: ${read.gap}. A sampled lane takes no sample and skips no owed re-check. Start a new run with pr ${pr} and tip ${tip} once the stored runs can be read.` }) }
+  // A lost run may have run the gate and said anything, so the lane owes the gate on the whole lane like a stored REVISE: its look is never skipped.
+  const owed = read.lastGate === 'revise' || Boolean(read.lost)
   sampled = owed
-  return { take: !read.gateRan, owed }
+  gateOwesWholeLane = Boolean(read.lost)
+  return { take: !owed && !read.gateRan, owed }
+}
+
+// The range a lost run owes the gate, handed out once: the first review round takes it, whatever range that round reads.
+function takeOwedGateRange() {
+  const owed = gateOwesWholeLane
+  gateOwesWholeLane = false
+  return owed ? WHOLE_LANE : undefined
 }
 
 // The one look at the whole lane on the tip the review approved, in the round of that approval so the existing miss rule counts no miss for it.
@@ -1680,7 +1689,7 @@ const REPORTED_FOLLOWUP = { ...FOLLOWUP, required: [...FOLLOWUP.required, 'inPla
 
 // A run stores its stages on the claim as segments: a segment is one aco run, the span of the run's stages between two proven points (a review that approves the tip, a gate that approves it on a material lane, the tester's pass).
 // aco sums the counts and joins the verdicts over the stored runs, so each segment's record holds only its own slice of the history for the verdicts and the --ran stages, and the run's counts since the segment's start; the approvals of the earlier segments stay in the history.
-// The first segment begins with the run. A later one begins right before its first stage, or at once when a tester still runs or a CI finding was read, so a run that stops at a proven point leaves no begun run without a record, and a run killed in the middle of a segment, or ending after a CI finding with no stage, leaves one, which aco counts as lost.
+// The first segment begins with the run. A later one begins right before its first stage, or at once when a tester still runs, so a run that stops at a proven point, or ends after a CI finding with no fixer, leaves no begun run without a record, and a run killed in the middle of a segment leaves one, which aco counts as lost.
 let began = null  // set once aco lane-record begin ran for a segment, so the records go to the claim and landing or release takes no --record: what its read of the stored runs found
 let firstBegan = null  // the read of the run's first begin: the earlier runs' approvals and the gap the misses of every segment's record are judged by, never the later reads that hold this run's own approvals
 const startedStages = { build: false, review: false, test: false }  // the stages the open segment started that the history does not show yet
@@ -1694,7 +1703,7 @@ let recordsWritten = 0
 const segmentRunIdNow = () => segmentRunId(runId, segmentNumber)
 // A tester that has not answered belongs to the segment its answer lands in, so it counts as started only once it is judged.
 const segmentSlice = () => ({ history: history.slice(segmentFrom.history), fixRole: fixRolesRun.slice(segmentFrom.fixRoles).at(-1) ?? null, testStarted: startedStages.test && !pendingTest })
-// The stages the open segment started, in aco's order; a segment that started none (a CI finding read after a proven point, the run then ending without a fixer) stores nothing, since aco takes no empty --ran and a stage that did not run is never claimed.
+// The stages the open segment started, in aco's order; a segment that started none (the run ending after a CI finding read at a proven point, with no fixer) stores nothing, since aco takes no empty --ran and a stage that did not run is never claimed.
 const stagesStarted = () => stagesRan({ ...segmentSlice(), builderRan: startedStages.build, reviewStarted: startedStages.review })
 
 // The lane record reaches <scratch>/lane-record.json through a courier that cuts it out of its own transcript; the printer then runs aco lane-record check on it and a CRC-signed line brings the exit back.
@@ -2241,6 +2250,8 @@ function unfitRoundAnswer(answer, expectedResults) {
   if (!ROUND_STATES.has(answer.verdict?.state)) return `lane-review answered with an unknown round state: ${JSON.stringify(answer.verdict ?? null).slice(0, 200)}`
   return null
 }
+// A reviewer's row for the round; the gate carries the range a lost run owes it, which no other reviewer reads.
+const reviewerRow = (r, owedRange) => ({ key: r.key, provider: r.provider, role: r.role, isGate: r === GATE, routing: claudeRole(REVIEWER_ROUTING_ROWS[r.key]), ...(r === GATE && owedRange && { range: owedRange }) })
 // from is the tip where the round's delta starts (none for a whole-lane round); a limited round hands it back for the resume.
 async function reviewRound(which, range, from, sampledLook) {
   const beginStop = await beginRun()
@@ -2248,7 +2259,8 @@ async function reviewRound(which, range, from, sampledLook) {
   // The sampled look is the gate alone and may be skipped, so it never marks the review stage as started.
   if (!sampledLook) startedStages.review = true
   const after = sampledLook?.after ?? spent.total
-  const reviewers = which.map(r => ({ key: r.key, provider: r.provider, role: r.role, isGate: r === GATE, routing: claudeRole(REVIEWER_ROUTING_ROWS[r.key]) }))
+  const owedRange = takeOwedGateRange()
+  const reviewers = which.map(r => reviewerRow(r, owedRange))
   const answer = await runPart('lane-review', laneReview, { item: A.item, pr, repo: A.repo, repoFlag: R, after, tip, delegatedLine: DELEGATED_LINE, worktree: A.worktree, branch: A.branch, scratch: A.scratch, tag: TAG, label: `r${after}`, range, reuse: buildReuse, e2e: A.e2e, contract: A.contract, blockingLine: BLOCKING_LINE, reviewers, findingKinds: FINDING_KINDS, finding: FINDING, followup: REPORTED_FOLLOWUP, mechanical: MECHANICAL, gateStandIn: MATERIAL && !sampledLook ? GATE_STAND_IN : null })
   // A Codex gate that refused its model was replaced in its round by the stand-in; the run keeps it, so a re-check has the gate's row and the record names the one gate that ran.
   if ((answer?.results ?? answer?.finished?.results ?? []).some(result => result?.gateRefusal)) { gateRefused = true; ROUTING.gate = { ...GATE_STAND_IN } }
@@ -2626,9 +2638,6 @@ while (true) {
     if (stop) return stop
   }
   history.push({ after: spent.total, by: `ci-${n - 1}`, verdict: ci.verdict, blocking: (ci.failing || []).map(f => f.where), deterministic: (ci.failing || []).filter(f => f.deterministic === true).map(f => f.where) })
-  // A CI finding read after a proven point opens the next segment; a stop without a fixer stores no stage-less segment, so aco counts the lane's findings unknown instead of the run dropping this one unseen.
-  const afterCiStop = (ci.failing || []).length ? await beginRun() : null
-  if (afterCiStop) return afterCiStop
   if (ci.readError) return await openResult('failed', 'ci', { reason: ci.readError })
   if (ci.pending) return await openResult('awaiting-head', 'ci', { reason: `${ci.pending} Start a new run with pr ${pr} and tip ${tip} once CI has finished.` })
   if (unproven) return await openResult('failed', 'ci', { reason: `CI reported green, but the check listing does not prove it: ${unproven}` })

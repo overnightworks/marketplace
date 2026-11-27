@@ -5,17 +5,26 @@ const SAMPLE_EVERY = 10
 const LOOK_WITHOUT_VERDICT = new Set(['limited', 'hung', 'brief-mismatch', 'no-brief-record', 'failed'])
 let sampled = false  // the lane's gate ran as the sample or as the re-check an earlier run owed
 let sampledSkip = null  // why the sampled look was skipped
+let gateOwesWholeLane = false  // a lost run owes the gate on the whole lane in the first review round, whatever range the review reads
 const sampledView = () => ({ sampled: sampledSkip ? 'skipped' : sampled, ...(sampledSkip && { sampledReason: sampledSkip }) })
 
-// What the first begin's read of the stored runs leaves the lane to do: a stop that ends the lane, or whether to take the sample or to re-check the gate's REVISE an earlier run stored.
+// What the first begin's read of the stored runs leaves the lane to do: a stop when the read failed, or whether to take the sample or to re-check the gate: owed after a stored REVISE or a lost run.
 async function sampledDuty(read) {
   const none = { take: false, owed: false }
   if (MATERIAL || Number(A.item) % SAMPLE_EVERY !== 0) return none
-  const unknown = read.gap ?? (read.lost && 'a stored run of the lane is lost, so it may have run the gate')
-  if (unknown) return { stop: await openResult('awaiting-head', 'record', { reason: `item #${A.item} is sampled for the final gate, but the stored runs cannot show whether the gate ran: ${unknown}. A sampled lane takes no sample and skips no owed re-check. Start a new run with pr ${pr} and tip ${tip} once the stored runs can be read.` }) }
-  const owed = read.lastGate === 'revise'
+  if (read.gap) return { stop: await openResult('awaiting-head', 'record', { reason: `item #${A.item} is sampled for the final gate, but the stored runs cannot show whether the gate ran: ${read.gap}. A sampled lane takes no sample and skips no owed re-check. Start a new run with pr ${pr} and tip ${tip} once the stored runs can be read.` }) }
+  // A lost run may have run the gate and said anything, so the lane owes the gate on the whole lane like a stored REVISE: its look is never skipped.
+  const owed = read.lastGate === 'revise' || Boolean(read.lost)
   sampled = owed
-  return { take: !read.gateRan, owed }
+  gateOwesWholeLane = Boolean(read.lost)
+  return { take: !owed && !read.gateRan, owed }
+}
+
+// The range a lost run owes the gate, handed out once: the first review round takes it, whatever range that round reads.
+function takeOwedGateRange() {
+  const owed = gateOwesWholeLane
+  gateOwesWholeLane = false
+  return owed ? WHOLE_LANE : undefined
 }
 
 // The one look at the whole lane on the tip the review approved, in the round of that approval so the existing miss rule counts no miss for it.

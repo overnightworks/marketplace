@@ -133,9 +133,7 @@ async function laneCi(A) {
       evidenceRules(inWorktree) +
       `Read the required contexts of the base branch only to pace the wait: \`${inWorktree}gh api ${REPO_API}/rules/branches/<base> --jq '[.[]|select(.type=="required_status_checks")|.parameters.required_status_checks[].context]'\`, ` +
       `the base is \`${inWorktree}gh pr view ${pr}${R} --json baseRefName --jq .baseRefName\`. The lane reads them again itself, so neither what you read nor its error is returned or judged; when the read fails, wait as if no required context were missing. ` +
-      `A required context that is missing from \`${inWorktree}gh pr checks ${pr}${R} --json name,bucket\` is pending, never failed: a check such as a verdict that waits on others appears only after they finish, also when every run of head has completed. While one is missing, or a check is still pending after the watch, watch again; re-watching shares the cap of 7 watches and the 540 s timeout per watch. ` +
-      `A watch that exits at once because nothing is pending does not wait: sleep 60 seconds before listing again (Bash timeout 600000 ms, at most 9 rounds per command, at most 3 commands). ` +
-      `When that bound ends with a required context still missing or a check still pending, answer green false with an empty failing and judge nothing further; the lane reports it as not driven and names the context. ` +
+      `A required context that is missing from \`${inWorktree}gh pr checks ${pr}${R} --json name,bucket\` is pending, never failed: a check such as a verdict that waits on others appears only after they finish, also when every run of head has completed. While one is missing, or a check is still pending after the watch, watch again; re-watching shares the cap of 7 watches and the 540 s timeout per watch. A watch that exits at once because nothing is pending does not wait: sleep 60 seconds before listing again (Bash timeout 600000 ms, at most 9 rounds per command, at most 3 commands). When that bound ends with a required context still missing or a check still pending, answer green false with an empty failing and judge nothing further; the lane reports it as not driven and names the context. ` +
       `When a gh command is refused with "API rate limit" (primary or secondary), wait a few minutes and repeat that command inside the same cap, instead of reporting a red or missing check.`,
       { label: `ci-${A.n}`, phase: 'Test and CI', schema: CI, ...A.mechanical })
   }
@@ -1037,14 +1035,11 @@ async function relayStep(A) {
     // A re-run watches only the jobs it re-ran: its green leaves a red shared with main in the listing, which stays red, not unproven.
     const sharedRerun = Boolean(A.rerun) && watched.green && open.length > 0 && open.every(c => c.bucket === 'fail' && shared?.includes(c.name))
     // Unfinished CI is no finding: a watcher entry the listing does not back (nothing failed, something still runs) waits unless it is the merge conflict.
-    // A required check that appears only after the others finished is missing from a readable listing, which is pending, not red.
-    const missingRequired = !checks.count ? [] : Object.entries(rules.required || {}).filter(([, bucket]) => bucket === 'missing').map(([name]) => name)
+    const missingRequired = missingRequiredChecks(checks, rules)
     const stillRunning = open.some(c => c.bucket === 'pending') || (headruns.open || []).length > 0 || missingRequired.length > 0
-    const unbackedFinding = stillRunning && !open.some(c => c.bucket === 'fail') && !watched.failing?.some(f => f.where === MERGEABLE_WHERE)
-    const watcherDecides = !sharedRerun && (watched.green || (watched.failing?.length && !unbackedFinding))
-    const failing = watcherDecides ? watched.failing : failedCheckFindings(open)
+    const failing = watcherDecides({ watched, sharedRerun, open, stillRunning }) ? watched.failing : failedCheckFindings(open)
     const ownRed = ownFailing({ shared, red: watched.red, failing, files })
-    const onlyLate = watched.green && !sharedRerun && open.length === 0 && missingRequired.length > 0 && Object.values(rules.required).every(bucket => bucket === 'missing')
+    const onlyLate = onlyLateChecks({ watched, sharedRerun, open, rules, missingRequired })
     const green = watched.green && !sharedRerun && !onlyLate
     const unproven = green || onlyLate ? listed : null
     const rulesError = readFailure(rules, 'gh api')
@@ -1127,6 +1122,14 @@ function unreachableReason(complete) {
 }
 
 // Why the CI read is pending: the names still waiting, or null when none waits.
+const watcherDecides = ({ watched, sharedRerun, open, stillRunning }) => {
+  const unbackedFinding = stillRunning && !open.some(c => c.bucket === 'fail') && !watched.failing?.some(f => f.where === MERGEABLE_WHERE)
+  return !sharedRerun && (watched.green || (watched.failing?.length && !unbackedFinding))
+}
+// A required check that appears only after the others finished is missing from a readable listing, which is pending, not red.
+const missingRequiredChecks = (checks, rules) => !checks.count ? [] : Object.entries(rules.required || {}).filter(([, bucket]) => bucket === 'missing').map(([name]) => name)
+const onlyLateChecks = ({ watched, sharedRerun, open, rules, missingRequired }) => watched.green && !sharedRerun && open.length === 0 && missingRequired.length > 0 && missingRequired.length === Object.keys(rules.required).length
+
 function pendingReason(waiting) {
   const names = [...new Set(waiting)].map(name => `"${name}"`)
   return names.length ? `CI has not finished and the watcher's budget ended: ${names.join(', ')} still pending.` : null

@@ -492,14 +492,11 @@ async function relayStep(A) {
     // A re-run watches only the jobs it re-ran: its green leaves a red shared with main in the listing, which stays red, not unproven.
     const sharedRerun = Boolean(A.rerun) && watched.green && open.length > 0 && open.every(c => c.bucket === 'fail' && shared?.includes(c.name))
     // Unfinished CI is no finding: a watcher entry the listing does not back (nothing failed, something still runs) waits unless it is the merge conflict.
-    // A required check that appears only after the others finished is missing from a readable listing, which is pending, not red.
-    const missingRequired = !checks.count ? [] : Object.entries(rules.required || {}).filter(([, bucket]) => bucket === 'missing').map(([name]) => name)
+    const missingRequired = missingRequiredChecks(checks, rules)
     const stillRunning = open.some(c => c.bucket === 'pending') || (headruns.open || []).length > 0 || missingRequired.length > 0
-    const unbackedFinding = stillRunning && !open.some(c => c.bucket === 'fail') && !watched.failing?.some(f => f.where === MERGEABLE_WHERE)
-    const watcherDecides = !sharedRerun && (watched.green || (watched.failing?.length && !unbackedFinding))
-    const failing = watcherDecides ? watched.failing : failedCheckFindings(open)
+    const failing = watcherDecides({ watched, sharedRerun, open, stillRunning }) ? watched.failing : failedCheckFindings(open)
     const ownRed = ownFailing({ shared, red: watched.red, failing, files })
-    const onlyLate = watched.green && !sharedRerun && open.length === 0 && missingRequired.length > 0 && Object.values(rules.required).every(bucket => bucket === 'missing')
+    const onlyLate = onlyLateChecks({ watched, sharedRerun, open, rules, missingRequired })
     const green = watched.green && !sharedRerun && !onlyLate
     const unproven = green || onlyLate ? listed : null
     const rulesError = readFailure(rules, 'gh api')
@@ -582,6 +579,14 @@ function unreachableReason(complete) {
 }
 
 // Why the CI read is pending: the names still waiting, or null when none waits.
+const watcherDecides = ({ watched, sharedRerun, open, stillRunning }) => {
+  const unbackedFinding = stillRunning && !open.some(c => c.bucket === 'fail') && !watched.failing?.some(f => f.where === MERGEABLE_WHERE)
+  return !sharedRerun && (watched.green || (watched.failing?.length && !unbackedFinding))
+}
+// A required check that appears only after the others finished is missing from a readable listing, which is pending, not red.
+const missingRequiredChecks = (checks, rules) => !checks.count ? [] : Object.entries(rules.required || {}).filter(([, bucket]) => bucket === 'missing').map(([name]) => name)
+const onlyLateChecks = ({ watched, sharedRerun, open, rules, missingRequired }) => watched.green && !sharedRerun && open.length === 0 && missingRequired.length > 0 && missingRequired.length === Object.keys(rules.required).length
+
 function pendingReason(waiting) {
   const names = [...new Set(waiting)].map(name => `"${name}"`)
   return names.length ? `CI has not finished and the watcher's budget ended: ${names.join(', ')} still pending.` : null

@@ -6,7 +6,7 @@
 
 [ccn."plugins/atelier/lane/relay.js"]
 "judgeFix" = 17
-"readCi" = 29
+"readCi" = 27
 
 [ccn."plugins/atelier/lane/review.js"]
 "classify" = 16

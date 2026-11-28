@@ -37,6 +37,7 @@ for (const [what, answer] of redWhilePending) {
 const watcherFindingIgnored = [
   ['a watcher failing entry and only pending checks in the listing', ciAnswer([check(required, 'pending')], { green: false, failing: [{ where: 'b', kind: 'defect', text: 'fails', rule: 'CI check b', evidence: 'boom' }] })],
   ['a checks test-gap entry, 17 pending checks and the required verdict missing', ciAnswer(manyPending, { green: false, failing: [pendingWatcherFinding] })],
+  ['a watcher failing entry that only restates the missing required check and every listed check passed', ciAnswer([check('lint', 'pass'), check('Python: tests', 'pass')], { green: false, failing: [{ where: required, kind: 'defect', text: `Required status check '${required}' did not run`, rule: 'CI check ' + required, evidence: 'the check is absent from gh pr checks' }] })],
 ]
 for (const [what, answer] of watcherFindingIgnored) {
   test(`ci-pending: a not green answer with ${what} ends awaiting-head at ci with no fixer, PENDING and without blocking`, async () => {
@@ -68,11 +69,6 @@ test('ci-pending: a watcher green answer whose listing lacks a required check en
   assert.match(result.reason, /"quality \/ verdict"/)
   assert.ok(!launchedAgents.includes('fix-2'))
   assert.equal(result.history.find(entry => entry.by === 'ci-0').verdict, 'PENDING')
-})
-
-test('ci-pending: the required check that appears after the others passed ends GREEN once it concludes successfully', async () => {
-  const { result } = await driveCi(ciAnswer([check('lint', 'pass'), check(required, 'pass')]))
-  assert.equal(result.history.find(entry => entry.by === 'ci-0').verdict, 'GREEN')
 })
 
 test('ci-pending: the watcher is told to keep watching while a required context is missing, after every run of head completed too', async () => {

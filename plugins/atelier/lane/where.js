@@ -6,11 +6,11 @@ const withoutTrailingSlashes = (path) => {
   return path.slice(0, end)
 }
 const escapedForPattern = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-// Every occurrence of a root followed by a slash goes, wherever it stands in the text: the roots are the worktree and, once the lane has read them, its symlink-resolved path and the main checkout.
+// Every occurrence of a root followed by a slash goes, and a bare root reads as `.`, wherever it stands in the text: the roots are the worktree and, once the lane has read them, its symlink-resolved path and the main checkout.
 export const repoRelative = (where, roots) => {
   if (typeof where !== 'string') return where
   const prefixes = [...new Set(roots.map(withoutTrailingSlashes).filter(Boolean))].sort((a, b) => b.length - a.length)
-  const stripped = where.replace(new RegExp(`(?<![\\w./-])(?:${prefixes.map(escapedForPattern).join('|')})/`, 'g'), '')
+  const stripped = where.replace(new RegExp(`(?<![\\w./-])(?:${prefixes.map(escapedForPattern).join('|')})(?:/|(?![\\w./-]))`, 'g'), (match) => match.endsWith('/') ? '' : '.')
   return stripped.replace(/^\.\//, '')
 }
 export const relativeEntries = (entries, roots) => entries?.map(entry => ({ ...entry, where: repoRelative(entry.where, roots) }))

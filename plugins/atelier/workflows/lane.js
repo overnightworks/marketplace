@@ -1983,11 +1983,11 @@ const withoutTrailingSlashes = (path) => {
   return path.slice(0, end)
 }
 const escapedForPattern = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-// Every occurrence of a root followed by a slash goes, wherever it stands in the text: the roots are the worktree and, once the lane has read them, its symlink-resolved path and the main checkout.
+// Every occurrence of a root followed by a slash goes, and a bare root reads as `.`, wherever it stands in the text: the roots are the worktree and, once the lane has read them, its symlink-resolved path and the main checkout.
 const repoRelative = (where, roots) => {
   if (typeof where !== 'string') return where
   const prefixes = [...new Set(roots.map(withoutTrailingSlashes).filter(Boolean))].sort((a, b) => b.length - a.length)
-  const stripped = where.replace(new RegExp(`(?<![\\w./-])(?:${prefixes.map(escapedForPattern).join('|')})/`, 'g'), '')
+  const stripped = where.replace(new RegExp(`(?<![\\w./-])(?:${prefixes.map(escapedForPattern).join('|')})(?:/|(?![\\w./-]))`, 'g'), (match) => match.endsWith('/') ? '' : '.')
   return stripped.replace(/^\.\//, '')
 }
 const relativeEntries = (entries, roots) => entries?.map(entry => ({ ...entry, where: repoRelative(entry.where, roots) }))
@@ -2265,7 +2265,10 @@ phase('Worktree')
 const wordRelay = OPERATOR_WORD ? { relayArgs: [A.item, `'${A.repo || ''}'`, `'${wordArgument(OPERATOR_WORD)}'`, "'branch'"], sentWord: OPERATOR_WORD, requiredKeys: ['branch', 'run', 'item'] } : { relayArgs: ["'branch'"], requiredKeys: ['branch', 'run'] }
 const checkedBranch = await relay({ label: 'branch', phase: 'Worktree', step: 'branch', nonce: 'branch', ...wordRelay, brief: `${laneFacts}\nChange nothing in the files;` })
 const printedRoot = (read) => (read?.code === 0 ? read.out : '')
-checkoutRoots.push(printedRoot(checkedBranch?.values?.top), printedRoot(checkedBranch?.values?.common).replace(/\/\.git$/, ''))
+// An unreadable line still names the roots git printed, so the quoted line is read best-effort for them.
+const printedValues = (relayed) => { try { return JSON.parse(relayed.printed).v } catch { return undefined } }
+const branchRoots = checkedBranch?.values ?? (checkedBranch?.problem ? printedValues(checkedBranch) : undefined)
+checkoutRoots.push(printedRoot(branchRoots?.top), printedRoot(branchRoots?.common).replace(/\/\.git$/, ''))
 const branchRead = checkedBranch?.values?.branch
 let foundBranch = branchRead?.out
 if (!checkedBranch) foundBranch = 'no answer from the check'

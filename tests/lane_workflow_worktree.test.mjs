@@ -18,7 +18,7 @@ for (const [name, lane] of [['a build', builtLane], ['a run on a pull request', 
     const run = await runLane(lane, { branch: { printed: "sh: 1: cd: can't cd to /w" } })
     assert.equal(run.result.status, 'failed')
     assert.equal(run.result.stage, 'input')
-    assert.match(run.result.reason, /worktree \/w .*branch b .*found .*can't cd to \/w/)
+    assert.match(run.result.reason, /worktree \/w .*branch b .*found .*can't cd to \./)
     assert.ok(noAgentRan(run))
   })
 
@@ -40,4 +40,14 @@ test('a relay part that throws during the worktree check fails the lane at input
   const run = await runLane(builtLane, {}, { transform: partReplaced('laneRelay', "throw new Error('the child exploded')") })
   assert.deepEqual([run.result.status, run.result.stage], ['failed', 'input'])
   assert.match(run.result.reason, /branch b/)
+})
+
+const unreadableBranchLine = {
+  branch: { toplevel: '/real/worktrees/w', common_dir: '/home/someone/git/main-checkout/.git', edit: (printed) => printed.replace(/"crc":"[0-9a-f]{8}"/, '"crc":"00000000"') },
+}
+test('an unreadable branch line quotes neither the resolved worktree nor the main checkout', async () => {
+  const run = await runLane(builtLane, unreadableBranchLine)
+  assert.equal(run.result.stage, 'input')
+  assert.match(run.result.reason, /fails its CRC check; the printed line: /)
+  for (const root of ['/real/worktrees/w', '/home/someone/git/main-checkout']) assert.ok(!run.result.reason.includes(root), run.result.reason)
 })

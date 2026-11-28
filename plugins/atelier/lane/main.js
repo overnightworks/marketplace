@@ -263,7 +263,10 @@ phase('Worktree')
 const wordRelay = OPERATOR_WORD ? { relayArgs: [A.item, `'${A.repo || ''}'`, `'${wordArgument(OPERATOR_WORD)}'`, "'branch'"], sentWord: OPERATOR_WORD, requiredKeys: ['branch', 'run', 'item'] } : { relayArgs: ["'branch'"], requiredKeys: ['branch', 'run'] }
 const checkedBranch = await relay({ label: 'branch', phase: 'Worktree', step: 'branch', nonce: 'branch', ...wordRelay, brief: `${laneFacts}\nChange nothing in the files;` })
 const printedRoot = (read) => (read?.code === 0 ? read.out : '')
-checkoutRoots.push(printedRoot(checkedBranch?.values?.top), printedRoot(checkedBranch?.values?.common).replace(/\/\.git$/, ''))
+// An unreadable line still names the roots git printed, so the quoted line is read best-effort for them.
+const printedValues = (relayed) => { try { return JSON.parse(relayed.printed).v } catch { return undefined } }
+const branchRoots = checkedBranch?.values ?? (checkedBranch?.problem ? printedValues(checkedBranch) : undefined)
+checkoutRoots.push(printedRoot(branchRoots?.top), printedRoot(branchRoots?.common).replace(/\/\.git$/, ''))
 const branchRead = checkedBranch?.values?.branch
 let foundBranch = branchRead?.out
 if (!checkedBranch) foundBranch = 'no answer from the check'

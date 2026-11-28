@@ -747,7 +747,6 @@ const absoluteWhereCases = [
   ['a reviewer follow-up', { 'r0-review': { ...APPROVE, followups: [followup(underWorktree('src/leak.py:9'), 'a note', '#9')] } }],
   ['a tester follow-up', { 'r0-review': APPROVE, 'e2e-0': { ...PASS, followups: [followup(underWorktree('src/leak.py:9'), 'a note', '#9')] } }],
   ['a CI failing finding', { 'r0-review': APPROVE, 'e2e-0': PASS, 'ci-0': { ...greenCi(resumedLane.tip), green: false, failing: [ciFinding] } }],
-  ['a CI failing finding repeated by its red job', { 'r0-review': APPROVE, 'e2e-0': PASS, 'ci-0': { ...greenCi(resumedLane.tip), green: false, failing: [ciFinding], red: [{ name: 'quality', findings: [ciFinding] }] } }],
 ]
 for (const [name, answers] of absoluteWhereCases) {
   test(`relative-where: ${name} with an absolute where is stored and printed repo-relative`, async () => {

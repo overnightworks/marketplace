@@ -30,6 +30,15 @@ test('ci-shared-red: a failing finding with the red job finding where and rule b
   assert.ok(!launchedAgents.includes('fix-2'))
 })
 
+test('ci-shared-red: a red job finding returned with an absolute where still matches the same finding in failing and stays shared', async () => {
+  const absolute = (finding) => ({ ...finding, where: `/w/${finding.where}` })
+  const sonarJob = { ...redJob('quality / sonar', 'Run sonar'), findings: [absolute(sonarFinding)] }
+  const ci = ciAnswer([check(required, 'pass'), check('quality / sonar', 'fail')], { green: false, failing: [absolute(watcherCopy)], red: [sonarJob], baseChecks: [run('quality / sonar', 'failure')], changedFiles: ['src/other.py'] })
+  const { result, launchedAgents } = await driveCi(ci)
+  assert.deepEqual([result.status, result.stage], ['awaiting-head', 'ci'])
+  assert.ok(!launchedAgents.includes('fix-2'))
+})
+
 test('ci-own-finding: a differing copy of a shared finding in a changed file reaches the fixer', async () => {
   const { result, launchedAgents } = await driveCi(sonarRed(['src/a.py'], [watcherCopy]))
   assert.notEqual(result.status, 'awaiting-head')

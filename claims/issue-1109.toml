@@ -1,8 +1,0 @@
-claim_id = "d9e37d9337d94b5eaade80c1207c655c"
-agent = "Claude d7189503-a891-4203-95ef-44598567881f"
-role = "builder"
-base = "07d13a15c8caa3db46362250cf5f85be78e26b29"
-branch = "claude/issue-1109-relative-where-paths"
-scope = ["plugins/atelier/lane", "plugins/atelier/workflows/lane.js", "tests"]
-opened_commit = "26ae503b80470f7e0dc12c5ad7c3ce45cb35a3c2"
-whole_reason = "One normalisation in the lane source, its regenerated bundle and its harness case."

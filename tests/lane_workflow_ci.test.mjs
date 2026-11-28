@@ -754,6 +754,14 @@ test('ci-orphaned-entry: the watcher brief puts an orphaned baseline or allowlis
   assert.match(agentCalls['ci-0'].prompt, /orphaned or stale entry of a baseline or allowlist file[^.]*where = that file and names the code path[^.]*in text/)
 })
 
+test('ci-quality-red-lines: the watcher brief takes a quality check\'s blocking findings only from ! or ✗ lines under an area its summary does not call clean', async () => {
+  const { agentCalls } = await driveCi(ciAnswer([check(required, 'pass')]))
+  const brief = agentCalls['ci-0'].prompt
+  assert.match(brief, /only from lines marked `!` or `✗` under an area its summary does not call clean/)
+  assert.match(brief, /never from a `·`, `open` or `allowed` entry or from any line under an area marked `✓ \.\.\. clean`/)
+  assert.match(brief, /`! debt 1 finding` beside `✓ code clean` listing `· src\/y\.py:122 \.\.\. open`[^.]*exactly one finding/)
+})
+
 test('ci-orphaned-entry: a fixer that removes the entry of a baseline-file finding and answers removed passes the removal check', async () => {
   const { result } = await driveOrphanedEntry(['quality/baseline.toml'])
   assert.equal(result.status, 'ready-to-land', result.reason)

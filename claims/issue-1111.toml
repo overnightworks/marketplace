@@ -1,0 +1,8 @@
+claim_id = "67bb7abea1634f2bba7ea966760749ad"
+agent = "Claude d7189503-a891-4203-95ef-44598567881f"
+role = "builder"
+base = "fc4eb6f793f1422919c84a17fa9b6f8cef092fbc"
+branch = "claude/issue-1111-gate-reopens-any-production-path"
+scope = ["plugins/atelier/lane", "plugins/atelier/workflows/lane.js", "plugins/atelier/workflows/lane.md", "tests"]
+opened_commit = "fff9312bd16c9edc8b5d34162c9ae00674118c1a"
+whole_reason = "One default in the lane source, its bundle, its documented arg and its harness cases."

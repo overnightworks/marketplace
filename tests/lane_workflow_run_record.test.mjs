@@ -174,9 +174,11 @@ for (const [name, answer, expected] of [
 const acoSays = (answer) => (prompt) => ({ printed: answer(prompt.match(/'([0-9a-f]{32}(?:-\d+)?)'/)[1]) })
 
 test('run-record: a begin whose relay prints aco\'s bare BEGAN line goes on to the next stage', async () => {
-  const { result, launchedAgents } = await runLane(resumeArgs, { ...readyAnswers, begin: acoSays(runId => `BEGAN run ${runId} of #1`) })
+  const { result, launchedAgents, writtenRecords } = await runLane(resumeArgs, { ...readyAnswers, begin: acoSays(runId => `BEGAN run ${runId} of #1`) })
   assert.equal(result.status, 'ready-to-land')
   assert.ok(launchedAgents.includes('r0-review'))
+  assert.match(result.missesGap, /relayed aco's answer without a read of the stored runs/)
+  assert.equal('misses' in JSON.parse(writtenRecords[0]), false)
 })
 
 for (const answer of ['ADDED', 'ALREADY ADDED']) {

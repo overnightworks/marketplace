@@ -115,7 +115,8 @@ The design skill is advice and never blocks a landing:
 - `repo`: none by default; every `gh` call then targets the worktree's own
   repository. Pass `owner/name` when the head runs elsewhere.
 - `productionPaths`: none by default; every changed path then counts as production except tests (a `tests/`
-  or `test/` directory, `test_*`, `*_test.*`, `*.test.*`) and documentation (a `docs/` directory, `*.md`).
+  or `test/` directory, `test_*`, `*_test.*`, `*.test.*`) and documentation (a `docs/` directory, `README*`,
+  `CHANGELOG*`); every other Markdown file, a prompt, skill, spec or contract, counts as production.
   Pass path prefixes to name production instead. A change to a production path re-opens the gate on a material
   lane and re-runs the end-to-end test; passing it also lets a fresh reviewer stand in for a gate at its usage
   limit on a delta that touched none of them. A material lane whose tip holds commits past its gate's last tip

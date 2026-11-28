@@ -97,6 +97,12 @@ function echoedInputProblem(step, sent, values) {
 // The fixer's entries that name a fold-in by its number (its position in the list, from 1).
 const answerFor = (list, index) => (list || []).filter(a => a.foldIn === index + 1)
 
+// Without the head's productionPaths every path counts as production but the repository's tests and its documentation (a docs/ directory, README and CHANGELOG files), so a layout without src/ still re-opens the gate; prompts, skills, specs and contracts in Markdown are production.
+const TEST_OR_DOCUMENTATION_DIRECTORY = /(^|\/)(tests?|docs)\//
+const TEST_OR_DOCUMENTATION_NAMES = [/^test_/, /_test\./, /\.test\./, /^(README|CHANGELOG)(\.|$)/]
+const isTestOrDocumentation = (path) => TEST_OR_DOCUMENTATION_DIRECTORY.test(path) || TEST_OR_DOCUMENTATION_NAMES.some(name => name.test(path.split('/').pop()))
+const isProduction = (path, productionPaths) => productionPaths ? productionPaths.some(prefix => path.startsWith(prefix)) : !isTestOrDocumentation(path)
+
 // Builds the briefs of the sync and fix steps and owns the schemas of their reports, runs one printer command through an agent and returns the answer of the agent together with the CRC-checked values of the line it relays; for the fix step it judges the fixer's answer against the findings and fold-ins it answered, and for the ci step it reads those values and splits the failing checks into own and shared.
 async function relayStep(A) {
   const { label, phase: phaseName, step, relayArgs, nonce, requiredKeys, agentOptions, reread, before } = A
@@ -385,9 +391,6 @@ async function relayStep(A) {
   }
   // A fixer may report absolute paths; an absolute path once hid a production change and skipped the gate.
   const worktreeRelative = (files) => files.map(f => f.startsWith(`${A.worktree}/`) ? f.slice(A.worktree.length + 1) : f.replace(/^\.\//, ''))
-  // Without the head's productionPaths every path counts as production but the repository's tests and documentation, so a layout without src/ still re-opens the gate.
-  const isTestOrDocumentation = (path) => /(^|\/)(tests?|docs)\//.test(path) || /(^|\/)(test_[^/]*|[^/]*_test\.[^/]*|[^/]*\.test\.[^/]*|[^/]*\.md)$/.test(path)
-  const isProduction = (path) => A.productionPaths ? A.productionPaths.some(prefix => path.startsWith(prefix)) : !isTestOrDocumentation(path)
 
   // A removal is judged by the size of the diff the printer measured in the fixer's commits, for the path of the finding its proof names, or for the whole range when that finding names no path or its path carries no diff (a check may report where a rule is declared, not where it broke); the raiser reads the diff itself.
   function withReadRemovals(regression, blocking, values, range) {
@@ -429,7 +432,7 @@ async function relayStep(A) {
       flakes: flake ? disputeFlakes(fixed, blocking) : [],
       rejection,
       outsidePaths: relative.filter(f => f.startsWith('/')),
-      touchesProduction: Boolean(fixed.mergeResolvedLaneConflict) || relative.some(isProduction),
+      touchesProduction: Boolean(fixed.mergeResolvedLaneConflict) || relative.some(path => isProduction(path, A.productionPaths)),
       answeredOutside: fixed.unchanged && answeredOutside(fixed, blocking, foldIn),
       checkpointMet: fixed.unchanged && checkpointMet(fixed, blocking),
       settled: everyFoldInSettled(fixed, blocking, foldIn),

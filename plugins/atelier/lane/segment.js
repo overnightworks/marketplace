@@ -34,7 +34,8 @@ async function writeRecord() {
 // The first segment begins right after the run's input checks (the branch check, or the sync and, unless it starts at a fixer, the scope check), a later one right before its first stage; a refused begin ends the run, since nothing is stored for the segment.
 async function beginRun(startTip = segmentStartTip) {
   if (segmentBegun) return null
-  const begun = beganRun(await relay(beginRequest({ item: A.item, runId: segmentRunIdNow(), startTip, facts: laneFacts })), printedLine)
+  const runId = segmentRunIdNow()
+  const begun = beganRun(await relay(beginRequest({ item: A.item, runId, startTip, facts: laneFacts })), printedLine, { item: A.item, runId })
   const unstored = segmentNumber === 1 ? 'this run on the claim, so the run did none of its work' : 'the next stored run of this lane run on the claim, so the run stopped before its next stage'
   if (begun.problem) return await openResult('awaiting-head', 'record', { reason: `aco did not begin ${unstored}: ${begun.problem}` })
   began = begun.read
@@ -48,7 +49,8 @@ async function addRecord(written) {
   const ran = stagesStarted()
   if (!ran.length) return null
   addAttempted = true
-  return storeProblem('add', await relay(addRequest({ item: A.item, runId: segmentRunIdNow(), fileArgument: written.fileArgument, tip, ran, facts: laneFacts })), printedLine)
+  const runId = segmentRunIdNow()
+  return storeProblem('add', await relay(addRequest({ item: A.item, runId, fileArgument: written.fileArgument, tip, ran, facts: laneFacts })), printedLine, { item: A.item, runId })
 }
 // A proven point adds the open segment, ending at the tip, and the next segment starts from that tip; a segment that started no stage since the last point stores nothing.
 async function storeProvenPoint() {

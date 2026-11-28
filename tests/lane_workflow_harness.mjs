@@ -198,7 +198,7 @@ export async function runLane(args, answers = {}, options = {}) {
       ...process.env, PATH: `${fakeCommands()}:${process.env.PATH}`, FAKE_HEAD: scenario.head ?? newestTip, FAKE_BRANCH: scenario.branch ?? args.branch, FAKE_BRANCH_CODE: scenario.branch_code ?? 0, FAKE_REMOTE: scenario.remote_tip ?? newestTip,
       FAKE_HEAD_CODE: scenario.head_code ?? 0, FAKE_PARENTS: (scenario.parents ?? []).join('\n'), FAKE_MAIN_CODE: scenario.main_code ?? 0, FAKE_TREE: scenario.tree ?? 'a1a1a1a1', FAKE_MERGE_TREE: scenario.merge_tree ?? scenario.tree ?? 'a1a1a1a1', FAKE_MERGE_TREE_CODE: scenario.merge_tree_code ?? 0, FAKE_TOUCHED: (scenario.touched_paths ?? []).join('\n'), FAKE_MERGE_PATHS: (scenario.merge_paths ?? []).join('\n'),
       FAKE_PUSH_ERROR: scenario.push_error ?? '', FAKE_NETWORK_ERROR: scenario.network_error ?? '', FAKE_NETWORK_STDOUT: scenario.network_stdout ?? '', FAKE_NETWORK_FAILS: scenario.network_fails ?? 1, FAKE_BRIEF_ERROR: scenario.brief_error ?? '', FAKE_RATE_EXHAUSTED_CALLS: scenario.rate_exhausted_calls ?? 0, FAKE_RATE_EXHAUSTED_AGAIN_AT: scenario.rate_exhausted_again_at ?? 0, FAKE_RATE_RESET_IN: scenario.rate_reset_in ?? 600, FAKE_RATE_ERROR: scenario.rate_error ?? '',
-      ...itemEnvironment(scenario), FAKE_RECORD_ERROR: scenario.record_error ?? '', FAKE_BEGIN_ERROR: scenario.begin_error ?? '', FAKE_ADD_ERROR: scenario.add_error ?? '', FAKE_SHOW_CODE: scenario.show_code ?? 0, FAKE_SHOW_ERROR: scenario.show_error ?? '', FAKE_SHOW_OUTPUT: JSON.stringify({ runs: scenario.stored_runs ?? [...storedBefore(), storedOwnRun()] }).replaceAll('@RUN@', line.match(/'([0-9a-f]{32}(?:-\d+)?)'/)?.[1] ?? '@RUN@'), FAKE_RESOLVE_CODE: scenario.resolve_code ?? 0, ...pullEnvironment(scenario), FAKE_BRIEF_OUTPUT: briefOutput(scenario), ...ghEnv(scenario),
+      ...itemEnvironment(scenario), FAKE_RECORD_ERROR: scenario.record_error ?? '', FAKE_BEGIN_ERROR: scenario.begin_error ?? '', FAKE_ADD_ERROR: scenario.add_error ?? '', FAKE_SHOW_CODE: scenario.show_code ?? 0, FAKE_SHOW_ERROR: scenario.show_error ?? '', FAKE_SHOW_OUTPUT: showOutput(scenario, line, storedBefore), FAKE_RESOLVE_CODE: scenario.resolve_code ?? 0, ...pullEnvironment(scenario), FAKE_BRIEF_OUTPUT: briefOutput(scenario), ...ghEnv(scenario),
     }
     if (label.startsWith('record-')) return recordPrinted(prompt, line, env, scenario)
     const sleepless = line.replace('time.sleep(slept)', '0')
@@ -252,6 +252,7 @@ export const storedLane = (run) => {
 }
 
 // The runs `aco lane-record show --json` lists for the claim: this run's own entry (the printer's run id replaces @RUN@) and the earlier runs with the review verdicts their stored records hold.
+const showOutput = (scenario, line, storedBefore) => JSON.stringify({ runs: scenario.stored_runs ?? [...storedBefore(), storedOwnRun()] }).replaceAll('@RUN@', line.match(/'([0-9a-f]{32}(?:-\d+)?)'/)?.[1] ?? '@RUN@')
 export const storedOwnRun = (follows = true) => ({ run: '@RUN@', start_tip: null, follows, end_tip: null, ran: null, record: null })
 const storedVerdictsRun = (stage, ran) => (...verdicts) => ({ run: 'earlier-run', start_tip: null, follows: true, end_tip: 'f0'.repeat(20), ran, record: { version: 1, verdicts: verdicts.map(([verdict, sha]) => ({ stage, verdict, sha })) } })
 export const storedEarlierRun = storedVerdictsRun('review', ['build', 'review'])

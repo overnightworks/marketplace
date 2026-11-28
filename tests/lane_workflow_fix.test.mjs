@@ -707,7 +707,7 @@ test('a gate follow-up on a material lane is re-checked by the gate as well', as
   assert.ok(launchedAgents.includes('r1-review') && launchedAgents.includes('r1-gate'))
 })
 
-const fixAfterGateApproval = [['touches src', ['src/app.py'], true], ['touches a script in a layout without src', ['scripts/x.sh'], true], ['touches only a test', ['tests/test_x.py'], false], ['touches a skill in Markdown', ['plugins/x/skills/y/SKILL.md'], true], ['touches an agent prompt in Markdown', ['plugins/x/agents/a.md'], true], ['touches a spec in Markdown', ['specs/x.spec.md'], true], ['touches only a README', ['notes/README.md'], false], ['touches only a docs file', ['docs/guide.md'], false]]
+const fixAfterGateApproval = [['touches src', ['src/app.py'], true], ['touches a script in a layout without src', ['scripts/x.sh'], true], ['touches only a test', ['tests/test_x.py'], false], ['touches a skill in Markdown', ['plugins/x/skills/y/SKILL.md'], true], ['touches an agent prompt in Markdown', ['plugins/x/agents/a.md'], true], ['touches a spec in Markdown', ['specs/x.spec.md'], true], ['touches only a README', ['notes/README.md'], false], ['touches only a docs file', ['docs/guide.md'], false], ['touches a script outside an explicit productionPaths', ['scripts/x.sh'], false, ['src/']]]
 
 for (const [what, files, gateRuns, productionPaths] of fixAfterGateApproval) {
   test(`a reviewer follow-up's fix that ${what} on a material lane ${gateRuns ? 'is' : 'is not'} re-checked by the gate and ${gateRuns ? 'leaves no range' : 'names the range'} the gate did not see`, async () => {

@@ -1,8 +1,0 @@
-claim_id = "5466160a501447d5b7017d48fd2f8298"
-agent = "Claude d7189503-a891-4203-95ef-44598567881f"
-role = "builder"
-base = "7f01cef0e22c1b2f62771e2dfd5c8888d3867893"
-branch = "claude/issue-1121-lane-reads-already-begun"
-scope = ["plugins/atelier/lane", "plugins/atelier/workflows/lane.js", "quality/baseline.toml", "tests"]
-opened_commit = "7b8eac6c2db3524ad2ff1e68cee92e493b40ea90"
-whole_reason = "One reader of aco's lane-record answers in the lane source, its bundle and harness cases."

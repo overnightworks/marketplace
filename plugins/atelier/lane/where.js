@@ -2,7 +2,8 @@
 // an agent may return an absolute path, which would carry the operator's home directory into a public text.
 export const repoRelative = (where, worktree) => {
   const root = `${worktree.replace(/\/+$/, '')}/`
-  return typeof where === 'string' && where.startsWith(root) ? where.slice(root.length) : where
+  if (typeof where !== 'string') return where
+  return where.startsWith(root) ? where.slice(root.length) : where.replace(/^\.\//, '')
 }
 const relativeEntries = (entries, worktree) => entries?.map(entry => ({ ...entry, where: repoRelative(entry.where, worktree) }))
 // An agent answer with its findings under blocking, followups, failing or red[].findings, each made relative.

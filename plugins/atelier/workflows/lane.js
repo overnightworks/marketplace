@@ -955,7 +955,7 @@ async function relayStep(A) {
     return null
   }
   // A fixer may report absolute paths; an absolute path once hid a production change and skipped the gate.
-  const worktreeRelative = (files) => files.map(f => f.startsWith(`${A.worktree}/`) ? f.slice(A.worktree.length + 1) : f.replace(/^\.\//, ''))
+  const worktreeRelative = (files) => files.map(f => repoRelative(f, A.worktree))
 
   // A removal is judged by the size of the diff the printer measured in the fixer's commits, for the path of the finding its proof names, or for the whole range when that finding names no path or its path carries no diff (a check may report where a rule is declared, not where it broke); the raiser reads the diff itself.
   function withReadRemovals(regression, blocking, values, range) {
@@ -1979,7 +1979,8 @@ const fixRangeOfTest = () => lastTestedTip && !sameCommit(lastTestedTip, tip) ? 
 // an agent may return an absolute path, which would carry the operator's home directory into a public text.
 const repoRelative = (where, worktree) => {
   const root = `${worktree.replace(/\/+$/, '')}/`
-  return typeof where === 'string' && where.startsWith(root) ? where.slice(root.length) : where
+  if (typeof where !== 'string') return where
+  return where.startsWith(root) ? where.slice(root.length) : where.replace(/^\.\//, '')
 }
 const relativeEntries = (entries, worktree) => entries?.map(entry => ({ ...entry, where: repoRelative(entry.where, worktree) }))
 // An agent answer with its findings under blocking, followups, failing or red[].findings, each made relative.

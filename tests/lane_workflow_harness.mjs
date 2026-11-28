@@ -455,7 +455,7 @@ export const proofOf = (finding, overrides) => ({ finding, test: 't.py [case]', 
 
 export const docsFinding = { ...finding('README.md:1', 'a wrong word'), kind: 'docs' }
 
-export const resumeFix = { head: resumeFixedTip, mergeResolvedLaneConflict: false, files: ['x.py'], disputed: [], blocked: false }
+export const resumeFix = { head: resumeFixedTip, mergeResolvedLaneConflict: false, files: ['tests/x.py'], disputed: [], blocked: false }
 
 export const resumeArgs = { ...resumedLane, tip: resumeTip }
 
@@ -467,7 +467,7 @@ export const reachesTheEnd = { 'r1-review': APPROVE, 'e2e-0': PASS, 'ci-0': gree
 
 export const testGap = { ...finding('t.py:1', 'a behaviour has no test'), kind: 'test-gap' }
 
-export const secondFix = { ...resumeFix, head: 'e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3', parents: [resumeFixedTip], files: ['x.py'], regression: [] }
+export const secondFix = { ...resumeFix, head: 'e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3', parents: [resumeFixedTip], files: ['tests/x.py'], regression: [] }
 
 export const built = { pr: 2, tip: resumeTip, reuse: builtReuse, blocked: false }
 
@@ -491,7 +491,7 @@ export const roundTip = (round) => String(round).repeat(40)
 export const roundRed = (round, extra = () => {}) => () => { extra(); return { head: roundTip(round), green: false, failing: [{ ...defectWithoutDraft, where: `t.py:${round}` }] } }
 export const roundFix = (round) => ({ ...resumeFix, head: roundTip(round), parents: [round === 1 ? resumeArgs.tip : roundTip(round - 1)] })
 // A fix that changes a lane file outside production moves the tip to a commit a review judges, so the record's last verdict names it.
-export const reviewedRoundFix = (round) => ({ ...resumeFix, head: roundTip(round), parents: [round === 1 ? resumeArgs.tip : roundTip(round - 1)], files: ['x.py'], regression: [] })
+export const reviewedRoundFix = (round) => ({ ...resumeFix, head: roundTip(round), parents: [round === 1 ? resumeArgs.tip : roundTip(round - 1)], files: ['tests/x.py'], regression: [] })
 export const roundReviews = Object.fromEntries([1, 2, 3, 4].map(round => [`r${round}-review`, APPROVE]))
 
 // A tester whose answer the test releases: the lane starts it and goes on with the CI side until `resolve` gives its verdict.

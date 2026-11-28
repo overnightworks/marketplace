@@ -114,10 +114,13 @@ The design skill is advice and never blocks a landing:
   line hold no quote.
 - `repo`: none by default; every `gh` call then targets the worktree's own
   repository. Pass `owner/name` when the head runs elsewhere.
-- `productionPaths`: `PRODUCTION` in `lane/main.js` is the default. Path prefixes whose change re-opens the gate on
-  a material lane and re-runs the end-to-end test; passing it also lets a fresh
-  reviewer stand in for a gate at its usage limit on a delta that touched none of
-  them.
+- `productionPaths`: none by default; every changed path then counts as production except tests (a `tests/`
+  or `test/` directory, `test_*`, `*_test.*`, `*.test.*`) and documentation (a `docs/` directory, `README`, `README.*`,
+  `CHANGELOG`, `CHANGELOG.*`); every other Markdown file, a prompt, skill, spec or contract, counts as production.
+  Pass path prefixes to name production instead. A change to a production path re-opens the gate on a material
+  lane and re-runs the end-to-end test; passing it also lets a fresh reviewer stand in for a gate at its usage
+  limit on a delta that touched none of them. A material lane whose tip holds commits past its gate's last tip
+  names that range in `requiredHeadActions`.
 - `ledgers`: none by default. Files whose merge conflicts keep both sides, main's lines first.
 - `generated`: `{}`. A map from a generated file's path to the command that
   regenerates it; a merge conflict confined to such files and ledgers is resolved

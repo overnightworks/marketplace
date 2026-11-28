@@ -97,6 +97,12 @@ function echoedInputProblem(step, sent, values) {
 // The fixer's entries that name a fold-in by its number (its position in the list, from 1).
 const answerFor = (list, index) => (list || []).filter(a => a.foldIn === index + 1)
 
+// Without the head's productionPaths every path counts as production but the repository's tests and its documentation (a docs/ directory, README and CHANGELOG files), so a layout without src/ still re-opens the gate; prompts, skills, specs and contracts in Markdown are production.
+const TEST_OR_DOCUMENTATION_DIRECTORY = /(^|\/)(tests?|docs)\//
+const TEST_OR_DOCUMENTATION_NAMES = [/^test_/, /_test\./, /\.test\./, /^(README|CHANGELOG)(\.|$)/]
+const isTestOrDocumentation = (path) => TEST_OR_DOCUMENTATION_DIRECTORY.test(path) || TEST_OR_DOCUMENTATION_NAMES.some(name => name.test(path.split('/').pop()))
+const isProduction = (path, productionPaths) => productionPaths ? productionPaths.some(prefix => path.startsWith(prefix)) : !isTestOrDocumentation(path)
+
 // Builds the briefs of the sync and fix steps and owns the schemas of their reports, runs one printer command through an agent and returns the answer of the agent together with the CRC-checked values of the line it relays; for the fix step it judges the fixer's answer against the findings and fold-ins it answered, and for the ci step it reads those values and splits the failing checks into own and shared.
 async function relayStep(A) {
   const { label, phase: phaseName, step, relayArgs, nonce, requiredKeys, agentOptions, reread, before } = A
@@ -426,7 +432,7 @@ async function relayStep(A) {
       flakes: flake ? disputeFlakes(fixed, blocking) : [],
       rejection,
       outsidePaths: relative.filter(f => f.startsWith('/')),
-      touchesProduction: Boolean(fixed.mergeResolvedLaneConflict) || relative.some(f => A.productionPaths.some(prefix => f.startsWith(prefix))),
+      touchesProduction: Boolean(fixed.mergeResolvedLaneConflict) || relative.some(path => isProduction(path, A.productionPaths)),
       answeredOutside: fixed.unchanged && answeredOutside(fixed, blocking, foldIn),
       checkpointMet: fixed.unchanged && checkpointMet(fixed, blocking),
       settled: everyFoldInSettled(fixed, blocking, foldIn),
@@ -439,7 +445,7 @@ async function relayStep(A) {
   const ANSWER_KINDS = {
     sync: { schema: SYNC_ANSWER, need: ['facts', 'branch', 'hasLedgers', 'hasGenerated'], brief: syncBrief },
     checkpoint: { schema: CHECKPOINT_ANSWER, need: ['facts', 'stage', 'startRef', 'branch', 'item', 'repo'], brief: checkpointBrief },
-    fix: { schema: FIX, need: ['facts', 'branch', 'pr', 'tip', 'source', 'round', 'blocking', 'findings', 'foldIns', 'foldInEntries', 'productionPaths', 'flakeRerunUsed', 'carried'], brief: fixerBrief },
+    fix: { schema: FIX, need: ['facts', 'branch', 'pr', 'tip', 'source', 'round', 'blocking', 'findings', 'foldIns', 'foldInEntries', 'flakeRerunUsed', 'carried'], brief: fixerBrief },
   }
   const answerKind = ANSWER_KINDS[A.answerKind]
   const kindMissing = (answerKind ? answerKind.need : ['brief']).filter(key => A[key] === undefined || A[key] === null)

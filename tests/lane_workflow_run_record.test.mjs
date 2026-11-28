@@ -170,6 +170,35 @@ for (const [name, answer, expected] of [
   })
 }
 
+// A relay agent that ran aco itself and printed its answer instead of the relay line.
+const acoSays = (answer) => (prompt) => ({ printed: answer(prompt.match(/'([0-9a-f]{32}(?:-\d+)?)'/)[1]) })
+
+test('run-record: a begin whose relay prints aco\'s bare BEGAN line goes on to the next stage', async () => {
+  const { result, launchedAgents, writtenRecords } = await runLane(resumeArgs, { ...readyAnswers, begin: acoSays(runId => `BEGAN run ${runId} of #1`) })
+  assert.equal(result.status, 'ready-to-land')
+  assert.ok(launchedAgents.includes('r0-review'))
+  assert.match(result.missesGap, /relayed aco's answer without a read of the stored runs/)
+  assert.equal('misses' in JSON.parse(writtenRecords[0]), false)
+})
+
+for (const answer of ['ADDED', 'ALREADY ADDED']) {
+  test(`run-record: an add whose relay prints aco's bare ${answer} line goes on to the next stage`, async () => {
+    const { result } = await runLane(resumeArgs, { ...readyAnswers, add: acoSays(runId => `${answer} run ${runId} to #1: 1 stored`) })
+    assert.equal(result.status, 'ready-to-land')
+  })
+}
+
+for (const [name, answer] of [
+  ['a refusal', () => 'aco: run r was added already; it cannot be begun again'],
+  ['another run id', () => 'BEGAN run 0123456789abcdef0123456789abcdef of #1'],
+  ['another claim', runId => `BEGAN run ${runId} of #2`],
+]) {
+  test(`run-record: a begin whose relay prints ${name} ends the run awaiting-head at record`, async () => {
+    const { result } = await runLane(resumeArgs, { begin: acoSays(answer) })
+    assert.deepEqual([result.status, result.stage], ['awaiting-head', 'record'])
+  })
+}
+
 test('run-record: the landing action of a stored run goes without --record', async () => {
   const { result } = await runLane(resumeArgs, readyAnswers)
   assert.equal(result.status, 'ready-to-land')

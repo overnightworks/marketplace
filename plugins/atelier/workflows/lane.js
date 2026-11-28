@@ -475,9 +475,15 @@ const fixRoundsSince = (counts, from) => Object.fromEntries(Object.entries(count
 // The relay requests of aco lane-record begin, with the start tip when the run has one, and of aco add, with the stages the run started; both resolve their tip with git rev-parse first.
 const beginRequest = ({ item, runId, startTip, facts }) => ({ label: 'begin', phase: 'Record', step: 'begin', relayArgs: [item, `'${runId}'`, ...(startTip ? [`'${startTip}'`] : []), "'begin'"], nonce: 'begin', requiredKeys: [startTip ? 'start' : 'begin'], brief: `${facts}\nChange nothing in the files;` })
 const addRequest = ({ item, runId, fileArgument, tip, ran, facts }) => ({ label: 'add', phase: 'Record', step: 'add', relayArgs: [item, fileArgument, `'${runId}'`, `'${tip ?? 'HEAD'}'`, ...ran.map(stage => `'${stage}'`), "'add'"], nonce: 'add', requiredKeys: ['end'], brief: `${facts}\nChange nothing in the files;` })
+// aco's own success answers (its specs/lane-record.spec.md owns them): a relay agent that ran aco itself and printed its answer instead of the relay line still proves the run began or was added.
+// An add answered ALREADY ADDED is a retry that changed nothing.
+const acoSuccessAnswer = (verb, item, runId) => verb === 'begin'
+  ? new RegExp(`^BEGAN run ${runId} of #${item}$`)
+  : new RegExp(String.raw`^(ALREADY )?ADDED run ${runId} to #${item}: \d+ stored$`)
 // The problem with a begin or an add through its relay line (the command exited non-zero, its tip did not resolve, or the line was unreadable), or null.
-function storeProblem(verb, relayed, printedLine) {
+function storeProblem(verb, relayed, printedLine, { item, runId }) {
   if (!relayed) return `the ${verb} step ended without a result`
+  if (relayed.problem && acoSuccessAnswer(verb, item, runId).test(String(relayed.printed).trim())) return null
   if (relayed.problem) return `the ${verb} step ${relayed.problem}${printedLine(relayed)}`
   const resolved = relayed.values[verb === 'begin' ? 'start' : 'end']
   if (resolved && resolved.code !== 0) return `git could not resolve the tip: rev-parse exited ${resolved.code}: ${resolved.err}`
@@ -494,9 +500,10 @@ function storedRunsRead(values) {
   return { follows, approved, gateRan, lastGate, lost }
 }
 // The outcome of a begin: the problem that ends the run, or what the run read of the stored runs.
-function beganRun(relayed, printedLine) {
-  const problem = storeProblem('begin', relayed, printedLine)
-  return problem ? { problem } : { read: storedRunsRead(relayed.values) }
+function beganRun(relayed, printedLine, claim) {
+  const problem = storeProblem('begin', relayed, printedLine, claim)
+  if (problem) return { problem }
+  return { read: relayed.values ? storedRunsRead(relayed.values) : { gap: 'the begin step relayed aco\'s answer without a read of the stored runs' } }
 }
 const refusedAddReason = (problem, wouldHaveEnded) => `aco did not store this run's record on the claim: ${problem}. The run would have ended ${wouldHaveEnded}`
 
@@ -1737,7 +1744,8 @@ async function writeRecord() {
 // The first segment begins right after the run's input checks (the branch check, or the sync and, unless it starts at a fixer, the scope check), a later one right before its first stage; a refused begin ends the run, since nothing is stored for the segment.
 async function beginRun(startTip = segmentStartTip) {
   if (segmentBegun) return null
-  const begun = beganRun(await relay(beginRequest({ item: A.item, runId: segmentRunIdNow(), startTip, facts: laneFacts })), printedLine)
+  const runId = segmentRunIdNow()
+  const begun = beganRun(await relay(beginRequest({ item: A.item, runId, startTip, facts: laneFacts })), printedLine, { item: A.item, runId })
   const unstored = segmentNumber === 1 ? 'this run on the claim, so the run did none of its work' : 'the next stored run of this lane run on the claim, so the run stopped before its next stage'
   if (begun.problem) return await openResult('awaiting-head', 'record', { reason: `aco did not begin ${unstored}: ${begun.problem}` })
   began = begun.read
@@ -1751,7 +1759,8 @@ async function addRecord(written) {
   const ran = stagesStarted()
   if (!ran.length) return null
   addAttempted = true
-  return storeProblem('add', await relay(addRequest({ item: A.item, runId: segmentRunIdNow(), fileArgument: written.fileArgument, tip, ran, facts: laneFacts })), printedLine)
+  const runId = segmentRunIdNow()
+  return storeProblem('add', await relay(addRequest({ item: A.item, runId, fileArgument: written.fileArgument, tip, ran, facts: laneFacts })), printedLine, { item: A.item, runId })
 }
 // A proven point adds the open segment, ending at the tip, and the next segment starts from that tip; a segment that started no stage since the last point stores nothing.
 async function storeProvenPoint() {

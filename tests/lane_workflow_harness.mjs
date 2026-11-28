@@ -97,8 +97,9 @@ export const runCommandLine = (line, { cwd, env, shell = 'sh' }) => {
   return (ran.stdout || ran.stderr).trim()
 }
 
-// The fake gh's answer to a read of the item body.
+// The fake git's answers to the checkout's top-level directory and common git directory.
 const checkoutEnvironment = (scenario) => ({ FAKE_TOPLEVEL: scenario.toplevel ?? '', FAKE_COMMON_DIR: scenario.common_dir ?? '' })
+// The fake gh's answer to a read of the item body.
 const itemEnvironment = (scenario) => ({ FAKE_ITEM_BODY: scenario.item_body ?? '', FAKE_ITEM_CODE: scenario.item_code ?? 0, FAKE_ITEM_ERROR: scenario.item_error ?? '' })
 // The fake gh's answers to the reads and writes of the pull request: its title and draft flag, the title write and the ready call.
 const pullEnvironment = (scenario) => ({

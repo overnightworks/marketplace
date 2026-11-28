@@ -1121,7 +1121,6 @@ function unreachableReason(complete) {
   return `GitHub is unreachable: ${complete.unreachable.join(', ')} failed with a network error, or timed out, after the retries a network error gets (a timeout is not retried).${limitedNote}`
 }
 
-// Why the CI read is pending: the names still waiting, or null when none waits.
 const watcherDecides = ({ watched, sharedRerun, open, stillRunning }) => {
   const unbackedFinding = stillRunning && !open.some(c => c.bucket === 'fail') && !watched.failing?.some(f => f.where === MERGEABLE_WHERE)
   return !sharedRerun && (watched.green || (watched.failing?.length && !unbackedFinding))
@@ -1130,6 +1129,7 @@ const watcherDecides = ({ watched, sharedRerun, open, stillRunning }) => {
 const missingRequiredChecks = (checks, rules) => !checks.count ? [] : Object.entries(rules.required || {}).filter(([, bucket]) => bucket === 'missing').map(([name]) => name)
 const onlyLateChecks = ({ watched, sharedRerun, open, rules, missingRequired }) => watched.green && !sharedRerun && open.length === 0 && missingRequired.length > 0 && missingRequired.length === Object.keys(rules.required).length
 
+// Why the CI read is pending: the names still waiting, or null when none waits.
 function pendingReason(waiting) {
   const names = [...new Set(waiting)].map(name => `"${name}"`)
   return names.length ? `CI has not finished and the watcher's budget ended: ${names.join(', ')} still pending.` : null

@@ -1,8 +1,0 @@
-claim_id = "992c3f3703444bad8793c5c50e311720"
-agent = "Claude d7189503-a891-4203-95ef-44598567881f"
-role = "builder"
-base = "343ecd9f3db54f6ce6688ea43b63c8dac9e84591"
-branch = "claude/issue-1114-ci-reader-red-lines-only"
-scope = ["plugins/atelier/lane", "plugins/atelier/workflows/lane.js", "tests"]
-opened_commit = "a29d986ab7e0042da0559024eb5b403b455f871d"
-whole_reason = "One rule in the lane's CI brief, its bundle and its harness case."

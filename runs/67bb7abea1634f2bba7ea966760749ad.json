@@ -65,6 +65,11 @@
         "risk": "material",
         "experiment": "gate-default-fail-closed"
       }
+    },
+    {
+      "run": "694c29ce7ff34ab49a5af4935effb7c1-2",
+      "start_tip": "32232cbc2d582ab231d2463f3dd21909a006bb25",
+      "follows": true
     }
   ]
 }

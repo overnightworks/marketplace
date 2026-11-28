@@ -180,11 +180,13 @@ const fixRoundsSince = (counts, from) => Object.fromEntries(Object.entries(count
 
 // The relay requests of aco lane-record begin, with the start tip when the run has one, and of aco add, with the stages the run started; both resolve their tip with git rev-parse first.
 const beginRequest = ({ item, runId, startTip, facts }) => ({ label: 'begin', phase: 'Record', step: 'begin', relayArgs: [item, `'${runId}'`, ...(startTip ? [`'${startTip}'`] : []), "'begin'"], nonce: 'begin', requiredKeys: [startTip ? 'start' : 'begin'], brief: `${facts}\nChange nothing in the files;` })
+// The read-back of the stored runs after a begin whose relay line carried none: the same read the begin step makes, as a step of its own.
+const showRequest = ({ item, runId, facts }) => ({ label: 'begin-show', phase: 'Record', step: 'show', relayArgs: [item, `'${runId}'`, "'show'"], nonce: 'show', requiredKeys: ['lane'], brief: `${facts}\nChange nothing in the files;` })
 const addRequest = ({ item, runId, fileArgument, tip, ran, facts }) => ({ label: 'add', phase: 'Record', step: 'add', relayArgs: [item, fileArgument, `'${runId}'`, `'${tip ?? 'HEAD'}'`, ...ran.map(stage => `'${stage}'`), "'add'"], nonce: 'add', requiredKeys: ['end'], brief: `${facts}\nChange nothing in the files;` })
 // aco's own success answers (its specs/lane-record.spec.md owns them): a relay agent that ran aco itself and printed its answer instead of the relay line still proves the run began or was added.
-// An add answered ALREADY ADDED is a retry that changed nothing.
+// A begin answered ALREADY BEGUN and an add answered ALREADY ADDED are retries that changed nothing.
 const acoSuccessAnswer = (verb, item, runId) => verb === 'begin'
-  ? new RegExp(`^BEGAN run ${runId} of #${item}$`)
+  ? new RegExp(`^(BEGAN|ALREADY BEGUN) run ${runId} of #${item}$`)
   : new RegExp(String.raw`^(ALREADY )?ADDED run ${runId} to #${item}: \d+ stored$`)
 // The problem with a begin or an add through its relay line (the command exited non-zero, its tip did not resolve, or the line was unreadable), or null.
 function storeProblem(verb, relayed, printedLine, { item, runId }) {
@@ -205,11 +207,17 @@ function storedRunsRead(values) {
   if (typeof follows !== 'boolean' || !Array.isArray(approved) || typeof gateRan !== 'boolean' || typeof lost !== 'boolean' || ![null, 'approve', 'revise'].includes(lastGate)) return { gap: 'aco lane-record show printed stored runs the lane cannot read' }
   return { follows, approved, gateRan, lastGate, lost }
 }
-// The outcome of a begin: the problem that ends the run, or what the run read of the stored runs.
-function beganRun(relayed, printedLine, claim) {
+// The outcome of a begin: the problem that ends the run, or what the run read of the stored runs. A begin answered bare (aco's own line, no relay line) carries no stored runs, so a read-back through the relay supplies them,
+// and a read-back that fails or cannot be read ends the run like a refused begin.
+async function beganRun(relayed, printedLine, claim, relay) {
   const problem = storeProblem('begin', relayed, printedLine, claim)
   if (problem) return { problem }
-  return { read: relayed.values ? storedRunsRead(relayed.values) : { gap: 'the begin step relayed aco\'s answer without a read of the stored runs' } }
+  if (relayed.values) return { read: storedRunsRead(relayed.values) }
+  const shown = await relay(showRequest(claim))
+  if (!shown) return { problem: 'the read-back of the stored runs ended without a result' }
+  if (shown.problem) return { problem: `the read-back of the stored runs ${shown.problem}${printedLine(shown)}` }
+  const read = storedRunsRead(shown.values)
+  return read.gap ? { problem: `the read-back of the stored runs failed: ${read.gap}` } : { read }
 }
 const refusedAddReason = (problem, wouldHaveEnded) => `aco did not store this run's record on the claim: ${problem}. The run would have ended ${wouldHaveEnded}`
 

@@ -1987,7 +1987,7 @@ const escapedForPattern = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 const repoRelative = (where, roots) => {
   if (typeof where !== 'string') return where
   const prefixes = [...new Set(roots.map(withoutTrailingSlashes).filter(Boolean))].sort((a, b) => b.length - a.length)
-  const stripped = prefixes.length ? where.replace(new RegExp(`(?<![\\w./-])(?:${prefixes.map(escapedForPattern).join('|')})/`, 'g'), '') : where
+  const stripped = where.replace(new RegExp(`(?<![\\w./-])(?:${prefixes.map(escapedForPattern).join('|')})/`, 'g'), '')
   return stripped.replace(/^\.\//, '')
 }
 const relativeEntries = (entries, roots) => entries?.map(entry => ({ ...entry, where: repoRelative(entry.where, roots) }))
@@ -2102,7 +2102,7 @@ const findingPath = (where) => {
 // A value a command prints reaches a decision only through the line laneRelay reads back and checks.
 const relay = (request) => runPart('lane-relay', laneRelay, { delegatedLine: DELEGATED_LINE, worktree: A.worktree, roots: checkoutRoots, agentOptions: MECHANICAL, reread: COPY, findingPath, ...request })
 // The failure reasons name the printed line only when the command printed one.
-const printedLine = (relayed) => relayed.printed === undefined ? '' : `; the printed line: ${relayed.printed}`
+const printedLine = (relayed) => relayed.printed === undefined ? '' : `; the printed line: ${repoRelative(relayed.printed, checkoutRoots)}`
 // ------------------------------------------------------ shared sentences
 const generatedCommands = GENERATED.map(([path, command]) => `${path}: ${command}`).join('; ')
 const laneFacts =
@@ -2264,6 +2264,8 @@ phase('Worktree')
 // With the operator's word the same printer run reads the item body, so a forgotten or mistyped quote stops the lane before any builder or reviewer starts.
 const wordRelay = OPERATOR_WORD ? { relayArgs: [A.item, `'${A.repo || ''}'`, `'${wordArgument(OPERATOR_WORD)}'`, "'branch'"], sentWord: OPERATOR_WORD, requiredKeys: ['branch', 'run', 'item'] } : { relayArgs: ["'branch'"], requiredKeys: ['branch', 'run'] }
 const checkedBranch = await relay({ label: 'branch', phase: 'Worktree', step: 'branch', nonce: 'branch', ...wordRelay, brief: `${laneFacts}\nChange nothing in the files;` })
+const printedRoot = (read) => (read?.code === 0 ? read.out : '')
+checkoutRoots.push(printedRoot(checkedBranch?.values?.top), printedRoot(checkedBranch?.values?.common).replace(/\/\.git$/, ''))
 const branchRead = checkedBranch?.values?.branch
 let foundBranch = branchRead?.out
 if (!checkedBranch) foundBranch = 'no answer from the check'
@@ -2272,8 +2274,6 @@ else if (branchRead.code !== 0) foundBranch = `git exited ${branchRead.code}: ${
 else if (!RUN_ID.test(checkedBranch.values.run.out ?? '')) foundBranch = 'no run id in the check'
 if (foundBranch !== A.branch) return await openResult('failed', 'input', { reason: `worktree ${A.worktree} must exist with branch ${A.branch} checked out; found ${foundBranch}` })
 runId = checkedBranch.values.run.out
-const printedRoot = (read) => (read?.code === 0 ? read.out : '')
-checkoutRoots.push(printedRoot(checkedBranch.values.top), printedRoot(checkedBranch.values.common).replace(/\/\.git$/, ''))
 carriedBatchRelative()
 if (OPERATOR_WORD) {
   const itemRead = checkedBranch.values.item

@@ -10,7 +10,7 @@ const escapedForPattern = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 export const repoRelative = (where, roots) => {
   if (typeof where !== 'string') return where
   const prefixes = [...new Set(roots.map(withoutTrailingSlashes).filter(Boolean))].sort((a, b) => b.length - a.length)
-  const stripped = prefixes.length ? where.replace(new RegExp(`(?<![\\w./-])(?:${prefixes.map(escapedForPattern).join('|')})/`, 'g'), '') : where
+  const stripped = where.replace(new RegExp(`(?<![\\w./-])(?:${prefixes.map(escapedForPattern).join('|')})/`, 'g'), '')
   return stripped.replace(/^\.\//, '')
 }
 export const relativeEntries = (entries, roots) => entries?.map(entry => ({ ...entry, where: repoRelative(entry.where, roots) }))

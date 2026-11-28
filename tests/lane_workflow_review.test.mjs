@@ -534,6 +534,12 @@ test('gate-stand-in: a limited gate re-check of a test-only fix is re-checked by
   assert.equal(result.requiredHeadActions.filter(line => line.includes(`${resumeTip}..${resumeFixedTip}`)).length, 1)
 })
 
+test('gate-stand-in: a lane without productionPaths stands in for a limited gate on a test-only fix', async () => {
+  const { result, launchedAgents } = await standInRun({ productionPaths: undefined })
+  assert.equal(result.status, 'ready-to-land')
+  assert.ok(launchedAgents.includes('r1-standin'))
+})
+
 test('routingLine: a blocking finding of the stand-in reviewer counts under the gate stage', async () => {
   const standInFinding = finding('src/standin.py:9', 'the stand-in finding')
   const { result } = await standInRun({}, { 'r1-standin': { verdict: 'REVISE', blocking: [standInFinding], followups: [] } })
@@ -551,7 +557,6 @@ test('routingLine: a stand-in gate round names the model that ran it for gate, n
 const standInRefused = [
   ['the fix resolved a lane conflict', { 'fix-1': { ...resumeFix, files: ['tests/x.py'], mergeResolvedLaneConflict: true } }, {}],
   ['the lane routes its review to Codex', { 'r0-review': { ...APPROVE, codexExit: 0 } }, { reviewer: 'codex' }],
-  ['productionPaths was not passed', {}, { productionPaths: undefined }],
 ]
 for (const [name, answers, args] of standInRefused) {
   test(`gate-stand-in: the lane waits when ${name}`, async () => {

@@ -218,11 +218,7 @@ const openResult = async (status, stage, extra = {}) => {
 
 let carriedOver = A.fixFirst || []
 // The batch a head carries in may come from a run that printed absolute paths.
-function carriedBatchRelative() {
-  A.fixFirst = relativeEntries(A.fixFirst, checkoutRoots)
-  A.foldIn = relativeEntries(A.foldIn, checkoutRoots)
-  carriedOver = relativeEntries(carriedOver, checkoutRoots)
-}
+const carriedBatchRelative = () => ([A.fixFirst, A.foldIn, carriedOver] = [A.fixFirst, A.foldIn, carriedOver].map(entries => relativeEntries(entries, checkoutRoots)))
 carriedBatchRelative()
 let carriesBatch = carriedOver.length || A.foldIn?.length
 let syncRaisedConflict = false  // the sync's conflict is the first finding of the carried batch

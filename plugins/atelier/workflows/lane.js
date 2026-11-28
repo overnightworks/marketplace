@@ -1983,17 +1983,17 @@ const withoutTrailingSlashes = (path) => {
   return path.slice(0, end)
 }
 // A path starts where no word, dot, slash or dash precedes it.
-const PATH_BOUNDARY = '(?<![\\w./-])'
-const escapedForPattern = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+const PATH_BOUNDARY = String.raw`(?<![\w./-])`
+const escapedForPattern = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`)
 // Every occurrence of a root followed by a slash goes, and a bare root reads as `.`, wherever it stands in the text: the roots are the worktree and, once the lane has read them, its symlink-resolved path and the main checkout.
 const repoRelative = (where, roots) => {
   if (typeof where !== 'string') return where
   const prefixes = [...new Set(roots.map(withoutTrailingSlashes).filter(Boolean))].sort((a, b) => b.length - a.length)
-  const stripped = where.replace(new RegExp(`${PATH_BOUNDARY}(?:${prefixes.map(escapedForPattern).join('|')})(?:/|(?![\\w./-]))`, 'g'), (match) => match.endsWith('/') ? '' : '.')
+  const stripped = where.replace(new RegExp(String.raw`${PATH_BOUNDARY}(?:${prefixes.map(escapedForPattern).join('|')})(?:/|(?![\w./-]))`, 'g'), (match) => match.endsWith('/') ? '' : '.')
   return stripped.replace(/^\.\//, '')
 }
 // Every absolute path in a text, whichever root it lies under, reads `<path>`.
-const withoutAbsolutePaths = (text) => text.replace(new RegExp(`${PATH_BOUNDARY}/[^\\s"'<>,}\\]]+`, 'g'), '<path>')
+const withoutAbsolutePaths = (text) => text.replace(new RegExp(String.raw`${PATH_BOUNDARY}/[^\s"'<>,}\]]+`, 'g'), '<path>')
 const relativeEntries = (entries, roots) => entries?.map(entry => ({ ...entry, where: repoRelative(entry.where, roots) }))
 // An agent answer with its findings under blocking, followups, failing or red[].findings, each made relative.
 const relativeAnswer = (answer, roots) => {
@@ -2224,11 +2224,7 @@ const openResult = async (status, stage, extra = {}) => {
 
 let carriedOver = A.fixFirst || []
 // The batch a head carries in may come from a run that printed absolute paths.
-function carriedBatchRelative() {
-  A.fixFirst = relativeEntries(A.fixFirst, checkoutRoots)
-  A.foldIn = relativeEntries(A.foldIn, checkoutRoots)
-  carriedOver = relativeEntries(carriedOver, checkoutRoots)
-}
+const carriedBatchRelative = () => ([A.fixFirst, A.foldIn, carriedOver] = [A.fixFirst, A.foldIn, carriedOver].map(entries => relativeEntries(entries, checkoutRoots)))
 carriedBatchRelative()
 let carriesBatch = carriedOver.length || A.foldIn?.length
 let syncRaisedConflict = false  // the sync's conflict is the first finding of the carried batch

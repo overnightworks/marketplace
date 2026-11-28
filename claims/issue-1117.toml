@@ -1,0 +1,8 @@
+claim_id = "2963c5829dc8420fbd01d4122cce2bc3"
+agent = "Claude d7189503-a891-4203-95ef-44598567881f"
+role = "builder"
+base = "cc74f7b06c007e379e7a8a348f9b1e2c1e9fa00d"
+branch = "claude/issue-1117-ci-reader-waits-late-checks"
+scope = ["plugins/atelier/lane", "plugins/atelier/workflows/lane.js", "tests"]
+opened_commit = "e78ed08db163b0bf5cf53d95d77694e7c64580c1"
+whole_reason = "One rule in the lane's CI reader, its bundle and its harness case."

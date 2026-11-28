@@ -1,0 +1,8 @@
+claim_id = "fae7ef6c48d746fa8e820573d9711d15"
+agent = "Claude d7189503-a891-4203-95ef-44598567881f"
+role = "builder"
+base = "6d8a9098af6ddc0e8f8bd5e6a451ec7537b93e7a"
+branch = "claude/issue-1125-every-path-repo-relative"
+scope = ["plugins/atelier/lane", "plugins/atelier/workflows/lane.js", "tests"]
+opened_commit = "2b5e95181d292179531d8d73a9e3b5d0c515681f"
+whole_reason = "One path normaliser in the lane source, its bundle and harness cases."

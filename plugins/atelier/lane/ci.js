@@ -98,7 +98,7 @@ export async function laneCi(A) {
     return await rerunAll(red)
   }
 
-  return relativeAnswer(await ciFindings(), A.worktree)
+  return relativeAnswer(await ciFindings(), A.roots)
 }
 
 // The first finding stands unless the re-run reached the check, which shows as another link.

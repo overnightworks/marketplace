@@ -75,6 +75,8 @@ const claudeRole = (role) => ({ model: ROUTING[role].model, effort: ROUTING[role
 // Every prompt opens with the delegated line, as do the parts'.
 const DELEGATED_LINE = 'This is a delegated step started by a head, not a main session: skip the session-start routine and do only this brief.'
 
+// Every path the lane stores or prints is repo-relative against these roots: the worktree, and once the lane has read them its symlink-resolved path and the main checkout.
+const checkoutRoots = [A.worktree]
 const entryProblem = badEntry('fixFirst', A.fixFirst, FINDING) || badEntry('foldIn', A.foldIn, FOLLOWUP)
 if (entryProblem) return { status: 'failed', stage: 'input', reason: entryProblem }
 // A part that throws is a problem naming it, which its caller stops on at the stage of its own step.
@@ -96,7 +98,7 @@ const findingPath = (where) => {
   return isPath ? word.split(':', 1)[0].toWellFormed() : ''
 }
 // A value a command prints reaches a decision only through the line laneRelay reads back and checks.
-const relay = (request) => runPart('lane-relay', laneRelay, { delegatedLine: DELEGATED_LINE, worktree: A.worktree, agentOptions: MECHANICAL, reread: COPY, findingPath, ...request })
+const relay = (request) => runPart('lane-relay', laneRelay, { delegatedLine: DELEGATED_LINE, worktree: A.worktree, roots: checkoutRoots, agentOptions: MECHANICAL, reread: COPY, findingPath, ...request })
 // The failure reasons name the printed line only when the command printed one.
 const printedLine = (relayed) => relayed.printed === undefined ? '' : `; the printed line: ${relayed.printed}`
 // ------------------------------------------------------ shared sentences
@@ -211,6 +213,13 @@ const openResult = async (status, stage, extra = {}) => {
 }
 
 let carriedOver = A.fixFirst || []
+// The batch a head carries in may come from a run that printed absolute paths.
+function carriedBatchRelative() {
+  A.fixFirst = relativeEntries(A.fixFirst, checkoutRoots)
+  A.foldIn = relativeEntries(A.foldIn, checkoutRoots)
+  carriedOver = relativeEntries(carriedOver, checkoutRoots)
+}
+carriedBatchRelative()
 let carriesBatch = carriedOver.length || A.foldIn?.length
 let syncRaisedConflict = false  // the sync's conflict is the first finding of the carried batch
 if (A.deltaFrom && !SHA.test(A.deltaFrom)) return await openResult('failed', 'input', { reason: 'deltaFrom is not a sha' })
@@ -261,6 +270,9 @@ else if (branchRead.code !== 0) foundBranch = `git exited ${branchRead.code}: ${
 else if (!RUN_ID.test(checkedBranch.values.run.out ?? '')) foundBranch = 'no run id in the check'
 if (foundBranch !== A.branch) return await openResult('failed', 'input', { reason: `worktree ${A.worktree} must exist with branch ${A.branch} checked out; found ${foundBranch}` })
 runId = checkedBranch.values.run.out
+const printedRoot = (read) => (read?.code === 0 ? read.out : '')
+checkoutRoots.push(printedRoot(checkedBranch.values.top), printedRoot(checkedBranch.values.common).replace(/\/\.git$/, ''))
+carriedBatchRelative()
 if (OPERATOR_WORD) {
   const itemRead = checkedBranch.values.item
   if (checkedBranch.unreachable) return await openResult('awaiting-head', 'input', { reason: `${checkedBranch.unreachable} The lane could not read item #${A.item} for the operator's word. Start the lane again once it answers.` })
@@ -326,7 +338,7 @@ async function reviewRound(which, range, from, sampledLook) {
   const after = sampledLook?.after ?? spent.total
   const owedRange = takeOwedGateRange()
   const reviewers = which.map(r => reviewerRow(r, owedRange))
-  const answer = await runPart('lane-review', laneReview, { item: A.item, pr, repo: A.repo, repoFlag: R, after, tip, delegatedLine: DELEGATED_LINE, worktree: A.worktree, branch: A.branch, scratch: A.scratch, tag: TAG, label: `r${after}`, range, reuse: buildReuse, e2e: A.e2e, contract: A.contract, blockingLine: BLOCKING_LINE, reviewers, findingKinds: FINDING_KINDS, finding: FINDING, followup: REPORTED_FOLLOWUP, mechanical: MECHANICAL, gateStandIn: GATE_STAND_IN })
+  const answer = await runPart('lane-review', laneReview, { item: A.item, pr, repo: A.repo, repoFlag: R, after, tip, delegatedLine: DELEGATED_LINE, worktree: A.worktree, roots: checkoutRoots, branch: A.branch, scratch: A.scratch, tag: TAG, label: `r${after}`, range, reuse: buildReuse, e2e: A.e2e, contract: A.contract, blockingLine: BLOCKING_LINE, reviewers, findingKinds: FINDING_KINDS, finding: FINDING, followup: REPORTED_FOLLOWUP, mechanical: MECHANICAL, gateStandIn: GATE_STAND_IN })
   // A Codex gate that refused its model was replaced in its round by the stand-in; the run keeps it, so a re-check has the gate's row and the record names the one gate that ran.
   // A skipped sampled look gave no verdict, so no gate ran and the stand-in is neither held nor named.
   const skippedLook = sampledLook && LOOK_WITHOUT_VERDICT.has(answer?.verdict?.state)
@@ -634,14 +646,14 @@ if (lookStop) return lookStop
 
 // ---------------------------- end-to-end test and CI side by side
 // laneTest returns the tester's answer, null when both agents ended without a result, or a problem the lane stops on.
-const explore = (n, fixRange) => runPart('lane-test', laneTest, { fixRange, delegatedLine: DELEGATED_LINE, n, pr, tip, worktree: A.worktree, scratch: A.scratch, tag: TAG, e2e: A.e2e, contract: A.contract, laneFacts, surfaceFacts: surfaceTesterFacts(), surfaced: surfaced(), blockingLine: BLOCKING_LINE, finding: FINDING, followup: REPORTED_FOLLOWUP, routing: claudeRole('test') })
+const explore = (n, fixRange) => runPart('lane-test', laneTest, { fixRange, delegatedLine: DELEGATED_LINE, n, pr, tip, worktree: A.worktree, roots: checkoutRoots, scratch: A.scratch, tag: TAG, e2e: A.e2e, contract: A.contract, laneFacts, surfaceFacts: surfaceTesterFacts(), surfaced: surfaced(), blockingLine: BLOCKING_LINE, finding: FINDING, followup: REPORTED_FOLLOWUP, routing: claudeRole('test') })
 // The paths the watcher's findings name; the printer keeps those among the pull request's changed files.
 const findingPaths = (failing = []) => [...new Set(failing.map(finding => findingPath(finding.where)).filter(Boolean))]
 // Review and tester both passed on the tip, so a CI read that stays refused leaves only the check runs for the head to read.
 const provenOnTip = () => approvedOn(history, tip) && !testBlocking.length && lastTestedTip === tip
 const restCheckAction = () => `without a new run: read the check runs of ${tip} with \`gh api ${REPO_API}/commits/${tip}/check-runs --paginate\` (REST, outside the GraphQL budget); once every one is completed and green, land with \`aco land ${pr} --head ${tip}\``
 async function watchCi(n, rerun) {
-  const watched = await runPart('lane-ci', laneCi, { delegatedLine: DELEGATED_LINE, pr, n, rerun, repo: A.repo, repoFlag: R, inRepo: IN_REPO, repoApi: REPO_API, worktree: A.worktree, finding: FINDING, mechanical: MECHANICAL })
+  const watched = await runPart('lane-ci', laneCi, { delegatedLine: DELEGATED_LINE, pr, n, rerun, repo: A.repo, repoFlag: R, inRepo: IN_REPO, repoApi: REPO_API, worktree: A.worktree, roots: checkoutRoots, finding: FINDING, mechanical: MECHANICAL })
   if (!watched || watched.problem) return watched
   const nonce = `ci-${n}-${tip}`
   const sentPaths = findingPaths(watched.failing)

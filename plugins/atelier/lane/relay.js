@@ -497,8 +497,11 @@ async function relayStep(A) {
     const watcherDecides = !sharedRerun && (watched.green || (watched.failing?.length && !unbackedFinding))
     const failing = watcherDecides ? watched.failing : failedCheckFindings(open)
     const ownRed = ownFailing({ shared, red: watched.red, failing, files })
-    const green = watched.green && !sharedRerun
-    const unproven = green ? listed : null
+    // A required check that appears only after the others finished is missing from the listing, which is pending, not red.
+    const missingRequired = Object.entries(rules.required || {}).filter(([, bucket]) => bucket === 'missing').map(([name]) => name)
+    const onlyLate = watched.green && !sharedRerun && Boolean(listed) && checks.count > 0 && open.length === 0 && missingRequired.length > 0 && Object.values(rules.required).every(bucket => bucket === 'missing')
+    const green = watched.green && !sharedRerun && !onlyLate
+    const unproven = green || onlyLate ? listed : null
     const rulesError = readFailure(rules, 'gh api')
     const runsError = readFailure(headruns, 'gh run list')
     const changedError = readFailure(changed, 'gh api')
@@ -506,7 +509,7 @@ async function relayStep(A) {
     const names = (failing || []).map(f => `"${f.where}"`).join(', ')
     const state = ciState(proven, names)
     const settled = green || failing.length || open.some(c => c.bucket === 'fail')
-    const pending = settled ? null : pendingReason([...open.filter(c => c.bucket === 'pending').map(c => c.name), ...(headruns.open || [])])
+    const pending = settled ? null : pendingReason([...open.filter(c => c.bucket === 'pending').map(c => c.name), ...(headruns.open || []), ...missingRequired])
     const readError = ciReadError({ runsError, changedError, rulesError, verdictLogError: sharedGate ? verdictLogError(jobLog) : null })
     return {
       head, shared, operatorDoor, failing, ownRed, green, unproven, readError, pending, proven,

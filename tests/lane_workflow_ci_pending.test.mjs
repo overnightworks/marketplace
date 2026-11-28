@@ -60,3 +60,25 @@ test('ci-pending: a completed head run leaves a not green answer without pending
   assert.notEqual(result.status, 'awaiting-head')
   assert.equal(result.history.at(-1).verdict, 'RED')
 })
+
+// The verdict check appears only after the checks it waits on: the watcher keeps watching until it has a conclusion, and a bound that ends first is not red.
+test('ci-pending: a watcher green answer whose listing lacks a required check ends awaiting-head at ci, PENDING, naming the context and without a fixer', async () => {
+  const { result, launchedAgents } = await driveCi(ciAnswer([check('lint', 'pass'), check('Python: tests', 'pass')]))
+  assert.deepEqual([result.status, result.stage], ['awaiting-head', 'ci'])
+  assert.match(result.reason, /"quality \/ verdict"/)
+  assert.ok(!launchedAgents.includes('fix-2'))
+  assert.equal(result.history.find(entry => entry.by === 'ci-0').verdict, 'PENDING')
+})
+
+test('ci-pending: the required check that appears after the others passed ends GREEN once it concludes successfully', async () => {
+  const { result } = await driveCi(ciAnswer([check('lint', 'pass'), check(required, 'pass')]))
+  assert.equal(result.history.find(entry => entry.by === 'ci-0').verdict, 'GREEN')
+})
+
+test('ci-pending: the watcher is told to keep watching while a required context is missing, after every run of head completed too', async () => {
+  const { agentCalls } = await driveCi(ciAnswer([check(required, 'pass')]))
+  const brief = agentCalls['ci-0'].prompt
+  assert.match(brief, /While one is missing, or a check is still pending after the watch, watch again/)
+  assert.match(brief, /also when every run of head has completed/)
+  assert.match(brief, /reports it as not driven and names the context/)
+})

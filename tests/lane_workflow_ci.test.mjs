@@ -12,7 +12,6 @@ const unproven = [
   ['a red check among several passing ones', [check(required, 'pass'), check('a', 'pass'), check('b', 'fail'), check('c', 'pass')], /b/],
   ['a red check together with a pending one', [check(required, 'pass'), check('b', 'fail'), check('c', 'pending')], /b/],
   ['a cancelled check', [check(required, 'pass'), check('b', 'cancel')], /b/],
-  ['a required check missing from the listing', [check('Python: tests', 'pass')], /quality \/ verdict/],
   ['a required check listed as pending', [check(required, 'pending')], /quality \/ verdict/],
   ['a required check listed as skipping', [check(required, 'skipping')], /quality \/ verdict/],
   ['a red check and a required check missing', [check('Python: tests', 'fail')], /Python: tests[\s\S]*quality \/ verdict/],
@@ -201,8 +200,6 @@ test('ci-run-wait: the ci brief tells the watcher to read the head workflow runs
   const { agentCalls } = await driveCi(ciAnswer([check(required, 'pass')]))
   assert.match(agentCalls['ci-0'].prompt, /gh run list --commit/)
   assert.match(agentCalls['ci-0'].prompt, /while any run is not completed, watch again/)
-  assert.match(agentCalls['ci-0'].prompt, /while a run of head is not completed, or a check is still pending after the watch, watch again/)
-  assert.match(agentCalls['ci-0'].prompt, /missing required context is judged as it stands and is not watched for/)
 })
 
 for (const [what, baseChecks] of [['an empty baseChecks', []], ['no baseChecks', undefined], ['a base run of the same name still pending', [run('quality / hygiene', null)]], ['a name missing on the base', [run('other', 'failure')]]]) {

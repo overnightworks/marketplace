@@ -51,3 +51,16 @@ test('an unreadable branch line quotes neither the resolved worktree nor the mai
   assert.match(run.result.reason, /fails its CRC check; the printed line: /)
   for (const root of ['/real/worktrees/w', '/home/someone/git/main-checkout']) assert.ok(!run.result.reason.includes(root), run.result.reason)
 })
+
+const garbledBranchLines = {
+  'a payload that does not parse': (printed) => printed.replace('{"crc"', '{"crc"!'),
+  'a root printed as a unicode escape': (printed) => printed.replace('/real/worktrees/w', '/real/w\\u00f6rk/w'),
+}
+for (const [name, garble] of Object.entries(garbledBranchLines)) {
+  test(`an unreadable branch line with ${name} quotes no absolute path`, async () => {
+    const run = await runLane(builtLane, { branch: { ...unreadableBranchLine.branch, edit: (printed) => garble(unreadableBranchLine.branch.edit(printed)) } })
+    assert.equal(run.result.stage, 'input')
+    assert.match(run.result.reason, /the printed line: /)
+    assert.doesNotMatch(run.result.reason, /\/real|\/home\/someone/)
+  })
+}

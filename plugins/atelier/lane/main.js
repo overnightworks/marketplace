@@ -99,8 +99,13 @@ const findingPath = (where) => {
 }
 // A value a command prints reaches a decision only through the line laneRelay reads back and checks.
 const relay = (request) => runPart('lane-relay', laneRelay, { delegatedLine: DELEGATED_LINE, worktree: A.worktree, roots: checkoutRoots, agentOptions: MECHANICAL, reread: COPY, findingPath, ...request })
-// The failure reasons name the printed line only when the command printed one.
-const printedLine = (relayed) => relayed.printed === undefined ? '' : `; the printed line: ${repoRelative(relayed.printed, checkoutRoots)}`
+// The failure reasons name the printed line only when the command printed one; anyAbsolutePath also drops every path no known root covers.
+const ABSOLUTE_PATH = /(?<![\w./-])\/[^\s"'<>,}\]]+/g
+const printedLine = (relayed, { anyAbsolutePath = false } = {}) => {
+  if (relayed.printed === undefined) return ''
+  const relative = repoRelative(relayed.printed, checkoutRoots)
+  return `; the printed line: ${anyAbsolutePath ? relative.replace(ABSOLUTE_PATH, '<path>') : relative}`
+}
 // ------------------------------------------------------ shared sentences
 const generatedCommands = GENERATED.map(([path, command]) => `${path}: ${command}`).join('; ')
 const laneFacts =
@@ -270,7 +275,7 @@ checkoutRoots.push(printedRoot(branchRoots?.top), printedRoot(branchRoots?.commo
 const branchRead = checkedBranch?.values?.branch
 let foundBranch = branchRead?.out
 if (!checkedBranch) foundBranch = 'no answer from the check'
-else if (checkedBranch.problem) foundBranch = `no readable line (the check ${checkedBranch.problem}${printedLine(checkedBranch)})`
+else if (checkedBranch.problem) foundBranch = `no readable line (the check ${checkedBranch.problem}${printedLine(checkedBranch, { anyAbsolutePath: true })})`
 else if (branchRead.code !== 0) foundBranch = `git exited ${branchRead.code}: ${branchRead.err}`
 else if (!RUN_ID.test(checkedBranch.values.run.out ?? '')) foundBranch = 'no run id in the check'
 if (foundBranch !== A.branch) return await openResult('failed', 'input', { reason: `worktree ${A.worktree} must exist with branch ${A.branch} checked out; found ${foundBranch}` })

@@ -421,7 +421,7 @@ async function relayStep(A) {
     const blocking = A.findings
     const foldIn = A.foldInEntries
     const heldTip = A.tip
-    const facts = { ...answer, outside: relativeEntries(answer.outside, A.roots), regression: withReadRemovals(answer.regression || [], blocking, values, `${heldTip}..${values.head.out}`), tip: values.head.out, heldTip, unchanged: sameCommit(values.head.out, heldTip), mergeOnly: mergedOnto(values, heldTip) && cleanMerge(values), mergedPaths: values.merged?.paths ?? [], mergedCut: (values.merged?.count ?? 0) > (values.merged?.paths ?? []).length }
+    const facts = { ...answer, ...Object.fromEntries(['outside', 'disputed', 'resolved', 'declined'].filter(key => answer[key]).map(key => [key, relativeEntries(answer[key], A.roots)])), regression: withReadRemovals(answer.regression || [], blocking, values, `${heldTip}..${values.head.out}`), tip: values.head.out, heldTip, unchanged: sameCommit(values.head.out, heldTip), mergeOnly: mergedOnto(values, heldTip) && cleanMerge(values), mergedPaths: values.merged?.paths ?? [], mergedCut: (values.merged?.count ?? 0) > (values.merged?.paths ?? []).length }
     const { proofRejection, proofNotes } = judgeProofs(facts, blocking)
     const fixed = { ...facts, proofRejection, proofNotes }
     const relative = worktreeRelative(fixed.files || [])

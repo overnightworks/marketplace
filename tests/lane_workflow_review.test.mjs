@@ -759,7 +759,7 @@ absoluteWhereCases.push(
 )
 const leakedRoots = [resumedLane.worktree + '/', mainCheckout, resolvedWorktree]
 const assertNoRoots = (result) => {
-  const stored = JSON.stringify([result.history, result.followups, result.folded, result.routingLine])
+  const stored = JSON.stringify([result.history, result.followups, result.folded, result.routingLine, result.disputed, result.resolved])
   for (const root of leakedRoots) assert.ok(!stored.includes(root), `${root} in ${stored}`)
   assert.ok(stored.includes('src/leak.py:9'), stored)
 }
@@ -776,6 +776,8 @@ const carriedInputs = [
   ['a fixFirst entry', { fixFirst: [carriedFinding] }, { 'fix-1': resumeFix }],
   ['a foldIn entry', { foldIn: [carriedFollowup] }, { 'fix-1': unchangedFix }],
   ['a fixer outside where', { fixFirst: [docsFinding] }, { 'fix-1': { ...unchangedFix, outside: [{ finding: 1, where: underWorktree('src/leak.py:9') }] } }],
+  ['a fixer disputed where', { fixFirst: [docsFinding] }, { 'fix-1': { ...unchangedFix, disputed: [{ finding: 1, where: underWorktree('src/leak.py:9'), text: 'not a defect', counterEvidence: 'the code is right' }] } }],
+  ['a fixer resolved where', { fixFirst: [docsFinding] }, { 'fix-1': { ...unchangedFix, disputed: [{ finding: 1, where: 'README.md:1', text: 'not a defect', counterEvidence: 'the code is right' }], resolved: [{ finding: 1, where: `${resolvedWorktree}/src/leak.py:9`, text: 'already met', evidence: 'src/leak.py:9' }] } }],
 ]
 for (const [name, extraArgs, fixAnswers] of carriedInputs) {
   test(`relative-where: ${name} with an absolute path is stored and printed repo-relative`, async () => {

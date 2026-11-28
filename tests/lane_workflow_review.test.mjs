@@ -5,7 +5,7 @@ import path from 'node:path'
 import { spawnSync } from 'node:child_process'
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { runLane, built, builtReuse, partReplaced, courierBriefOf, resumedLane, installFake, APPROVE, PASS, greenCi, finding, resumeArgs, resumeTip, olderTip, resumeFixedTip, resumeFix, secondFix, tidy, delegatedLineOfContract } from './lane_workflow_harness.mjs'
+import { runLane, followup, built, builtReuse, partReplaced, courierBriefOf, resumedLane, installFake, APPROVE, PASS, greenCi, finding, resumeArgs, resumeTip, olderTip, resumeFixedTip, resumeFix, secondFix, tidy, delegatedLineOfContract } from './lane_workflow_harness.mjs'
 
 const driveGate = (options) => runLane({ ...resumedLane, risk: 'material' }, { 'r0-review': APPROVE }, options)
 
@@ -738,3 +738,21 @@ test('gate-opus-standin: a stand-in gate that fails is started once more with th
   assert.equal(agentCalls['r0-gate-retry'].prompt, agentCalls['r0-gate'].prompt)
   assert.equal(result.status, 'ready-to-land', result.reason)
 })
+
+// A reviewer or the tester may return a path under the worktree; nothing the lane stores or prints keeps the worktree prefix.
+const underWorktree = (where) => `${resumedLane.worktree}/${where}`
+const ciFinding = { ...finding(underWorktree('src/leak.py:9'), 'a sonar finding'), kind: 'defect' }
+const absoluteWhereCases = [
+  ['a reviewer finding', { 'r0-review': { verdict: 'REVISE', blocking: [finding(underWorktree('src/leak.py:9'), 'the finding')], followups: [] } }],
+  ['a reviewer follow-up', { 'r0-review': { ...APPROVE, followups: [followup(underWorktree('src/leak.py:9'), 'a note', '#9')] } }],
+  ['a tester follow-up', { 'r0-review': APPROVE, 'e2e-0': { ...PASS, followups: [followup(underWorktree('src/leak.py:9'), 'a note', '#9')] } }],
+  ['a CI failing finding', { 'r0-review': APPROVE, 'e2e-0': PASS, 'ci-0': { ...greenCi(resumedLane.tip), green: false, failing: [ciFinding] } }],
+]
+for (const [name, answers] of absoluteWhereCases) {
+  test(`relative-where: ${name} with an absolute where is stored and printed repo-relative`, async () => {
+    const { result } = await runLane(resumedLane, { 'ci-0': greenCi(resumedLane.tip), ...answers })
+    const stored = JSON.stringify([result.history, result.followups, result.routingLine])
+    assert.ok(!stored.includes(resumedLane.worktree + '/'), stored)
+    assert.ok(stored.includes('src/leak.py:9'), stored)
+  })
+}

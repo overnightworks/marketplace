@@ -4,9 +4,9 @@ import assert from 'node:assert/strict'
 import { run, redJob, lane, required, check, ciAnswer, driveCi } from './lane_workflow_harness.mjs'
 
 const sonarFinding = { where: 'src/a.py:4', kind: 'defect', text: 'duplicated lines', rule: 'python:S1192', evidence: 'sonar src/a.py:4' }
-const sonarRed = (changedFiles, failing = [sonarFinding]) => {
-  const sonarJob = { ...redJob('quality / sonar', 'Run sonar'), findings: [sonarFinding] }
-  return ciAnswer([check(required, 'pass'), check('quality / sonar', 'fail')], { green: false, failing, red: [sonarJob], baseChecks: [run('quality / sonar', 'failure')], changedFiles })
+const sonarRed = (changedFiles, failing = [sonarFinding], place = (finding) => finding) => {
+  const sonarJob = { ...redJob('quality / sonar', 'Run sonar'), findings: [place(sonarFinding)] }
+  return ciAnswer([check(required, 'pass'), check('quality / sonar', 'fail')], { green: false, failing: failing.map(place), red: [sonarJob], baseChecks: [run('quality / sonar', 'failure')], changedFiles })
 }
 
 test('ci-own-finding: a finding in a file the lane changed reaches the fixer although its check is red on the base', async () => {
@@ -23,12 +23,16 @@ test('ci-own-finding: a finding of the same check in a file the lane did not cha
 
 const watcherCopy = { ...sonarFinding, text: 'duplicated string literal', evidence: 'the watcher quoted another line' }
 
-test('ci-shared-red: a failing finding with the red job finding where and rule but another text stays shared and launches no fixer', async () => {
-  const { result, launchedAgents } = await driveCi(sonarRed(['src/other.py'], [watcherCopy]))
-  assert.deepEqual([result.status, result.stage], ['awaiting-head', 'ci'])
-  assert.match(result.reason, /quality \/ sonar/)
-  assert.ok(!launchedAgents.includes('fix-2'))
-})
+const wherePlacements = { 'relative where': (finding) => finding, 'absolute where': (finding) => ({ ...finding, where: `/w/${finding.where}` }) }
+
+for (const [placement, place] of Object.entries(wherePlacements)) {
+  test(`ci-shared-red: a failing finding with the red job finding where and rule but another text stays shared and launches no fixer (${placement})`, async () => {
+    const { result, launchedAgents } = await driveCi(sonarRed(['src/other.py'], [watcherCopy], place))
+    assert.deepEqual([result.status, result.stage], ['awaiting-head', 'ci'])
+    assert.match(result.reason, /quality \/ sonar/)
+    assert.ok(!launchedAgents.includes('fix-2'))
+  })
+}
 
 test('ci-own-finding: a differing copy of a shared finding in a changed file reaches the fixer', async () => {
   const { result, launchedAgents } = await driveCi(sonarRed(['src/a.py'], [watcherCopy]))

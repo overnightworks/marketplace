@@ -168,7 +168,7 @@ async function laneCi(A) {
     return await rerunAll(red)
   }
 
-  return await ciFindings()
+  return relativeAnswer(await ciFindings(), A.worktree)
 }
 
 // The first finding stands unless the re-run reached the check, which shows as another link.
@@ -955,7 +955,7 @@ async function relayStep(A) {
     return null
   }
   // A fixer may report absolute paths; an absolute path once hid a production change and skipped the gate.
-  const worktreeRelative = (files) => files.map(f => f.startsWith(`${A.worktree}/`) ? f.slice(A.worktree.length + 1) : f.replace(/^\.\//, ''))
+  const worktreeRelative = (files) => files.map(f => repoRelative(f, A.worktree))
 
   // A removal is judged by the size of the diff the printer measured in the fixer's commits, for the path of the finding its proof names, or for the whole range when that finding names no path or its path carries no diff (a check may report where a rule is declared, not where it broke); the raiser reads the diff itself.
   function withReadRemovals(regression, blocking, values, range) {
@@ -1484,7 +1484,7 @@ async function laneReview(A) {
   // parallel() turns a throwing reviewer into null, so a usage limit is kept and rethrown for the lane once every reviewer ended,
   // carrying what the reviewers that finished returned.
   let usageLimitError = null
-  const results = await parallel(A.reviewers.map(reviewer => () => reviewBy(reviewer, reviewer.range ?? A.range).catch(error => {
+  const results = await parallel(A.reviewers.map(reviewer => () => reviewBy(reviewer, reviewer.range ?? A.range).then(answer => relativeAnswer(answer, A.worktree)).catch(error => {
     if (claudeUsageLimitOf(error)) usageLimitError ??= error
     throw error
   })))
@@ -1897,8 +1897,9 @@ async function laneTest(A) {
   }
 
   // The lane adds the point of the run where it judges the answer, because fix rounds can pass while the tester works.
-  function recordedAnswer(answer) {
-    if (!answer) return answer
+  function recordedAnswer(raw) {
+    if (!raw) return raw
+    const answer = relativeAnswer(raw, A.worktree)
     const blocking = answer.blocking || []
     const design = designRecord(answer, A.surfaced, tip)
     return {
@@ -1973,6 +1974,28 @@ function takeTestBlocking() {
 }
 // A round after a settled one, on a later tip, re-checks the fix range of the findings that round raised; a first round and a retry of one without a verdict carry none.
 const fixRangeOfTest = () => lastTestedTip && !sameCommit(lastTestedTip, tip) ? { from: lastTestedTip, findings: lastTestRaised.length ? listFindings(lastTestRaised) : '(none: the fix answers CI or review only)' } : undefined
+
+// A finding's `where` leaves the lane (history, follow-ups, routing line, pull request body) as a path relative to the worktree root:
+// an agent may return an absolute path, which would carry the operator's home directory into a public text.
+const withoutTrailingSlashes = (path) => {
+  let end = path.length
+  while (end > 0 && path[end - 1] === '/') end--
+  return path.slice(0, end)
+}
+const repoRelative = (where, worktree) => {
+  const root = `${withoutTrailingSlashes(worktree)}/`
+  if (typeof where !== 'string') return where
+  return where.startsWith(root) ? where.slice(root.length) : where.replace(/^\.\//, '')
+}
+const relativeEntries = (entries, worktree) => entries?.map(entry => ({ ...entry, where: repoRelative(entry.where, worktree) }))
+// An agent answer with its findings under blocking, followups, failing or red[].findings, each made relative.
+const relativeAnswer = (answer, worktree) => {
+  if (!answer) return answer
+  const relative = {}
+  for (const key of ['blocking', 'followups', 'failing']) if (Array.isArray(answer[key])) relative[key] = relativeEntries(answer[key], worktree)
+  if (Array.isArray(answer.red)) relative.red = answer.red.map(red => ({ ...red, findings: relativeEntries(red.findings, worktree) }))
+  return { ...answer, ...relative }
+}
 
 // ---------------------------------------------------------------- inputs
 const A = args || {}

@@ -545,12 +545,12 @@ const awaitBrief = rr => awaitHead(rr, `a Codex courier wrote a different brief 
 
 const awaitHung = rr => awaitHead(rr, `a Codex gate hung twice, its run log silent past the threshold and the run killed each time; the gate never falls back to another model: ${rr.verdict.reason}. Then`)
 
-// A fresh Claude reviewer stands in for a gate at its usage limit only on a delta that touched no productionPaths prefix,
+// A fresh Claude reviewer stands in for a gate at its usage limit only on a delta that touched no production path,
 // and only when every other result of the round is clean; anything else waits for the gate.
 function standInAllowed(rr) {
   const gateResult = rr.results[rr.which.indexOf(GATE)]
   const othersClean = rr.results.every(v => v === gateResult || (v && !v.limit && !(v.blocking || []).length))
-  return MATERIAL && REVIEWER_PROVIDER === 'claude' && A.productionPaths !== undefined && gateRounds.at(-1)?.verdict === 'REVISE' && !productionSinceGate && Boolean(gateResult?.limit) && othersClean
+  return MATERIAL && REVIEWER_PROVIDER === 'claude' && gateRounds.at(-1)?.verdict === 'REVISE' && !productionSinceGate && Boolean(gateResult?.limit) && othersClean
 }
 
 async function standIn(rr) {

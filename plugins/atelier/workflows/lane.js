@@ -655,10 +655,17 @@ function echoedInputProblem(step, sent, values) {
 // The fixer's entries that name a fold-in by its number (its position in the list, from 1).
 const answerFor = (list, index) => (list || []).filter(a => a.foldIn === index + 1)
 
-// Without the head's productionPaths every path counts as production but the repository's tests and its documentation (a docs/ directory, README and CHANGELOG files), so a layout without src/ still re-opens the gate; prompts, skills, specs and contracts in Markdown are production.
-const TEST_OR_DOCUMENTATION_DIRECTORY = /(^|\/)(tests?|docs)\//
-const TEST_OR_DOCUMENTATION_NAMES = [/^test_/, /_test\./, /\.test\./, /^(README|CHANGELOG)(\.|$)/]
-const isTestOrDocumentation = (path) => TEST_OR_DOCUMENTATION_DIRECTORY.test(path) || TEST_OR_DOCUMENTATION_NAMES.some(name => name.test(path.split('/').pop()))
+// Without the head's productionPaths every path counts as production but the repository's tests and its documentation (a file in a docs/ directory, or named README or CHANGELOG, with a documentation extension: .md, .rst, .txt or none), so a layout without src/ still re-opens the gate and a script under docs/ does too; prompts, skills, specs and contracts in Markdown are production.
+const TEST_DIRECTORY = /(^|\/)tests?\//
+const DOCUMENTATION_DIRECTORY = /(^|\/)docs\//
+const TEST_NAMES = [/^test_/, /_test\./, /\.test\./]
+const DOCUMENTATION_NAME = /^(README|CHANGELOG)(\.|$)/
+const DOCUMENTATION_EXTENSION = /^([^.]+|.*\.(md|rst|txt))$/
+const isTestOrDocumentation = (path) => {
+  const name = path.split('/').pop()
+  const documentation = (DOCUMENTATION_DIRECTORY.test(path) || DOCUMENTATION_NAME.test(name)) && DOCUMENTATION_EXTENSION.test(name)
+  return TEST_DIRECTORY.test(path) || TEST_NAMES.some(test => test.test(name)) || documentation
+}
 const isProduction = (path, productionPaths) => productionPaths ? productionPaths.some(prefix => path.startsWith(prefix)) : !isTestOrDocumentation(path)
 
 // Builds the briefs of the sync and fix steps and owns the schemas of their reports, runs one printer command through an agent and returns the answer of the agent together with the CRC-checked values of the line it relays; for the fix step it judges the fixer's answer against the findings and fold-ins it answered, and for the ci step it reads those values and splits the failing checks into own and shared.
@@ -2514,12 +2521,12 @@ const awaitBrief = rr => awaitHead(rr, `a Codex courier wrote a different brief 
 
 const awaitHung = rr => awaitHead(rr, `a Codex gate hung twice, its run log silent past the threshold and the run killed each time; the gate never falls back to another model: ${rr.verdict.reason}. Then`)
 
-// A fresh Claude reviewer stands in for a gate at its usage limit only on a delta that touched no productionPaths prefix,
+// A fresh Claude reviewer stands in for a gate at its usage limit only on a delta that touched no production path,
 // and only when every other result of the round is clean; anything else waits for the gate.
 function standInAllowed(rr) {
   const gateResult = rr.results[rr.which.indexOf(GATE)]
   const othersClean = rr.results.every(v => v === gateResult || (v && !v.limit && !(v.blocking || []).length))
-  return MATERIAL && REVIEWER_PROVIDER === 'claude' && A.productionPaths !== undefined && gateRounds.at(-1)?.verdict === 'REVISE' && !productionSinceGate && Boolean(gateResult?.limit) && othersClean
+  return MATERIAL && REVIEWER_PROVIDER === 'claude' && gateRounds.at(-1)?.verdict === 'REVISE' && !productionSinceGate && Boolean(gateResult?.limit) && othersClean
 }
 
 async function standIn(rr) {

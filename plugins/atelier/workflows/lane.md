@@ -272,12 +272,16 @@ A head that finds a run stopped awaiting-head, or lost, reads `aco lane-record s
   read the tip's check runs over REST and land once every one is green. The printer reads the pull request over REST (`gh api`), which spends no
   GraphQL points; `gh pr checks` stays on GraphQL.
 - A CI answer that is not green, while the printed listing shows no failed check
-  but a pending one or a run of the head not completed (the watcher's cap ended
-  in a queue), whatever failing entry the watcher answers, unless it is
-  `mergeable`, ends the lane awaiting-head at
+  but a pending one, a run of the head not completed (the watcher's cap ended
+  in a queue) or a required context missing from the listing, whatever failing
+  entry the watcher answers, unless it is `mergeable`, ends the lane awaiting-head at
   `ci`: no fixer starts, no fix round is spent, the history records the step as
-  `PENDING`, and the reason names the pending checks. Resume with `pr` and `tip`
-  once CI has finished.
+  `PENDING`, and the reason names the pending checks. A green answer whose listing
+  lacks every required context is `PENDING` too: a check such as the verdict
+  appears only after the others finish. The watcher sleeps 60 seconds between
+  listings, in at most 3 commands, and a bound that ends with a context missing
+  or a check pending is reported as not driven, never as red. Resume with `pr`
+  and `tip` once CI has finished.
 - A Claude agent of any stage (builder, reviewer, fixer, tester, CI reader or
   mechanical step) that fails with its account usage limit returns awaiting-head
   at its stage with `claudeLimit` (`resetsAt` when the error names a reset), the

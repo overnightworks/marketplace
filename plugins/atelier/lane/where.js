@@ -1,7 +1,12 @@
 // A finding's `where` leaves the lane (history, follow-ups, routing line, pull request body) as a path relative to the worktree root:
 // an agent may return an absolute path, which would carry the operator's home directory into a public text.
+const withoutTrailingSlashes = (path) => {
+  let end = path.length
+  while (end > 0 && path[end - 1] === '/') end--
+  return path.slice(0, end)
+}
 export const repoRelative = (where, worktree) => {
-  const root = `${worktree.replace(/\/+$/, '')}/`
+  const root = `${withoutTrailingSlashes(worktree)}/`
   if (typeof where !== 'string') return where
   return where.startsWith(root) ? where.slice(root.length) : where.replace(/^\.\//, '')
 }

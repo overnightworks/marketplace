@@ -1982,14 +1982,18 @@ const withoutTrailingSlashes = (path) => {
   while (end > 0 && path[end - 1] === '/') end--
   return path.slice(0, end)
 }
+// A path starts where no word, dot, slash or dash precedes it.
+const PATH_BOUNDARY = '(?<![\\w./-])'
 const escapedForPattern = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 // Every occurrence of a root followed by a slash goes, and a bare root reads as `.`, wherever it stands in the text: the roots are the worktree and, once the lane has read them, its symlink-resolved path and the main checkout.
 const repoRelative = (where, roots) => {
   if (typeof where !== 'string') return where
   const prefixes = [...new Set(roots.map(withoutTrailingSlashes).filter(Boolean))].sort((a, b) => b.length - a.length)
-  const stripped = where.replace(new RegExp(`(?<![\\w./-])(?:${prefixes.map(escapedForPattern).join('|')})(?:/|(?![\\w./-]))`, 'g'), (match) => match.endsWith('/') ? '' : '.')
+  const stripped = where.replace(new RegExp(`${PATH_BOUNDARY}(?:${prefixes.map(escapedForPattern).join('|')})(?:/|(?![\\w./-]))`, 'g'), (match) => match.endsWith('/') ? '' : '.')
   return stripped.replace(/^\.\//, '')
 }
+// Every absolute path in a text, whichever root it lies under, reads `<path>`.
+const withoutAbsolutePaths = (text) => text.replace(new RegExp(`${PATH_BOUNDARY}/[^\\s"'<>,}\\]]+`, 'g'), '<path>')
 const relativeEntries = (entries, roots) => entries?.map(entry => ({ ...entry, where: repoRelative(entry.where, roots) }))
 // An agent answer with its findings under blocking, followups, failing or red[].findings, each made relative.
 const relativeAnswer = (answer, roots) => {
@@ -2102,11 +2106,10 @@ const findingPath = (where) => {
 // A value a command prints reaches a decision only through the line laneRelay reads back and checks.
 const relay = (request) => runPart('lane-relay', laneRelay, { delegatedLine: DELEGATED_LINE, worktree: A.worktree, roots: checkoutRoots, agentOptions: MECHANICAL, reread: COPY, findingPath, ...request })
 // The failure reasons name the printed line only when the command printed one; anyAbsolutePath also drops every path no known root covers.
-const ABSOLUTE_PATH = /(?<![\w./-])\/[^\s"'<>,}\]]+/g
 const printedLine = (relayed, { anyAbsolutePath = false } = {}) => {
   if (relayed.printed === undefined) return ''
   const relative = repoRelative(relayed.printed, checkoutRoots)
-  return `; the printed line: ${anyAbsolutePath ? relative.replace(ABSOLUTE_PATH, '<path>') : relative}`
+  return `; the printed line: ${anyAbsolutePath ? withoutAbsolutePaths(relative) : relative}`
 }
 // ------------------------------------------------------ shared sentences
 const generatedCommands = GENERATED.map(([path, command]) => `${path}: ${command}`).join('; ')

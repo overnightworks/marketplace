@@ -100,11 +100,10 @@ const findingPath = (where) => {
 // A value a command prints reaches a decision only through the line laneRelay reads back and checks.
 const relay = (request) => runPart('lane-relay', laneRelay, { delegatedLine: DELEGATED_LINE, worktree: A.worktree, roots: checkoutRoots, agentOptions: MECHANICAL, reread: COPY, findingPath, ...request })
 // The failure reasons name the printed line only when the command printed one; anyAbsolutePath also drops every path no known root covers.
-const ABSOLUTE_PATH = /(?<![\w./-])\/[^\s"'<>,}\]]+/g
 const printedLine = (relayed, { anyAbsolutePath = false } = {}) => {
   if (relayed.printed === undefined) return ''
   const relative = repoRelative(relayed.printed, checkoutRoots)
-  return `; the printed line: ${anyAbsolutePath ? relative.replace(ABSOLUTE_PATH, '<path>') : relative}`
+  return `; the printed line: ${anyAbsolutePath ? withoutAbsolutePaths(relative) : relative}`
 }
 // ------------------------------------------------------ shared sentences
 const generatedCommands = GENERATED.map(([path, command]) => `${path}: ${command}`).join('; ')

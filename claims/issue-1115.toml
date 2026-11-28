@@ -1,8 +1,0 @@
-claim_id = "30d23be7e0e34f5e97131bb097fd2822"
-agent = "Claude d7189503-a891-4203-95ef-44598567881f"
-role = "builder"
-base = "616f777fbc7b25d09b9e6caaffae1992005fa9aa"
-branch = "claude/issue-1115-one-productionpaths-reader"
-scope = ["plugins/atelier/lane", "plugins/atelier/workflows/lane.js", "plugins/atelier/workflows/lane.md", "tests"]
-opened_commit = "b855c5be7e50c4c0b4c98e0f2f913343a91b6856"
-whole_reason = "One owner for productionPaths in the lane source, its bundle, its doc and harness cases."

@@ -707,11 +707,14 @@ test('a gate follow-up on a material lane is re-checked by the gate as well', as
   assert.ok(launchedAgents.includes('r1-review') && launchedAgents.includes('r1-gate'))
 })
 
-for (const [what, files, gateRuns] of [['touches production', ['src/app.py'], true], ['touches no production path', ['x.py'], false]]) {
-  test(`a reviewer follow-up's fix that ${what} on a material lane ${gateRuns ? 'is' : 'is not'} re-checked by the gate`, async () => {
+const unseenByTheGate = [['touches src', ['src/app.py'], true], ['touches a script in a layout without src', ['scripts/x.sh'], true], ['touches only a test', ['tests/test_x.py'], false], ['touches only a markdown file', ['notes/README.md'], false]]
+
+for (const [what, files, gateRuns] of unseenByTheGate) {
+  test(`a reviewer follow-up's fix that ${what} on a material lane ${gateRuns ? 'is' : 'is not'} re-checked by the gate and ${gateRuns ? 'leaves no range' : 'names the range'} the gate did not see`, async () => {
     const { result, launchedAgents } = await runLane({ ...resumeArgs, risk: 'material' }, { 'r0-review': { ...APPROVE, followups: [polish] }, 'r0-gate': { ...APPROVE, codexExit: 0 }, 'fix-1': { ...resumeFix, files }, 'r1-review': APPROVE, 'r1-gate': { ...APPROVE, codexExit: 0 }, 'e2e-0': PASS, 'ci-0': greenCi(resumeFixedTip) })
     assert.equal(result.status, 'ready-to-land', result.reason)
     assert.equal(launchedAgents.includes('r1-gate'), gateRuns)
+    assert.equal(result.requiredHeadActions.some(action => action.includes(`${resumeTip}..${resumeFixedTip}`)), !gateRuns)
   })
 }
 

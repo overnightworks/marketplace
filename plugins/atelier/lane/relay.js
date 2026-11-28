@@ -385,6 +385,9 @@ async function relayStep(A) {
   }
   // A fixer may report absolute paths; an absolute path once hid a production change and skipped the gate.
   const worktreeRelative = (files) => files.map(f => f.startsWith(`${A.worktree}/`) ? f.slice(A.worktree.length + 1) : f.replace(/^\.\//, ''))
+  // Without the head's productionPaths every path counts as production but the repository's tests and documentation, so a layout without src/ still re-opens the gate.
+  const isTestOrDocumentation = (path) => /(^|\/)(tests?|docs)\//.test(path) || /(^|\/)(test_[^/]*|[^/]*_test\.[^/]*|[^/]*\.test\.[^/]*|[^/]*\.md)$/.test(path)
+  const isProduction = (path) => A.productionPaths ? A.productionPaths.some(prefix => path.startsWith(prefix)) : !isTestOrDocumentation(path)
 
   // A removal is judged by the size of the diff the printer measured in the fixer's commits, for the path of the finding its proof names, or for the whole range when that finding names no path or its path carries no diff (a check may report where a rule is declared, not where it broke); the raiser reads the diff itself.
   function withReadRemovals(regression, blocking, values, range) {
@@ -426,7 +429,7 @@ async function relayStep(A) {
       flakes: flake ? disputeFlakes(fixed, blocking) : [],
       rejection,
       outsidePaths: relative.filter(f => f.startsWith('/')),
-      touchesProduction: Boolean(fixed.mergeResolvedLaneConflict) || relative.some(f => A.productionPaths.some(prefix => f.startsWith(prefix))),
+      touchesProduction: Boolean(fixed.mergeResolvedLaneConflict) || relative.some(isProduction),
       answeredOutside: fixed.unchanged && answeredOutside(fixed, blocking, foldIn),
       checkpointMet: fixed.unchanged && checkpointMet(fixed, blocking),
       settled: everyFoldInSettled(fixed, blocking, foldIn),
@@ -439,7 +442,7 @@ async function relayStep(A) {
   const ANSWER_KINDS = {
     sync: { schema: SYNC_ANSWER, need: ['facts', 'branch', 'hasLedgers', 'hasGenerated'], brief: syncBrief },
     checkpoint: { schema: CHECKPOINT_ANSWER, need: ['facts', 'stage', 'startRef', 'branch', 'item', 'repo'], brief: checkpointBrief },
-    fix: { schema: FIX, need: ['facts', 'branch', 'pr', 'tip', 'source', 'round', 'blocking', 'findings', 'foldIns', 'foldInEntries', 'productionPaths', 'flakeRerunUsed', 'carried'], brief: fixerBrief },
+    fix: { schema: FIX, need: ['facts', 'branch', 'pr', 'tip', 'source', 'round', 'blocking', 'findings', 'foldIns', 'foldInEntries', 'flakeRerunUsed', 'carried'], brief: fixerBrief },
   }
   const answerKind = ANSWER_KINDS[A.answerKind]
   const kindMissing = (answerKind ? answerKind.need : ['brief']).filter(key => A[key] === undefined || A[key] === null)

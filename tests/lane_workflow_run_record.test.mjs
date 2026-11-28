@@ -229,7 +229,7 @@ const testerFinding = { where: 'flow.py:9', kind: 'defect', text: 'the flow lose
 const fixedTip = roundTip(3)
 const segmentedAnswers = {
   'r0-review': APPROVE, 'e2e-0': { verdict: 'FAIL', blocking: [testerFinding], followups: [] }, 'ci-0': greenCi(resumeTip),
-  'fix-1': { ...resumeFix, head: fixedTip, parents: [resumeTip], files: ['flow.py'], regression: [{ finding: 1, test: 't.py::t', failedBefore: true, passesAfter: true }] },
+  'fix-1': { ...resumeFix, head: fixedTip, parents: [resumeTip], files: ['tests/flow.py'], regression: [{ finding: 1, test: 't.py::t', failedBefore: true, passesAfter: true }] },
   'r1-review': APPROVE, 'e2e-1': PASS, 'ci-1': greenCi(fixedTip),
 }
 
@@ -288,7 +288,7 @@ test('run-record: a finding that comes back after a proven point counts once in 
   const secondTip = roundTip(4)
   const answers = {
     ...segmentedAnswers, 'e2e-1': { verdict: 'FAIL', blocking: [{ ...testerFinding, text: 'the flow still loses data' }], followups: [] },
-    'fix-2': { ...resumeFix, head: secondTip, parents: [fixedTip], files: ['flow.py'], regression: [{ finding: 1, test: 't.py::t', failedBefore: true, passesAfter: true }] },
+    'fix-2': { ...resumeFix, head: secondTip, parents: [fixedTip], files: ['tests/flow.py'], regression: [{ finding: 1, test: 't.py::t', failedBefore: true, passesAfter: true }] },
     'r2-review': APPROVE, 'e2e-2': PASS, 'ci-1': greenCi(fixedTip), 'ci-2': greenCi(secondTip),
   }
   const run = await runLane(resumeArgs, answers, probed)

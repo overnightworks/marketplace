@@ -566,7 +566,7 @@ test('ci-fixer-at-once: a tester answering with blocking findings after two CI-o
   const answers = {
     'r0-review': APPROVE, 'e2e-0': tester.answer, 'e2e-1': PASS,
     'ci-0': roundRed(0), 'ci-1': roundRed(1), 'ci-2': roundRed(2, () => tester.resolve({ verdict: 'FAIL', blocking: [late], followups: [] })), 'ci-3': greenCi(roundTip(3)),
-    'fix-1': roundFix(1), 'fix-2': roundFix(2), 'fix-3': { ...resumeFix, head: roundTip(3), parents: [roundTip(2)], files: ['flow.py'], regression: [{ finding: 1, test: 't.py::t', failedBefore: true, passesAfter: true }] },
+    'fix-1': roundFix(1), 'fix-2': roundFix(2), 'fix-3': { ...resumeFix, head: roundTip(3), parents: [roundTip(2)], files: ['tests/flow.py'], regression: [{ finding: 1, test: 't.py::t', failedBefore: true, passesAfter: true }] },
     'r1-review': APPROVE, 'r2-review': APPROVE, 'r3-review': APPROVE, 'ci-4': greenCi(roundTip(3)),
   }
   const { agentCalls, launchedAgents, result } = await runLane(resumeArgs, answers)
@@ -578,7 +578,7 @@ test('ci-fixer-at-once: a tester answering with blocking findings after two CI-o
 })
 
 const lateFinding = { where: 'flow.py:9', kind: 'defect', text: 'the flow loses data', rule: 'no data loss', evidence: 'repro' }
-const lateFix = { ...resumeFix, head: roundTip(3), parents: [roundTip(2)], files: ['flow.py'], regression: [{ finding: 1, test: 't.py::t', failedBefore: true, passesAfter: true }] }
+const lateFix = { ...resumeFix, head: roundTip(3), parents: [roundTip(2)], files: ['tests/flow.py'], regression: [{ finding: 1, test: 't.py::t', failedBefore: true, passesAfter: true }] }
 
 test('ci-budget-key: a fix round with red CI that carries a tester finding charges the ci budget', tolerates, async () => {
   const tester = heldTester()

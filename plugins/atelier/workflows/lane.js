@@ -478,7 +478,7 @@ const addRequest = ({ item, runId, fileArgument, tip, ran, facts }) => ({ label:
 // aco's own success answers (its specs/lane-record.spec.md owns them): a relay agent that ran aco itself and printed its answer instead of the relay line still proves the run began or was added.
 // An add answered ALREADY ADDED is a retry that changed nothing.
 const acoSuccessAnswer = (verb, item, runId) => verb === 'begin'
-  ? new RegExp(String.raw`^BEGAN run ${runId} of #${item}$`)
+  ? new RegExp(`^BEGAN run ${runId} of #${item}$`)
   : new RegExp(String.raw`^(ALREADY )?ADDED run ${runId} to #${item}: \d+ stored$`)
 // The problem with a begin or an add through its relay line (the command exited non-zero, its tip did not resolve, or the line was unreadable), or null.
 function storeProblem(verb, relayed, printedLine, { item, runId }) {

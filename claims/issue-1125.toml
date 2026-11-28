@@ -1,5 +1,5 @@
 claim_id = "fae7ef6c48d746fa8e820573d9711d15"
-agent = "Claude d7189503-a891-4203-95ef-44598567881f"
+agent = "Claude b6476031-a393-4146-ae0a-3bf000f3b396"
 role = "builder"
 base = "6d8a9098af6ddc0e8f8bd5e6a451ec7537b93e7a"
 branch = "claude/issue-1125-every-path-repo-relative"

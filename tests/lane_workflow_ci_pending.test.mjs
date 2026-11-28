@@ -71,6 +71,14 @@ test('ci-pending: a watcher green answer whose listing lacks a required check en
   assert.equal(result.history.find(entry => entry.by === 'ci-0').verdict, 'PENDING')
 })
 
+test('ci-pending: a watcher green answer with two required contexts, one passed and one missing, ends awaiting-head at ci, PENDING, naming the missing one', async () => {
+  const { result, launchedAgents } = await driveCi(ciAnswer([check('Python: tests', 'pass')], { requiredChecks: ['Python: tests', required] }))
+  assert.deepEqual([result.status, result.stage], ['awaiting-head', 'ci'])
+  assert.match(result.reason, /"quality \/ verdict"/)
+  assert.ok(!launchedAgents.includes('fix-2'))
+  assert.equal(result.history.find(entry => entry.by === 'ci-0').verdict, 'PENDING')
+})
+
 test('ci-pending: the watcher is told to keep watching while a required context is missing, after every run of head completed too', async () => {
   const { agentCalls } = await driveCi(ciAnswer([check(required, 'pass')]))
   const brief = agentCalls['ci-0'].prompt

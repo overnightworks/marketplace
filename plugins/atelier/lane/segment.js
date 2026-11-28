@@ -35,7 +35,7 @@ async function writeRecord() {
 async function beginRun(startTip = segmentStartTip) {
   if (segmentBegun) return null
   const runId = segmentRunIdNow()
-  const begun = beganRun(await relay(beginRequest({ item: A.item, runId, startTip, facts: laneFacts })), printedLine, { item: A.item, runId })
+  const begun = await beganRun(await relay(beginRequest({ item: A.item, runId, startTip, facts: laneFacts })), printedLine, { item: A.item, runId, facts: laneFacts }, relay)
   const unstored = segmentNumber === 1 ? 'this run on the claim, so the run did none of its work' : 'the next stored run of this lane run on the claim, so the run stopped before its next stage'
   if (begun.problem) return await openResult('awaiting-head', 'record', { reason: `aco did not begin ${unstored}: ${begun.problem}` })
   began = begun.read

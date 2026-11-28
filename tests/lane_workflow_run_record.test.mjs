@@ -173,13 +173,26 @@ for (const [name, answer, expected] of [
 // A relay agent that ran aco itself and printed its answer instead of the relay line.
 const acoSays = (answer) => (prompt) => ({ printed: answer(prompt.match(/'([0-9a-f]{32}(?:-\d+)?)'/)[1]) })
 
-test('run-record: a begin whose relay prints aco\'s bare BEGAN line goes on to the next stage', async () => {
-  const { result, launchedAgents, writtenRecords } = await runLane(resumeArgs, { ...readyAnswers, begin: acoSays(runId => `BEGAN run ${runId} of #1`) })
-  assert.equal(result.status, 'ready-to-land')
-  assert.ok(launchedAgents.includes('r0-review'))
-  assert.match(result.missesGap, /relayed aco's answer without a read of the stored runs/)
-  assert.equal('misses' in JSON.parse(writtenRecords[0]), false)
-})
+for (const answer of ['BEGAN', 'ALREADY BEGUN']) {
+  test(`run-record: a begin whose relay prints aco's bare ${answer} line reads the stored runs back and goes on`, async () => {
+    const { result, launchedAgents, writtenRecords } = await runLane(resumeArgs, { ...readyAnswers, begin: acoSays(runId => `${answer} run ${runId} of #1`) })
+    assert.equal(result.status, 'ready-to-land')
+    assert.ok(launchedAgents.includes('r0-review'))
+    assert.equal(result.missesGap, undefined)
+    assert.equal('misses' in JSON.parse(writtenRecords[0]), true)
+  })
+}
+
+for (const [name, scenario] of [
+  ['exits non-zero', { show_code: 1, show_error: 'aco: boom' }],
+  ['prints runs the lane cannot read', { stored_runs: [] }],
+  ['ends without a result', null],
+]) {
+  test(`run-record: a bare BEGAN line whose read-back ${name} ends the run awaiting-head at record`, async () => {
+    const { result } = await runLane(resumeArgs, { begin: acoSays(runId => `BEGAN run ${runId} of #1`), 'begin-show': scenario })
+    assert.deepEqual([result.status, result.stage], ['awaiting-head', 'record'])
+  })
+}
 
 for (const answer of ['ADDED', 'ALREADY ADDED']) {
   test(`run-record: an add whose relay prints aco's bare ${answer} line goes on to the next stage`, async () => {

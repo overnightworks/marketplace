@@ -93,6 +93,14 @@ test('sampled-gate: a lane whose read of the stored runs fails awaits the head a
   assert.deepEqual([result.status, result.stage, result.sampled, gateLabels(launchedAgents)], ['awaiting-head', 'record', false, []])
 })
 
+for (const answer of ['BEGAN', 'ALREADY BEGUN']) {
+  test(`sampled-gate: a lane whose begin printed aco's bare ${answer} line reads the stored runs back and re-checks the owed gate`, async () => {
+    const bare = (prompt) => ({ printed: `${answer} run ${prompt.match(/'([0-9a-f]{32}(?:-\d+)?)'/)[1]} of #${sampledLane.item}` })
+    const { launchedAgents, result } = await runLane(sampledLane, { 'r0-review': APPROVE, 'r0-gate': gateApprove, ...reachesTheEnd, begin: bare, 'begin-show': { stored_runs: [storedGateRun(['revise', olderTip]), storedOwnRun()] } })
+    assert.deepEqual([result.status, result.sampled, gateLabels(launchedAgents)], ['ready-to-land', true, ['r0-gate']])
+  })
+}
+
 for (const [what, lost] of [['a run without a record', lostRun], ['a run that does not follow', { ...storedEarlierRun(), follows: false }]]) {
   test(`sampled-gate: a lane whose stored runs show ${what} owes the gate on the whole lane, beside the review, and takes no second sample`, async () => {
     const { launchedAgents, agentCalls, result } = await runLane(sampledLane, { 'r0-review': APPROVE, 'r0-gate': gateApprove, ...reachesTheEnd, begin: { stored_runs: [lost, storedOwnRun()] } })

@@ -1,0 +1,7 @@
+claim_id = "55a9ac1b563a4a84ac44a52f77f83525"
+agent = "Claude b6476031-a393-4146-ae0a-3bf000f3b396"
+role = "builder"
+base = "6d8a9098af6ddc0e8f8bd5e6a451ec7537b93e7a"
+branch = "claude/issue-1131-board-check-tests-every-wait"
+scope = ["plugins/atelier/skills/board-hygiene/SKILL.md"]
+opened_commit = "797ec63224a0ee01cc07233cd70479e90fe2e8b6"

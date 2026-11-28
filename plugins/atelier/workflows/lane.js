@@ -2123,7 +2123,7 @@ function openFollowups() {
 const raisedBeforeTip = (open) => open.filter(f => f.tip && !sameCommit(f.tip, tip))
 const gateUnseenView = () => gateUnseen ? { gateUnseen: { ...gateUnseen, tip } } : {}
 // The range a material lane's tip holds past the last tip its own gate judged, when no stand-in already names it: commits no gate saw, which only a mechanical or test-only delta may be.
-const gateMissedRange = () => MATERIAL && !gateUnseen && gateRounds.length && gateRounds.at(-1).tip !== tip ? `${gateRounds.at(-1).tip}..${tip}` : null
+const gateMissedRange = () => MATERIAL && !gateUnseen && gateRounds.length && !sameCommit(gateRounds.at(-1).tip, tip) ? `${gateRounds.at(-1).tip}..${tip}` : null
 // The Routing line comes from laneRouting (aco's specs/lane-record.spec.md owns the grammar); the head pastes it as is.
 async function routingLine() {
   const line = await runPart('lane-routing', laneRouting, { routing: ROUTING, history, fixRole: fixRolesRun.at(-1) ?? null, rounds: spent.total, experiment: A.experiment })
@@ -2720,7 +2720,7 @@ return {
     ...(OPERATOR_WORD ? [`quote the operatorWord with its source in the body of pull request #${pr}: the lane may have run above the effort cap or on fable on the operator's word`] : []),
     ...(gateRefused || (MATERIAL && isGateStandIn('gate', ROUTING.gate.model, ROUTING.gate.effort)) ? [`name the Opus 5.5 stand-in as the final gate in the body of pull request #${pr}: ${gateRefused ? 'Codex refused the gate model' : 'the lane ran no Codex gate'}`] : []),
     ...(gateUnseen ? [`name ${gateUnseen.seenTip}..${tip} in the body of pull request #${pr}: the final gate, at its usage limit, did not see that range`] : []),
-    ...(gateMissedRange() ? [`name ${gateMissedRange()} in the body of pull request #${pr}: the final gate did not see that range, so confirm it holds only mechanical or test-only changes before landing`] : []),
+    ...(gateMissedRange() ? [`name ${gateMissedRange()} in the body of pull request #${pr}: the final gate did not see that range, so confirm it holds only mechanical or test-only changes before landing, or start a run with pr and tip so the gate judges it`] : []),
     ...(raisedBeforeTip(stillOpen).length ? ['re-check the follow-ups in raisedBeforeTip against the returned tip before routing them'] : []),
     ...(stillOpen.length ? [`route ${stillOpen.length} follow-up(s) to their owning items before landing`] : []),
     `update the body of item #${A.item}'s parent and name what the landing freed`,

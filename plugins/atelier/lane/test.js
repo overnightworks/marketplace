@@ -43,8 +43,9 @@ export async function laneTest(A) {
   }
 
   // The lane adds the point of the run where it judges the answer, because fix rounds can pass while the tester works.
-  function recordedAnswer(answer) {
-    if (!answer) return answer
+  function recordedAnswer(raw) {
+    if (!raw) return raw
+    const answer = relativeAnswer(raw, A.worktree)
     const blocking = answer.blocking || []
     const design = designRecord(answer, A.surfaced, tip)
     return {

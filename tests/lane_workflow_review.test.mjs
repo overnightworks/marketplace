@@ -741,10 +741,13 @@ test('gate-opus-standin: a stand-in gate that fails is started once more with th
 
 // A reviewer or the tester may return a path under the worktree; nothing the lane stores or prints keeps the worktree prefix.
 const underWorktree = (where) => `${resumedLane.worktree}/${where}`
+const ciFinding = { ...finding(underWorktree('src/leak.py:9'), 'a sonar finding'), kind: 'defect' }
 const absoluteWhereCases = [
   ['a reviewer finding', { 'r0-review': { verdict: 'REVISE', blocking: [finding(underWorktree('src/leak.py:9'), 'the finding')], followups: [] } }],
   ['a reviewer follow-up', { 'r0-review': { ...APPROVE, followups: [followup(underWorktree('src/leak.py:9'), 'a note', '#9')] } }],
   ['a tester follow-up', { 'r0-review': APPROVE, 'e2e-0': { ...PASS, followups: [followup(underWorktree('src/leak.py:9'), 'a note', '#9')] } }],
+  ['a CI failing finding', { 'r0-review': APPROVE, 'e2e-0': PASS, 'ci-0': { ...greenCi(resumedLane.tip), green: false, failing: [ciFinding] } }],
+  ['a CI failing finding repeated by its red job', { 'r0-review': APPROVE, 'e2e-0': PASS, 'ci-0': { ...greenCi(resumedLane.tip), green: false, failing: [ciFinding], red: [{ name: 'quality', findings: [ciFinding] }] } }],
 ]
 for (const [name, answers] of absoluteWhereCases) {
   test(`relative-where: ${name} with an absolute where is stored and printed repo-relative`, async () => {

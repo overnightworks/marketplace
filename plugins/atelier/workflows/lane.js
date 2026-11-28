@@ -78,8 +78,7 @@ const isCiCheckFinding = (f) => (f.rule || '').startsWith(CI_CHECK_RULE_PREFIX)
 const CI_MISSING_RULE = 'CI must run on head'
 const CI_CONFLICT_RULE = 'GitHub runs no CI on a conflicting pull request'
 async function laneCi(A) {
-  const { pr } = A
-  const R = A.repoFlag
+  const { pr, repoFlag: R } = A
   const { inRepo: IN_REPO, repoApi: REPO_API } = A
 
   // A job qualifies for the one re-run only when the step it failed in is listed here; any other step, or none known, never does.

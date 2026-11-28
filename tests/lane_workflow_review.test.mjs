@@ -5,7 +5,7 @@ import path from 'node:path'
 import { spawnSync } from 'node:child_process'
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { runLane, followup, built, builtReuse, partReplaced, courierBriefOf, resumedLane, installFake, APPROVE, PASS, greenCi, finding, resumeArgs, resumeTip, olderTip, resumeFixedTip, resumeFix, secondFix, tidy, delegatedLineOfContract } from './lane_workflow_harness.mjs'
+import { runLane, followup, built, builtReuse, partReplaced, courierBriefOf, resumedLane, installFake, APPROVE, PASS, greenCi, finding, resumeArgs, resumeTip, olderTip, resumeFixedTip, resumeFix, unchangedFix, reachesTheEnd, docsFinding, secondFix, tidy, delegatedLineOfContract } from './lane_workflow_harness.mjs'
 
 const driveGate = (options) => runLane({ ...resumedLane, risk: 'material' }, { 'r0-review': APPROVE }, options)
 
@@ -748,11 +748,40 @@ const absoluteWhereCases = [
   ['a tester follow-up', { 'r0-review': APPROVE, 'e2e-0': { ...PASS, followups: [followup(underWorktree('src/leak.py:9'), 'a note', '#9')] } }],
   ['a CI failing finding', { 'r0-review': APPROVE, 'e2e-0': PASS, 'ci-0': { ...greenCi(resumedLane.tip), green: false, failing: [ciFinding] } }],
 ]
+const mainCheckout = '/home/someone/git/main-checkout'
+const resolvedWorktree = '/real/worktrees/w'
+const otherRoots = { branch: { toplevel: resolvedWorktree, common_dir: `${mainCheckout}/.git` } }
+const reviewerFinding = (where) => ({ 'r0-review': { verdict: 'REVISE', blocking: [finding(where, 'the finding')], followups: [] } })
+absoluteWhereCases.push(
+  ['a where whose absolute path is not leading', reviewerFinding(`see ${underWorktree('src/leak.py:9')} for it`)],
+  ['a where under the main checkout', { ...otherRoots, ...reviewerFinding(`${mainCheckout}/src/leak.py:9`) }],
+  ['a where under the symlink-resolved worktree root', { ...otherRoots, ...reviewerFinding(`${resolvedWorktree}/src/leak.py:9`) }],
+)
+const leakedRoots = [resumedLane.worktree + '/', mainCheckout, resolvedWorktree]
+const assertNoRoots = (result) => {
+  const stored = JSON.stringify([result.history, result.followups, result.folded, result.routingLine, result.disputed, result.resolved])
+  for (const root of leakedRoots) assert.ok(!stored.includes(root), `${root} in ${stored}`)
+  assert.ok(stored.includes('src/leak.py:9'), stored)
+}
 for (const [name, answers] of absoluteWhereCases) {
   test(`relative-where: ${name} with an absolute where is stored and printed repo-relative`, async () => {
     const { result } = await runLane(resumedLane, { 'ci-0': greenCi(resumedLane.tip), ...answers })
-    const stored = JSON.stringify([result.history, result.followups, result.routingLine])
-    assert.ok(!stored.includes(resumedLane.worktree + '/'), stored)
-    assert.ok(stored.includes('src/leak.py:9'), stored)
+    assertNoRoots(result)
+  })
+}
+
+const carriedFinding = { ...finding(underWorktree('src/leak.py:9'), 'carried over'), kind: 'defect' }
+const carriedFollowup = followup(`${mainCheckout}/src/leak.py:9`, 'carried over', '#9')
+const carriedInputs = [
+  ['a fixFirst entry', { fixFirst: [carriedFinding] }, { 'fix-1': resumeFix }],
+  ['a foldIn entry', { foldIn: [carriedFollowup] }, { 'fix-1': unchangedFix }],
+  ['a fixer outside where', { fixFirst: [docsFinding] }, { 'fix-1': { ...unchangedFix, outside: [{ finding: 1, where: underWorktree('src/leak.py:9') }] } }],
+  ['a fixer disputed where', { fixFirst: [docsFinding] }, { 'fix-1': { ...unchangedFix, disputed: [{ finding: 1, where: underWorktree('src/leak.py:9'), text: 'not a defect', counterEvidence: 'the code is right' }] } }],
+  ['a fixer resolved where', { fixFirst: [docsFinding] }, { 'fix-1': { ...unchangedFix, disputed: [{ finding: 1, where: 'README.md:1', text: 'not a defect', counterEvidence: 'the code is right' }], resolved: [{ finding: 1, where: `${resolvedWorktree}/src/leak.py:9`, text: 'already met', evidence: 'src/leak.py:9' }] } }],
+]
+for (const [name, extraArgs, fixAnswers] of carriedInputs) {
+  test(`relative-where: ${name} with an absolute path is stored and printed repo-relative`, async () => {
+    const { result, agentCalls } = await runLane({ ...resumeArgs, ...extraArgs }, { ...otherRoots, ...fixAnswers, ...reachesTheEnd })
+    assertNoRoots({ ...result, history: [result.history, agentCalls['r1-review']?.prompt] })
   })
 }

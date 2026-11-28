@@ -262,7 +262,7 @@ export async function laneReview(A) {
   // parallel() turns a throwing reviewer into null, so a usage limit is kept and rethrown for the lane once every reviewer ended,
   // carrying what the reviewers that finished returned.
   let usageLimitError = null
-  const results = await parallel(A.reviewers.map(reviewer => () => reviewBy(reviewer, reviewer.range ?? A.range).then(answer => relativeAnswer(answer, A.worktree)).catch(error => {
+  const results = await parallel(A.reviewers.map(reviewer => () => reviewBy(reviewer, reviewer.range ?? A.range).then(answer => relativeAnswer(answer, A.roots)).catch(error => {
     if (claudeUsageLimitOf(error)) usageLimitError ??= error
     throw error
   })))
